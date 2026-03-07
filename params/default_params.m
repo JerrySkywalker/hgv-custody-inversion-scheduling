@@ -62,4 +62,33 @@ function cfg = default_params()
     cfg.walker.T_list      = [8, 12, 16];
 
     cfg.notes = 'Stage00 bootstrap config only.';
+
+    % ---------------------------
+    % Stage01 scenario parameters
+    % ---------------------------
+    cfg.stage01 = struct();
+
+    % Protected disk / entry boundary
+    cfg.stage01.disk_center_xy_km = [0, 0];
+    cfg.stage01.R_D_km = 1000;
+    cfg.stage01.R_in_km = 3000;
+
+    % Nominal entry family
+    cfg.stage01.num_nominal_entry_points = 12;
+
+    % Heading family (relative to center-seeking heading)
+    cfg.stage01.heading_offsets_deg = [0, -30, 30, -60, 60];
+
+    % Critical family switches
+    cfg.stage01.enable_critical_C1 = true;  % track-plane-aligned entry
+    cfg.stage01.enable_critical_C2 = true;  % small-crossing-angle entry
+
+    % Critical family representative settings
+    cfg.stage01.critical_C1_y_offset_km = 500;
+    cfg.stage01.critical_C2_start_angle_deg = 90;
+    cfg.stage01.critical_C2_heading_offset_deg = -10;
+
+    % Plot
+    cfg.stage01.make_plot = true;
+    cfg.stage01.axis_limit_km = 5500;
 end

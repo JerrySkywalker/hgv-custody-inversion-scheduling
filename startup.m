@@ -21,4 +21,12 @@ function startup()
 
     fprintf('[startup] Project root: %s\n', root_dir);
     fprintf('[startup] Paths initialized successfully.\n');
+
+    % ---------------------------
+    % Global graphics defaults
+    % Use plain text by default; enable LaTeX only where explicitly requested.
+    % ---------------------------
+    set(groot, 'defaultTextInterpreter', 'none');
+    set(groot, 'defaultLegendInterpreter', 'none');
+    set(groot, 'defaultAxesTickLabelInterpreter', 'none');
 end
