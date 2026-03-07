@@ -40,7 +40,13 @@ function out = stage04_window_worstcase()
         winbank.nominal = local_run_family(visbank.nominal, satbank, log_fid, cfg);
         winbank.heading = local_run_family(visbank.heading, satbank, log_fid, cfg);
         winbank.critical = local_run_family(visbank.critical, satbank, log_fid, cfg);
-    
+
+        summary_extra = summarize_window_bank_stage04(winbank);
+
+        log_msg(log_fid, 'INFO', 'Family summary rows: %d', height(summary_extra.family_summary));
+        log_msg(log_fid, 'INFO', 'Heading summary rows: %d', height(summary_extra.heading_summary));
+        log_msg(log_fid, 'INFO', 'Critical summary rows: %d', height(summary_extra.critical_summary));
+
         % ------------------------------------------------------------
         % Example plot
         % ------------------------------------------------------------
@@ -48,15 +54,29 @@ function out = stage04_window_worstcase()
         if cfg.stage04.make_plot
             example_win = local_find_case(winbank, cfg.stage04.example_case_id);
             fig = plot_window_case_stage04(example_win.window_case, cfg);
-    
+
             fig_file = fullfile(cfg.paths.figs, ...
                 sprintf('stage04_window_case_%s_%s.png', cfg.stage04.example_case_id, datestr(now, 'yyyymmdd_HHMMSS')));
             exportgraphics(fig, fig_file, 'Resolution', 180);
             close(fig);
-    
+
             log_msg(log_fid, 'INFO', 'Example window plot saved to: %s', fig_file);
         end
-    
+
+        % ------------------------------------------------------------
+        % Family summary plot
+        % ------------------------------------------------------------
+        fig_family_file = '';
+        if cfg.stage04.make_plot
+            figfam = plot_window_family_stage04(summary_extra, cfg);
+            fig_family_file = fullfile(cfg.paths.figs, ...
+                sprintf('stage04_window_family_%s.png', datestr(now, 'yyyymmdd_HHMMSS')));
+            exportgraphics(figfam, fig_family_file, 'Resolution', 180);
+            close(figfam);
+
+            log_msg(log_fid, 'INFO', 'Family summary plot saved to: %s', fig_family_file);
+        end
+
         % ------------------------------------------------------------
         % Save
         % ------------------------------------------------------------
@@ -64,8 +84,10 @@ function out = stage04_window_worstcase()
         out.cfg = cfg;
         out.winbank = winbank;
         out.satbank = satbank;
+        out.summary = summary_extra;
         out.log_file = log_file;
         out.fig_file = fig_file;
+        out.fig_family_file = fig_family_file;
         out.stage = cfg.project_stage;
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
     
