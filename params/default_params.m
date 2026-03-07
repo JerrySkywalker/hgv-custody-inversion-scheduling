@@ -191,4 +191,25 @@ function cfg = default_params()
     % If you later prefer elevation-style condition
     cfg.stage03.enable_min_elevation_constraint = false;
     cfg.stage03.min_elevation_deg = 5;
+
+    % ---------------------------
+    % Stage04 windowed information matrix parameters
+    % ---------------------------
+    cfg.stage04 = struct();
+
+    % Window settings
+    cfg.stage04.Tw_s = 60;          % baseline window length
+    cfg.stage04.window_step_s = 5;  % slide step for t0 scan
+
+    % Angular measurement precision
+    cfg.stage04.sigma_angle_deg = 5 / 3600;   % 5 arcsec
+    cfg.stage04.sigma_angle_rad = deg2rad(cfg.stage04.sigma_angle_deg);
+
+    % Numerical regularization
+    cfg.stage04.eps_reg = 1e-12;
+
+    % Plot / example settings
+    cfg.stage04.make_plot = true;
+    cfg.stage04.example_case_id = 'N01';
+    cfg.stage04.example_compare_case_ids = {'N01','H01_+60','C2_small_crossing_angle'};
 end
