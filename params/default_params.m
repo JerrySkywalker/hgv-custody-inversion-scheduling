@@ -91,4 +91,67 @@ function cfg = default_params()
     % Plot
     cfg.stage01.make_plot = true;
     cfg.stage01.axis_limit_km = 5500;
+
+    % ---------------------------
+    % Stage02 VTC-HGV trajectory generation parameters
+    % ---------------------------
+    cfg.stage02 = struct();
+
+    % Reference geographic origin for the abstract regional frame
+    % (public-safe abstract anchor, not a real defended asset)
+    cfg.stage02.phi_ref_deg = 0.0;      % reference latitude
+    cfg.stage02.lambda_ref_deg = 0.0;   % reference longitude
+    cfg.stage02.Re_m = 6378137;
+
+    % Initial HGV state (representative public values)
+    cfg.stage02.v0_mps = 5500;
+    cfg.stage02.h0_m = 50000;
+    cfg.stage02.theta0_deg = -3.0;      % flight-path angle
+
+    % Default control templates
+    cfg.stage02.alpha_nominal_deg = 11.0;
+    cfg.stage02.bank_nominal_deg  = 0.0;
+
+    cfg.stage02.alpha_heading_deg = 11.0;
+    cfg.stage02.bank_heading_deg  = 0.0;
+
+    cfg.stage02.alpha_c1_deg = 11.0;
+    cfg.stage02.bank_c1_deg  = 0.0;
+
+    cfg.stage02.alpha_c2_deg = 11.0;
+    cfg.stage02.bank_c2_deg  = 8.0;
+
+    % Time settings
+    cfg.stage02.t0_s = 0;
+    cfg.stage02.Tmax_s = 800;
+    cfg.stage02.Ts_s = 1.0;
+
+    % Stop conditions
+    cfg.stage02.h_min_m = 15000;
+    cfg.stage02.h_max_m = 120000;
+    cfg.stage02.v_min_mps = 1500;
+    cfg.stage02.v_max_mps = 9000;
+
+    % A loose "task completion" radius in the abstract regional frame
+    cfg.stage02.capture_radius_km = 1.2 * cfg.stage01.R_D_km;
+
+    % Plotting
+    cfg.stage02.make_plot = true;
+    cfg.stage02.plot_num_cases_each_family = 3;
+
+    % Summary / plot options
+    cfg.stage02.make_plot_3d = true;
+    cfg.stage02.example_entry_theta_deg = 0;   % choose one entry point by angle
+    cfg.stage02.example_show_heading_offsets = [0, -30, 30, -60, 60];
+    cfg.stage02.example_include_critical = true;
+
+    % Event settings
+    cfg.stage02.enable_landing_event = true;   % ground-impact style termination
+    cfg.stage02.enable_task_capture_event = true;
+
+    % 3D explanation plot options
+    cfg.stage02.make_plot_3d = true;
+    cfg.stage02.example_entry_theta_deg = 0;      % choose one entry point by angle
+    cfg.stage02.example_show_heading_offsets = [0, -30, 30, -60, 60];
+    cfg.stage02.example_include_critical = true;
 end
