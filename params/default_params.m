@@ -154,4 +154,29 @@ function cfg = default_params()
     cfg.stage02.example_entry_theta_deg = 0;      % choose one entry point by angle
     cfg.stage02.example_show_heading_offsets = [0, -30, 30, -60, 60];
     cfg.stage02.example_include_critical = true;
+
+    % ---------------------------
+    % Stage03 Walker + visibility parameters
+    % ---------------------------
+    cfg.stage03 = struct();
+
+    % Baseline single-layer Walker for visibility pipeline
+    cfg.stage03.h_km = 1000;
+    cfg.stage03.i_deg = 70;
+    cfg.stage03.P = 8;
+    cfg.stage03.T = 12;
+    cfg.stage03.F = 1;
+
+    % Sensor settings
+    cfg.stage03.max_range_km = 5000;
+    cfg.stage03.min_elevation_deg = 0;     % keep first version simple
+    cfg.stage03.require_earth_occlusion_check = true;
+
+    % Time alignment
+    cfg.stage03.use_stage02_time_grid = true;
+
+    % Plot / example settings
+    cfg.stage03.make_plot = true;
+    cfg.stage03.example_case_id = 'N01';
+    cfg.stage03.example_show_top_k_sats = 6;
 end
