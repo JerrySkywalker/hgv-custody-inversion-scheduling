@@ -9,9 +9,8 @@ function vis_case = compute_visibility_matrix_stage03(traj_case, satbank, cfg)
             'satbank time dimension (%d) is shorter than trajectory time dimension (%d).', ...
             size(satbank.r_eci_km,1), Nt);
     
-        % Build target ECI approximately from local xy + altitude
-        % First version: use local tangent approximation around reference origin.
-        r_tgt_eci_km = local_build_target_eci_km(traj_case.traj.xy_km, traj_case.traj.h_km);
+        % Build target inertial-like position directly from Stage02 spherical state
+        r_tgt_eci_km = eci_from_stage02_target_stage03(traj_case, cfg);
     
         visible_mask = false(Nt, Ns);
     
@@ -35,20 +34,4 @@ function vis_case = compute_visibility_matrix_stage03(traj_case, satbank, cfg)
         vis_case.num_visible = num_visible;
         vis_case.dual_coverage_mask = dual_coverage_mask;
         vis_case.r_tgt_eci_km = r_tgt_eci_km;
-    end
-    
-    function r_tgt_eci_km = local_build_target_eci_km(xy_km, h_km)
-        % Simplified local tangent-plane to pseudo-ECI map for Stage03 first version.
-        Re_km = 6378.137;
-        N = size(xy_km,1);
-    
-        r_tgt_eci_km = zeros(N,3);
-        for k = 1:N
-            x = xy_km(k,1);
-            y = xy_km(k,2);
-            z = h_km(k);
-    
-            % First-order local approximation
-            r_tgt_eci_km(k,:) = [Re_km + z, x, y];
-        end
     end

@@ -179,4 +179,16 @@ function cfg = default_params()
     cfg.stage03.make_plot = true;
     cfg.stage03.example_case_id = 'N01';
     cfg.stage03.example_show_top_k_sats = 6;
+
+    % Stage03.1 visibility refinement
+    cfg.stage03.max_range_km = 3500;               % tighten from 5000
+    cfg.stage03.require_earth_occlusion_check = true;
+
+    % Additional viewing-geometry constraint
+    cfg.stage03.enable_offnadir_constraint = true;
+    cfg.stage03.max_offnadir_deg = 65;             % first refined setting
+
+    % If you later prefer elevation-style condition
+    cfg.stage03.enable_min_elevation_constraint = false;
+    cfg.stage03.min_elevation_deg = 5;
 end
