@@ -1,44 +1,95 @@
-# MATLAB 自动保存与备份
+############################################
+# MATLAB / Simulink
+############################################
 *.asv
 *.m~
+*.mlx.autosave
+*.slxc
 *.autosave
-
-# MATLAB 编译/缓存
+*.fig~
+slprj/
+codegen/
+resources/project/
 *.mex*
 *.p
-*.mexw32
-*.mexw64
-*.mexa64
 
-# Simulink 模型缓存与代码生成
-slprj/
-*.slxc
-*.slx.autosave
-*_slprj/
-
-# MATLAB 报告/部署产物（可选）
-html/
-*.ctf
-
-# 系统与编辑器
+############################################
+# OS / Editor junk
+############################################
 .DS_Store
 Thumbs.db
-*.swp
-*~
 desktop.ini
 
-# IDE
-.idea/
 .vscode/
-*.sublime-*
+.idea/
+*.swp
+*.swo
+*~
 
-# 日志与临时
+############################################
+# Python helpers (if any)
+############################################
+__pycache__/
+*.pyc
+*.pyo
+
+############################################
+# Logs / temp
+############################################
 *.log
-*.tmp
-*.temp
-*.bak
+tmp/
+temp/
+scratch/
 
-# 大型数据或本地配置（按需取消注释）
+############################################
+# Project results: ignore all generated outputs
+############################################
+results/**
+
+# Keep result directory skeleton
+!results/.gitkeep
+!results/cache/
+!results/figs/
+!results/logs/
+!results/tables/
+!results/bundles/
+
+!results/cache/.gitkeep
+!results/figs/.gitkeep
+!results/logs/.gitkeep
+!results/tables/.gitkeep
+!results/bundles/.gitkeep
+
+############################################
+# Optional: debug figure subfolders (ignored by default)
+############################################
+results/figs/debug/**
+results/cache/debug/**
+results/logs/debug/**
+
+############################################
+# Optional: keep released paper outputs under version control
+# Uncomment these if you want final figures/tables tracked
+############################################
+# !paper_outputs/
+# !paper_outputs/**
+# !reference/
+# !reference/**
+# !tests/baselines/
+# !tests/baselines/**
+
+############################################
+# Archives / large generated bundles
+############################################
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+############################################
+# If you later use Git LFS, remove relevant patterns here
+############################################
 # *.mat
-# *.h5
-# local_config.m
+# *.png
+# *.pdf
+# *.csv
