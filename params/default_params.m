@@ -285,4 +285,24 @@ function cfg = default_params()
 
     % Safety floor to avoid degenerate/too-small threshold
     cfg.stage04.gamma_floor = 1.0;
+
+    % ---------------------------
+    % Stage05 nominal Walker static inversion
+    % ---------------------------
+    cfg.stage05 = struct();
+
+    % Stage05.1: fixed-height first-pass scan over (i, P, T)
+    cfg.stage05.family_scope = 'nominal';
+    cfg.stage05.gamma_source = 'stage04_nominal_quantile';
+    cfg.stage05.h_fixed_km = 1000;
+
+    % coarse search grid
+    cfg.stage05.i_grid_deg = [30 40 50 60 70 80 90];
+    cfg.stage05.P_grid = [4 6 8 10 12];
+    cfg.stage05.T_grid = [4 6 8 10 12 16];
+
+    % reserved for Stage05.2
+    cfg.stage05.require_pass_ratio = 1.0;
+    cfg.stage05.require_D_G_min = 1.0;
+    cfg.stage05.rank_rule = 'min_Ns_then_max_DG';
 end
