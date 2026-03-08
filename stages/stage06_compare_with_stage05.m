@@ -1,21 +1,19 @@
 function out = stage06_compare_with_stage05()
     %STAGE06_COMPARE_WITH_STAGE05
-    % Check whether current Stage06 results are effectively identical to Stage05.
+    % Stage06.4:
+    %   Compare Stage06 heading-extended physical search results against
+    %   Stage05 nominal search results and generate summary tables for paper use.
     %
-    % Purpose:
-    %   This is a verification-oriented comparison script.
-    %   It is NOT the final paper plotting script yet.
+    % Main outputs:
+    %   1) global_summary
+    %   2) feasible_mismatch
+    %   3) frontier_compare_by_i
+    %   4) IP_compare_minNs
+    %   5) metric_diff_all
     %
-    % Main checks:
-    %   1) feasible_flag consistency on common (i,P,T)
-    %   2) D_G_min difference
-    %   3) pass_ratio difference
-    %   4) frontier (minimum feasible Ns by i) consistency
-    %
-    % Interpretation:
-    %   If Stage06.2 only duplicated nominal trajectories with heading labels
-    %   but did not change trajectory geometry, then Stage06 and Stage05 should
-    %   be nearly identical on common grid points.
+    % Notes:
+    %   - This version is intended as a formal comparison-summary stage.
+    %   - It keeps the diagnostic capability but emphasizes paper-ready tables.
     
         startup();
         cfg = default_params();
@@ -35,7 +33,7 @@ function out = stage06_compare_with_stage05()
         end
         cleanupObj = onCleanup(@() fclose(log_fid)); %#ok<NASGU>
     
-        log_msg(log_fid, 'INFO', 'Stage06 compare-with-Stage05 started.');
+        log_msg(log_fid, 'INFO', 'Stage06.4 compare started.');
     
         % ============================================================
         % Load latest Stage05 cache
@@ -72,13 +70,10 @@ function out = stage06_compare_with_stage05()
         log_msg(log_fid, 'INFO', 'Loaded Stage06 cache: %s', stage06_file);
     
         % ============================================================
-        % Normalize key names
+        % Normalize and join
         % ============================================================
         keyVars = {'i_deg','P','T'};
-    
-        vars_needed = { ...
-            'i_deg','P','T','Ns', ...
-            'D_G_min','pass_ratio','feasible_flag'};
+        vars_needed = {'i_deg','P','T','Ns','D_G_min','pass_ratio','feasible_flag'};
     
         local_assert_vars(grid05, vars_needed, 'Stage05 grid');
         local_assert_vars(grid06, vars_needed, 'Stage06 grid');
@@ -86,7 +81,6 @@ function out = stage06_compare_with_stage05()
         T05 = grid05(:, vars_needed);
         T06 = grid06(:, vars_needed);
     
-        % rename for join
         T05 = renamevars(T05, ...
             {'Ns','D_G_min','pass_ratio','feasible_flag'}, ...
             {'Ns_05','D_G_min_05','pass_ratio_05','feasible_05'});
@@ -95,68 +89,96 @@ function out = stage06_compare_with_stage05()
             {'Ns','D_G_min','pass_ratio','feasible_flag'}, ...
             {'Ns_06','D_G_min_06','pass_ratio_06','feasible_06'});
     
-        % ============================================================
-        % Inner join on common grid
-        % ============================================================
         Tcmp = innerjoin(T05, T06, 'Keys', keyVars);
         assert(~isempty(Tcmp), 'No common grid points found between Stage05 and Stage06.');
     
-        nCommon = height(Tcmp);
-    
-        % ============================================================
-        % Pointwise differences
-        % ============================================================
         Tcmp.delta_Ns = Tcmp.Ns_06 - Tcmp.Ns_05;
         Tcmp.delta_D_G_min = Tcmp.D_G_min_06 - Tcmp.D_G_min_05;
         Tcmp.delta_pass_ratio = Tcmp.pass_ratio_06 - Tcmp.pass_ratio_05;
         Tcmp.feasible_same = (Tcmp.feasible_06 == Tcmp.feasible_05);
     
-        abs_tol_DG = 1e-10;
-        abs_tol_pass = 1e-10;
-    
-        Tcmp.D_G_min_same = abs(Tcmp.delta_D_G_min) <= abs_tol_DG;
-        Tcmp.pass_ratio_same = abs(Tcmp.delta_pass_ratio) <= abs_tol_pass;
+        nCommon = height(Tcmp);
     
         % ============================================================
-        % Summary 1: global consistency
+        % Table 1: global summary
         % ============================================================
-        summary_global = table();
+        n_stage05_total = height(grid05);
+        n_stage06_total = height(grid06);
     
-        summary_global.n_common = nCommon;
-        summary_global.n_feasible_same = sum(Tcmp.feasible_same);
-        summary_global.feasible_same_ratio = mean(Tcmp.feasible_same);
+        n_stage05_feasible = sum(grid05.feasible_flag);
+        n_stage06_feasible = sum(grid06.feasible_flag);
     
-        summary_global.max_abs_delta_D_G_min = max(abs(Tcmp.delta_D_G_min), [], 'omitnan');
-        summary_global.mean_abs_delta_D_G_min = mean(abs(Tcmp.delta_D_G_min), 'omitnan');
-        summary_global.n_D_G_min_same = sum(Tcmp.D_G_min_same);
-        summary_global.D_G_min_same_ratio = mean(Tcmp.D_G_min_same);
+        feasible_ratio_05 = n_stage05_feasible / n_stage05_total;
+        feasible_ratio_06 = n_stage06_feasible / n_stage06_total;
     
-        summary_global.max_abs_delta_pass_ratio = max(abs(Tcmp.delta_pass_ratio), [], 'omitnan');
-        summary_global.mean_abs_delta_pass_ratio = mean(abs(Tcmp.delta_pass_ratio), 'omitnan');
-        summary_global.n_pass_ratio_same = sum(Tcmp.pass_ratio_same);
-        summary_global.pass_ratio_same_ratio = mean(Tcmp.pass_ratio_same);
+        if n_stage05_feasible > 0
+            best05 = sortrows(grid05(grid05.feasible_flag,:), {'Ns','D_G_min'}, {'ascend','descend'});
+            best05_Ns = best05.Ns(1);
+            best05_i = best05.i_deg(1);
+            best05_P = best05.P(1);
+            best05_T = best05.T(1);
+            best05_DG = best05.D_G_min(1);
+        else
+            best05_Ns = NaN; best05_i = NaN; best05_P = NaN; best05_T = NaN; best05_DG = NaN;
+        end
     
-        summary_global.n_stage05_feasible = sum(Tcmp.feasible_05);
-        summary_global.n_stage06_feasible = sum(Tcmp.feasible_06);
+        if n_stage06_feasible > 0
+            best06 = sortrows(grid06(grid06.feasible_flag,:), {'Ns','D_G_min'}, {'ascend','descend'});
+            best06_Ns = best06.Ns(1);
+            best06_i = best06.i_deg(1);
+            best06_P = best06.P(1);
+            best06_T = best06.T(1);
+            best06_DG = best06.D_G_min(1);
+        else
+            best06_Ns = NaN; best06_i = NaN; best06_P = NaN; best06_T = NaN; best06_DG = NaN;
+        end
+    
+        global_summary = table( ...
+            n_stage05_total, ...
+            n_stage06_total, ...
+            n_stage05_feasible, ...
+            n_stage06_feasible, ...
+            feasible_ratio_05, ...
+            feasible_ratio_06, ...
+            n_stage06_feasible - n_stage05_feasible, ...
+            feasible_ratio_06 - feasible_ratio_05, ...
+            best05_Ns, best06_Ns, best06_Ns - best05_Ns, ...
+            best05_i, best05_P, best05_T, best05_DG, ...
+            best06_i, best06_P, best06_T, best06_DG, ...
+            'VariableNames', { ...
+            'n_stage05_total', ...
+            'n_stage06_total', ...
+            'n_stage05_feasible', ...
+            'n_stage06_feasible', ...
+            'feasible_ratio_stage05', ...
+            'feasible_ratio_stage06', ...
+            'delta_feasible_count', ...
+            'delta_feasible_ratio', ...
+            'best_Ns_stage05', ...
+            'best_Ns_stage06', ...
+            'delta_best_Ns', ...
+            'best_i_stage05', ...
+            'best_P_stage05', ...
+            'best_T_stage05', ...
+            'best_D_G_min_stage05', ...
+            'best_i_stage06', ...
+            'best_P_stage06', ...
+            'best_T_stage06', ...
+            'best_D_G_min_stage06'});
     
         % ============================================================
-        % Summary 2: feasible mismatch table
+        % Table 2: feasible mismatch
         % ============================================================
-        mismatch_feasible = Tcmp(~Tcmp.feasible_same, ...
-            {'i_deg','P','T','Ns_05','Ns_06','feasible_05','feasible_06', ...
-             'D_G_min_05','D_G_min_06','pass_ratio_05','pass_ratio_06'});
-    
-        % ============================================================
-        % Summary 3: metric-difference table
-        % ============================================================
-        metric_diff = Tcmp(:, ...
+        feasible_mismatch = Tcmp(~Tcmp.feasible_same, ...
             {'i_deg','P','T','Ns_05','Ns_06', ...
+             'feasible_05','feasible_06', ...
              'D_G_min_05','D_G_min_06','delta_D_G_min', ...
-             'pass_ratio_05','pass_ratio_06','delta_pass_ratio', ...
-             'feasible_05','feasible_06','feasible_same'});
+             'pass_ratio_05','pass_ratio_06','delta_pass_ratio'});
+    
+        feasible_mismatch = sortrows(feasible_mismatch, {'i_deg','P','T'}, {'ascend','ascend','ascend'});
     
         % ============================================================
-        % Summary 4: frontier by i
+        % Table 3: frontier compare by i
         % ============================================================
         i_list = unique(Tcmp.i_deg);
         frontier_rows = [];
@@ -168,47 +190,68 @@ function out = stage06_compare_with_stage05()
             sub06 = Tcmp(Tcmp.i_deg == i_deg & Tcmp.feasible_06, :);
     
             if isempty(sub05)
-                minNs05 = NaN;
-                DG05 = NaN;
-                pass05 = NaN;
+                minNs05 = NaN; DG05 = NaN; pass05 = NaN; P05 = NaN; T05v = NaN;
             else
                 sub05 = sortrows(sub05, {'Ns_05','D_G_min_05'}, {'ascend','descend'});
                 minNs05 = sub05.Ns_05(1);
                 DG05 = sub05.D_G_min_05(1);
                 pass05 = sub05.pass_ratio_05(1);
+                P05 = sub05.P(1);
+                T05v = sub05.T(1);
             end
     
             if isempty(sub06)
-                minNs06 = NaN;
-                DG06 = NaN;
-                pass06 = NaN;
+                minNs06 = NaN; DG06 = NaN; pass06 = NaN; P06 = NaN; T06v = NaN;
             else
                 sub06 = sortrows(sub06, {'Ns_06','D_G_min_06'}, {'ascend','descend'});
                 minNs06 = sub06.Ns_06(1);
                 DG06 = sub06.D_G_min_06(1);
                 pass06 = sub06.pass_ratio_06(1);
+                P06 = sub06.P(1);
+                T06v = sub06.T(1);
             end
     
             frontier_rows = [frontier_rows; ...
-                {i_deg, minNs05, minNs06, minNs06-minNs05, DG05, DG06, pass05, pass06}]; %#ok<AGROW>
+                {i_deg, ...
+                 minNs05, minNs06, minNs06-minNs05, ...
+                 P05, T05v, DG05, pass05, ...
+                 P06, T06v, DG06, pass06}]; %#ok<AGROW>
         end
     
-        frontier_compare = cell2table(frontier_rows, 'VariableNames', { ...
+        frontier_compare_by_i = cell2table(frontier_rows, 'VariableNames', { ...
             'i_deg', ...
             'min_feasible_Ns_stage05', ...
             'min_feasible_Ns_stage06', ...
             'delta_Ns', ...
+            'best_P_stage05', ...
+            'best_T_stage05', ...
             'D_G_min_stage05', ...
-            'D_G_min_stage06', ...
             'pass_ratio_stage05', ...
+            'best_P_stage06', ...
+            'best_T_stage06', ...
+            'D_G_min_stage06', ...
             'pass_ratio_stage06'});
     
-        frontier_compare.frontier_same = ...
-            ((isnan(frontier_compare.min_feasible_Ns_stage05) & isnan(frontier_compare.min_feasible_Ns_stage06)) | ...
-             (frontier_compare.min_feasible_Ns_stage05 == frontier_compare.min_feasible_Ns_stage06));
+        frontier_compare_by_i.frontier_same = ...
+            ((isnan(frontier_compare_by_i.min_feasible_Ns_stage05) & isnan(frontier_compare_by_i.min_feasible_Ns_stage06)) | ...
+             (frontier_compare_by_i.min_feasible_Ns_stage05 == frontier_compare_by_i.min_feasible_Ns_stage06));
+    
+        frontier_compare_by_i.frontier_shift = strings(height(frontier_compare_by_i),1);
+        for k = 1:height(frontier_compare_by_i)
+            d = frontier_compare_by_i.delta_Ns(k);
+            if isnan(d)
+                frontier_compare_by_i.frontier_shift(k) = "undefined";
+            elseif d > 0
+                frontier_compare_by_i.frontier_shift(k) = "right_shift";
+            elseif d < 0
+                frontier_compare_by_i.frontier_shift(k) = "left_shift";
+            else
+                frontier_compare_by_i.frontier_shift(k) = "unchanged";
+            end
+        end
     
         % ============================================================
-        % Summary 5: matrix by (i,P)
+        % Table 4: (i,P) min feasible Ns matrix-form long table
         % ============================================================
         IP = unique(Tcmp(:, {'i_deg','P'}));
         mat_rows = [];
@@ -235,79 +278,80 @@ function out = stage06_compare_with_stage05()
             mat_rows = [mat_rows; {i_deg, P, minNs05, minNs06, minNs06 - minNs05}]; %#ok<AGROW>
         end
     
-        IP_compare = cell2table(mat_rows, 'VariableNames', { ...
+        IP_compare_minNs = cell2table(mat_rows, 'VariableNames', { ...
             'i_deg','P', ...
             'min_feasible_Ns_stage05', ...
             'min_feasible_Ns_stage06', ...
             'delta_Ns'});
     
         % ============================================================
-        % Automated judgement
+        % Table 5: full metric diff
         % ============================================================
-        auto_judgement = struct();
-        auto_judgement.feasible_same_ratio = summary_global.feasible_same_ratio;
-        auto_judgement.D_G_min_same_ratio = summary_global.D_G_min_same_ratio;
-        auto_judgement.pass_ratio_same_ratio = summary_global.pass_ratio_same_ratio;
-        auto_judgement.frontier_same_ratio = mean(frontier_compare.frontier_same);
+        metric_diff_all = Tcmp(:, ...
+            {'i_deg','P','T','Ns_05','Ns_06', ...
+             'D_G_min_05','D_G_min_06','delta_D_G_min', ...
+             'pass_ratio_05','pass_ratio_06','delta_pass_ratio', ...
+             'feasible_05','feasible_06','feasible_same'});
     
-        % rule of thumb
-        auto_judgement.is_effectively_identical = ...
-            (auto_judgement.feasible_same_ratio >= 0.999) && ...
-            (auto_judgement.D_G_min_same_ratio >= 0.999) && ...
-            (auto_judgement.pass_ratio_same_ratio >= 0.999) && ...
-            (auto_judgement.frontier_same_ratio >= 0.999);
+        metric_diff_all = sortrows(metric_diff_all, {'i_deg','P','T'}, {'ascend','ascend','ascend'});
     
-        if auto_judgement.is_effectively_identical
-            auto_judgement.message = [ ...
-                "Current Stage06 is effectively identical to Stage05. " + ...
-                "This strongly suggests the heading family is only a structural duplication " + ...
-                "of nominal trajectories and has not yet introduced true geometric perturbation."];
+        % ============================================================
+        % Automated summary
+        % ============================================================
+        auto_summary = struct();
+        auto_summary.n_common = nCommon;
+        auto_summary.feasible_same_ratio = mean(Tcmp.feasible_same);
+        auto_summary.frontier_same_ratio = mean(frontier_compare_by_i.frontier_same);
+        auto_summary.n_feasible_mismatch = height(feasible_mismatch);
+        auto_summary.n_frontier_shift = sum(frontier_compare_by_i.delta_Ns ~= 0, 'omitnan');
+    
+        if auto_summary.n_feasible_mismatch == 0 && auto_summary.n_frontier_shift == 0
+            auto_summary.message = ...
+                "Stage06 and Stage05 are effectively identical in feasible set and frontier.";
         else
-            auto_judgement.message = [ ...
-                "Current Stage06 is NOT fully identical to Stage05. " + ...
-                "Please inspect mismatch_feasible and metric_diff tables to determine whether " + ...
-                "the differences are due to intended family expansion or implementation differences."];
+            auto_summary.message = ...
+                "Stage06 differs from Stage05 in feasible set and/or frontier, indicating a real heading-uncertainty effect.";
         end
     
         % ============================================================
-        % Save csv files
+        % Save csv
         % ============================================================
         global_csv = fullfile(cfg.paths.tables, ...
             sprintf('stage06_compare_global_%s.csv', timestamp));
-        metric_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_compare_metric_diff_%s.csv', timestamp));
-        mismatch_csv = fullfile(cfg.paths.tables, ...
+        feasible_mismatch_csv = fullfile(cfg.paths.tables, ...
             sprintf('stage06_compare_feasible_mismatch_%s.csv', timestamp));
         frontier_csv = fullfile(cfg.paths.tables, ...
             sprintf('stage06_compare_frontier_%s.csv', timestamp));
         ip_csv = fullfile(cfg.paths.tables, ...
             sprintf('stage06_compare_IP_minNs_%s.csv', timestamp));
+        metric_csv = fullfile(cfg.paths.tables, ...
+            sprintf('stage06_compare_metric_diff_%s.csv', timestamp));
     
-        writetable(summary_global, global_csv);
-        writetable(metric_diff, metric_csv);
-        writetable(mismatch_feasible, mismatch_csv);
-        writetable(frontier_compare, frontier_csv);
-        writetable(IP_compare, ip_csv);
+        writetable(global_summary, global_csv);
+        writetable(feasible_mismatch, feasible_mismatch_csv);
+        writetable(frontier_compare_by_i, frontier_csv);
+        writetable(IP_compare_minNs, ip_csv);
+        writetable(metric_diff_all, metric_csv);
     
         % ============================================================
         % Save cache
         % ============================================================
         out = struct();
-        out.summary_global = summary_global;
-        out.metric_diff = metric_diff;
-        out.mismatch_feasible = mismatch_feasible;
-        out.frontier_compare = frontier_compare;
-        out.IP_compare = IP_compare;
-        out.auto_judgement = auto_judgement;
+        out.global_summary = global_summary;
+        out.feasible_mismatch = feasible_mismatch;
+        out.frontier_compare_by_i = frontier_compare_by_i;
+        out.IP_compare_minNs = IP_compare_minNs;
+        out.metric_diff_all = metric_diff_all;
+        out.auto_summary = auto_summary;
         out.stage05_file = stage05_file;
         out.stage06_file = stage06_file;
         out.log_file = log_file;
         out.files = struct();
         out.files.global_csv = global_csv;
-        out.files.metric_csv = metric_csv;
-        out.files.mismatch_csv = mismatch_csv;
+        out.files.feasible_mismatch_csv = feasible_mismatch_csv;
         out.files.frontier_csv = frontier_csv;
         out.files.ip_csv = ip_csv;
+        out.files.metric_csv = metric_csv;
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
     
         cache_file = fullfile(cfg.paths.cache, ...
@@ -319,30 +363,30 @@ function out = stage06_compare_with_stage05()
         % Logging
         % ============================================================
         log_msg(log_fid, 'INFO', 'n_common = %d', nCommon);
-        log_msg(log_fid, 'INFO', 'feasible_same_ratio = %.6f', auto_judgement.feasible_same_ratio);
-        log_msg(log_fid, 'INFO', 'D_G_min_same_ratio = %.6f', auto_judgement.D_G_min_same_ratio);
-        log_msg(log_fid, 'INFO', 'pass_ratio_same_ratio = %.6f', auto_judgement.pass_ratio_same_ratio);
-        log_msg(log_fid, 'INFO', 'frontier_same_ratio = %.6f', auto_judgement.frontier_same_ratio);
-        log_msg(log_fid, 'INFO', 'Judgement: %s', auto_judgement.message);
-        log_msg(log_fid, 'INFO', 'Stage06 compare-with-Stage05 finished.');
+        log_msg(log_fid, 'INFO', 'n_feasible_mismatch = %d', auto_summary.n_feasible_mismatch);
+        log_msg(log_fid, 'INFO', 'n_frontier_shift = %d', auto_summary.n_frontier_shift);
+        log_msg(log_fid, 'INFO', 'feasible_same_ratio = %.6f', auto_summary.feasible_same_ratio);
+        log_msg(log_fid, 'INFO', 'frontier_same_ratio = %.6f', auto_summary.frontier_same_ratio);
+        log_msg(log_fid, 'INFO', 'Summary: %s', auto_summary.message);
+        log_msg(log_fid, 'INFO', 'Stage06.4 compare finished.');
     
         fprintf('\n');
-        fprintf('========== Stage06 Compare Summary ==========\n');
-        fprintf('Stage05 file            : %s\n', stage05_file);
-        fprintf('Stage06 file            : %s\n', stage06_file);
-        fprintf('n_common                : %d\n', nCommon);
-        fprintf('feasible_same_ratio     : %.6f\n', auto_judgement.feasible_same_ratio);
-        fprintf('D_G_min_same_ratio      : %.6f\n', auto_judgement.D_G_min_same_ratio);
-        fprintf('pass_ratio_same_ratio   : %.6f\n', auto_judgement.pass_ratio_same_ratio);
-        fprintf('frontier_same_ratio     : %.6f\n', auto_judgement.frontier_same_ratio);
-        fprintf('Judgement               : %s\n', auto_judgement.message);
-        fprintf('Global CSV              : %s\n', global_csv);
-        fprintf('Metric CSV              : %s\n', metric_csv);
-        fprintf('Mismatch CSV            : %s\n', mismatch_csv);
-        fprintf('Frontier CSV            : %s\n', frontier_csv);
-        fprintf('IP CSV                  : %s\n', ip_csv);
-        fprintf('Cache                   : %s\n', cache_file);
-        fprintf('============================================\n');
+        fprintf('========== Stage06.4 Summary ==========\n');
+        fprintf('Stage05 file           : %s\n', stage05_file);
+        fprintf('Stage06 file           : %s\n', stage06_file);
+        fprintf('n_common               : %d\n', nCommon);
+        fprintf('n_feasible_mismatch    : %d\n', auto_summary.n_feasible_mismatch);
+        fprintf('n_frontier_shift       : %d\n', auto_summary.n_frontier_shift);
+        fprintf('feasible_same_ratio    : %.6f\n', auto_summary.feasible_same_ratio);
+        fprintf('frontier_same_ratio    : %.6f\n', auto_summary.frontier_same_ratio);
+        fprintf('Summary                : %s\n', auto_summary.message);
+        fprintf('Global CSV             : %s\n', global_csv);
+        fprintf('Mismatch CSV           : %s\n', feasible_mismatch_csv);
+        fprintf('Frontier CSV           : %s\n', frontier_csv);
+        fprintf('IP CSV                 : %s\n', ip_csv);
+        fprintf('Metric CSV             : %s\n', metric_csv);
+        fprintf('Cache                  : %s\n', cache_file);
+        fprintf('=======================================\n');
     end
     
     % =========================================================================
