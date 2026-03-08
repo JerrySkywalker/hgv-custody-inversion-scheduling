@@ -3,13 +3,10 @@ function out = stage04_window_worstcase()
     % Build windowed information matrices, scan worst windows,
     % and summarize both spectrum-level and margin-level statistics.
     %
-    % Outputs:
-    %   out.winbank
-    %   out.summary_spectrum
-    %   out.summary_margin
-    %   out.fig_file
-    %   out.fig_family_file
-    %   out.fig_margin_file
+    % Stage04G.6:
+    %   - explicitly consumes geodetic/ECI Stage03 results
+    %   - preserves current project structure
+    %   - adds unified out.summary for easier downstream use
     
         % ------------------------------------------------------------
         % Init
@@ -51,6 +48,14 @@ function out = stage04_window_worstcase()
     
         log_msg(log_fid, 'INFO', 'Loaded Stage03 cache: %s', stage03_file);
     
+        if isfield(tmp.out, 'cfg') && isfield(tmp.out.cfg, 'meta') && isfield(tmp.out.cfg.meta, 'scene_mode')
+            log_msg(log_fid, 'INFO', 'Inherited scene mode = %s', tmp.out.cfg.meta.scene_mode);
+        end
+    
+        if isfield(satbank, 'meta') && isfield(satbank.meta, 'geometry_mode')
+            log_msg(log_fid, 'INFO', 'Satellite geometry mode = %s', satbank.meta.geometry_mode);
+        end
+    
         % ------------------------------------------------------------
         % Run all families
         % ------------------------------------------------------------
@@ -60,7 +65,7 @@ function out = stage04_window_worstcase()
         winbank.critical = local_run_family(visbank.critical, satbank, log_fid, cfg);
     
         % ------------------------------------------------------------
-        % Spectrum summaries (Stage04.1)
+        % Spectrum summaries
         % ------------------------------------------------------------
         summary_spectrum = summarize_window_bank_stage04(winbank);
     
@@ -69,7 +74,7 @@ function out = stage04_window_worstcase()
         log_msg(log_fid, 'INFO', 'Critical summary rows: %d', height(summary_spectrum.critical_summary));
     
         % ------------------------------------------------------------
-        % Margin summaries (Stage04.2)
+        % Margin summaries
         % ------------------------------------------------------------
         summary_margin = summarize_window_margin_bank_stage04(winbank, cfg);
     
@@ -132,6 +137,11 @@ function out = stage04_window_worstcase()
     
         out.summary_spectrum = summary_spectrum;
         out.summary_margin = summary_margin;
+    
+        % unified summary entry for downstream convenience
+        out.summary = struct();
+        out.summary.spectrum = summary_spectrum;
+        out.summary.margin = summary_margin;
     
         out.log_file = log_file;
         out.fig_file = fig_file;

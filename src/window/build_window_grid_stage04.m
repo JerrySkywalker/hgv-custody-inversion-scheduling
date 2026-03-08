@@ -1,5 +1,9 @@
 function window_grid = build_window_grid_stage04(t_s, cfg)
-    %BUILD_WINDOW_GRID_STAGE04 Build sliding-window start indices.
+    %BUILD_WINDOW_GRID_STAGE04 Build sliding-window start/end indices and times.
+    %
+    % Stage04G.6:
+    %   - preserves existing index logic
+    %   - explicitly stores t0_s / t1_s for plotting and summaries
     
         Tw_s = cfg.stage04.Tw_s;
         step_s = cfg.stage04.window_step_s;
@@ -19,4 +23,8 @@ function window_grid = build_window_grid_stage04(t_s, cfg)
         window_grid.num_windows = numel(start_idx);
         window_grid.win_len = win_len;
         window_grid.dt = dt;
+    
+        window_grid.t0_s = t_s(window_grid.start_idx);
+        window_grid.t1_s = t_s(window_grid.end_idx);
+        window_grid.Tw_s = Tw_s;
     end

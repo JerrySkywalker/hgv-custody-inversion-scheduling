@@ -1,6 +1,13 @@
 function Wr = build_window_info_matrix_stage04(vis_case, idx_start, idx_end, satbank, cfg)
     %BUILD_WINDOW_INFO_MATRIX_STAGE04
     % Build windowed information matrix Wr for one case and one window.
+    %
+    % Stage04G.6:
+    %   - explicitly uses target/satellite ECI coordinates
+    %   - remains angle-only geometric information accumulation
+    
+        assert(isfield(vis_case, 'r_tgt_eci_km'), ...
+            'vis_case is missing r_tgt_eci_km. Stage04G.6 expects ECI target geometry.');
     
         Wr = zeros(3,3);
     
