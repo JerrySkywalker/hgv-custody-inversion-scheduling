@@ -2,6 +2,11 @@ function out = stage02_hgv_nominal()
     %STAGE02_HGV_NOMINAL
     % Fresh-start Stage02 using VTC HGV dynamics with open-loop profiles.
     %
+    % Stage04G.4 upgrade:
+    %   - trajectory output now includes ENU / ECEF / ECI coordinates
+    %   - casebank loaded from Stage01 geodetic-anchor version naturally propagates
+    %   - summary / plots remain backward-compatible
+    %
     % Outputs:
     %   out.casebank
     %   out.trajbank
@@ -37,6 +42,16 @@ function out = stage02_hgv_nominal()
     
         log_msg(log_fid, 'INFO', 'Stage02 started.');
     
+        if isfield(cfg, 'meta') && isfield(cfg.meta, 'scene_mode')
+            log_msg(log_fid, 'INFO', 'Scene mode = %s', cfg.meta.scene_mode);
+        end
+        if isfield(cfg, 'geo') && isfield(cfg.geo, 'enable_geodetic_anchor') && cfg.geo.enable_geodetic_anchor
+            log_msg(log_fid, 'INFO', ...
+                'Geodetic anchor enabled: lat=%.3f deg, lon=%.3f deg, h=%.1f m', ...
+                cfg.geo.lat0_deg, cfg.geo.lon0_deg, cfg.geo.h0_m);
+            log_msg(log_fid, 'INFO', 'Epoch UTC = %s', cfg.time.epoch_utc);
+        end
+    
         % ------------------------------------------------------------
         % Load latest Stage01 cache
         % ------------------------------------------------------------
@@ -53,7 +68,8 @@ function out = stage02_hgv_nominal()
         casebank = tmp.out.casebank;
     
         log_msg(log_fid, 'INFO', 'Loaded Stage01 cache: %s', stage01_file);
-        log_msg(log_fid, 'INFO', 'Total cases: %d', casebank.summary.num_total);
+        n_total_stage01 = local_count_casebank(casebank);
+        log_msg(log_fid, 'INFO', 'Total cases: %d', n_total_stage01);
     
         % ------------------------------------------------------------
         % Run families
@@ -126,6 +142,7 @@ function out = stage02_hgv_nominal()
         out.summary.family_summary = summary_extra.family_summary;
         out.summary.heading_summary = summary_extra.heading_summary;
         out.summary.critical_summary = summary_extra.critical_summary;
+        out.summary.scene_mode = local_get_scene_mode(cfg);
     
         out.status = ternary(num_fail == 0, 'PASS', 'WARN');
         out.stage = cfg.project_stage;
@@ -147,6 +164,7 @@ function out = stage02_hgv_nominal()
         fprintf('\n');
         fprintf('========== Stage02 Summary ==========\n');
         fprintf('Status      : %s\n', out.status);
+        fprintf('Scene mode  : %s\n', out.summary.scene_mode);
         fprintf('Total cases : %d\n', out.summary.num_total);
         fprintf('Pass        : %d\n', out.summary.num_pass);
         fprintf('Fail        : %d\n', out.summary.num_fail);
@@ -187,6 +205,29 @@ function out = stage02_hgv_nominal()
                 s.h_range_km(1), s.h_range_km(2), ...
                 s.v_range_mps(1), s.v_range_mps(2), ...
                 s.r_min_to_center_km);
+        end
+    end
+    
+    % ========================================================================
+    % Local helper: count casebank
+    % ========================================================================
+    function n = local_count_casebank(casebank)
+        n = 0;
+        if isfield(casebank, 'nominal');  n = n + numel(casebank.nominal);  end
+        if isfield(casebank, 'heading');  n = n + numel(casebank.heading);  end
+        if isfield(casebank, 'critical'); n = n + numel(casebank.critical); end
+    end
+    
+    % ========================================================================
+    % Local helper: get scene mode
+    % ========================================================================
+    function scene_mode = local_get_scene_mode(cfg)
+        if isfield(cfg, 'meta') && isfield(cfg.meta, 'scene_mode')
+            scene_mode = cfg.meta.scene_mode;
+        elseif isfield(cfg, 'geo') && isfield(cfg.geo, 'enable_geodetic_anchor') && cfg.geo.enable_geodetic_anchor
+            scene_mode = 'geodetic';
+        else
+            scene_mode = 'abstract';
         end
     end
     

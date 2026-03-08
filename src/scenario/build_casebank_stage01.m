@@ -2,9 +2,11 @@ function casebank = build_casebank_stage01(cfg)
     %BUILD_CASEBANK_STAGE01
     % Build protected-disk scenario casebank.
     %
-    % Stage04G.3 upgrade:
-    %   each case stores local ENU coordinates and, when enabled, geodetic-anchor
-    %   derived ECEF / ECI@t0 coordinates.
+    % Stage04G.3b upgrade:
+    %   - large-scale boundary points are generated on the Earth surface using
+    %     spherical direct geodesic, instead of tangent-plane linear offsets
+    %   - local ENU coordinates are still computed and stored for interpretation
+    %   - geodetic/ECEF/ECI@t0 fields remain available for downstream stages
     
         % ------------------------------------------------------------
         % Read / infer design parameters
@@ -58,7 +60,9 @@ function casebank = build_casebank_stage01(cfg)
     
         for k = 1:numel(nominal_theta_deg)
             theta_deg = nominal_theta_deg(k);
-            p_enu_km = R_in_km * [cosd(theta_deg); sind(theta_deg); 0];
+    
+            % local explanatory ENU point (for plotting / legacy interpretation)
+            p_enu_km_plot = R_in_km * [cosd(theta_deg); sind(theta_deg); 0];
     
             % default heading points approximately toward disk center
             heading_deg = wrapTo180(theta_deg + 180);
@@ -70,7 +74,7 @@ function casebank = build_casebank_stage01(cfg)
                 theta_deg, ...
                 heading_deg, ...
                 0, ...
-                p_enu_km, ...
+                p_enu_km_plot, ...
                 cfg);
         end
     
@@ -83,7 +87,7 @@ function casebank = build_casebank_stage01(cfg)
         idx = 0;
         for k = 1:numel(nominal_theta_deg)
             base_theta_deg = nominal_theta_deg(k);
-            p_enu_km = R_in_km * [cosd(base_theta_deg); sind(base_theta_deg); 0];
+            p_enu_km_plot = R_in_km * [cosd(base_theta_deg); sind(base_theta_deg); 0];
             base_heading_deg = wrapTo180(base_theta_deg + 180);
     
             for j = 1:numel(heading_offsets_deg)
@@ -98,7 +102,7 @@ function casebank = build_casebank_stage01(cfg)
                     base_theta_deg, ...
                     heading_deg, ...
                     off_deg, ...
-                    p_enu_km, ...
+                    p_enu_km_plot, ...
                     cfg);
             end
         end
@@ -110,7 +114,7 @@ function casebank = build_casebank_stage01(cfg)
     
         for k = 1:numel(critical_cases)
             c = critical_cases(k);
-            p_enu_km = R_in_km * [cosd(c.entry_theta_deg); sind(c.entry_theta_deg); 0];
+            p_enu_km_plot = R_in_km * [cosd(c.entry_theta_deg); sind(c.entry_theta_deg); 0];
     
             critical(k) = local_make_case( ...
                 c.case_id, ...
@@ -119,7 +123,7 @@ function casebank = build_casebank_stage01(cfg)
                 c.entry_theta_deg, ...
                 c.heading_deg, ...
                 NaN, ...
-                p_enu_km, ...
+                p_enu_km_plot, ...
                 cfg);
         end
     
@@ -151,7 +155,7 @@ function casebank = build_casebank_stage01(cfg)
         c.heading_deg = NaN;
         c.heading_offset_deg = NaN;
     
-        % legacy / local-frame fields
+        % local explanatory / legacy fields
         c.entry_point_xy_km = nan(1,2);
         c.entry_point_enu_km = nan(3,1);
         c.entry_point_enu_m  = nan(3,1);
@@ -159,6 +163,10 @@ function casebank = build_casebank_stage01(cfg)
         c.heading_unit_enu   = nan(3,1);
     
         % geodetic-anchor fields
+        c.entry_lat_deg         = NaN;
+        c.entry_lon_deg         = NaN;
+        c.entry_surface_dist_km = NaN;
+    
         c.entry_point_ecef_m      = nan(3,1);
         c.entry_point_ecef_km     = nan(3,1);
         c.entry_point_eci_m_t0    = nan(3,1);
@@ -175,7 +183,7 @@ function casebank = build_casebank_stage01(cfg)
         c.scene_mode = '';
     end
     
-    function c = local_make_case(case_id, family, subfamily, entry_theta_deg, heading_deg, heading_offset_deg, p_enu_km, cfg)
+    function c = local_make_case(case_id, family, subfamily, entry_theta_deg, heading_deg, heading_offset_deg, p_enu_km_plot, cfg)
     
         c = local_empty_case_struct();
     
@@ -186,17 +194,6 @@ function casebank = build_casebank_stage01(cfg)
         c.entry_theta_deg = entry_theta_deg;
         c.heading_deg = heading_deg;
         c.heading_offset_deg = heading_offset_deg;
-    
-        c.entry_point_xy_km = p_enu_km(1:2).';
-        c.entry_point_enu_km = p_enu_km(:);
-        c.entry_point_enu_m  = 1000 * p_enu_km(:);
-    
-        u_enu = [cosd(heading_deg); sind(heading_deg); 0];
-        u_enu = u_enu / norm(u_enu);
-    
-        c.heading_unit_xy  = u_enu(1:2).';
-        c.heading_unit_enu = u_enu;
-    
         c.scene_mode = local_get_scene_mode(cfg);
     
         if isfield(cfg, 'geo')
@@ -208,9 +205,38 @@ function casebank = build_casebank_stage01(cfg)
             c.epoch_utc = cfg.time.epoch_utc;
         end
     
+        % heading in local ENU for plotting / interpretation
+        % x=east, y=north, so convert from "theta around x-y plot" to azimuth-from-north
+        % Here we keep the original local plotting convention for trajectory scripts.
+        u_enu = [cosd(heading_deg); sind(heading_deg); 0];
+        u_enu = u_enu / norm(u_enu);
+    
+        c.heading_unit_xy  = u_enu(1:2).';
+        c.heading_unit_enu = u_enu;
+    
         if isfield(cfg, 'geo') && isfield(cfg.geo, 'enable_geodetic_anchor') && cfg.geo.enable_geodetic_anchor
-            % point position
-            r_ecef_m = local_enu_to_ecef(c.entry_point_enu_m, cfg.geo.lat0_deg, cfg.geo.lon0_deg, cfg.geo.h0_m, cfg);
+            % --------------------------------------------------------
+            % Geodetic anchor mode:
+            % build entry point on Earth surface using spherical direct geodesic
+            % --------------------------------------------------------
+            s_m = cfg.stage01.R_in_km * 1000;
+    
+            % Convert local plot angle (x=east, y=north, CCW from east)
+            % to geodesic azimuth clockwise from north:
+            az_deg = mod(90 - entry_theta_deg, 360);
+    
+            % representative Earth radius for current stage
+            R_m = cfg.geo.a_m;
+    
+            [lat_entry_deg, lon_entry_deg] = direct_geodesic_sphere( ...
+                cfg.geo.lat0_deg, cfg.geo.lon0_deg, az_deg, s_m, R_m);
+    
+            c.entry_lat_deg = lat_entry_deg;
+            c.entry_lon_deg = lon_entry_deg;
+            c.entry_surface_dist_km = cfg.stage01.R_in_km;
+    
+            % surface point in ECEF/ECI
+            r_ecef_m = geodetic_to_ecef(lat_entry_deg, lon_entry_deg, cfg.geo.h0_m, cfg);
             r_eci_m  = ecef_to_eci(r_ecef_m, cfg.time.epoch_utc, 0);
     
             c.entry_point_ecef_m    = r_ecef_m;
@@ -218,7 +244,15 @@ function casebank = build_casebank_stage01(cfg)
             c.entry_point_eci_m_t0  = r_eci_m;
             c.entry_point_eci_km_t0 = r_eci_m / 1000;
     
-            % heading direction as tangent vector
+            % compute ENU coordinates by inverse mapping for consistency
+            r_enu_m = ecef_to_local_enu(r_ecef_m, cfg.geo.lat0_deg, cfg.geo.lon0_deg, cfg.geo.h0_m, cfg);
+    
+            c.entry_point_enu_m  = r_enu_m;
+            c.entry_point_enu_km = r_enu_m / 1000;
+            c.entry_point_xy_km  = c.entry_point_enu_km(1:2).';
+    
+            % heading direction as local tangent vector at anchor
+            % (still interpreted in anchor-local ENU frame)
             [R_enu_to_ecef, ~] = enu_basis_from_geodetic(cfg.geo.lat0_deg, cfg.geo.lon0_deg);
             u_ecef = R_enu_to_ecef * u_enu;
             u_ecef = u_ecef / norm(u_ecef);
@@ -228,6 +262,25 @@ function casebank = build_casebank_stage01(cfg)
     
             c.heading_unit_ecef_t0 = u_ecef;
             c.heading_unit_eci_t0  = u_eci;
+    
+        else
+            % --------------------------------------------------------
+            % Abstract mode fallback (legacy)
+            % --------------------------------------------------------
+            c.entry_point_xy_km = p_enu_km_plot(1:2).';
+            c.entry_point_enu_km = p_enu_km_plot(:);
+            c.entry_point_enu_m  = 1000 * p_enu_km_plot(:);
+    
+            c.entry_lat_deg = NaN;
+            c.entry_lon_deg = NaN;
+            c.entry_surface_dist_km = cfg.stage01.R_in_km;
+    
+            c.entry_point_ecef_m    = nan(3,1);
+            c.entry_point_ecef_km   = nan(3,1);
+            c.entry_point_eci_m_t0  = nan(3,1);
+            c.entry_point_eci_km_t0 = nan(3,1);
+            c.heading_unit_ecef_t0  = nan(3,1);
+            c.heading_unit_eci_t0   = nan(3,1);
         end
     end
     
