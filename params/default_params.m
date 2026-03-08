@@ -212,4 +212,7 @@ function cfg = default_params()
     cfg.stage04.make_plot = true;
     cfg.stage04.example_case_id = 'N01';
     cfg.stage04.example_compare_case_ids = {'N01','H01_+60','C2_small_crossing_angle'};
+
+    % Stage04.2 margin / threshold
+    cfg.stage04.gamma_req = 1.0; % lambda_worst threshold for pass/fail baseline judgement
 end
