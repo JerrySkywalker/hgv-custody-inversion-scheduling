@@ -1,0 +1,35 @@
+{
+  "name": "milestone_m1",
+  "description": "Scenario and trajectory baseline exports",
+  "generated_at": "2026-03-08 13:27:58",
+  "dependencies": {
+    "stage01_cache": "C:\\Users\\jerry\\OneDrive\\HIT-ASSL\\202407-硕士毕业设计\\20260112-结题\\cpt4_disk_fresh\\results\\cache\\stage01_scenario_disk_20260308_104457.mat",
+    "stage02_cache": "C:\\Users\\jerry\\OneDrive\\HIT-ASSL\\202407-硕士毕业设计\\20260112-结题\\cpt4_disk_fresh\\results\\cache\\stage02_hgv_nominal_20260308_105723.mat"
+  },
+  "scene": {
+    "mode": "geodetic",
+    "anchor_lat_deg": 30,
+    "anchor_lon_deg": -160,
+    "anchor_h_m": 0,
+    "epoch_utc": "2026-01-01 00:00:00",
+    "R_D_km": 1000,
+    "R_in_km": 3000
+  },
+  "figures": [
+    "C:\\Users\\jerry\\OneDrive\\HIT-ASSL\\202407-硕士毕业设计\\20260112-结题\\cpt4_disk_fresh\\deliverables\\milestones\\milestone_m1\\exports\\figs\\fig_m1_scene_design_20260308_132750.png",
+    "C:\\Users\\jerry\\OneDrive\\HIT-ASSL\\202407-硕士毕业设计\\20260112-结题\\cpt4_disk_fresh\\deliverables\\milestones\\milestone_m1\\exports\\figs\\fig_m1_representative_trajectories_20260308_132750.png",
+    "C:\\Users\\jerry\\OneDrive\\HIT-ASSL\\202407-硕士毕业设计\\20260112-结题\\cpt4_disk_fresh\\deliverables\\milestones\\milestone_m1\\exports\\figs\\fig_m1_representative_3d_20260308_132750.png"
+  ],
+  "tables": [
+    "C:\\Users\\jerry\\OneDrive\\HIT-ASSL\\202407-硕士毕业设计\\20260112-结题\\cpt4_disk_fresh\\deliverables\\milestones\\milestone_m1\\exports\\tables\\tab_m1_scene_parameters_20260308_132750.csv",
+    "C:\\Users\\jerry\\OneDrive\\HIT-ASSL\\202407-硕士毕业设计\\20260112-结题\\cpt4_disk_fresh\\deliverables\\milestones\\milestone_m1\\exports\\tables\\tab_m1_case_summary_20260308_132750.csv"
+  ],
+  "options": {
+    "show_title": false,
+    "show_legend": true,
+    "show_annotation": true,
+    "resolution": 220,
+    "force_rerun_stage01": false,
+    "force_rerun_stage02": false
+  }
+}

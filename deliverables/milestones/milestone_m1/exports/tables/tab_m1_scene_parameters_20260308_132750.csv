@@ -1,0 +1,12 @@
+name,value,description
+scene_mode,geodetic,Scenario mode used by Stage01
+anchor_lat_deg,30,Geodetic anchor latitude
+anchor_lon_deg,-160,Geodetic anchor longitude
+anchor_h_m,0,Geodetic anchor altitude
+epoch_utc,2026-01-01 00:00:00,Scenario epoch
+protected_disk_radius_km,1000,Protected disk radius
+entry_boundary_radius_km,3000,Entry boundary radius
+nominal_case_count,12,Nominal family size
+heading_case_count,60,Heading family size
+critical_case_count,2,Critical family size
+total_case_count,74,Total case count
