@@ -1,3 +1,0 @@
-group_value,N,lambda_worst_mean,lambda_worst_min,lambda_worst_max,D_G_mean,D_G_min,D_G_max,pass_ratio,t0_worst_mean,t0_worst_min,t0_worst_max
-C1_track_plane_aligned,1,0.165581090596339,0.165581090596339,0.165581090596339,0.165581090596339,0.165581090596339,0.165581090596339,0,290,290,290
-C2_small_crossing_angle,1,0,0,0,0,0,0,0,50,50,50
