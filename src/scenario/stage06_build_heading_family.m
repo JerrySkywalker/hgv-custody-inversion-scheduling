@@ -2,24 +2,30 @@ function family_out = stage06_build_heading_family(trajs_nominal, heading_offset
     %STAGE06_BUILD_HEADING_FAMILY
     % Build Stage06 heading-extended family from Stage02 nominal trajectory bank.
     %
+    % Stage06.2b physical version:
+    %   - keep entry point fixed
+    %   - apply heading offset to case.heading_deg
+    %   - re-run Stage02 propagation physically
+    %   - output a real heading-perturbed trajbank
+    %
     % Usage:
     %   family_out = stage06_build_heading_family(trajs_nominal, heading_offsets_deg)
     %   family_out = stage06_build_heading_family(..., 'HeadingMode', 'small')
     %   family_out = stage06_build_heading_family(..., 'FamilyType', 'heading_extended')
+    %   family_out = stage06_build_heading_family(..., 'Cfg', cfg)
     %
     % Input:
-    %   trajs_nominal        : Stage02 nominal trajbank struct array
-    %   heading_offsets_deg  : vector, e.g. [0 -30 30]
+    %   trajs_nominal       : Stage02 nominal trajbank struct array
+    %   heading_offsets_deg : vector, e.g. [0 -30 30]
     %
     % Output:
-    %   family_out           : struct array, same outer format as Stage02 trajbank items
-    %                          with enriched case/meta labels for Stage06
+    %   family_out          : struct array with fields
+    %                         .case / .traj / .validation / .summary
     %
     % Notes:
-    %   - This version does NOT re-integrate dynamics.
-    %   - Entry-point set remains unchanged.
-    %   - Each nominal case is replicated across heading offsets.
-    %   - The generated family is intended for Stage06 search-chain integration.
+    %   - This version does REAL re-propagation via propagate_hgv_case_stage02().
+    %   - Entry-point geometry remains unchanged.
+    %   - Only heading_deg is perturbed.
     
         arguments
             trajs_nominal struct
@@ -35,10 +41,16 @@ function family_out = stage06_build_heading_family(trajs_nominal, heading_offset
         p = inputParser;
         addParameter(p, 'HeadingMode', 'small');
         addParameter(p, 'FamilyType', 'heading_extended');
+        addParameter(p, 'Cfg', []);
         parse(p, varargin{:});
     
         heading_mode = string(p.Results.HeadingMode);
         family_type = string(p.Results.FamilyType);
+        cfg = p.Results.Cfg;
+    
+        if isempty(cfg)
+            cfg = default_params();
+        end
     
         n_nominal = numel(trajs_nominal);
         n_heading = numel(heading_offsets_deg);
@@ -59,8 +71,8 @@ function family_out = stage06_build_heading_family(trajs_nominal, heading_offset
                 idx = idx + 1;
                 offset_deg = heading_offsets_deg(j);
     
-                new_item = local_apply_heading_offset_to_case( ...
-                    base_item, iCase, offset_deg, heading_mode, family_type);
+                new_item = local_apply_heading_offset_and_repropagate( ...
+                    base_item, iCase, offset_deg, heading_mode, family_type, cfg);
     
                 family_out(idx) = new_item;
             end
@@ -68,115 +80,133 @@ function family_out = stage06_build_heading_family(trajs_nominal, heading_offset
     end
     
     % =========================================================================
-    % Local: apply heading offset label / metadata to one nominal trajectory item
+    % Local: build one physically perturbed item
     % =========================================================================
-    function out_item = local_apply_heading_offset_to_case(base_item, entry_id, offset_deg, heading_mode, family_type)
+    function out_item = local_apply_heading_offset_and_repropagate( ...
+        base_item, entry_id, offset_deg, heading_mode, family_type, cfg)
     
-        out_item = base_item;
+        assert(isfield(base_item, 'case') && ~isempty(base_item.case), ...
+            'Stage06.2b requires base_item.case from Stage02 nominal trajbank.');
+    
+        base_case = base_item.case;
     
         % ---------------------------------------------------------------------
-        % source identifiers
+        % Source identifiers
         % ---------------------------------------------------------------------
-        if isfield(base_item, 'case') && isfield(base_item.case, 'case_id')
-            source_case_id = string(base_item.case.case_id);
+        if isfield(base_case, 'case_id')
+            source_case_id = string(base_case.case_id);
         else
             source_case_id = "unknown_case";
         end
     
-        % nominal heading
-        nominal_heading_deg = NaN;
-        if isfield(base_item, 'case') && isfield(base_item.case, 'heading_deg')
-            nominal_heading_deg = base_item.case.heading_deg;
+        if isfield(base_case, 'heading_deg') && isfinite(base_case.heading_deg)
+            nominal_heading_deg = base_case.heading_deg;
         elseif isfield(base_item, 'traj') && isfield(base_item.traj, 'meta') && ...
                isfield(base_item.traj.meta, 'heading_deg')
             nominal_heading_deg = base_item.traj.meta.heading_deg;
+        else
+            error('Cannot infer nominal heading_deg for case %s.', char(source_case_id));
         end
     
-        perturbed_heading_deg = nominal_heading_deg + offset_deg;
-    
+        perturbed_heading_deg = wrapTo180(nominal_heading_deg + offset_deg);
         heading_label = local_heading_label(offset_deg);
         new_case_id = sprintf('E%02d_%s', entry_id, char(heading_label));
     
         % ---------------------------------------------------------------------
-        % patch case
+        % Build new physical case
         % ---------------------------------------------------------------------
-        if ~isfield(out_item, 'case') || isempty(out_item.case)
-            out_item.case = struct();
+        new_case = base_case;
+    
+        new_case.case_id = new_case_id;
+        new_case.family = char(family_type);
+        new_case.subfamily = sprintf('stage06_%s', char(heading_mode));
+    
+        new_case.entry_id = entry_id;
+        new_case.entry_point_id = entry_id;
+        new_case.source_case_id = char(source_case_id);
+        new_case.family_origin = 'stage02_nominal';
+        new_case.heading_mode = char(heading_mode);
+        new_case.heading_label = char(heading_label);
+    
+        new_case.nominal_heading_deg = nominal_heading_deg;
+        new_case.heading_offset_deg = offset_deg;
+        new_case.heading_deg = perturbed_heading_deg;
+    
+        new_case.is_heading_extended_copy = false;
+        new_case.is_heading_extended_physical = true;
+    
+        if ~isfield(new_case, 'notes') || isempty(new_case.notes)
+            new_case.notes = '';
         end
-    
-        out_item.case.case_id = new_case_id;
-        out_item.case.family = char(family_type);
-        out_item.case.subfamily = sprintf('stage06_%s', char(heading_mode));
-        out_item.case.entry_id = entry_id;
-        out_item.case.entry_point_id = entry_id;
-        out_item.case.source_case_id = char(source_case_id);
-        out_item.case.family_origin = 'stage02_nominal';
-        out_item.case.heading_mode = char(heading_mode);
-        out_item.case.heading_label = char(heading_label);
-    
-        % preserve nominal heading as reference
-        out_item.case.nominal_heading_deg = nominal_heading_deg;
-        out_item.case.heading_offset_deg = offset_deg;
-        out_item.case.heading_deg = perturbed_heading_deg;
-    
-        if ~isfield(out_item.case, 'notes') || isempty(out_item.case.notes)
-            out_item.case.notes = '';
-        end
-        out_item.case.notes = sprintf([ ...
-            'Stage06 heading-extended family item. ', ...
-            'Replicated from nominal case %s with heading offset %+g deg.'], ...
+        new_case.notes = sprintf([ ...
+            'Stage06 physical heading-extended case. ', ...
+            'Repropagated from nominal case %s with heading offset %+g deg.'], ...
             char(source_case_id), offset_deg);
     
         % ---------------------------------------------------------------------
-        % patch traj top-level tags
+        % Real propagation
         % ---------------------------------------------------------------------
-        if ~isfield(out_item, 'traj') || isempty(out_item.traj)
-            out_item.traj = struct();
-        end
-    
-        if isfield(out_item.traj, 'case_id')
-            out_item.traj.case_id = new_case_id;
-        end
-        if isfield(out_item.traj, 'family')
-            out_item.traj.family = char(family_type);
-        end
-        if isfield(out_item.traj, 'subfamily')
-            out_item.traj.subfamily = sprintf('stage06_%s', char(heading_mode));
-        end
+        new_traj = propagate_hgv_case_stage02(new_case, cfg);
+        new_val  = validate_hgv_trajectory_stage02(new_traj, cfg);
+        new_sum  = summarize_hgv_case_stage02(new_case, new_traj, new_val);
     
         % ---------------------------------------------------------------------
-        % patch traj.meta
+        % Enrich traj meta
         % ---------------------------------------------------------------------
-        if ~isfield(out_item.traj, 'meta') || isempty(out_item.traj.meta)
-            out_item.traj.meta = struct();
+        if ~isfield(new_traj, 'meta') || isempty(new_traj.meta)
+            new_traj.meta = struct();
         end
     
-        out_item.traj.meta.entry_id = entry_id;
-        out_item.traj.meta.entry_point_id = entry_id;
-        out_item.traj.meta.source_case_id = char(source_case_id);
-        out_item.traj.meta.family_origin = 'stage02_nominal';
-        out_item.traj.meta.heading_mode = char(heading_mode);
-        out_item.traj.meta.heading_label = char(heading_label);
-        out_item.traj.meta.nominal_heading_deg = nominal_heading_deg;
-        out_item.traj.meta.heading_offset_deg = offset_deg;
-        out_item.traj.meta.heading_deg = perturbed_heading_deg;
-        out_item.traj.meta.is_heading_extended_copy = true;
+        new_traj.case_id = new_case_id;
+        new_traj.family = char(family_type);
+        new_traj.subfamily = sprintf('stage06_%s', char(heading_mode));
+    
+        new_traj.meta.entry_id = entry_id;
+        new_traj.meta.entry_point_id = entry_id;
+        new_traj.meta.source_case_id = char(source_case_id);
+        new_traj.meta.family_origin = 'stage02_nominal';
+        new_traj.meta.heading_mode = char(heading_mode);
+        new_traj.meta.heading_label = char(heading_label);
+        new_traj.meta.nominal_heading_deg = nominal_heading_deg;
+        new_traj.meta.heading_offset_deg = offset_deg;
+        new_traj.meta.heading_deg = perturbed_heading_deg;
+        new_traj.meta.is_heading_extended_copy = false;
+        new_traj.meta.is_heading_extended_physical = true;
+    
+        % helpful debug flags
+        if isfield(base_item, 'traj') && isfield(base_item.traj, 'meta') && ...
+                isfield(base_item.traj.meta, 'sigma0_deg')
+            new_traj.meta.nominal_sigma0_deg = base_item.traj.meta.sigma0_deg;
+        end
+        if isfield(new_traj.meta, 'sigma0_deg')
+            new_traj.meta.perturbed_sigma0_deg = new_traj.meta.sigma0_deg;
+        end
     
         % ---------------------------------------------------------------------
-        % patch summary if present
+        % Enrich summary
         % ---------------------------------------------------------------------
-        if isfield(out_item, 'summary') && ~isempty(out_item.summary)
-            if isfield(out_item.summary, 'case_id')
-                out_item.summary.case_id = new_case_id;
-            end
-            if isfield(out_item.summary, 'family')
-                out_item.summary.family = char(family_type);
-            end
-            out_item.summary.entry_id = entry_id;
-            out_item.summary.heading_offset_deg = offset_deg;
-            out_item.summary.heading_label = char(heading_label);
-            out_item.summary.source_case_id = char(source_case_id);
+        if ~isstruct(new_sum) || isempty(new_sum)
+            new_sum = struct();
         end
+    
+        new_sum.case_id = new_case_id;
+        new_sum.family = char(family_type);
+        new_sum.subfamily = sprintf('stage06_%s', char(heading_mode));
+        new_sum.entry_id = entry_id;
+        new_sum.heading_offset_deg = offset_deg;
+        new_sum.heading_label = char(heading_label);
+        new_sum.source_case_id = char(source_case_id);
+        new_sum.nominal_heading_deg = nominal_heading_deg;
+        new_sum.heading_deg = perturbed_heading_deg;
+    
+        % ---------------------------------------------------------------------
+        % Pack
+        % ---------------------------------------------------------------------
+        out_item = struct();
+        out_item.case = new_case;
+        out_item.traj = new_traj;
+        out_item.validation = new_val;
+        out_item.summary = new_sum;
     end
     
     % =========================================================================
@@ -193,7 +223,7 @@ function family_out = stage06_build_heading_family(trajs_nominal, heading_offset
     end
     
     % =========================================================================
-    % Local: empty output item
+    % Local: empty item
     % =========================================================================
     function s = local_empty_item()
         s = struct( ...
