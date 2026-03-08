@@ -4,22 +4,27 @@
 *.asv
 *.m~
 *.mlx.autosave
+*.mlx.lock
 *.slxc
 *.autosave
 *.fig~
+*.tmp
+*.bak
+*.mex*
+*.p
 slprj/
 codegen/
 resources/project/
-*.mex*
-*.p
+profile_results/
+*.prj.bak
+*.log.bak
 
 ############################################
-# OS / Editor junk
+# OS / Editor
 ############################################
 .DS_Store
 Thumbs.db
 desktop.ini
-
 .vscode/
 .idea/
 *.swp
@@ -27,7 +32,7 @@ desktop.ini
 *~
 
 ############################################
-# Python helpers (if any)
+# Python (if any)
 ############################################
 __pycache__/
 *.pyc
@@ -42,34 +47,30 @@ temp/
 scratch/
 
 ############################################
-# Project results: ignore all generated outputs
+# Project results: ignore generated outputs
 ############################################
 results/**
 
-# Keep result directory skeleton
+# Keep directory skeleton
 !results/.gitkeep
 !results/cache/
 !results/figs/
 !results/logs/
 !results/tables/
 !results/bundles/
-
 !results/cache/.gitkeep
 !results/figs/.gitkeep
 !results/logs/.gitkeep
 !results/tables/.gitkeep
 !results/bundles/.gitkeep
 
-############################################
-# Optional: debug figure subfolders (ignored by default)
-############################################
+# Optional: ignore debug subfolders
 results/figs/debug/**
 results/cache/debug/**
 results/logs/debug/**
 
 ############################################
-# Optional: keep released paper outputs under version control
-# Uncomment these if you want final figures/tables tracked
+# Optional: keep released paper outputs (uncomment if needed)
 ############################################
 # !paper_outputs/
 # !paper_outputs/**
@@ -79,7 +80,7 @@ results/logs/debug/**
 # !tests/baselines/**
 
 ############################################
-# Archives / large generated bundles
+# Archives / large bundles
 ############################################
 *.zip
 *.7z
@@ -87,9 +88,28 @@ results/logs/debug/**
 *.tar.gz
 
 ############################################
-# If you later use Git LFS, remove relevant patterns here
+# Git LFS: uncomment if using LFS for large binaries
 ############################################
 # *.mat
 # *.png
 # *.pdf
 # *.csv
+
+############################################
+# Deliverables: track milestone outputs
+############################################
+!deliverables/
+!deliverables/milestone_*/
+!deliverables/milestone_*/**
+
+############################################
+# Milestone scripts and docs: always tracked
+############################################
+!milestones/
+!milestones/**
+
+############################################
+# Optional: ignore large exported binaries (uncomment if repo too large)
+############################################
+# deliverables/**/figs/*.png
+# deliverables/**/figs/*.pdf
