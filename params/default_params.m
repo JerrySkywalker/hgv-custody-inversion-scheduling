@@ -305,4 +305,48 @@ function cfg = default_params()
     cfg.stage05.require_pass_ratio = 1.0;
     cfg.stage05.require_D_G_min = 1.0;
     cfg.stage05.rank_rule = 'min_Ns_then_max_DG';
+
+    % ---------------------------
+    % Stage05 nominal Walker static inversion
+    % ---------------------------
+    cfg.stage05 = struct();
+
+    % Stage05 scope
+    cfg.stage05.family_scope = 'nominal';
+    cfg.stage05.gamma_source = 'stage04_nominal_quantile';
+
+    % Stage05.1 / 05.2:
+    % first-pass scan over (i, P, T) with fixed h and fixed Walker phasing F
+    cfg.stage05.h_fixed_km = 1000;
+    cfg.stage05.F_fixed = 1;
+
+    % coarse search grid
+    cfg.stage05.i_grid_deg = [30 40 50 60 70 80 90];
+    cfg.stage05.P_grid = [4 6 8 10 12];
+    cfg.stage05.T_grid = [4 6 8 10 12 16];
+
+    % feasibility rule for Stage05.2
+    cfg.stage05.require_pass_ratio = 1.0;
+    cfg.stage05.require_D_G_min = 1.0;
+
+    % ranking rule for feasible candidates
+    cfg.stage05.rank_rule = 'min_Ns_then_max_DG';
+
+    % parallel options
+    cfg.stage05.use_parallel = true;
+    cfg.stage05.auto_start_pool = true;
+    cfg.stage05.parallel_pool_profile = 'threads';   % 'threads' or 'local'
+    cfg.stage05.parallel_num_workers = [];           % [] means default
+
+    % early-stop options
+    cfg.stage05.use_early_stop = true;
+    cfg.stage05.hard_case_first = true;
+
+    % logging / progress
+    cfg.stage05.use_live_progress = true;
+    cfg.stage05.progress_every = 1;   % print every N completed grid points
+
+    % optional plotting
+    cfg.stage05.make_plot = false;
+    cfg.stage05.example_case_id = 'N01';
 end
