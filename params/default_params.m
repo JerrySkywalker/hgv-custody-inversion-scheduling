@@ -268,6 +268,21 @@ function cfg = default_params()
     cfg.stage04.example_case_id = 'N01';
     cfg.stage04.example_compare_case_ids = {'N01','H01_+60','C2_small_crossing_angle'};
 
-    % Stage04.2 margin / threshold
-    cfg.stage04.gamma_req = 1.0; % lambda_worst threshold for pass/fail baseline judgement
+    % ============================================================
+    % Stage04G.7 margin-threshold calibration
+    % ============================================================
+    % gamma_mode:
+    %   'fixed'             -> use cfg.stage04.gamma_req_fixed directly
+    %   'nominal_quantile'  -> calibrate from nominal-family lambda_worst quantile
+    cfg.stage04.gamma_mode = 'nominal_quantile';
+
+    % Used when gamma_mode = 'fixed'
+    cfg.stage04.gamma_req_fixed = 1.0;
+
+    % Used when gamma_mode = 'nominal_quantile'
+    % Recommended baseline: 0.50 (nominal-family median)
+    cfg.stage04.gamma_quantile = 0.50;
+
+    % Safety floor to avoid degenerate/too-small threshold
+    cfg.stage04.gamma_floor = 1.0;
 end

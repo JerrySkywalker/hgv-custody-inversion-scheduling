@@ -1,6 +1,6 @@
 function summary_struct = summarize_window_margin_bank_stage04(winbank, cfg)
     %SUMMARIZE_WINDOW_MARGIN_BANK_STAGE04
-    % Summarize D_G and pass/fail statistics for Stage04.2
+    % Summarize D_G and pass/fail statistics for Stage04G.7
     
         all_structs = [winbank.nominal; winbank.heading; winbank.critical];
     
@@ -13,17 +13,20 @@ function summary_struct = summarize_window_margin_bank_stage04(winbank, cfg)
             return;
         end
     
-        case_ids = strings(numel(all_structs),1);
-        families = strings(numel(all_structs),1);
-        subfamilies = strings(numel(all_structs),1);
-        heading_offsets = nan(numel(all_structs),1);
+        n = numel(all_structs);
     
-        lambda_worst = zeros(numel(all_structs),1);
-        D_G = zeros(numel(all_structs),1);
-        pass_flag = zeros(numel(all_structs),1);
-        t0_worst = zeros(numel(all_structs),1);
+        case_ids = strings(n,1);
+        families = strings(n,1);
+        subfamilies = strings(n,1);
+        heading_offsets = nan(n,1);
     
-        for k = 1:numel(all_structs)
+        gamma_req = zeros(n,1);
+        lambda_worst = zeros(n,1);
+        D_G = zeros(n,1);
+        pass_flag = zeros(n,1);
+        t0_worst = zeros(n,1);
+    
+        for k = 1:n
             wc = all_structs(k).window_case;
             m = evaluate_window_margin_stage04(wc, cfg);
     
@@ -39,6 +42,7 @@ function summary_struct = summarize_window_margin_bank_stage04(winbank, cfg)
                 heading_offsets(k) = 0;
             end
     
+            gamma_req(k) = m.gamma_req;
             lambda_worst(k) = m.lambda_worst;
             D_G(k) = m.D_G;
             pass_flag(k) = double(m.pass_flag);
@@ -46,7 +50,7 @@ function summary_struct = summarize_window_margin_bank_stage04(winbank, cfg)
         end
     
         T = table(case_ids, families, subfamilies, heading_offsets, ...
-                  lambda_worst, D_G, pass_flag, t0_worst);
+                  gamma_req, lambda_worst, D_G, pass_flag, t0_worst);
     
         family_summary = local_group_summary(T, 'families');
     
@@ -82,6 +86,8 @@ function summary_struct = summarize_window_margin_bank_stage04(winbank, cfg)
         group_value = cell(nG,1);
         N = zeros(nG,1);
     
+        gamma_req_mean = zeros(nG,1);
+    
         lambda_worst_mean = zeros(nG,1);
         lambda_worst_min  = zeros(nG,1);
         lambda_worst_max  = zeros(nG,1);
@@ -112,6 +118,8 @@ function summary_struct = summarize_window_margin_bank_stage04(winbank, cfg)
     
             N(i) = sum(idx);
     
+            gamma_req_mean(i) = mean(T.gamma_req(idx), 'omitnan');
+    
             lambda_worst_mean(i) = mean(T.lambda_worst(idx), 'omitnan');
             lambda_worst_min(i)  = min(T.lambda_worst(idx));
             lambda_worst_max(i)  = max(T.lambda_worst(idx));
@@ -133,7 +141,7 @@ function summary_struct = summarize_window_margin_bank_stage04(winbank, cfg)
             group_value = string(group_value);
         end
     
-        S = table(group_value, N, ...
+        S = table(group_value, N, gamma_req_mean, ...
             lambda_worst_mean, lambda_worst_min, lambda_worst_max, ...
             D_G_mean, D_G_min, D_G_max, ...
             pass_ratio, ...

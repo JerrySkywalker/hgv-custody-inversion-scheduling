@@ -1,14 +1,15 @@
 function fig = plot_window_margin_stage04(summary_margin, cfg)
     %PLOT_WINDOW_MARGIN_STAGE04
-    % Thesis-friendly Stage04.2 margin visualization.
+    % Stage04G.7 margin visualization.
     %
-    % New design:
-    %   left  : family-level pass_ratio bar chart
-    %   right : heading-offset pass_ratio bar chart (discrete categories)
+    % left  : family-level pass_ratio
+    % right : heading-offset pass_ratio
     %
-    % This avoids implying continuity across heading offsets.
+    % Title now reflects calibrated gamma_req.
     
         fig = figure('Color', 'w', 'Position', [100,100,1180,440]);
+    
+        gamma_req = cfg.stage04.gamma_req;
     
         % ============================================================
         % subplot 1: family-level pass ratio
@@ -30,7 +31,7 @@ function fig = plot_window_margin_stage04(summary_margin, cfg)
         ylim([0, 1.0]);
         set(gca, 'XTick', 1:numel(family_order), 'XTickLabel', cellstr(family_order));
         ylabel('pass ratio', 'Interpreter', 'none');
-        title('Stage04.2 family-level pass ratio', 'Interpreter', 'none');
+        title(sprintf('Pass ratio under calibrated \\gamma_{req}=%.2e', gamma_req), 'Interpreter', 'tex');
     
         for i = 1:numel(pass_vals)
             if ~isnan(pass_vals(i))
@@ -55,7 +56,6 @@ function fig = plot_window_margin_stage04(summary_margin, cfg)
         offsets = Thead.group_value;
         pass_ratio = Thead.pass_ratio;
     
-        % ensure numeric sort
         [offsets_sorted, idx_sort] = sort(offsets(:));
         pass_ratio_sorted = pass_ratio(idx_sort);
     
@@ -68,7 +68,7 @@ function fig = plot_window_margin_stage04(summary_margin, cfg)
     
         xlabel('heading offset (deg)', 'Interpreter', 'none');
         ylabel('pass ratio', 'Interpreter', 'none');
-        title('Stage04.2 heading-offset pass ratio', 'Interpreter', 'none');
+        title('Pass ratio across heading offsets', 'Interpreter', 'none');
     
         for i = 1:numel(pass_ratio_sorted)
             text(x(i), min(pass_ratio_sorted(i)+0.03, 0.98), sprintf('%.2f', pass_ratio_sorted(i)), ...

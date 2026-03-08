@@ -3,14 +3,11 @@ function out = stage04_window_worstcase()
     % Build windowed information matrices, scan worst windows,
     % and summarize both spectrum-level and margin-level statistics.
     %
-    % Stage04G.6:
-    %   - explicitly consumes geodetic/ECI Stage03 results
-    %   - preserves current project structure
-    %   - adds unified out.summary for easier downstream use
+    % Stage04G.7:
+    %   - calibrate gamma_req from current winbank
+    %   - use calibrated gamma for margin summaries
+    %   - keep spectrum summaries unchanged
     
-        % ------------------------------------------------------------
-        % Init
-        % ------------------------------------------------------------
         startup();
         cfg = default_params();
         cfg.project_stage = 'stage04_window_worstcase';
@@ -74,7 +71,24 @@ function out = stage04_window_worstcase()
         log_msg(log_fid, 'INFO', 'Critical summary rows: %d', height(summary_spectrum.critical_summary));
     
         % ------------------------------------------------------------
-        % Margin summaries
+        % Stage04G.7: calibrate gamma_req
+        % ------------------------------------------------------------
+        gamma_meta = calibrate_gamma_req_stage04(winbank, cfg);
+        cfg.stage04.gamma_req = gamma_meta.gamma_req;
+    
+        log_msg(log_fid, 'INFO', ...
+            'Gamma calibrated: mode=%s | family=%s | q=%.2f | gamma_req=%.3e', ...
+            gamma_meta.mode, gamma_meta.source_family, gamma_meta.quantile, gamma_meta.gamma_req);
+    
+        if strcmpi(gamma_meta.source_family, 'nominal')
+            log_msg(log_fid, 'INFO', ...
+                'Nominal lambda_worst stats: N=%d | min=%.3e | median=%.3e | max=%.3e', ...
+                gamma_meta.sample_size, gamma_meta.sample_min, ...
+                gamma_meta.sample_median, gamma_meta.sample_max);
+        end
+    
+        % ------------------------------------------------------------
+        % Margin summaries (with calibrated gamma)
         % ------------------------------------------------------------
         summary_margin = summarize_window_margin_bank_stage04(winbank, cfg);
     
@@ -135,13 +149,14 @@ function out = stage04_window_worstcase()
         out.winbank = winbank;
         out.satbank = satbank;
     
+        out.gamma_meta = gamma_meta;
         out.summary_spectrum = summary_spectrum;
         out.summary_margin = summary_margin;
     
-        % unified summary entry for downstream convenience
         out.summary = struct();
         out.summary.spectrum = summary_spectrum;
         out.summary.margin = summary_margin;
+        out.summary.gamma_meta = gamma_meta;
     
         out.log_file = log_file;
         out.fig_file = fig_file;
@@ -157,9 +172,6 @@ function out = stage04_window_worstcase()
         log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
         log_msg(log_fid, 'INFO', 'Stage04 finished.');
     
-        % ------------------------------------------------------------
-        % Console summary
-        % ------------------------------------------------------------
         fprintf('\n');
         fprintf('========== Stage04 Summary ==========\n');
         fprintf('Log file        : %s\n', out.log_file);
@@ -170,9 +182,6 @@ function out = stage04_window_worstcase()
         fprintf('=====================================\n');
     end
     
-    % ========================================================================
-    % Local helper: run one family
-    % ========================================================================
     function family_out = local_run_family(vis_in, satbank, log_fid, cfg)
     
         if isempty(vis_in)
@@ -197,9 +206,6 @@ function out = stage04_window_worstcase()
         end
     end
     
-    % ========================================================================
-    % Local helper: find one case in winbank
-    % ========================================================================
     function hit = local_find_case(winbank, case_id)
     
         all_structs = [winbank.nominal; winbank.heading; winbank.critical];
