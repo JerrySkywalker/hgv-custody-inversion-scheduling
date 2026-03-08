@@ -1,34 +1,53 @@
 # Milestone M1：第四章基线实验包
 
-## 目标
+## 1. 目标
 
-本里程碑用于固化第四章前半部分的基线实验结果，覆盖以下阶段：
+本里程碑用于固化第四章前半部分的基线实验结果，覆盖以下阶段性工作：
 
-- Stage01：保护圆盘与进入边界场景设计
-- Stage02：HGV 轨迹样本库构建
-- Stage03：单层 Walker 观测基线
-- Stage04：最坏窗口谱退化与门槛化
+- 场景与进入条件定义；
+- 目标轨迹样本库构建；
+- 单层 Walker 观测基线建立；
+- 最坏窗口谱退化与门槛化判定。
 
 本里程碑的目标不是继续开发算法，而是将已有结果整理为：
 
-- 可复现实验导出物
-- 可追踪的 milestone 结果包
-- 可直接迁移进入论文第四章的图、表、文字说明
+- 可复现的 milestone 导出物；
+- 可追踪的图表与表格结果；
+- 可直接迁移进入论文第四章的文字说明素材。
 
 ---
 
-## 输入来源
+## 2. 图形导出约定
 
-本里程碑默认读取各阶段最新 cache：
+本里程碑中的图片由 `milestone_m1_export_baseline.m` 统一导出，并采用如下约定：
+
+1. **默认不在图内显示标题**。  
+   这样做的原因在于最终论文排版时，图题与图注通常由 LaTeX 或 Word 统一管理，而不是直接使用 MATLAB 的 `title`。
+
+2. **图标题文本仍保留在脚本的用户选项区，可按需打开**。  
+   当需要快速预览或单独汇报时，可将：
+   ```matlab
+   opt.show_titles = true;
+
+打开，以便在图中显示说明性标题。
+
+1. **图名中不包含阶段序号意义上的论文编号**。
+   例如，图中不会写 “Stage04.2 ...” 作为正式论文图题，因为最终图序将由论文排版系统统一给定。
+
+------
+
+## 3. 输入来源
+
+本里程碑默认读取各阶段的最新 cache：
 
 - Stage01 cache: `results/cache/stage01_scenario_disk_*.mat`
 - Stage02 cache: `results/cache/stage02_hgv_nominal_*.mat`
 - Stage03 cache: `results/cache/stage03_visibility_pipeline_*.mat`
 - Stage04 cache: `results/cache/stage04_window_worstcase_*.mat`
 
----
+------
 
-## 导出目录
+## 4. 导出目录
 
 导出物输出到：
 
@@ -36,19 +55,19 @@
 - `deliverables/milestone_m1/tables/`
 - `deliverables/milestone_m1/notes/`
 
----
+------
 
-## M1.1 场景与轨迹基线
+## 5. M1.1：场景与轨迹基线
 
-### 图
+### 5.1 图片
 
-![场景示意图](../deliverables/milestone_m1/figs/fig_m1_1_scenario.png)
+![场景设计图](https://chatgpt.com/deliverables/milestone_m1/figs/fig_m1_1_scenario.png)
 
-![二维轨迹图](../deliverables/milestone_m1/figs/fig_m1_1_traj_2d.png)
+![区域平面内的代表性轨迹](https://chatgpt.com/deliverables/milestone_m1/figs/fig_m1_1_traj_2d.png)
 
-![三维轨迹图](../deliverables/milestone_m1/figs/fig_m1_1_traj_3d.png)
+![代表性三维轨迹](https://chatgpt.com/deliverables/milestone_m1/figs/fig_m1_1_traj_3d.png)
 
-### 表
+### 5.2 表格
 
 - `tab_m1_1_case_design.csv`
 - `tab_m1_1_traj_family_summary.csv`
@@ -56,119 +75,125 @@
 - `tab_m1_1_traj_critical_summary.csv`
 - `tab_m1_1_parameter_summary.csv`
 
-### 说明
+### 5.3 结果说明
 
-本部分用于固化第四章实验对象定义，包括：
+本部分用于固化第四章实验对象与轨迹基线的构造方式。
 
-- 保护圆盘与进入边界的抽象场景设定
-- nominal / heading / critical 轨迹族的定义
-- 开放环 HGV 轨迹模板的代表性说明
+首先，以保护圆盘表示任务防护区域，以外层进入边界表示目标进入位置集合。随后，在进入边界上构造三类来袭样本：
 
-建议在论文正文中承接以下内容：
+- **nominal 族**：表示名义进入方向下的基准样本；
+- **heading 族**：在 nominal 基础上加入有限航向偏差，用于表征进入方向扩展后的场景变化；
+- **critical 族**：用于描述危险几何情形，包括贴近轨道面方向与小交会角两类典型情形。
 
-1. 说明保护区抽象为圆盘防护区域；
-2. 说明进入边界用于定义外层来袭样本；
-3. 说明 nominal、heading 扩展、critical 危险几何三类轨迹族；
-4. 用 2D 和 3D 图辅助解释轨迹几何差异。
+在目标轨迹构造方面，基于统一的初始状态与控制模板生成开放环 HGV 轨迹样本库。由二维与三维图可见，nominal、heading 与 critical 三类轨迹在平面几何与空间形态上均存在清晰差异，从而为后续观测与最坏窗口分析提供了统一且具有代表性的输入样本。
 
----
+------
 
-## M1.2 单层 Walker 观测基线
+## 6. M1.2：单层 Walker 观测基线
 
-### 图
+### 6.1 图片
 
-![可见性样例图](../deliverables/milestone_m1/figs/fig_m1_2_visibility_case.png)
+![代表性可见性与 LOS 几何](https://chatgpt.com/deliverables/milestone_m1/figs/fig_m1_2_visibility_case.png)
 
-### 表
+### 6.2 表格
 
 - `tab_m1_2_walker_baseline.csv`
 - `tab_m1_2_visibility_case_summary.csv`
 
-### 说明
+### 6.3 结果说明
 
-本部分用于固化单层 Walker 基线参数与观测层结果，包括：
+本部分用于固化单层 Walker 观测基线及其与目标轨迹样本的耦合关系。
 
-- Walker 基线参数 \(h,i,P,T,F\)
-- 量程与 off-nadir 等可见性约束
-- 单 case 可见性时间历程
-- nominal / heading / critical 在覆盖率与 LOS 几何上的差异
+在统一时间网格下，完成了：
 
-建议在论文正文中承接以下内容：
+- Walker 基线星座传播；
+- 目标—卫星可见性判定；
+- 可见卫星数量统计；
+- 双星覆盖时段识别；
+- 最小 LOS 交会角的几何分析。
 
-1. 给出单层 Walker 基线设定；
-2. 说明目标—星座观测几何建模；
-3. 强调覆盖存在不等于几何稳定；
-4. 为后续最坏窗口分析埋下铺垫。
+从代表性样本图可以看出，在名义情况下，目标在大部分时段内能够维持 2 星及以上可见；但在轨迹后段，可见星数量开始下降，最小 LOS 交会角也随之退化。这表明：**覆盖存在并不必然意味着观测几何稳定**。因此，仅使用覆盖类指标不足以评价连续托管意义下的基线可行性，还必须进一步分析窗口层面的几何退化。
 
----
+------
 
-## M1.3 最坏窗口谱退化与门槛化
+## 7. M1.3：最坏窗口谱退化与门槛化
 
-### 图
+### 7.1 图片
 
-![最坏窗口曲线图](../deliverables/milestone_m1/figs/fig_m1_3_window_case.png)
+![代表性样本的最坏窗口谱扫描](https://chatgpt.com/deliverables/milestone_m1/figs/fig_m1_3_window_case.png)
 
-![family谱图](../deliverables/milestone_m1/figs/fig_m1_3_window_family.png)
+![最坏窗口谱在不同场景族中的分布](https://chatgpt.com/deliverables/milestone_m1/figs/fig_m1_3_window_family.png)
 
-![D_G门槛图](../deliverables/milestone_m1/figs/fig_m1_3_margin.png)
+![最坏窗口判据下的通过率](https://chatgpt.com/deliverables/milestone_m1/figs/fig_m1_3_margin.png)
 
-### 表
+### 7.2 表格
 
-#### Spectrum summaries
+#### 谱统计
+
 - `tab_m1_3_family_summary.csv`
 - `tab_m1_3_heading_summary.csv`
 - `tab_m1_3_critical_summary.csv`
 
-#### Margin summaries
+#### 门槛化统计
+
 - `tab_m1_3_margin_family.csv`
 - `tab_m1_3_margin_heading.csv`
 - `tab_m1_3_margin_critical.csv`
 
-### 说明
+### 7.3 结果说明
 
-本部分用于固化最坏窗口谱分析结果，包括：
+本部分用于固化最坏窗口谱分析与门槛化判定结果。
 
-- 窗口信息矩阵 \(W_r(t_0,T_w)\)
-- 最坏窗口谱底 \(\lambda_{\min}^{\mathrm{worst}}\)
-- 门槛化指标 \(D_G = \lambda_{\min}^{\mathrm{worst}} / \gamma_{\mathrm{req}}\)
-- nominal / heading / critical 的 pass/fail 统计
+首先，对窗口信息矩阵随窗口起点 (t_0) 的变化进行扫描，提取代表性样本在固定窗口长度下的谱底变化曲线。由代表性曲线可见，窗口谱底在前中段维持较高水平，但在后段迅速衰减并最终接近零。这说明即使整体覆盖并未立即完全失效，局部时间窗口内仍可能出现显著观测退化，因此必须显式考察最坏窗口。
 
-建议在论文正文中强调：
+随后，对所有样本的最坏窗口谱底进行族级统计。可以看到，nominal 与 heading 两类样本都表现出明显偏态分布：多数样本贴近较低谱底区间，少数样本则具有较高谱底。critical 样本整体更接近低值区，说明其最坏窗口脆弱性更为突出。
 
-1. 最坏窗口指标比平均覆盖指标更能揭示局部失稳；
-2. nominal 并不代表全局稳健；
-3. heading 扩展显著降低通过率；
-4. critical 场景在当前单层基线下全部失败。
+进一步地，引入门槛化指标
+[
+D_G = \frac{\lambda_{\min}^{\mathrm{worst}}}{\gamma_{\mathrm{req}}},
+]
+并据此统计通过率。结果表明：
 
----
+- nominal 族仅部分通过；
+- heading 族通过率进一步下降；
+- critical 族在当前门槛下全部失败。
 
-## M1.4 阶段性结论
+从 heading offset 的通过率分布看，当前基线在 (0^\circ) 方向表现最好，而在 (\pm 30^\circ) 附近通过率降为零，在 (\pm 60^\circ) 附近仍仅能部分通过。这表明单层 Walker 基线对来袭方向具有显著敏感性，不具备面向全场景的统一稳健性。
 
-基于当前 Stage01–Stage04.2 的结果，可以得到以下阶段性结论：
+### 7.4 关于对数纵轴显示的说明
 
-1. 单层 Walker 基线对进入场景具有显著敏感性；
-2. nominal 场景只能部分通过门槛，不具备全局稳健性；
-3. heading 扩展会显著降低最坏窗口门槛通过率；
-4. critical 场景在当前门槛下全部失败；
-5. 因此，第四章后续有必要进入参数切片扫描与反演设计。
+为展示最坏窗口谱底的强偏态分布，`fig_m1_3_window_family.png` 使用了对数纵轴。
+对于数值为零的样本，图中仅为显示目的将其截断至固定下界（显示 floor），以避免对数轴无法绘制。该处理**不改变原始统计结果**，仅用于可视化。
 
----
+------
 
-## 下一步
+## 8. 阶段性结论
 
-建议进入：
+基于当前 Milestone M1，可以得到如下阶段性结论：
 
-- **Stage05A：\(h-i\) 切片扫描**
+1. 已完成第四章实验对象的统一定义，建立了保护圆盘—进入边界—目标轨迹族的场景体系；
+2. 已构建单层 Walker 基线与目标轨迹样本的观测分析链路，证明 nominal、heading 与 critical 在覆盖与 LOS 几何层面均存在显著差异；
+3. 已完成最坏窗口谱扫描，说明局部时间窗口的观测退化是单层基线脆弱性的主要体现形式之一；
+4. 已通过门槛化指标给出族级通过率统计，结果显示 nominal 仅部分通过、heading 进一步退化、critical 全部失败；
+5. 因此，单层 Walker 只能作为第四章的**基线构型**，而不能直接视为面向全场景任务的稳健解。
 
-目标是回答：
+------
 
-- 是否存在更稳健的单层 Walker 参数区间；
-- 单层是否能通过参数调整补救；
-- 或是否必须引入双层 / 几何补强。
+## 9. 下一步
 
----
+基于 M1 的结果，下一步建议进入：
 
-## Git 跟踪建议
+- **Stage05A：单层 Walker 的 (h-i) 切片扫描**
+
+其目标是回答：
+
+1. 是否存在更稳健的单层 Walker 参数区间；
+2. 单层结构能否通过参数调整部分补救最坏窗口脆弱性；
+3. 若不能，则是否需要进一步进入双层或几何补强设计。
+
+------
+
+## 10. Git 跟踪建议
 
 建议纳入 git：
 
@@ -176,7 +201,7 @@
 - `milestones/milestone_m1_export_baseline.md`
 - `deliverables/milestone_m1/tables/*.csv`
 - `deliverables/milestone_m1/notes/*.md`
-- 关键图 `deliverables/milestone_m1/figs/*.png`
+- `deliverables/milestone_m1/figs/*.png`
 
 建议忽略：
 

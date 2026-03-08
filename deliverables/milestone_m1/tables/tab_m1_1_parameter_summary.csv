@@ -1,0 +1,14 @@
+section,name,value,note
+stage01,R_D_km,1000,protected disk radius
+stage01,R_in_km,3000,entry boundary radius
+stage02,v0_mps,5500,initial speed
+stage02,h0_m,50000,initial altitude
+stage02,theta0_deg,-3,initial flight-path angle
+stage03,walker_h_km,1000,Walker baseline altitude
+stage03,walker_i_deg,70,Walker baseline inclination
+stage03,walker_P,8,number of planes
+stage03,walker_T,12,satellites per plane
+stage03,walker_F,1,Walker phasing
+stage04,Tw_s,60,window length
+stage04,window_step_s,5,window scan step
+stage04,gamma_req,1,margin threshold
