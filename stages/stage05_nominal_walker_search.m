@@ -1,12 +1,13 @@
 function out = stage05_nominal_walker_search()
     %STAGE05_NOMINAL_WALKER_SEARCH
-    % Stage05.2: nominal-family Walker static search over (i, P, T) with fixed h.
+    % Stage05.2b: nominal-family Walker static search over (i, P, T) with fixed h.
     %
-    % Supports:
-    %   - automatic parallel pool startup
-    %   - live progress reporting in parallel mode
-    %   - hard-case-first evaluation
-    %   - early stop for strict pass-ratio criterion
+    % Main improvements over Stage05.2a:
+    %   - uses parfeval + fetchNext for robust live progress
+    %   - prints [SUBMIT] immediately when jobs are dispatched
+    %   - prints [LIVE-DONE] immediately when each job finishes
+    %   - avoids unreliable live callback behavior under ThreadPool
+    %   - keeps auto pool startup, hard-case-first, early-stop, and light cache
     
         startup();
         cfg = default_params();
@@ -26,7 +27,7 @@ function out = stage05_nominal_walker_search()
         end
         cleanupObj = onCleanup(@() fclose(log_fid)); %#ok<NASGU>
     
-        log_msg(log_fid, 'INFO', 'Stage05.2 started.');
+        log_msg(log_fid, 'INFO', 'Stage05.2b started.');
     
         % ------------------------------------------------------------
         % Load latest Stage04 cache: inherit gamma_req
@@ -120,37 +121,46 @@ function out = stage05_nominal_walker_search()
         nGrid = height(grid);
     
         % ------------------------------------------------------------
-        % Parallel pool
+        % Pool setup
         % ------------------------------------------------------------
-        if cfg.stage05.use_parallel && cfg.stage05.auto_start_pool
-            pool = ensure_parallel_pool( ...
-                cfg.stage05.parallel_pool_profile, ...
-                cfg.stage05.parallel_num_workers);
-        
+        use_parallel = cfg.stage05.use_parallel;
+    
+        requested_profile = string(cfg.stage05.parallel_pool_profile);
+        if use_parallel && cfg.stage05.use_live_progress && requested_profile == "threads"
+            log_msg(log_fid, 'INFO', ...
+                'Live progress is more reliable with process-based workers. Switching profile from threads to local.');
+            requested_profile = "local";
+        end
+    
+        if use_parallel && cfg.stage05.auto_start_pool
+            pool = ensure_parallel_pool(char(requested_profile), cfg.stage05.parallel_num_workers);
             pool_type = class(pool);
             log_msg(log_fid, 'INFO', ...
                 'Parallel mode enabled. RequestedProfile=%s, PoolType=%s, Workers=%d', ...
-                string(cfg.stage05.parallel_pool_profile), pool_type, pool.NumWorkers);
-        
-        elseif cfg.stage05.use_parallel
+                requested_profile, pool_type, pool.NumWorkers);
+        elseif use_parallel
             pool = gcp('nocreate');
             if isempty(pool)
                 error(['cfg.stage05.use_parallel=true but no pool exists. ' ...
                        'Either open pool manually or set auto_start_pool=true.']);
             end
-        
             pool_type = class(pool);
             log_msg(log_fid, 'INFO', ...
                 'Parallel mode enabled. ExistingPoolType=%s, Workers=%d', ...
                 pool_type, pool.NumWorkers);
         else
+            pool = [];
             log_msg(log_fid, 'INFO', 'Parallel mode disabled.');
         end
     
         % ------------------------------------------------------------
         % Preallocate result arrays
         % ------------------------------------------------------------
-        eval_bank = cell(nGrid,1);
+        if isfield(cfg.stage05, 'save_eval_bank') && cfg.stage05.save_eval_bank
+            eval_bank = cell(nGrid,1);
+        else
+            eval_bank = [];
+        end
     
         is_evaluated = false(nGrid,1);
         lambda_worst_min = nan(nGrid,1);
@@ -163,27 +173,45 @@ function out = stage05_nominal_walker_search()
         n_case_evaluated = nan(nGrid,1);
         failed_early = false(nGrid,1);
     
-        % ------------------------------------------------------------
-        % Live progress support
-        % ------------------------------------------------------------
+        started_count = 0;
         completed_count = 0;
         feasible_count_live = 0;
-    
-        if cfg.stage05.use_parallel && cfg.stage05.use_live_progress
-            dq = parallel.pool.DataQueue;
-            afterEach(dq, @local_progress_callback);
-        else
-            dq = [];
-        end
+        t_start = tic;
     
         % ------------------------------------------------------------
-        % Evaluate each design point
+        % Evaluate
         % ------------------------------------------------------------
-        if cfg.stage05.use_parallel
-            parfor r = 1:nGrid
+        if use_parallel
+            futures(nGrid,1) = parallel.FevalFuture;
+    
+            % ---- submit stage ----
+            for r = 1:nGrid
                 row = grid(r,:);
-                res = evaluate_single_layer_walker_stage05(row, trajs_nominal, gamma_req, cfg, hard_order);
-                eval_bank{r} = res;
+    
+                started_count = started_count + 1;
+                if cfg.stage05.use_live_progress && mod(started_count, cfg.stage05.progress_every) == 0
+                    elapsed_s = toc(t_start);
+                    msg = sprintf(['[SUBMIT   ] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | elapsed=%.1fs'], ...
+                        r, nGrid, row.i_deg, row.P, row.T, row.Ns, elapsed_s);
+                    fprintf('%s\n', msg);
+                    log_msg(log_fid, 'INFO', '%s', msg);
+                end
+    
+                futures(r) = parfeval(pool, @evaluate_single_layer_walker_stage05, 1, ...
+                    row, trajs_nominal, gamma_req, cfg, hard_order);
+            end
+    
+            % ---- collect stage ----
+            future_to_grid_idx = 1:nGrid;
+    
+            for k = 1:nGrid
+                [completed_idx, res] = fetchNext(futures);
+                r = future_to_grid_idx(completed_idx);
+                row = grid(r,:);
+    
+                if ~isempty(eval_bank)
+                    eval_bank{r} = res;
+                end
     
                 is_evaluated(r) = true;
                 lambda_worst_min(r) = res.lambda_worst_min;
@@ -196,25 +224,41 @@ function out = stage05_nominal_walker_search()
                 n_case_evaluated(r) = res.n_case_evaluated;
                 failed_early(r) = res.failed_early;
     
-                if ~isempty(dq)
-                    payload = struct( ...
-                        'r', r, ...
-                        'nGrid', nGrid, ...
-                        'row', row, ...
-                        'lambda_worst_min', res.lambda_worst_min, ...
-                        'D_G_min', res.D_G_min, ...
-                        'pass_ratio', res.pass_ratio, ...
-                        'feasible_flag', res.feasible_flag, ...
-                        'n_case_evaluated', res.n_case_evaluated, ...
-                        'failed_early', res.failed_early);
-                    send(dq, payload);
+                completed_count = completed_count + 1;
+                feasible_count_live = feasible_count_live + double(res.feasible_flag);
+    
+                if cfg.stage05.use_live_progress && mod(completed_count, cfg.stage05.progress_every) == 0
+                    elapsed_s = toc(t_start);
+                    msg = sprintf(['[LIVE-DONE] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | ' ...
+                                   'D_G_min=%.3f | pass_ratio=%.3f | feasible=%d | ' ...
+                                   'nCase=%2d | early=%d | feasibleSoFar=%d | elapsed=%.1fs'], ...
+                        completed_count, nGrid, row.i_deg, row.P, row.T, row.Ns, ...
+                        res.D_G_min, res.pass_ratio, res.feasible_flag, ...
+                        res.n_case_evaluated, res.failed_early, feasible_count_live, elapsed_s);
+    
+                    fprintf('%s\n', msg);
+                    log_msg(log_fid, 'INFO', '%s', msg);
                 end
             end
+    
         else
             for r = 1:nGrid
                 row = grid(r,:);
+    
+                started_count = started_count + 1;
+                if cfg.stage05.use_live_progress && mod(started_count, cfg.stage05.progress_every) == 0
+                    elapsed_s = toc(t_start);
+                    msg = sprintf(['[SUBMIT   ] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | elapsed=%.1fs'], ...
+                        r, nGrid, row.i_deg, row.P, row.T, row.Ns, elapsed_s);
+                    fprintf('%s\n', msg);
+                    log_msg(log_fid, 'INFO', '%s', msg);
+                end
+    
                 res = evaluate_single_layer_walker_stage05(row, trajs_nominal, gamma_req, cfg, hard_order);
-                eval_bank{r} = res;
+    
+                if ~isempty(eval_bank)
+                    eval_bank{r} = res;
+                end
     
                 is_evaluated(r) = true;
                 lambda_worst_min(r) = res.lambda_worst_min;
@@ -227,13 +271,21 @@ function out = stage05_nominal_walker_search()
                 n_case_evaluated(r) = res.n_case_evaluated;
                 failed_early(r) = res.failed_early;
     
-                log_msg(log_fid, 'INFO', ...
-                    ['Grid %3d/%3d | h=%.0f km | i=%5.1f deg | P=%2d | T=%2d | Ns=%3d | ' ...
-                     'lambda_min=%.3e | D_G_min=%.3f | pass_ratio=%.3f | feasible=%d | ' ...
-                     'nCaseEval=%2d | early=%d'], ...
-                    r, nGrid, row.h_km, row.i_deg, row.P, row.T, row.Ns, ...
-                    res.lambda_worst_min, res.D_G_min, res.pass_ratio, res.feasible_flag, ...
-                    res.n_case_evaluated, res.failed_early);
+                completed_count = completed_count + 1;
+                feasible_count_live = feasible_count_live + double(res.feasible_flag);
+    
+                if cfg.stage05.use_live_progress && mod(completed_count, cfg.stage05.progress_every) == 0
+                    elapsed_s = toc(t_start);
+                    msg = sprintf(['[LIVE-DONE] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | ' ...
+                                   'D_G_min=%.3f | pass_ratio=%.3f | feasible=%d | ' ...
+                                   'nCase=%2d | early=%d | feasibleSoFar=%d | elapsed=%.1fs'], ...
+                        completed_count, nGrid, row.i_deg, row.P, row.T, row.Ns, ...
+                        res.D_G_min, res.pass_ratio, res.feasible_flag, ...
+                        res.n_case_evaluated, res.failed_early, feasible_count_live, elapsed_s);
+    
+                    fprintf('%s\n', msg);
+                    log_msg(log_fid, 'INFO', '%s', msg);
+                end
             end
         end
     
@@ -252,22 +304,6 @@ function out = stage05_nominal_walker_search()
         grid.failed_early = failed_early;
     
         % ------------------------------------------------------------
-        % If parallel + live progress, still write full results to log once
-        % ------------------------------------------------------------
-        if cfg.stage05.use_parallel
-            for r = 1:nGrid
-                row = grid(r,:);
-                log_msg(log_fid, 'INFO', ...
-                    ['Grid %3d/%3d | h=%.0f km | i=%5.1f deg | P=%2d | T=%2d | Ns=%3d | ' ...
-                     'lambda_min=%.3e | D_G_min=%.3f | pass_ratio=%.3f | feasible=%d | ' ...
-                     'nCaseEval=%2d | early=%d'], ...
-                    r, nGrid, row.h_km, row.i_deg, row.P, row.T, row.Ns, ...
-                    grid.lambda_worst_min(r), grid.D_G_min(r), grid.pass_ratio(r), grid.feasible_flag(r), ...
-                    grid.n_case_evaluated(r), grid.failed_early(r));
-            end
-        end
-    
-        % ------------------------------------------------------------
         % Sort feasible candidates
         % ------------------------------------------------------------
         feasible_grid = grid(grid.feasible_flag, :);
@@ -282,6 +318,7 @@ function out = stage05_nominal_walker_search()
         summary.gamma_req = gamma_req;
         summary.num_feasible = sum(grid.feasible_flag);
         summary.num_failed_early = sum(grid.failed_early);
+        summary.walltime_s = toc(t_start);
     
         if ~isempty(feasible_grid)
             summary.best_feasible = feasible_grid(1,:);
@@ -297,6 +334,7 @@ function out = stage05_nominal_walker_search()
         log_msg(log_fid, 'INFO', 'Evaluated grid size: %d', height(grid));
         log_msg(log_fid, 'INFO', 'Feasible count: %d', summary.num_feasible);
         log_msg(log_fid, 'INFO', 'Early-stop count: %d', summary.num_failed_early);
+        log_msg(log_fid, 'INFO', 'Wall time: %.2f s', summary.walltime_s);
     
         % ------------------------------------------------------------
         % Export tables
@@ -318,8 +356,11 @@ function out = stage05_nominal_walker_search()
         out.cfg = cfg;
         out.grid = grid;
         out.feasible_grid = feasible_grid;
-        out.eval_bank = eval_bank;
         out.summary = summary;
+    
+        if ~isempty(eval_bank)
+            out.eval_bank = eval_bank;
+        end
     
         out.stage02_file = stage02_file;
         out.stage04_file = stage04_file;
@@ -334,10 +375,10 @@ function out = stage05_nominal_walker_search()
         save(cache_file, 'out', '-v7.3');
     
         log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
-        log_msg(log_fid, 'INFO', 'Stage05.2 finished.');
+        log_msg(log_fid, 'INFO', 'Stage05.2b finished.');
     
         fprintf('\n');
-        fprintf('========== Stage05.2 Summary ==========\n');
+        fprintf('========== Stage05.2b Summary ==========\n');
         fprintf('Log file       : %s\n', out.log_file);
         fprintf('Result table   : %s\n', out.table_file);
         fprintf('Feasible table : %s\n', out.feasible_table_file);
@@ -345,20 +386,6 @@ function out = stage05_nominal_walker_search()
         fprintf('Grid size      : %d\n', height(out.grid));
         fprintf('Feasible count : %d\n', summary.num_feasible);
         fprintf('Early-stop cnt : %d\n', summary.num_failed_early);
-        fprintf('=======================================\n');
-    
-        % nested callback
-        function local_progress_callback(payload)
-            completed_count = completed_count + 1;
-            feasible_count_live = feasible_count_live + double(payload.feasible_flag);
-    
-            if mod(completed_count, cfg.stage05.progress_every) == 0
-                row = payload.row;
-                fprintf(['[LIVE] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | ' ...
-                         'D_G_min=%.3f | pass_ratio=%.3f | feasible=%d | nCase=%2d | early=%d\n'], ...
-                    completed_count, payload.nGrid, row.i_deg, row.P, row.T, row.Ns, ...
-                    payload.D_G_min, payload.pass_ratio, payload.feasible_flag, ...
-                    payload.n_case_evaluated, payload.failed_early);
-            end
-        end
+        fprintf('Wall time (s)  : %.2f\n', summary.walltime_s);
+        fprintf('========================================\n');
     end

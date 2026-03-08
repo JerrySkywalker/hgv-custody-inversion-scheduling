@@ -335,7 +335,7 @@ function cfg = default_params()
     % parallel options
     cfg.stage05.use_parallel = true;
     cfg.stage05.auto_start_pool = true;
-    cfg.stage05.parallel_pool_profile = 'threads';   % 'threads' or 'local'
+    cfg.stage05.parallel_pool_profile = 'local';   % 'threads' or 'local'
     cfg.stage05.parallel_num_workers = [];           % [] means default
 
     % early-stop options
@@ -345,6 +345,9 @@ function cfg = default_params()
     % logging / progress
     cfg.stage05.use_live_progress = true;
     cfg.stage05.progress_every = 1;   % print every N completed grid points
+
+    % cache size control
+    cfg.stage05.save_eval_bank = false;
 
     % optional plotting
     cfg.stage05.make_plot = false;
