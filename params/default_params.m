@@ -23,6 +23,61 @@ function cfg = default_params()
     cfg.paths.tables  = fullfile(root_dir, 'results', 'tables');
     cfg.paths.bundles = fullfile(root_dir, 'results', 'bundles');
 
+    % ============================================================
+    % Geodetic anchor and time-base configuration
+    % =============================================================
+    cfg.geo = struct();
+
+    % Master switch:
+    % false -> legacy abstract regional frame
+    % true  -> geodetic-anchored regional frame with Earth rotation support
+    cfg.geo.enable_geodetic_anchor = true;
+
+    % Representative protected-zone center (non-sensitive open-ocean anchor)
+    cfg.geo.lat0_deg = 30.0;
+    cfg.geo.lon0_deg = -160.0;
+    cfg.geo.h0_m     = 0.0;
+
+    % Optional local-frame naming convention
+    cfg.geo.local_frame = 'ENU';
+
+    % WGS84 ellipsoid constants
+    cfg.geo.earth_model = 'WGS84';
+    cfg.geo.a_m  = 6378137.0;                 % semi-major axis [m]
+    cfg.geo.f    = 1 / 298.257223563;         % flattening [-]
+    cfg.geo.b_m  = cfg.geo.a_m * (1 - cfg.geo.f);
+    cfg.geo.e2   = 2*cfg.geo.f - cfg.geo.f^2; % first eccentricity squared
+
+    cfg.geo.lat0_rad = deg2rad(cfg.geo.lat0_deg);
+    cfg.geo.lon0_rad = deg2rad(cfg.geo.lon0_deg);
+
+    if cfg.geo.enable_geodetic_anchor
+        cfg.meta.scene_mode = 'geodetic';
+    else
+        cfg.meta.scene_mode = 'abstract';
+    end
+
+    % ============================================================
+    % Global time-base and Earth rotation configuration
+    % =============================================================
+    cfg.time = struct();
+
+    % Global reference epoch for all geodetic/ECI-ECEF transformations
+    cfg.time.epoch_utc = '2026-01-01 00:00:00';
+
+    % Earth rotation model
+    % 'simple' means a lightweight GMST/Earth-spin model sufficient for current stage
+    cfg.time.earth_rotation_model = 'simple';
+
+    % Earth rotation rate [rad/s]
+    cfg.time.omega_ie_radps = 7.2921150e-5;
+
+    % Time system label (for documentation / future extension)
+    cfg.time.time_system = 'UTC';
+
+    % Whether future stages should output timestamps relative to epoch
+    cfg.time.output_relative_time = true;
+
     % ---------------------------
     % Random seed
     % ---------------------------
