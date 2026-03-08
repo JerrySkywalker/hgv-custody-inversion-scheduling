@@ -1,20 +1,29 @@
 function vis_case = compute_visibility_matrix_stage03(traj_case, satbank, cfg)
     %COMPUTE_VISIBILITY_MATRIX_STAGE03 Compute target-satellite visibility mask.
+    %
+    % Stage04G.5:
+    %   - use Stage02 traj.r_eci_km directly as true target inertial trajectory
+    %   - align target and satellite time histories on the common prefix length
     
         t_s = traj_case.traj.t_s;
-        Nt = numel(t_s);
+        Nt_traj = numel(t_s);
         Ns = satbank.Ns;
-
-        assert(size(satbank.r_eci_km,1) >= Nt, ...
+    
+        Nt_sat = size(satbank.r_eci_km, 1);
+        assert(Nt_sat >= Nt_traj, ...
             'satbank time dimension (%d) is shorter than trajectory time dimension (%d).', ...
-            size(satbank.r_eci_km,1), Nt);
+            Nt_sat, Nt_traj);
     
-        % Build target inertial-like position directly from Stage02 spherical state
+        % ------------------------------------------------------------
+        % Use true Stage02 inertial trajectory directly
+        % ------------------------------------------------------------
         r_tgt_eci_km = eci_from_stage02_target_stage03(traj_case, cfg);
+        assert(size(r_tgt_eci_km,1) == Nt_traj, ...
+            'Target ECI trajectory length mismatch.');
     
-        visible_mask = false(Nt, Ns);
+        visible_mask = false(Nt_traj, Ns);
     
-        for k = 1:Nt
+        for k = 1:Nt_traj
             r_tgt_km = r_tgt_eci_km(k,:);
             for s = 1:Ns
                 r_sat_km = satbank.r_eci_km(k,:,s);

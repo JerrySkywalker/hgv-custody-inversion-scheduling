@@ -2,6 +2,11 @@ function out = stage03_visibility_pipeline()
     %STAGE03_VISIBILITY_PIPELINE
     % Build single-layer Walker baseline and compute visibility pipeline
     % for Stage02 trajectory bank.
+    %
+    % Stage04G.5:
+    %   - use true Stage02 traj.r_eci_km as target inertial trajectory
+    %   - keep current project structure unchanged
+    %   - keep outputs compatible with Stage04
     
         startup();
         cfg = default_params();
@@ -33,20 +38,19 @@ function out = stage03_visibility_pipeline()
     
         log_msg(log_fid, 'INFO', 'Loaded Stage02 cache: %s', stage02_file);
     
-       % ------------------------------------------------------------
+        % ------------------------------------------------------------
         % Build a common time grid covering all Stage02 trajectories
         % ------------------------------------------------------------
         all_trajs = [trajbank.nominal; trajbank.heading; trajbank.critical];
         t_end_all = arrayfun(@(s) s.traj.t_s(end), all_trajs);
         t_max = max(t_end_all);
-
-        % Assume Stage02 uses a common sampling step
+    
         dt = cfg.stage02.Ts_s;
         t_s_common = (0:dt:t_max).';
-
+    
         walker = build_single_layer_walker_stage03(cfg);
         satbank = propagate_constellation_stage03(walker, t_s_common);
-
+    
         log_msg(log_fid, 'INFO', ...
             'Walker baseline built: h=%.1f km, i=%.1f deg, P=%d, T=%d, Ns=%d, Nt=%d', ...
             walker.h_km, walker.i_deg, walker.P, walker.T, walker.Ns, numel(t_s_common));
@@ -70,7 +74,8 @@ function out = stage03_visibility_pipeline()
             fig = plot_visibility_case_stage03(example_vis.vis_case, example_vis.los_geom, cfg);
     
             fig_file = fullfile(cfg.paths.figs, ...
-                sprintf('stage03_visibility_case_%s_%s.png', cfg.stage03.example_case_id, datestr(now, 'yyyymmdd_HHMMSS')));
+                sprintf('stage03_visibility_case_%s_%s.png', ...
+                cfg.stage03.example_case_id, datestr(now, 'yyyymmdd_HHMMSS')));
             exportgraphics(fig, fig_file, 'Resolution', 180);
             close(fig);
     
@@ -106,7 +111,12 @@ function out = stage03_visibility_pipeline()
         fprintf('=====================================\n');
     end
     
+    %% ========================================================================
+    % local helpers
+    % ========================================================================
+    
     function family_out = local_run_family(trajs_in, satbank, cfg, log_fid)
+    
         family_out = repmat(struct('case_id', [], 'family', [], 'subfamily', [], ...
                                    'vis_case', [], 'los_geom', [], 'summary', []), numel(trajs_in), 1);
     

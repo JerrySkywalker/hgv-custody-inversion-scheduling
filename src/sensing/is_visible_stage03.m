@@ -1,5 +1,5 @@
 function tf = is_visible_stage03(r_sat_km, r_tgt_km, cfg)
-    %IS_VISIBLE_STAGE03 Refined visibility check for Stage03.1
+    %IS_VISIBLE_STAGE03 Refined visibility check in ECI geometry.
     %
     % Conditions:
     %   1) max range
@@ -25,8 +25,12 @@ function tf = is_visible_stage03(r_sat_km, r_tgt_km, cfg)
             Re_km = 6378.137;
     
             d = los_km / norm(los_km);
+    
+            % Closest point to Earth center on the finite segment from sat to tgt
             t_ca = -dot(r_sat_km, d);
             t_ca = max(t_ca, 0);
+            t_ca = min(t_ca, range_km);
+    
             p_ca = r_sat_km + t_ca * d;
     
             if norm(p_ca) < Re_km
@@ -37,10 +41,6 @@ function tf = is_visible_stage03(r_sat_km, r_tgt_km, cfg)
     
         % ------------------------------------------------------------
         % 3) Off-nadir constraint
-        %
-        % Nadir direction at satellite is toward Earth center: -r_sat
-        % LOS direction to target is los_km
-        % off-nadir angle = angle between (-r_sat) and los_km
         % ------------------------------------------------------------
         if isfield(cfg.stage03, 'enable_offnadir_constraint') && cfg.stage03.enable_offnadir_constraint
             nadir_dir = -r_sat_km / norm(r_sat_km);
@@ -57,10 +57,7 @@ function tf = is_visible_stage03(r_sat_km, r_tgt_km, cfg)
         end
     
         % ------------------------------------------------------------
-        % 4) Optional min-elevation-like constraint
-        % Here we define elevation at target point approximately as:
-        %   elevation = 90 - angle(local zenith, line toward satellite)
-        % local zenith at target: r_tgt / ||r_tgt||
+        % 4) Min elevation-like constraint
         % ------------------------------------------------------------
         if isfield(cfg.stage03, 'enable_min_elevation_constraint') && cfg.stage03.enable_min_elevation_constraint
             zenith_dir = r_tgt_km / norm(r_tgt_km);
