@@ -548,4 +548,26 @@ function cfg = default_params()
     cfg.stage07.entry_sampling.enable = true;
     cfg.stage07.entry_sampling.max_entry_count = 12;
     cfg.stage07.entry_sampling.rule = 'all_stage02_nominal_entries';
+
+    % -------------------------------------------------
+    % Stage07.4: critical example selection
+    % -------------------------------------------------
+    cfg.stage07.selection = struct();
+
+    % nominal sample definition
+    cfg.stage07.selection.nominal_heading_offset_deg = 0;
+
+    % C1 selection
+    cfg.stage07.selection.C1_max_distance_deg = 10;   % within 10 deg to nearest track-plane heading
+    cfg.stage07.selection.C1_prefer_smaller_DG = true;
+
+    % C2 selection
+    cfg.stage07.selection.C2_require_high_coverage = cfg.stage07.danger.coverage_good_threshold;
+    cfg.stage07.selection.C2_exclude_C1_neighborhood_deg = 10;  % avoid selecting same local mode as C1
+    cfg.stage07.selection.C2_prefer_min_DG = true;
+    cfg.stage07.selection.C2_secondary_prefer_min_lambda = true;
+    cfg.stage07.selection.C2_tertiary_prefer_min_angle = true;
+
+    % whether to keep only entries with complete nominal+C1+C2 triplets
+    cfg.stage07.selection.require_complete_triplet = false;
 end
