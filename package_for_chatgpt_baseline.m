@@ -4,9 +4,13 @@ function zipFilePath = package_for_chatgpt_baseline()
 % Packages the version at the latest commit (stable baseline for ChatGPT).
 % Includes params/, src/, stages/, and root-level tracked files.
 %
-% Filename: [StageXX.Y]_yyyymmdd_HHMMSS_baseline.zip
-% Stage tag: from the latest commit on the current branch whose subject
-%            starts with a [Stage...] marker.
+% Filename:
+%   [StageXX.Y]_SHA7_yyyymmdd_HHMMSS_baseline.zip
+%
+%   - [StageXX.Y]: latest [Stage...] marker in the current branch log
+%   - SHA7      : short SHA (7 chars) of the current HEAD commit
+%   - yyyymmdd  : current date
+%   - HHMMSS    : current time
 %
 % Usage (from MATLAB):
 %   zipPath = package_for_chatgpt_baseline();
@@ -18,8 +22,10 @@ function zipFilePath = package_for_chatgpt_baseline()
     cd(repo_root);
 
     stageLabel = detect_stage_label();
-    timestamp = datestr(now, 'yyyymmdd_HHMMSS');
-    zipName = sprintf('%s_%s_baseline.zip', stageLabel, timestamp);
+    shaShort  = detect_head_sha();
+    datePart  = datestr(now, 'yyyymmdd');
+    timePart  = datestr(now, 'HHMMSS');
+    zipName = sprintf('%s_%s_%s_%s_baseline.zip', stageLabel, shaShort, datePart, timePart);
 
     % Save archive in the parent directory of the repository root
     parent_root = fileparts(repo_root);
@@ -98,4 +104,15 @@ function stageLabel = detect_stage_label()
             return;
         end
     end
+end
+
+
+function shaShort = detect_head_sha()
+%DETECT_HEAD_SHA  Get short SHA (7 chars) of current HEAD commit.
+
+    [status, out] = system('git rev-parse --short HEAD');
+    if status ~= 0
+        error('Failed to query git rev-parse. Ensure git is installed and this folder is a git repository.');
+    end
+    shaShort = strtrim(out);
 end

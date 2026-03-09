@@ -4,9 +4,13 @@ function zipFilePath = package_for_chatgpt()
 % Packages the current working directory (unstable version: may contain
 % uncommitted changes). Includes params/, src/, stages/, and root files.
 %
-% Filename: [StageXX.Y]_yyyymmdd_HHMMSS_working.zip
-% Stage tag: from the latest commit on the current branch whose subject
-%            starts with a [Stage...] marker.
+% Filename:
+%   [StageXX.Y]_SHA7_yyyymmdd_HHMMSS_working.zip
+%
+%   - [StageXX.Y]: latest [Stage...] marker in the current branch log
+%   - SHA7      : short SHA (7 chars) of the current HEAD commit
+%   - yyyymmdd  : current date
+%   - HHMMSS    : current time
 %
 % Usage (from MATLAB):
 %   zipPath = package_for_chatgpt();
@@ -18,8 +22,10 @@ function zipFilePath = package_for_chatgpt()
     cd(repo_root);
 
     stageLabel = detect_stage_label();
-    timestamp = datestr(now, 'yyyymmdd_HHMMSS');
-    zipName = sprintf('%s_%s_working.zip', stageLabel, timestamp);
+    shaShort  = detect_head_sha();
+    datePart  = datestr(now, 'yyyymmdd');
+    timePart  = datestr(now, 'HHMMSS');
+    zipName = sprintf('%s_%s_%s_%s_working.zip', stageLabel, shaShort, datePart, timePart);
 
     % Save archive in the parent directory of the repository root
     parent_root = fileparts(repo_root);
@@ -83,5 +89,16 @@ function stageLabel = detect_stage_label()
             return;
         end
     end
+end
+
+
+function shaShort = detect_head_sha()
+%DETECT_HEAD_SHA  Get short SHA (7 chars) of current HEAD commit.
+
+    [status, out] = system('git rev-parse --short HEAD');
+    if status ~= 0
+        error('Failed to query git rev-parse. Ensure git is installed and this folder is a git repository.');
+    end
+    shaShort = strtrim(out);
 end
 
