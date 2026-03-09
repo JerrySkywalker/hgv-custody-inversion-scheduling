@@ -1,4 +1,4 @@
-function out = stage06_define_heading_scope()
+function out = stage06_define_heading_scope(cfg)
     %STAGE06_DEFINE_HEADING_SCOPE
     % Stage06.1:
     %   Freeze experiment scope for heading-extended family search.
@@ -21,17 +21,21 @@ function out = stage06_define_heading_scope()
     %   - this is a scope-freezing / self-check stage only
     
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
+        cfg = stage06_prepare_cfg(cfg);
         cfg.project_stage = 'stage06_define_heading_scope';
-    
+        run_tag = char(cfg.stage06.run_tag);
+
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
         ensure_dir(cfg.paths.cache);
         ensure_dir(cfg.paths.tables);
-    
+
         timestamp = datestr(now, 'yyyymmdd_HHMMSS');
         log_file = fullfile(cfg.paths.logs, ...
-            sprintf('stage06_define_heading_scope_%s.log', timestamp));
+            sprintf('stage06_define_heading_scope_%s_%s.log', run_tag, timestamp));
         log_fid = fopen(log_file, 'w');
         if log_fid < 0
             error('Failed to open log file: %s', log_file);
@@ -185,7 +189,7 @@ function out = stage06_define_heading_scope()
             'self_check_all_ok'});
     
         summary_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_heading_scope_summary_%s.csv', timestamp));
+            sprintf('stage06_heading_scope_summary_%s_%s.csv', run_tag, timestamp));
         writetable(summary_table, summary_csv);
     
         % ============================================================
@@ -204,7 +208,7 @@ function out = stage06_define_heading_scope()
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
     
         cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage06_define_heading_scope_%s.mat', timestamp));
+            sprintf('stage06_define_heading_scope_%s_%s.mat', run_tag, timestamp));
         save(cache_file, 'out', '-v7.3');
         out.files.cache_file = cache_file;
     

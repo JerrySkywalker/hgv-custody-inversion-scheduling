@@ -1,4 +1,4 @@
-function out = stage06_heading_walker_search()
+function out = stage06_heading_walker_search(cfg)
     %STAGE06_HEADING_WALKER_SEARCH
     % Stage06.3: heading-extended-family Walker static search over (i, P, T) with fixed h.
     %
@@ -9,19 +9,23 @@ function out = stage06_heading_walker_search()
     %   - uses parfeval + fetchNext for live progress
     %   - keeps early-stop and light cache
     %   - exports Stage06-specific result tables
-    
+
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
+        cfg = stage06_prepare_cfg(cfg);
         cfg.project_stage = 'stage06_heading_walker_search';
-    
+        run_tag = char(cfg.stage06.run_tag);
+
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
         ensure_dir(cfg.paths.cache);
         ensure_dir(cfg.paths.tables);
-    
+
         timestamp = datestr(now, 'yyyymmdd_HHMMSS');
         log_file = fullfile(cfg.paths.logs, ...
-            sprintf('stage06_heading_walker_search_%s.log', timestamp));
+            sprintf('stage06_heading_walker_search_%s_%s.log', run_tag, timestamp));
         log_fid = fopen(log_file, 'w');
         if log_fid < 0
             error('Failed to open log file: %s', log_file);
@@ -323,12 +327,12 @@ function out = stage06_heading_walker_search()
         % Export tables
         % ------------------------------------------------------------
         table_file = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_heading_search_results_%s.csv', timestamp));
+            sprintf('stage06_heading_search_results_%s_%s.csv', run_tag, timestamp));
         writetable(grid, table_file);
         log_msg(log_fid, 'INFO', 'Search result table saved to: %s', table_file);
-    
+
         feasible_table_file = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_heading_search_feasible_%s.csv', timestamp));
+            sprintf('stage06_heading_search_feasible_%s_%s.csv', run_tag, timestamp));
         writetable(feasible_grid, feasible_table_file);
         log_msg(log_fid, 'INFO', 'Feasible table saved to: %s', feasible_table_file);
     
@@ -355,7 +359,7 @@ function out = stage06_heading_walker_search()
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
     
         cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage06_heading_walker_search_%s.mat', timestamp));
+            sprintf('stage06_heading_walker_search_%s_%s.mat', run_tag, timestamp));
         save(cache_file, 'out', '-v7.3');
     
         log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);

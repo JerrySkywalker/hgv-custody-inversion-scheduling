@@ -1,4 +1,4 @@
-function out = stage06_plot_heading_results()
+function out = stage06_plot_heading_results(cfg)
     %STAGE06_PLOT_HEADING_RESULTS
     % Stage06.5:
     %   Plot comparison figures between Stage05 nominal results and
@@ -13,21 +13,25 @@ function out = stage06_plot_heading_results()
     % Saved to:
     %   results/figures/stage06_*.png
     %   results/figures/stage06_*.fig
-    
+
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
+        cfg = stage06_prepare_cfg(cfg);
         cfg.project_stage = 'stage06_plot_heading_results';
-        
+        run_tag = char(cfg.stage06.run_tag);
+
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
         ensure_dir(cfg.paths.cache);
-        
-        fig_dir = fullfile(fileparts(cfg.paths.cache), 'figs');
+
+        fig_dir = cfg.paths.figs;
         ensure_dir(fig_dir);
-    
+
         timestamp = datestr(now, 'yyyymmdd_HHMMSS');
         log_file = fullfile(cfg.paths.logs, ...
-            sprintf('stage06_plot_heading_results_%s.log', timestamp));
+            sprintf('stage06_plot_heading_results_%s_%s.log', run_tag, timestamp));
         log_fid = fopen(log_file, 'w');
         if log_fid < 0
             error('Failed to open log file: %s', log_file);
@@ -47,20 +51,22 @@ function out = stage06_plot_heading_results()
         grid05 = S5.out.grid;
     
         % ============================================================
-        % Load latest Stage06 cache
+        % Load latest Stage06 cache (by run_tag)
         % ============================================================
-        d6 = dir(fullfile(cfg.paths.cache, 'stage06_heading_walker_search_*.mat'));
-        assert(~isempty(d6), 'No Stage06 cache found.');
+        d6 = dir(fullfile(cfg.paths.cache, ...
+            sprintf('stage06_heading_walker_search_%s_*.mat', run_tag)));
+        assert(~isempty(d6), 'No Stage06 cache found for run_tag: %s.', run_tag);
         [~, idx6] = max([d6.datenum]);
         stage06_file = fullfile(d6(idx6).folder, d6(idx6).name);
         S6 = load(stage06_file);
         grid06 = S6.out.grid;
-    
+
         % ============================================================
-        % Load latest Stage06 compare cache
+        % Load latest Stage06 compare cache (by run_tag)
         % ============================================================
-        dc = dir(fullfile(cfg.paths.cache, 'stage06_compare_with_stage05_*.mat'));
-        assert(~isempty(dc), 'No Stage06 compare cache found. Please run stage06_compare_with_stage05 first.');
+        dc = dir(fullfile(cfg.paths.cache, ...
+            sprintf('stage06_compare_with_stage05_%s_*.mat', run_tag)));
+        assert(~isempty(dc), 'No Stage06 compare cache found for run_tag: %s. Please run stage06_compare_with_stage05 first.', run_tag);
         [~, idxc] = max([dc.datenum]);
         compare_file = fullfile(dc(idxc).folder, dc(idxc).name);
         Sc = load(compare_file);
@@ -100,8 +106,8 @@ function out = stage06_plot_heading_results()
         cb1.Label.String = 'Inclination i (deg)';
         legend('Location','best');
     
-        f1_png = fullfile(fig_dir, sprintf('stage06_fig1_feasible_scatter_%s.png', timestamp));
-        f1_fig = fullfile(fig_dir, sprintf('stage06_fig1_feasible_scatter_%s.fig', timestamp));
+        f1_png = fullfile(fig_dir, sprintf('stage06_fig1_feasible_scatter_%s_%s.png', run_tag, timestamp));
+        f1_fig = fullfile(fig_dir, sprintf('stage06_fig1_feasible_scatter_%s_%s.fig', run_tag, timestamp));
         saveas(fig1, f1_png);
         savefig(fig1, f1_fig);
     
@@ -131,8 +137,8 @@ function out = stage06_plot_heading_results()
                 'FontSize', 9, 'VerticalAlignment','bottom');
         end
     
-        f2_png = fullfile(fig_dir, sprintf('stage06_fig2_frontier_compare_%s.png', timestamp));
-        f2_fig = fullfile(fig_dir, sprintf('stage06_fig2_frontier_compare_%s.fig', timestamp));
+        f2_png = fullfile(fig_dir, sprintf('stage06_fig2_frontier_compare_%s_%s.png', run_tag, timestamp));
+        f2_fig = fullfile(fig_dir, sprintf('stage06_fig2_frontier_compare_%s_%s.fig', run_tag, timestamp));
         saveas(fig2, f2_png);
         savefig(fig2, f2_fig);
     
@@ -174,8 +180,8 @@ function out = stage06_plot_heading_results()
             end
         end
     
-        f3_png = fullfile(fig_dir, sprintf('stage06_fig3_deltaNs_heatmap_%s.png', timestamp));
-        f3_fig = fullfile(fig_dir, sprintf('stage06_fig3_deltaNs_heatmap_%s.fig', timestamp));
+        f3_png = fullfile(fig_dir, sprintf('stage06_fig3_deltaNs_heatmap_%s_%s.png', run_tag, timestamp));
+        f3_fig = fullfile(fig_dir, sprintf('stage06_fig3_deltaNs_heatmap_%s_%s.fig', run_tag, timestamp));
         saveas(fig3, f3_png);
         savefig(fig3, f3_fig);
     
@@ -218,8 +224,8 @@ function out = stage06_plot_heading_results()
             end
         end
     
-        f4_png = fullfile(fig_dir, sprintf('stage06_fig4_passratio_envelope_%s.png', timestamp));
-        f4_fig = fullfile(fig_dir, sprintf('stage06_fig4_passratio_envelope_%s.fig', timestamp));
+        f4_png = fullfile(fig_dir, sprintf('stage06_fig4_passratio_envelope_%s_%s.png', run_tag, timestamp));
+        f4_fig = fullfile(fig_dir, sprintf('stage06_fig4_passratio_envelope_%s_%s.fig', run_tag, timestamp));
         saveas(fig4, f4_png);
         savefig(fig4, f4_fig);
     
@@ -244,7 +250,7 @@ function out = stage06_plot_heading_results()
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
     
         cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage06_plot_heading_results_%s.mat', timestamp));
+            sprintf('stage06_plot_heading_results_%s_%s.mat', run_tag, timestamp));
         save(cache_file, 'out', '-v7.3');
         out.files.cache_file = cache_file;
     

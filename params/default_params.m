@@ -353,7 +353,7 @@ function cfg = default_params()
     cfg.stage05.make_plot = false;
     cfg.stage05.example_case_id = 'N01';
 
-        % ---------------------------
+    % ---------------------------
     % Stage06 heading-extended Walker static inversion
     % ---------------------------
     cfg.stage06 = struct();
@@ -363,24 +363,39 @@ function cfg = default_params()
     cfg.stage06.family_source = 'stage02_nominal';
     cfg.stage06.family_mode = 'small_then_full';
 
-    % Heading offset sets
+    % Named heading sets
     cfg.stage06.heading_offsets_small_deg = [0, -30, 30];
     cfg.stage06.heading_offsets_full_deg  = [0, -30, 30, -60, 60];
 
-    % Active list for current run:
-    % Stage06.1 defaults to the small set for safer first integration.
-    cfg.stage06.active_heading_offsets_deg = cfg.stage06.heading_offsets_small_deg;
+    % Active set selector for single-run mode
+    cfg.stage06.active_heading_set_name = 'small';   % 'small' / 'full' / 'custom'
 
-    % Fixed Walker settings inherited from Stage05 search口径
+    % If active_heading_set_name = 'custom', use this explicit vector
+    cfg.stage06.active_heading_offsets_custom_deg = [0, -30, 30];
+
+    % Resolve active heading offsets
+    switch lower(string(cfg.stage06.active_heading_set_name))
+        case "small"
+            cfg.stage06.active_heading_offsets_deg = cfg.stage06.heading_offsets_small_deg;
+        case "full"
+            cfg.stage06.active_heading_offsets_deg = cfg.stage06.heading_offsets_full_deg;
+        case "custom"
+            cfg.stage06.active_heading_offsets_deg = cfg.stage06.active_heading_offsets_custom_deg;
+        otherwise
+            error('Unknown cfg.stage06.active_heading_set_name: %s', cfg.stage06.active_heading_set_name);
+    end
+
+    % Run tag (used in filenames)
+    cfg.stage06.run_tag = char(cfg.stage06.active_heading_set_name);
+
+    % Search grid
     cfg.stage06.h_fixed_km = 1000;
     cfg.stage06.F_fixed = 1;
-
-    % Search grid (keep identical to Stage05)
     cfg.stage06.i_grid_deg = [30 40 50 60 70 80 90];
     cfg.stage06.P_grid = [4 6 8 10 12];
     cfg.stage06.T_grid = [4 6 8 10 12 16];
 
-    % Feasibility criteria (keep identical to Stage05)
+    % Criteria
     cfg.stage06.require_pass_ratio = cfg.stage05.require_pass_ratio;
     cfg.stage06.require_D_G_min = cfg.stage05.require_D_G_min;
     cfg.stage06.rank_rule = cfg.stage05.rank_rule;
@@ -388,21 +403,17 @@ function cfg = default_params()
     % Gamma threshold source
     cfg.stage06.gamma_source = 'inherit_stage04';
 
-    % Parallel / logging strategy
+    % Parallel / logging
     cfg.stage06.use_parallel = cfg.stage05.use_parallel;
     cfg.stage06.auto_start_pool = cfg.stage05.auto_start_pool;
     cfg.stage06.parallel_pool_profile = cfg.stage05.parallel_pool_profile;
     cfg.stage06.parallel_num_workers = cfg.stage05.parallel_num_workers;
 
-    % Early-stop strategy
+    % Early stop
     cfg.stage06.use_early_stop = cfg.stage05.use_early_stop;
     cfg.stage06.hard_case_first = false;
-    % 说明：
-    % Stage05 的 hard_case_first 依赖 nominal family 的排序结果。
-    % Stage06 family 扩展后，这个顺序需要在 Stage06.3 再重新设计。
-    % 因此 Stage06.1 先明确关闭，避免后续逻辑混乱。
 
-    % Live progress / cache
+    % Live progress
     cfg.stage06.use_live_progress = cfg.stage05.use_live_progress;
     cfg.stage06.progress_every = cfg.stage05.progress_every;
     cfg.stage06.save_eval_bank = false;
@@ -410,9 +421,31 @@ function cfg = default_params()
     % Output naming
     cfg.stage06.output_tag = 'heading_extended';
 
-    % Stage06.1 self-check options
+    % Self-check
     cfg.stage06.enable_self_check = true;
     cfg.stage06.expected_nominal_case_count = 12;
     cfg.stage06.expected_small_family_size = 36;
     cfg.stage06.expected_full_family_size = 60;
+
+    % ---------------------------
+    % Stage06 batch mode
+    % ---------------------------
+    cfg.stage06.batch = struct();
+
+    % Master switch
+    cfg.stage06.batch.enable = true;
+
+    % Each entry is one heading-offset family to run
+    cfg.stage06.batch.run_tags = {'small', 'full'};
+    cfg.stage06.batch.heading_offset_sets = { ...
+        [0, -30, 30], ...
+        [0, -30, 30, -60, 60] ...
+        };
+
+    % Which sub-stages to execute in batch
+    cfg.stage06.batch.run_scope   = true;
+    cfg.stage06.batch.run_family  = true;
+    cfg.stage06.batch.run_search  = true;
+    cfg.stage06.batch.run_compare = true;
+    cfg.stage06.batch.run_plot    = true;
 end

@@ -1,19 +1,23 @@
-function out = stage06_build_heading_family_physical_demo()
+function out = stage06_build_heading_family_physical_demo(cfg)
     %STAGE06_BUILD_HEADING_FAMILY_PHYSICAL_DEMO
     % Demo / self-check for Stage06.2b physical heading perturbation.
-    
+
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
+        cfg = stage06_prepare_cfg(cfg);
         cfg.project_stage = 'stage06_build_heading_family_physical_demo';
-    
+        run_tag = char(cfg.stage06.run_tag);
+
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
         ensure_dir(cfg.paths.cache);
         ensure_dir(cfg.paths.tables);
-    
+
         timestamp = datestr(now, 'yyyymmdd_HHMMSS');
         log_file = fullfile(cfg.paths.logs, ...
-            sprintf('stage06_build_heading_family_physical_demo_%s.log', timestamp));
+            sprintf('stage06_build_heading_family_physical_demo_%s_%s.log', run_tag, timestamp));
         log_fid = fopen(log_file, 'w');
         if log_fid < 0
             error('Failed to open log file: %s', log_file);
@@ -23,10 +27,11 @@ function out = stage06_build_heading_family_physical_demo()
         log_msg(log_fid, 'INFO', 'Stage06.2b demo started.');
     
         % ------------------------------------------------------------
-        % Load latest Stage06.1 scope
+        % Load latest Stage06.1 scope (by run_tag)
         % ------------------------------------------------------------
-        d6 = dir(fullfile(cfg.paths.cache, 'stage06_define_heading_scope_*.mat'));
-        assert(~isempty(d6), 'No Stage06.1 cache found.');
+        d6 = dir(fullfile(cfg.paths.cache, ...
+            sprintf('stage06_define_heading_scope_%s_*.mat', run_tag)));
+        assert(~isempty(d6), 'No Stage06.1 cache found for run_tag: %s', run_tag);
     
         [~, idx6] = max([d6.datenum]);
         stage06_scope_file = fullfile(d6(idx6).folder, d6(idx6).name);
@@ -116,9 +121,9 @@ function out = stage06_build_heading_family_physical_demo()
         summary_table.mean_dr1_km_nonzero = mean(dr1_km(abs(heading_offset_deg) > 0), 'omitnan');
     
         check_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_heading_family_physical_check_%s.csv', timestamp));
+            sprintf('stage06_heading_family_physical_check_%s_%s.csv', run_tag, timestamp));
         summary_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_heading_family_physical_summary_%s.csv', timestamp));
+            sprintf('stage06_heading_family_physical_summary_%s_%s.csv', run_tag, timestamp));
     
         writetable(check_table, check_csv);
         writetable(summary_table, summary_csv);
@@ -136,7 +141,7 @@ function out = stage06_build_heading_family_physical_demo()
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
     
         cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage06_build_heading_family_physical_%s.mat', timestamp));
+            sprintf('stage06_build_heading_family_physical_%s_%s.mat', run_tag, timestamp));
         save(cache_file, 'out', '-v7.3');
         out.files.cache_file = cache_file;
     

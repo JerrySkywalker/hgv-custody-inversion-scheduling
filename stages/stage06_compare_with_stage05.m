@@ -1,4 +1,4 @@
-function out = stage06_compare_with_stage05()
+function out = stage06_compare_with_stage05(cfg)
     %STAGE06_COMPARE_WITH_STAGE05
     % Stage06.4:
     %   Compare Stage06 heading-extended physical search results against
@@ -14,19 +14,23 @@ function out = stage06_compare_with_stage05()
     % Notes:
     %   - This version is intended as a formal comparison-summary stage.
     %   - It keeps the diagnostic capability but emphasizes paper-ready tables.
-    
+
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
+        cfg = stage06_prepare_cfg(cfg);
         cfg.project_stage = 'stage06_compare_with_stage05';
-    
+        run_tag = char(cfg.stage06.run_tag);
+
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
         ensure_dir(cfg.paths.cache);
         ensure_dir(cfg.paths.tables);
-    
+
         timestamp = datestr(now, 'yyyymmdd_HHMMSS');
         log_file = fullfile(cfg.paths.logs, ...
-            sprintf('stage06_compare_with_stage05_%s.log', timestamp));
+            sprintf('stage06_compare_with_stage05_%s_%s.log', run_tag, timestamp));
         log_fid = fopen(log_file, 'w');
         if log_fid < 0
             error('Failed to open log file: %s', log_file);
@@ -53,11 +57,12 @@ function out = stage06_compare_with_stage05()
         log_msg(log_fid, 'INFO', 'Loaded Stage05 cache: %s', stage05_file);
     
         % ============================================================
-        % Load latest Stage06 cache
+        % Load latest Stage06 cache (by run_tag)
         % ============================================================
-        d6 = dir(fullfile(cfg.paths.cache, 'stage06_heading_walker_search_*.mat'));
+        d6 = dir(fullfile(cfg.paths.cache, ...
+            sprintf('stage06_heading_walker_search_%s_*.mat', run_tag)));
         assert(~isempty(d6), ...
-            'No Stage06 cache found. Please run stage06_heading_walker_search first.');
+            'No Stage06 cache found for run_tag: %s. Please run stage06_heading_walker_search first.', run_tag);
     
         [~, idx6] = max([d6.datenum]);
         stage06_file = fullfile(d6(idx6).folder, d6(idx6).name);
@@ -317,15 +322,15 @@ function out = stage06_compare_with_stage05()
         % Save csv
         % ============================================================
         global_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_compare_global_%s.csv', timestamp));
+            sprintf('stage06_compare_global_%s_%s.csv', run_tag, timestamp));
         feasible_mismatch_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_compare_feasible_mismatch_%s.csv', timestamp));
+            sprintf('stage06_compare_feasible_mismatch_%s_%s.csv', run_tag, timestamp));
         frontier_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_compare_frontier_%s.csv', timestamp));
+            sprintf('stage06_compare_frontier_%s_%s.csv', run_tag, timestamp));
         ip_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_compare_IP_minNs_%s.csv', timestamp));
+            sprintf('stage06_compare_IP_minNs_%s_%s.csv', run_tag, timestamp));
         metric_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage06_compare_metric_diff_%s.csv', timestamp));
+            sprintf('stage06_compare_metric_diff_%s_%s.csv', run_tag, timestamp));
     
         writetable(global_summary, global_csv);
         writetable(feasible_mismatch, feasible_mismatch_csv);
@@ -355,7 +360,7 @@ function out = stage06_compare_with_stage05()
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
     
         cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage06_compare_with_stage05_%s.mat', timestamp));
+            sprintf('stage06_compare_with_stage05_%s_%s.mat', run_tag, timestamp));
         save(cache_file, 'out', '-v7.3');
         out.files.cache_file = cache_file;
     
