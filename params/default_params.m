@@ -448,4 +448,41 @@ function cfg = default_params()
     cfg.stage06.batch.run_search  = true;
     cfg.stage06.batch.run_compare = true;
     cfg.stage06.batch.run_plot    = true;
+
+        % ---------------------------
+    % Stage07: reference-Walker-based critical geometry analysis
+    % ---------------------------
+    cfg.stage07 = struct();
+
+    % Global run tag
+    cfg.stage07.run_tag = 'critical';
+
+    % Stage07.1 main philosophy:
+    % first fix one reference Walker, then define C1/C2 relative to it.
+    cfg.stage07.reference_walker_source = 'stage05_nominal';
+
+    % selection rule:
+    %   'frontier_near_feasible'  -> choose feasible point with D_G_min just above threshold
+    %   'best_feasible'           -> directly use Stage05 summary.best_feasible
+    cfg.stage07.reference_selection_rule = 'frontier_near_feasible';
+
+    % feasibility thresholds inherited from Stage05/06 logic
+    cfg.stage07.require_D_G_min = 1.0;
+    cfg.stage07.require_pass_ratio = 1.0;
+
+    % tie-break order for frontier-near selection
+    % 1) smaller positive margin (D_G_min - require_D_G_min)
+    % 2) smaller Ns
+    % 3) smaller i_deg
+    cfg.stage07.reference_tiebreak_order = {'margin_to_DG', 'Ns', 'i_deg'};
+
+    % whether to force h/F from Stage05 row if present
+    cfg.stage07.default_h_km = 1000;
+    cfg.stage07.default_F = 1;
+
+    % for later Stage07.2/07.3
+    cfg.stage07.coverage_good_threshold = 0.5;
+    cfg.stage07.angle_bad_threshold_deg = 10;
+    cfg.stage07.lambda_bad_factor = 1.0;
+    cfg.stage07.fallback_gamma_req = NaN;
 end
