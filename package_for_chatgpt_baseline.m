@@ -20,7 +20,10 @@ function zipFilePath = package_for_chatgpt_baseline()
     stageLabel = detect_stage_label();
     timestamp = datestr(now, 'yyyymmdd_HHMMSS');
     zipName = sprintf('%s_%s_baseline.zip', stageLabel, timestamp);
-    zipFilePath = fullfile(repo_root, zipName);
+
+    % Save archive in the parent directory of the repository root
+    parent_root = fileparts(repo_root);
+    zipFilePath = fullfile(parent_root, zipName);
 
     [status, treeOut] = system('git ls-tree --name-only HEAD');
     if status ~= 0

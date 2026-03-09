@@ -20,7 +20,10 @@ function zipFilePath = package_for_chatgpt()
     stageLabel = detect_stage_label();
     timestamp = datestr(now, 'yyyymmdd_HHMMSS');
     zipName = sprintf('%s_%s_working.zip', stageLabel, timestamp);
-    zipFilePath = fullfile(repo_root, zipName);
+
+    % Save archive in the parent directory of the repository root
+    parent_root = fileparts(repo_root);
+    zipFilePath = fullfile(parent_root, zipName);
 
     % Collect directories to include
     dirs_to_include = {'params', 'src', 'stages'};
