@@ -485,4 +485,67 @@ function cfg = default_params()
     cfg.stage07.angle_bad_threshold_deg = 10;
     cfg.stage07.lambda_bad_factor = 1.0;
     cfg.stage07.fallback_gamma_req = NaN;
+
+    % -------------------------------------------------
+    % Stage07.2: reference-Walker-based critical scope
+    % -------------------------------------------------
+
+    % Whether Stage07 C1/C2 are explicitly defined relative to reference Walker
+    cfg.stage07.is_reference_relative = true;
+
+    % Shared heading scan setup (used in later Stage07.3)
+    cfg.stage07.heading_scan = struct();
+    cfg.stage07.heading_scan.enable = true;
+    cfg.stage07.heading_scan.step_deg = 5;
+    cfg.stage07.heading_scan.max_abs_offset_deg = 90;
+    cfg.stage07.heading_scan.min_heading_deg = 0;
+    cfg.stage07.heading_scan.max_heading_deg = 360;
+    cfg.stage07.heading_scan.wrap_mode = '360';
+
+    % -------------------------------------------------
+    % C1: track-plane-aligned entry
+    % -------------------------------------------------
+    cfg.stage07.C1 = struct();
+    cfg.stage07.C1.mode_id = 'C1_trackplane';
+    cfg.stage07.C1.description = ['Heading aligned with the local ground-track ', ...
+        'direction induced by the reference Walker orbital plane.'];
+    cfg.stage07.C1.selection_rule = 'closest_trackplane_heading';
+    cfg.stage07.C1.use_both_branches = true;      % asc / desc local branches
+    cfg.stage07.C1.keep_nearest_branch_only = true;
+    cfg.stage07.C1.max_branch_count = 1;
+
+    % -------------------------------------------------
+    % C2: small-intersection-angle entry
+    % -------------------------------------------------
+    cfg.stage07.C2 = struct();
+    cfg.stage07.C2.mode_id = 'C2_smallangle';
+    cfg.stage07.C2.description = ['Heading chosen from local scan under fixed reference Walker, ', ...
+        'subject to high dual coverage and minimal LOS crossing angle / degraded geometry.'];
+    cfg.stage07.C2.selection_rule = 'scan_heading_under_reference_walker';
+    cfg.stage07.C2.use_scan = true;
+
+    % Candidate acceptance thresholds for C2 later selection
+    cfg.stage07.C2.require_high_coverage = 0.8;   % later Stage07.3 can tighten/relax
+    cfg.stage07.C2.primary_objective = 'min_mean_los_angle';
+    cfg.stage07.C2.secondary_objective = 'min_lambda_worst';
+    cfg.stage07.C2.tertiary_objective = 'min_D_G_min';
+
+    % whether fallback to nominal heading is allowed
+    % new Stage07 should forbid silent fallback
+    cfg.stage07.C2.allow_fallback_nominal = false;
+
+    % -------------------------------------------------
+    % Stage07 danger / diagnostic thresholds
+    % -------------------------------------------------
+    cfg.stage07.danger = struct();
+    cfg.stage07.danger.coverage_good_threshold = 0.8;
+    cfg.stage07.danger.angle_bad_threshold_deg = 10;
+    cfg.stage07.danger.D_G_bad_threshold = 1.0;
+    cfg.stage07.danger.lambda_bad_factor = 1.0;   % lambda_worst < lambda_bad_factor * gamma_req
+
+    % For later representative entry sampling
+    cfg.stage07.entry_sampling = struct();
+    cfg.stage07.entry_sampling.enable = true;
+    cfg.stage07.entry_sampling.max_entry_count = 12;
+    cfg.stage07.entry_sampling.rule = 'all_stage02_nominal_entries';
 end
