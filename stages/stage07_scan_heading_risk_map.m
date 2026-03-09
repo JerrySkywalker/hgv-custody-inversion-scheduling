@@ -1,0 +1,332 @@
+function out = stage07_scan_heading_risk_map(cfg)
+    %STAGE07_SCAN_HEADING_RISK_MAP
+    % Stage07.3:
+    %   Scan heading-risk map entry-by-entry under fixed reference Walker.
+    %
+    % Main tasks:
+    %   1) load latest Stage07.1 reference Walker
+    %   2) load latest Stage07.2 critical scope
+    %   3) load Stage02 nominal family
+    %   4) for each nominal entry case, scan heading offsets and evaluate risk
+    %   5) save full risk table / entry summary / cache
+    %
+    % Outputs:
+    %   out.reference_walker
+    %   out.scope_spec
+    %   out.risk_table
+    %   out.entry_summary
+    %   out.files
+    
+        startup();
+    
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
+        cfg.project_stage = 'stage07_scan_heading_risk_map';
+    
+        seed_rng(cfg.random.seed);
+        ensure_dir(cfg.paths.logs);
+        ensure_dir(cfg.paths.cache);
+        ensure_dir(cfg.paths.tables);
+    
+        run_tag = char(cfg.stage07.run_tag);
+        timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+    
+        log_file = fullfile(cfg.paths.logs, ...
+            sprintf('stage07_scan_heading_risk_map_%s_%s.log', run_tag, timestamp));
+        log_fid = fopen(log_file, 'w');
+        if log_fid < 0
+            error('Failed to open log file: %s', log_file);
+        end
+        cleanupObj = onCleanup(@() fclose(log_fid)); %#ok<NASGU>
+    
+        log_msg(log_fid, 'INFO', 'Stage07.3 started.');
+    
+        % ============================================================
+        % Load Stage07.1 reference Walker
+        % ============================================================
+        d71 = dir(fullfile(cfg.paths.cache, ...
+            sprintf('stage07_select_reference_walker_%s_*.mat', run_tag)));
+        assert(~isempty(d71), 'No Stage07.1 cache found for run_tag=%s.', run_tag);
+    
+        [~, idx71] = max([d71.datenum]);
+        stage07_ref_file = fullfile(d71(idx71).folder, d71(idx71).name);
+        S71 = load(stage07_ref_file);
+    
+        assert(isfield(S71, 'out') && isfield(S71.out, 'reference_walker'), ...
+            'Invalid Stage07.1 cache: missing reference_walker');
+        reference_walker = S71.out.reference_walker;
+    
+        log_msg(log_fid, 'INFO', 'Loaded Stage07.1 reference Walker: %s', stage07_ref_file);
+    
+        % ============================================================
+        % Load Stage07.2 scope
+        % ============================================================
+        d72 = dir(fullfile(cfg.paths.cache, ...
+            sprintf('stage07_define_critical_scope_refwalker_%s_*.mat', run_tag)));
+        assert(~isempty(d72), 'No Stage07.2 scope cache found for run_tag=%s.', run_tag);
+    
+        [~, idx72] = max([d72.datenum]);
+        stage07_scope_file = fullfile(d72(idx72).folder, d72(idx72).name);
+        S72 = load(stage07_scope_file);
+    
+        assert(isfield(S72, 'out') && isfield(S72.out, 'spec'), ...
+            'Invalid Stage07.2 cache: missing spec');
+        scope_spec = S72.out.spec;
+    
+        log_msg(log_fid, 'INFO', 'Loaded Stage07.2 scope: %s', stage07_scope_file);
+    
+        % ============================================================
+        % Load Stage02 nominal family
+        % ============================================================
+        d2 = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+        assert(~isempty(d2), 'No Stage02 nominal cache found.');
+    
+        [~, idx2] = max([d2.datenum]);
+        stage02_file = fullfile(d2(idx2).folder, d2(idx2).name);
+        S2 = load(stage02_file);
+    
+        assert(isfield(S2, 'out') && isfield(S2.out, 'trajbank') && isfield(S2.out.trajbank, 'nominal'), ...
+            'Invalid Stage02 cache: missing out.trajbank.nominal');
+        nominal_bank = S2.out.trajbank.nominal;
+    
+        log_msg(log_fid, 'INFO', 'Loaded Stage02 nominal cache: %s', stage02_file);
+        log_msg(log_fid, 'INFO', 'Nominal family size = %d', numel(nominal_bank));
+    
+        % ============================================================
+        % Entry sampling (currently use all nominal entries or first N)
+        % ============================================================
+        nominal_bank = local_select_nominal_entries(nominal_bank, scope_spec.entry_sampling);
+        nEntry = numel(nominal_bank);
+    
+        log_msg(log_fid, 'INFO', 'Selected nominal entry count = %d', nEntry);
+    
+        % ============================================================
+        % Scan heading-risk map for each entry
+        % ============================================================
+        risk_tables = cell(nEntry, 1);
+        detail_banks = cell(nEntry, 1);
+    
+        for i = 1:nEntry
+            base_item = nominal_bank(i);
+    
+            [risk_tables{i}, detail_banks{i}] = scan_heading_risk_map_stage07( ...
+                base_item, reference_walker, scope_spec, cfg);
+    
+            entry_id_i = local_extract_entry_id_from_item(base_item, i);
+    
+            log_msg(log_fid, 'INFO', ...
+                '[%2d/%2d] entry=%d | heading_count=%d | candidate_count=%d | min_D_G=%.3f | min_angle=%.3f', ...
+                i, nEntry, ...
+                entry_id_i, ...
+                height(risk_tables{i}), ...
+                sum(risk_tables{i}.is_counterexample_candidate), ...
+                min(risk_tables{i}.D_G_min, [], 'omitnan'), ...
+                min(risk_tables{i}.mean_los_intersection_angle_deg, [], 'omitnan'));
+        end
+    
+        risk_table = vertcat(risk_tables{:});
+        entry_summary = local_build_entry_summary(risk_table, scope_spec);
+    
+        % ============================================================
+        % Self-check
+        % ============================================================
+        self_check = struct();
+        self_check.nonempty = ~isempty(risk_table);
+        self_check.has_multiple_entries = numel(unique(risk_table.entry_id)) >= 2;
+        self_check.has_heading_scan = numel(unique(risk_table.heading_offset_deg)) >= 3;
+        self_check.has_finite_metrics = ...
+            any(isfinite(risk_table.coverage_ratio_2sat)) && ...
+            any(isfinite(risk_table.mean_los_intersection_angle_deg)) && ...
+            any(isfinite(risk_table.lambda_worst)) && ...
+            any(isfinite(risk_table.D_G_min));
+    
+        self_check.all_ok = self_check.nonempty && ...
+                            self_check.has_multiple_entries && ...
+                            self_check.has_heading_scan && ...
+                            self_check.has_finite_metrics;
+    
+        % ============================================================
+        % Save outputs
+        % ============================================================
+        risk_csv = fullfile(cfg.paths.tables, ...
+            sprintf('stage07_heading_risk_map_%s_%s.csv', run_tag, timestamp));
+        entry_csv = fullfile(cfg.paths.tables, ...
+            sprintf('stage07_heading_risk_entry_summary_%s_%s.csv', run_tag, timestamp));
+        summary_csv = fullfile(cfg.paths.tables, ...
+            sprintf('stage07_heading_risk_summary_%s_%s.csv', run_tag, timestamp));
+    
+        summary_table = table( ...
+            string(scope_spec.family_type), ...
+            reference_walker.h_km, ...
+            reference_walker.i_deg, ...
+            reference_walker.P, ...
+            reference_walker.T, ...
+            reference_walker.Ns, ...
+            height(risk_table), ...
+            height(entry_summary), ...
+            numel(unique(risk_table.heading_offset_deg)), ...
+            sum(risk_table.is_counterexample_candidate), ...
+            self_check.all_ok, ...
+            'VariableNames', { ...
+                'family_type', ...
+                'h_km', ...
+                'i_deg', ...
+                'P', ...
+                'T', ...
+                'Ns', ...
+                'n_risk_row', ...
+                'n_entry', ...
+                'n_heading_offset', ...
+                'n_counterexample_candidate', ...
+                'self_check_all_ok'});
+    
+        writetable(risk_table, risk_csv);
+        writetable(entry_summary, entry_csv);
+        writetable(summary_table, summary_csv);
+    
+        out = struct();
+        out.cfg = cfg;
+        out.reference_walker = reference_walker;
+        out.scope_spec = scope_spec;
+        out.risk_table = risk_table;
+        out.entry_summary = entry_summary;
+        out.detail_banks = detail_banks;
+        out.self_check = self_check;
+        out.summary_table = summary_table;
+    
+        out.files = struct();
+        out.files.log_file = log_file;
+        out.files.stage07_ref_file = stage07_ref_file;
+        out.files.stage07_scope_file = stage07_scope_file;
+        out.files.stage02_file = stage02_file;
+        out.files.risk_csv = risk_csv;
+        out.files.entry_csv = entry_csv;
+        out.files.summary_csv = summary_csv;
+    
+        out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
+    
+        cache_file = fullfile(cfg.paths.cache, ...
+            sprintf('stage07_scan_heading_risk_map_%s_%s.mat', run_tag, timestamp));
+        save(cache_file, 'out', '-v7.3');
+        out.files.cache_file = cache_file;
+    
+        % logs
+        log_msg(log_fid, 'INFO', 'Risk CSV saved to: %s', risk_csv);
+        log_msg(log_fid, 'INFO', 'Entry summary CSV saved to: %s', entry_csv);
+        log_msg(log_fid, 'INFO', 'Summary CSV saved to: %s', summary_csv);
+        log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
+        log_msg(log_fid, 'INFO', 'Stage07.3 finished.');
+    
+        fprintf('\n');
+        fprintf('========== Stage07.3 Summary ==========\n');
+        fprintf('Stage07.1 ref       : %s\n', stage07_ref_file);
+        fprintf('Stage07.2 scope     : %s\n', stage07_scope_file);
+        fprintf('Stage02 nominal     : %s\n', stage02_file);
+        fprintf('Reference Walker    : h=%.1f km | i=%.1f deg | P=%d | T=%d | F=%d | Ns=%d\n', ...
+            reference_walker.h_km, reference_walker.i_deg, ...
+            reference_walker.P, reference_walker.T, reference_walker.F, reference_walker.Ns);
+        fprintf('Risk row count      : %d\n', height(risk_table));
+        fprintf('Entry count         : %d\n', height(entry_summary));
+        fprintf('Heading offset cnt  : %d\n', numel(unique(risk_table.heading_offset_deg)));
+        fprintf('Candidate count     : %d\n', sum(risk_table.is_counterexample_candidate));
+        fprintf('Risk CSV            : %s\n', risk_csv);
+        fprintf('Entry CSV           : %s\n', entry_csv);
+        fprintf('Cache               : %s\n', cache_file);
+        fprintf('Self-check all ok   : %d\n', self_check.all_ok);
+        fprintf('=======================================\n');
+    end
+    
+    
+    % ============================================================
+    % local helpers
+    % ============================================================
+    function bank_out = local_select_nominal_entries(bank_in, entry_sampling)
+    
+        bank_out = bank_in;
+        if ~entry_sampling.enable
+            return;
+        end
+    
+        n = numel(bank_in);
+        n_keep = min(entry_sampling.max_entry_count, n);
+    
+        switch lower(char(entry_sampling.rule))
+            case 'all_stage02_nominal_entries'
+                bank_out = bank_in(1:n_keep);
+    
+            otherwise
+                bank_out = bank_in(1:n_keep);
+        end
+    end
+    
+    
+    function entry_id = local_extract_entry_id_from_item(item, fallback_id)
+    
+        entry_id = fallback_id;
+    
+        if isfield(item, 'case')
+            C = item.case;
+        else
+            C = item;
+        end
+    
+        if isfield(C, 'entry_id') && isnumeric(C.entry_id) && isfinite(C.entry_id)
+            entry_id = C.entry_id;
+            return;
+        end
+        if isfield(C, 'entry_point_id') && isnumeric(C.entry_point_id) && isfinite(C.entry_point_id)
+            entry_id = C.entry_point_id;
+            return;
+        end
+        if isfield(C, 'case_id') && ~isempty(C.case_id)
+            cid = char(string(C.case_id));
+            tok = regexp(cid, '^N(\d+)$', 'tokens', 'once');
+            if ~isempty(tok)
+                entry_id = str2double(tok{1});
+            end
+        end
+    end
+    
+    
+    function entry_summary = local_build_entry_summary(risk_table, scope_spec)
+    
+        uEntry = unique(risk_table.entry_id);
+        nEntry = numel(uEntry);
+    
+        entry_summary = table('Size', [nEntry, 10], ...
+            'VariableTypes', {'double','double','double','double','double','double','double','double','double','double'}, ...
+            'VariableNames', { ...
+                'entry_id', ...
+                'n_heading', ...
+                'max_coverage_ratio_2sat', ...
+                'min_mean_los_intersection_angle_deg', ...
+                'min_lambda_worst', ...
+                'min_D_G_min', ...
+                'n_high_coverage', ...
+                'n_counterexample_candidate', ...
+                'heading_at_min_D_G_deg', ...
+                'heading_at_min_angle_deg'});
+    
+        for i = 1:nEntry
+            eid = uEntry(i);
+            sub = risk_table(risk_table.entry_id == eid, :);
+    
+            [minDG, idxDG] = min(sub.D_G_min, [], 'omitnan');
+            [minAng, idxAng] = min(sub.mean_los_intersection_angle_deg, [], 'omitnan');
+    
+            if isempty(idxDG) || ~isfinite(idxDG), idxDG = 1; end
+            if isempty(idxAng) || ~isfinite(idxAng), idxAng = 1; end
+    
+            entry_summary.entry_id(i) = eid;
+            entry_summary.n_heading(i) = height(sub);
+            entry_summary.max_coverage_ratio_2sat(i) = max(sub.coverage_ratio_2sat, [], 'omitnan');
+            entry_summary.min_mean_los_intersection_angle_deg(i) = minAng;
+            entry_summary.min_lambda_worst(i) = min(sub.lambda_worst, [], 'omitnan');
+            entry_summary.min_D_G_min(i) = minDG;
+            entry_summary.n_high_coverage(i) = sum(sub.coverage_ratio_2sat >= scope_spec.danger.coverage_good_threshold);
+            entry_summary.n_counterexample_candidate(i) = sum(sub.is_counterexample_candidate);
+            entry_summary.heading_at_min_D_G_deg(i) = sub.heading_deg(idxDG);
+            entry_summary.heading_at_min_angle_deg(i) = sub.heading_deg(idxAng);
+        end
+    end
