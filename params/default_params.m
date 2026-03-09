@@ -570,4 +570,28 @@ function cfg = default_params()
 
     % whether to keep only entries with complete nominal+C1+C2 triplets
     cfg.stage07.selection.require_complete_triplet = false;
+
+    % -------------------------------------------------
+    % Stage07.5: plotting
+    % -------------------------------------------------
+    cfg.stage07.plot = struct();
+
+    % figure output directory
+    cfg.stage07.plot.fig_dirname = 'figs';
+
+    % representative entries used for heading-risk curves
+    % rule:
+    %   'lowest_C2_DG' -> choose entries with smallest C2 D_G_min
+    cfg.stage07.plot.representative_entry_rule = 'lowest_C2_DG';
+    cfg.stage07.plot.n_representative_entry = 4;
+
+    % whether to export plot data tables
+    cfg.stage07.plot.export_plot_tables = true;
+
+    % figure visibility
+    cfg.stage07.plot.visible = 'off';   % 'on' or 'off'
+
+    % save both png and fig
+    cfg.stage07.plot.save_png = true;
+    cfg.stage07.plot.save_fig = true;
 end
