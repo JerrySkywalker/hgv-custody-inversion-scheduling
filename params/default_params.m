@@ -678,4 +678,14 @@ function cfg = default_params()
     % -------------------------------------------------
     cfg.stage08.casebank = struct();
     cfg.stage08.casebank.make_plot = true;
+
+    % -------------------------------------------------
+    % Stage08.4 small-grid reduced inversion scan
+    % -------------------------------------------------
+    cfg.stage08.smallgrid.make_plot = true;
+
+    % feasibility rule for reduced-grid screening
+    cfg.stage08.smallgrid.require_DG_min = 1.0;
+    cfg.stage08.smallgrid.require_pass_geom_ratio = 0.90;
+    cfg.stage08.smallgrid.require_C2_pass_ratio = 0.50;
 end
