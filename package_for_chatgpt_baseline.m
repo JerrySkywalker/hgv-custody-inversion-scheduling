@@ -1,8 +1,10 @@
-function zipFilePath = package_for_chatgpt_baseline()
+function zipFilePath = package_for_chatgpt_baseline(includeDeliverables)
 %PACKAGE_FOR_CHATGPT_BASELINE  Create a code snapshot zip from current HEAD.
 %
 % Packages the version at the latest commit (stable baseline for ChatGPT).
-% Includes params/, src/, stages/, and root-level tracked files.
+% Includes params/, src/, stages/, root-level tracked files. Excludes results/
+% (outputs and logs). deliverables/ is excluded by default; set optional
+% argument to true to include it.
 %
 % Filename:
 %   [StageXX.Y]_SHA7_yyyymmdd_HHMMSS_baseline.zip
@@ -13,8 +15,14 @@ function zipFilePath = package_for_chatgpt_baseline()
 %   - HHMMSS    : current time
 %
 % Usage (from MATLAB):
-%   zipPath = package_for_chatgpt_baseline();
+%   zipPath = package_for_chatgpt_baseline();           % deliverables excluded
+%   zipPath = package_for_chatgpt_baseline(false);     % same
+%   zipPath = package_for_chatgpt_baseline(true);      % include deliverables/
 %
+
+    if nargin < 1 || isempty(includeDeliverables)
+        includeDeliverables = false;
+    end
 
     repo_root = fileparts(mfilename('fullpath'));
     original_cwd = pwd;
@@ -55,10 +63,26 @@ function zipFilePath = package_for_chatgpt_baseline()
         end
     end
 
-    % Only include params, src, stages if present in HEAD
+    % Only include these directories: never results/; deliverables/ only if requested
     wantDirs = {'params', 'src', 'stages'};
+    if includeDeliverables && ismember('deliverables', topLevelDirs)
+        wantDirs{end+1} = 'deliverables'; %#ok<AGROW>
+    end
     dirs_in_head = wantDirs(ismember(wantDirs, topLevelDirs));
-    archivePaths = [dirs_in_head, rootFiles];
+
+    % Root entries with no path separator: may be files OR directory trees (e.g. results, deliverables).
+    % Include only actual root files; exclude any name that is a top-level dir we did not ask for.
+    rootFilesOnly = rootFiles(~ismember(rootFiles, topLevelDirs));
+    archivePaths = [dirs_in_head, rootFilesOnly];
+
+    % Explicitly exclude results/ and (unless requested) deliverables/ from the archive
+    excludeNames = {'results'};
+    if ~includeDeliverables
+        excludeNames{end+1} = 'deliverables'; %#ok<AGROW>
+    end
+    keep = cellfun(@(p) ~ismember(p, excludeNames), archivePaths);
+    archivePaths = archivePaths(keep);
+
     if isempty(archivePaths)
         error('No paths to include in baseline archive.');
     end
