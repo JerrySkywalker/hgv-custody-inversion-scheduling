@@ -694,4 +694,8 @@ function cfg = default_params()
     cfg.stage08.smallgrid.pool_idle_timeout_min = 120;
     cfg.stage08.smallgrid.progress_step = 1;   % every 1 task completion feedback
 
+    % -------------------------------------------------
+    % Stage08.4b feasibility profile
+    % -------------------------------------------------
+    cfg.stage08.smallgrid.feasibility_profile = 'strict';  % 'relaxed' / 'medium' / 'strict'
 end

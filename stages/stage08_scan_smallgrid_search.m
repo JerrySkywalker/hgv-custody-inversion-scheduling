@@ -218,6 +218,7 @@ function out = stage08_scan_smallgrid_search(cfg)
         summary_table = table( ...
             string(stage08_scope_file), ...
             string(stage02_file), ...
+            string(cfg.stage08.smallgrid.feasibility_profile), ...
             nCase, ...
             nCfg, ...
             nTw, ...
@@ -231,6 +232,7 @@ function out = stage08_scan_smallgrid_search(cfg)
             'VariableNames', { ...
                 'stage08_scope_file', ...
                 'stage02_file', ...
+                'feasibility_profile', ...
                 'n_casebank_case', ...
                 'n_smallgrid_config', ...
                 'n_Tw', ...
@@ -319,6 +321,9 @@ function out = stage08_scan_smallgrid_search(cfg)
     
                 fprintf('%s\n', line);
                 log_msg(log_fid, 'INFO', '%s', line);
+
+                % force GUI/command-window update in case callbacks are queued
+                drawnow('limitrate');
             end
         end
     end
@@ -902,26 +907,35 @@ function out = stage08_scan_smallgrid_search(cfg)
     
     
     function req = local_resolve_smallgrid_requirements(cfg)
+
+        % default profile
+        profile = "medium";
     
-        req = struct();
-        req.require_DG_min = 1.0;
-        req.require_pass_geom_ratio = 0.90;
-        req.require_C2_pass_ratio = 0.50;
-    
-        if ~isstruct(cfg), return; end
-        if ~isfield(cfg, 'stage08') || ~isstruct(cfg.stage08), return; end
-        if ~isfield(cfg.stage08, 'smallgrid') || ~isstruct(cfg.stage08.smallgrid), return; end
-    
-        sg = cfg.stage08.smallgrid;
-    
-        if isfield(sg, 'require_DG_min') && ~isempty(sg.require_DG_min) && isfinite(sg.require_DG_min)
-            req.require_DG_min = sg.require_DG_min;
+        if isstruct(cfg) && isfield(cfg, 'stage08') && isstruct(cfg.stage08) && ...
+                isfield(cfg.stage08, 'smallgrid') && isstruct(cfg.stage08.smallgrid) && ...
+                isfield(cfg.stage08.smallgrid, 'feasibility_profile') && ...
+                ~isempty(cfg.stage08.smallgrid.feasibility_profile)
+            profile = string(cfg.stage08.smallgrid.feasibility_profile);
         end
-        if isfield(sg, 'require_pass_geom_ratio') && ~isempty(sg.require_pass_geom_ratio) && isfinite(sg.require_pass_geom_ratio)
-            req.require_pass_geom_ratio = sg.require_pass_geom_ratio;
-        end
-        if isfield(sg, 'require_C2_pass_ratio') && ~isempty(sg.require_C2_pass_ratio) && isfinite(sg.require_C2_pass_ratio)
-            req.require_C2_pass_ratio = sg.require_C2_pass_ratio;
+    
+        switch lower(profile)
+            case "relaxed"
+                req.require_DG_min = 1.0;
+                req.require_pass_geom_ratio = 0.90;
+                req.require_C2_pass_ratio = 0.50;
+    
+            case "medium"
+                req.require_DG_min = 1.0;
+                req.require_pass_geom_ratio = 1.00;
+                req.require_C2_pass_ratio = 0.75;
+    
+            case "strict"
+                req.require_DG_min = 1.2;
+                req.require_pass_geom_ratio = 1.00;
+                req.require_C2_pass_ratio = 1.00;
+    
+            otherwise
+                error('Unknown cfg.stage08.smallgrid.feasibility_profile: %s', profile);
         end
     end
     
