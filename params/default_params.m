@@ -688,4 +688,10 @@ function cfg = default_params()
     cfg.stage08.smallgrid.require_DG_min = 1.0;
     cfg.stage08.smallgrid.require_pass_geom_ratio = 0.90;
     cfg.stage08.smallgrid.require_C2_pass_ratio = 0.50;
+
+    cfg.stage08.smallgrid.use_parallel = true;
+    cfg.stage08.smallgrid.max_workers = inf;   % 或者 8 / 12
+    cfg.stage08.smallgrid.pool_idle_timeout_min = 120;
+    cfg.stage08.smallgrid.progress_step = 1;   % every 1 task completion feedback
+
 end

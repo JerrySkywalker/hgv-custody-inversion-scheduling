@@ -3,12 +3,12 @@ function out = stage08_scan_smallgrid_search(cfg)
     % Stage08.4:
     %   Run reduced-grid inversion sensitivity analysis over Tw grid.
     %
-    % Main tasks:
-    %   1) load latest Stage08.1 scope cache
-    %   2) load latest Stage02 nominal trajbank
-    %   3) rebuild Stage08 casebank
-    %   4) evaluate every small-grid Walker config over all casebank cases and Tw grid
-    %   5) summarize N_min(Tw), feasible ratio, and best configuration stability
+    % Parallel strategy:
+    %   Parallelize over (config, Tw) task pairs.
+    %   Each worker evaluates the full casebank sequentially for one task.
+    %
+    % Progress feedback:
+    %   Real-time progress is reported via parallel.pool.DataQueue.
     %
     % Outputs:
     %   out.scope
@@ -18,11 +18,6 @@ function out = stage08_scan_smallgrid_search(cfg)
     %   out.best_config_table
     %   out.figures
     %   out.files
-    %
-    % Notes:
-    %   - This is a reduced-grid sensitivity analysis only
-    %   - It does NOT replace Stage05/06 global search
-    %   - It uses pass_geom_ratio over the full casebank as feasibility criterion
     
         startup();
     
@@ -114,45 +109,54 @@ function out = stage08_scan_smallgrid_search(cfg)
         for iCase = 1:nCase
             case_items{iCase} = local_build_casebank_case_item(casebank_table(iCase, :), nominal_bank, cfg);
         end
+        log_msg(log_fid, 'INFO', 'Prebuilt casebank case items: %d', nCase);
     
         % ============================================================
-        % Main loop: config x Tw x casebank
+        % Prepare task table: one task = one (config, Tw)
         % ============================================================
-        raw_rows = cell(nCfg * nTw, 1);
-        row_ptr = 0;
+        task_table = local_build_smallgrid_task_table(smallgrid_table, Tw_grid_s);
+        nTask = height(task_table);
+        log_msg(log_fid, 'INFO', 'Prepared task count = %d', nTask);
     
-        for iCfg = 1:nCfg
-            walker_cfg = smallgrid_table(iCfg, :);
-            ref_walker = local_make_ref_from_smallgrid_row(walker_cfg, iCfg, cfg);
-            gamma_req = local_resolve_gamma_req(ref_walker, cfg);
+        % ============================================================
+        % Parallel pool
+        % ============================================================
+        pool_info = local_ensure_parallel_pool(cfg, log_fid);
+        use_parallel = pool_info.use_parallel;
     
-            cfg_label = local_make_smallgrid_label(ref_walker, iCfg);
+        % ============================================================
+        % Progress monitor
+        % ============================================================
+        tStart = tic;
+        nComplete = 0;
+        progress_step = cfg.stage08.smallgrid.progress_step;
     
-            log_msg(log_fid, 'INFO', ...
-                'Config[%d/%d] %s | h=%.0f i=%.0f P=%d T=%d Ns=%d', ...
-                iCfg, nCfg, cfg_label, ...
-                ref_walker.h_km, ref_walker.i_deg, ref_walker.P, ref_walker.T, ref_walker.Ns);
+        if use_parallel
+            q = parallel.pool.DataQueue;
+            afterEach(q, @progressCallback);
+        else
+            q = [];
+        end
     
-            for iTw = 1:nTw
-                Tw_s = Tw_grid_s(iTw);
+        % ============================================================
+        % Main loop: parallel over (config, Tw)
+        % ============================================================
+        raw_rows = cell(nTask, 1);
     
-                cfg_eval = cfg;
-                cfg_eval.stage04.Tw_s = Tw_s;
-    
-                metric = local_evaluate_smallgrid_config_over_casebank( ...
-                    case_items, casebank_table, ref_walker, gamma_req, cfg_eval);
-    
-                row_ptr = row_ptr + 1;
-                raw_rows{row_ptr} = local_build_smallgrid_raw_row( ...
-                    walker_cfg, ref_walker, iCfg, cfg_label, Tw_s, metric, cfg);
-    
-                log_msg(log_fid, 'INFO', ...
-                    '  -> Tw=%6.1f s | feasible=%d | pass_ratio=%.3f | DG_median=%.3f | DG_min=%.3f', ...
-                    Tw_s, metric.is_feasible, metric.pass_geom_ratio, metric.D_G_median, metric.D_G_min);
+        if use_parallel
+            parfor iTask = 1:nTask
+                raw_rows{iTask} = local_run_smallgrid_task( ...
+                    task_table(iTask, :), smallgrid_table, case_items, casebank_table, cfg, q);
+            end
+        else
+            for iTask = 1:nTask
+                raw_rows{iTask} = local_run_smallgrid_task( ...
+                    task_table(iTask, :), smallgrid_table, case_items, casebank_table, cfg, []);
+                progressCallback(local_make_progress_msg(raw_rows{iTask}, iTask));
             end
         end
     
-        raw_config_table = struct2table(vertcat(raw_rows{1:row_ptr}));
+        raw_config_table = struct2table(vertcat(raw_rows{:}));
     
         % ============================================================
         % Summaries
@@ -169,7 +173,7 @@ function out = stage08_scan_smallgrid_search(cfg)
         figures.num_feasible_vs_Tw = '';
         figures.best_DG_vs_Tw = '';
     
-        if ~isfield(cfg.stage08, 'smallgrid') || ~isfield(cfg.stage08.smallgrid, 'make_plot') || cfg.stage08.smallgrid.make_plot
+        if cfg.stage08.smallgrid.make_plot
             fig1 = local_plot_Tw_summary(Tw_summary_table, 'N_min', 'N_{min}');
             figures.Nmin_vs_Tw = fullfile(cfg.paths.figs, ...
                 sprintf('stage08_smallgrid_Nmin_vs_Tw_%s_%s.png', run_tag, timestamp));
@@ -217,18 +221,26 @@ function out = stage08_scan_smallgrid_search(cfg)
             nCase, ...
             nCfg, ...
             nTw, ...
+            nTask, ...
             height(raw_config_table), ...
             height(Tw_summary_table), ...
             height(best_config_table), ...
+            use_parallel, ...
+            pool_info.num_workers, ...
+            toc(tStart), ...
             'VariableNames', { ...
                 'stage08_scope_file', ...
                 'stage02_file', ...
                 'n_casebank_case', ...
                 'n_smallgrid_config', ...
                 'n_Tw', ...
+                'n_task', ...
                 'n_raw_row', ...
                 'n_Tw_summary_row', ...
-                'n_best_config_row'});
+                'n_best_config_row', ...
+                'used_parallel', ...
+                'num_workers', ...
+                'elapsed_seconds'});
     
         writetable(summary_table, summary_csv);
     
@@ -240,11 +252,13 @@ function out = stage08_scan_smallgrid_search(cfg)
         out.scope = scope;
         out.casebank_table = casebank_table;
         out.smallgrid_table = smallgrid_table;
+        out.task_table = task_table;
         out.raw_config_table = raw_config_table;
         out.Tw_summary_table = Tw_summary_table;
         out.best_config_table = best_config_table;
         out.figures = figures;
         out.summary_table = summary_table;
+        out.pool_info = pool_info;
     
         out.files = struct();
         out.files.log_file = log_file;
@@ -276,6 +290,10 @@ function out = stage08_scan_smallgrid_search(cfg)
         fprintf('Casebank cases       : %d\n', nCase);
         fprintf('Small-grid configs   : %d\n', nCfg);
         fprintf('Tw count             : %d\n', nTw);
+        fprintf('Task count           : %d\n', nTask);
+        fprintf('Used parallel        : %d\n', use_parallel);
+        fprintf('Worker count         : %d\n', pool_info.num_workers);
+        fprintf('Elapsed seconds      : %.1f\n', toc(tStart));
         fprintf('Raw row count        : %d\n', height(raw_config_table));
         fprintf('Tw summary rows      : %d\n', height(Tw_summary_table));
         fprintf('Best config rows     : %d\n', height(best_config_table));
@@ -284,6 +302,25 @@ function out = stage08_scan_smallgrid_search(cfg)
         fprintf('Best config CSV      : %s\n', best_csv);
         fprintf('Cache                : %s\n', cache_file);
         fprintf('=======================================\n');
+    
+        % ============================================================
+        % nested callback for progress
+        % ============================================================
+        function progressCallback(msg)
+            nComplete = nComplete + 1;
+            do_print = (mod(nComplete, progress_step) == 0) || (nComplete == 1) || (nComplete == nTask);
+    
+            if do_print
+                elapsed_s = toc(tStart);
+                line = sprintf(['Progress %3d/%3d | cfg=%2d | Tw=%6.1f s | feasible=%d | ', ...
+                                'pass=%.3f | C2=%.3f | DGmed=%.3f | DGmin=%.3f | elapsed=%.1f s'], ...
+                    nComplete, nTask, msg.cfg_id, msg.Tw_s, msg.is_feasible, ...
+                    msg.pass_geom_ratio, msg.pass_C2_ratio, msg.D_G_median, msg.D_G_min, elapsed_s);
+    
+                fprintf('%s\n', line);
+                log_msg(log_fid, 'INFO', '%s', line);
+            end
+        end
     end
     
     
@@ -291,9 +328,136 @@ function out = stage08_scan_smallgrid_search(cfg)
     % local helpers
     % ============================================================
     
-    function casebank_table = local_build_casebank_master_table(scope)
+    function cfg = local_prepare_stage08_smallgrid_cfg(cfg)
     
-        casebank_table = table();
+        if ~isfield(cfg, 'stage08') || ~isstruct(cfg.stage08)
+            cfg.stage08 = struct();
+        end
+        if ~isfield(cfg.stage08, 'smallgrid') || ~isstruct(cfg.stage08.smallgrid)
+            cfg.stage08.smallgrid = struct();
+        end
+    
+        if ~isfield(cfg.stage08.smallgrid, 'make_plot') || isempty(cfg.stage08.smallgrid.make_plot)
+            cfg.stage08.smallgrid.make_plot = true;
+        end
+    
+        if ~isfield(cfg.stage08.smallgrid, 'require_DG_min') || isempty(cfg.stage08.smallgrid.require_DG_min)
+            cfg.stage08.smallgrid.require_DG_min = 1.0;
+        end
+        if ~isfield(cfg.stage08.smallgrid, 'require_pass_geom_ratio') || isempty(cfg.stage08.smallgrid.require_pass_geom_ratio)
+            cfg.stage08.smallgrid.require_pass_geom_ratio = 0.90;
+        end
+        if ~isfield(cfg.stage08.smallgrid, 'require_C2_pass_ratio') || isempty(cfg.stage08.smallgrid.require_C2_pass_ratio)
+            cfg.stage08.smallgrid.require_C2_pass_ratio = 0.50;
+        end
+    
+        if ~isfield(cfg.stage08.smallgrid, 'use_parallel') || isempty(cfg.stage08.smallgrid.use_parallel)
+            cfg.stage08.smallgrid.use_parallel = true;
+        end
+        if ~isfield(cfg.stage08.smallgrid, 'max_workers') || isempty(cfg.stage08.smallgrid.max_workers)
+            cfg.stage08.smallgrid.max_workers = inf;
+        end
+        if ~isfield(cfg.stage08.smallgrid, 'progress_step') || isempty(cfg.stage08.smallgrid.progress_step)
+            cfg.stage08.smallgrid.progress_step = 1;
+        end
+    end
+    
+    
+    function pool_info = local_ensure_parallel_pool(cfg, log_fid)
+    
+        pool_info = struct();
+        pool_info.use_parallel = false;
+        pool_info.num_workers = 0;
+        pool_info.pool_type = "";
+    
+        if ~cfg.stage08.smallgrid.use_parallel
+            log_msg(log_fid, 'INFO', 'Parallel disabled by cfg.stage08.smallgrid.use_parallel = false.');
+            return;
+        end
+    
+        try
+            p = gcp('nocreate');
+            if isempty(p)
+                max_workers = cfg.stage08.smallgrid.max_workers;
+                if isfinite(max_workers)
+                    p = parpool(min(feature('numcores'), max_workers));
+                else
+                    p = parpool;
+                end
+            end
+    
+            pool_info.use_parallel = true;
+            pool_info.num_workers = p.NumWorkers;
+            pool_info.pool_type = string(class(p));
+            log_msg(log_fid, 'INFO', 'Parallel pool ready. workers = %d', p.NumWorkers);
+        catch ME
+            pool_info.use_parallel = false;
+            pool_info.num_workers = 0;
+            log_msg(log_fid, 'INFO', 'Parallel pool unavailable. Fallback to serial. Reason: %s', ME.message);
+        end
+    end
+    
+    
+    function task_table = local_build_smallgrid_task_table(smallgrid_table, Tw_grid_s)
+    
+        nCfg = height(smallgrid_table);
+        nTw = numel(Tw_grid_s);
+    
+        cfg_id = zeros(nCfg * nTw, 1);
+        Tw_s = zeros(nCfg * nTw, 1);
+    
+        ptr = 0;
+        for iCfg = 1:nCfg
+            for iTw = 1:nTw
+                ptr = ptr + 1;
+                cfg_id(ptr) = iCfg;
+                Tw_s(ptr) = Tw_grid_s(iTw);
+            end
+        end
+    
+        task_table = table(cfg_id, Tw_s, 'VariableNames', {'cfg_id', 'Tw_s'});
+    end
+    
+    
+    function row = local_run_smallgrid_task(task_row, smallgrid_table, case_items, casebank_table, cfg, q)
+    
+        iCfg = task_row.cfg_id;
+        Tw_s = task_row.Tw_s;
+    
+        walker_cfg = smallgrid_table(iCfg, :);
+        ref_walker = local_make_ref_from_smallgrid_row(walker_cfg, iCfg, cfg);
+        gamma_req = local_resolve_gamma_req(ref_walker, cfg);
+        cfg_label = local_make_smallgrid_label(ref_walker, iCfg);
+    
+        cfg_eval = cfg;
+        cfg_eval.stage04.Tw_s = Tw_s;
+    
+        metric = local_evaluate_smallgrid_config_over_casebank( ...
+            case_items, casebank_table, ref_walker, gamma_req, cfg_eval);
+    
+        row = local_build_smallgrid_raw_row( ...
+            walker_cfg, ref_walker, iCfg, cfg_label, Tw_s, metric);
+    
+        if ~isempty(q)
+            send(q, local_make_progress_msg(row, iCfg));
+        end
+    end
+    
+    
+    function msg = local_make_progress_msg(row, iCfg)
+    
+        msg = struct();
+        msg.cfg_id = iCfg;
+        msg.Tw_s = row.Tw_s;
+        msg.is_feasible = row.is_feasible;
+        msg.pass_geom_ratio = row.pass_geom_ratio;
+        msg.pass_C2_ratio = row.pass_C2_ratio;
+        msg.D_G_median = row.D_G_median;
+        msg.D_G_min = row.D_G_min;
+    end
+    
+    
+    function casebank_table = local_build_casebank_master_table(scope)
     
         assert(isfield(scope, 'casebank') && isstruct(scope.casebank), ...
             'Stage08.1 scope missing casebank.');
@@ -332,19 +496,49 @@ function out = stage08_scan_smallgrid_search(cfg)
                 T.sample_type = string(T.sample_type);
             end
     
-            if isempty(casebank_table)
-                casebank_table = T;
-            else
-                casebank_table = outerjoin(casebank_table, T, 'MergeKeys', true); %#ok<NASGU>
-                casebank_table = [casebank_table; T]; %#ok<AGROW>
-            end
+            tables{i} = T;
         end
+    
+        casebank_table = local_vertcat_tables_union(tables);
     
         if any(strcmp(casebank_table.Properties.VariableNames, 'entry_id')) && ...
                 any(strcmp(casebank_table.Properties.VariableNames, 'heading_deg'))
             casebank_table = sortrows(casebank_table, {'sample_type','entry_id','heading_deg'}, ...
                 {'ascend','ascend','ascend'});
         end
+    end
+    
+    
+    function Tcat = local_vertcat_tables_union(tables)
+    
+        all_vars = {};
+        for i = 1:numel(tables)
+            all_vars = union(all_vars, tables{i}.Properties.VariableNames, 'stable');
+        end
+    
+        Tcat = table();
+        for i = 1:numel(tables)
+            T = tables{i};
+            missing_vars = setdiff(all_vars, T.Properties.VariableNames, 'stable');
+    
+            for j = 1:numel(missing_vars)
+                v = missing_vars{j};
+                T.(v) = local_make_missing_column(height(T));
+            end
+    
+            T = T(:, all_vars);
+    
+            if isempty(Tcat)
+                Tcat = T;
+            else
+                Tcat = [Tcat; T];
+            end
+        end
+    end
+    
+    
+    function c = local_make_missing_column(n)
+        c = repmat(missing, n, 1);
     end
     
     
@@ -433,7 +627,6 @@ function out = stage08_scan_smallgrid_search(cfg)
     
     
     function label = local_make_smallgrid_label(ref_walker, iCfg)
-    
         label = sprintf('G%d_h%.0f_i%.0f_P%dT%d', ...
             iCfg, ref_walker.h_km, ref_walker.i_deg, round(ref_walker.P), round(ref_walker.T));
     end
@@ -484,29 +677,19 @@ function out = stage08_scan_smallgrid_search(cfg)
         metric.mean_angle_mean = mean(mean_angle, 'omitnan');
     
         metric.pass_geom_ratio = mean(double(pass_geom), 'omitnan');
-    
         metric.pass_nominal_ratio = local_family_pass_ratio(pass_geom, sample_type, "nominal");
         metric.pass_C1_ratio = local_family_pass_ratio(pass_geom, sample_type, "C1");
         metric.pass_C2_ratio = local_family_pass_ratio(pass_geom, sample_type, "C2");
     
-        % reduced-grid feasibility criterion
         req = local_resolve_smallgrid_requirements(cfg_eval);
-
-        metric.is_feasible = (metric.D_G_min >= req.require_DG_min) && ...
-                            (metric.pass_geom_ratio >= req.require_pass_geom_ratio) && ...
-                            (metric.pass_C2_ratio >= req.require_C2_pass_ratio);
     
-        metric.score = [ ...
-            -double(metric.is_feasible), ...
-            local_safe_numeric(metric.N_case * 0 + ref_walker.Ns), ...
-            -local_safe_numeric(metric.pass_geom_ratio), ...
-            -local_safe_numeric(metric.D_G_median), ...
-            -local_safe_numeric(metric.D_G_min)];
+        metric.is_feasible = (metric.D_G_min >= req.require_DG_min) && ...
+                             (metric.pass_geom_ratio >= req.require_pass_geom_ratio) && ...
+                             (metric.pass_C2_ratio >= req.require_C2_pass_ratio);
     end
     
     
     function x = local_family_pass_ratio(pass_geom, sample_type, fam_name)
-    
         idx = sample_type == fam_name;
         if ~any(idx)
             x = NaN;
@@ -516,7 +699,7 @@ function out = stage08_scan_smallgrid_search(cfg)
     end
     
     
-    function row = local_build_smallgrid_raw_row(walker_cfg, ref_walker, iCfg, cfg_label, Tw_s, metric, ~)
+    function row = local_build_smallgrid_raw_row(walker_cfg, ref_walker, iCfg, cfg_label, Tw_s, metric)
     
         row = struct();
     
@@ -718,6 +901,31 @@ function out = stage08_scan_smallgrid_search(cfg)
     end
     
     
+    function req = local_resolve_smallgrid_requirements(cfg)
+    
+        req = struct();
+        req.require_DG_min = 1.0;
+        req.require_pass_geom_ratio = 0.90;
+        req.require_C2_pass_ratio = 0.50;
+    
+        if ~isstruct(cfg), return; end
+        if ~isfield(cfg, 'stage08') || ~isstruct(cfg.stage08), return; end
+        if ~isfield(cfg.stage08, 'smallgrid') || ~isstruct(cfg.stage08.smallgrid), return; end
+    
+        sg = cfg.stage08.smallgrid;
+    
+        if isfield(sg, 'require_DG_min') && ~isempty(sg.require_DG_min) && isfinite(sg.require_DG_min)
+            req.require_DG_min = sg.require_DG_min;
+        end
+        if isfield(sg, 'require_pass_geom_ratio') && ~isempty(sg.require_pass_geom_ratio) && isfinite(sg.require_pass_geom_ratio)
+            req.require_pass_geom_ratio = sg.require_pass_geom_ratio;
+        end
+        if isfield(sg, 'require_C2_pass_ratio') && ~isempty(sg.require_C2_pass_ratio) && isfinite(sg.require_C2_pass_ratio)
+            req.require_C2_pass_ratio = sg.require_C2_pass_ratio;
+        end
+    end
+    
+    
     function value = local_get_table_value(Trow, field_name, default_value)
     
         if nargin < 3
@@ -793,73 +1001,5 @@ function out = stage08_scan_smallgrid_search(cfg)
             if ~isempty(tok)
                 entry_id = str2double(tok{1});
             end
-        end
-    end
-    
-    
-    function x = local_safe_numeric(x)
-        if ~isfinite(x)
-            x = -inf;
-        end
-    end
-
-    function cfg = local_prepare_stage08_smallgrid_cfg(cfg)
-
-        if ~isfield(cfg, 'stage08') || ~isstruct(cfg.stage08)
-            cfg.stage08 = struct();
-        end
-    
-        if ~isfield(cfg.stage08, 'smallgrid') || ~isstruct(cfg.stage08.smallgrid)
-            cfg.stage08.smallgrid = struct();
-        end
-    
-        if ~isfield(cfg.stage08.smallgrid, 'make_plot') || isempty(cfg.stage08.smallgrid.make_plot)
-            cfg.stage08.smallgrid.make_plot = true;
-        end
-    
-        if ~isfield(cfg.stage08.smallgrid, 'require_DG_min') || isempty(cfg.stage08.smallgrid.require_DG_min)
-            cfg.stage08.smallgrid.require_DG_min = 1.0;
-        end
-    
-        if ~isfield(cfg.stage08.smallgrid, 'require_pass_geom_ratio') || isempty(cfg.stage08.smallgrid.require_pass_geom_ratio)
-            cfg.stage08.smallgrid.require_pass_geom_ratio = 0.90;
-        end
-    
-        if ~isfield(cfg.stage08.smallgrid, 'require_C2_pass_ratio') || isempty(cfg.stage08.smallgrid.require_C2_pass_ratio)
-            cfg.stage08.smallgrid.require_C2_pass_ratio = 0.50;
-        end
-    end
-
-    function req = local_resolve_smallgrid_requirements(cfg)
-
-        req = struct();
-        req.require_DG_min = 1.0;
-        req.require_pass_geom_ratio = 0.90;
-        req.require_C2_pass_ratio = 0.50;
-    
-        if ~isstruct(cfg)
-            return;
-        end
-    
-        if ~isfield(cfg, 'stage08') || ~isstruct(cfg.stage08)
-            return;
-        end
-    
-        if ~isfield(cfg.stage08, 'smallgrid') || ~isstruct(cfg.stage08.smallgrid)
-            return;
-        end
-    
-        sg = cfg.stage08.smallgrid;
-    
-        if isfield(sg, 'require_DG_min') && ~isempty(sg.require_DG_min) && isfinite(sg.require_DG_min)
-            req.require_DG_min = sg.require_DG_min;
-        end
-    
-        if isfield(sg, 'require_pass_geom_ratio') && ~isempty(sg.require_pass_geom_ratio) && isfinite(sg.require_pass_geom_ratio)
-            req.require_pass_geom_ratio = sg.require_pass_geom_ratio;
-        end
-    
-        if isfield(sg, 'require_C2_pass_ratio') && ~isempty(sg.require_C2_pass_ratio) && isfinite(sg.require_C2_pass_ratio)
-            req.require_C2_pass_ratio = sg.require_C2_pass_ratio;
         end
     end
