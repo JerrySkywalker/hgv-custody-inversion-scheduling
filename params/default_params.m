@@ -698,4 +698,43 @@ function cfg = default_params()
     % Stage08.4b feasibility profile
     % -------------------------------------------------
     cfg.stage08.smallgrid.feasibility_profile = 'strict';  % 'relaxed' / 'medium' / 'strict'
+
+    % -------------------------------------------------
+    % Stage08.4c boundary window sensitivity
+    % -------------------------------------------------
+    cfg.stage08c = struct();
+
+    % hard-case bank size
+    cfg.stage08c.n_hard_nominal = 3;
+    cfg.stage08c.n_hard_C1 = 3;
+    cfg.stage08c.n_hard_C2 = 6;
+
+    % weak-side small-grid
+    cfg.stage08c.h_km_list = 1000;
+    cfg.stage08c.i_deg_list = [50, 60];
+    cfg.stage08c.PT_pairs = [ ...
+        8, 4; ...
+        8, 5; ...
+        8, 6; ...
+        10, 4; ...
+        10, 5; ...
+        12, 4; ...
+        12, 5; ...
+        14, 4; ...
+        16, 4];
+
+    cfg.stage08c.F = 1;
+
+    % boundary feasibility rule
+    cfg.stage08c.tail_hard_k = 3;
+    cfg.stage08c.tail_C2_k = 2;
+    cfg.stage08c.require_DG_min = 1.0;
+
+    % parallel + progress
+    cfg.stage08c.use_parallel = true;
+    cfg.stage08c.max_workers = inf;
+    cfg.stage08c.progress_step = 1;
+
+    % plotting
+    cfg.stage08c.make_plot = true;
 end
