@@ -594,4 +594,76 @@ function cfg = default_params()
     % save both png and fig
     cfg.stage07.plot.save_png = true;
     cfg.stage07.plot.save_fig = true;
+
+    % ---------------------------
+    % Stage08: window-length sensitivity scope
+    % ---------------------------
+    cfg.stage08 = struct();
+
+    % global run tag
+    cfg.stage08.run_tag = 'twscan';
+
+    % Tw grid selector
+    cfg.stage08.active_tw_grid_name = 'baseline';   % 'baseline' / 'dense' / 'custom'
+
+    % recommended first-pass grid
+    cfg.stage08.Tw_grid_baseline_s = [40 50 60 70 80 100];
+
+    % optional denser / wider grid
+    cfg.stage08.Tw_grid_dense_s = [30 40 50 60 70 80 90 100 120];
+
+    % custom fallback
+    cfg.stage08.Tw_grid_custom_s = [40 50 60 70 80 100];
+
+    % always include current Stage04 baseline Tw
+    cfg.stage08.require_include_current_Tw = true;
+
+    % -------------------------------------------------
+    % reference-walker source policy
+    % -------------------------------------------------
+    cfg.stage08.reference = struct();
+    cfg.stage08.reference.use_stage07_primary = true;
+    cfg.stage08.reference.include_stage05_best_feasible = true;
+
+    % -------------------------------------------------
+    % representative cases
+    % -------------------------------------------------
+    cfg.stage08.rep = struct();
+
+    % if Stage07.6.1 paper scope exists, reuse its representative entries first
+    cfg.stage08.rep.prefer_stage07_paper_scope = true;
+
+    % fallback number of representative entries
+    cfg.stage08.rep.n_representative_entry = 2;
+
+    % keep a small and interpretable representative subset
+    cfg.stage08.rep.max_nominal_count = 2;
+    cfg.stage08.rep.max_C1_count = 2;
+    cfg.stage08.rep.max_C2_count = 2;
+
+    % family order used in representative subset / later plotting
+    cfg.stage08.family_order = {'nominal','C1','C2'};
+
+    % -------------------------------------------------
+    % Stage08.4 small-grid search scope
+    % -------------------------------------------------
+    cfg.stage08.smallgrid = struct();
+    cfg.stage08.smallgrid.enable = true;
+
+    % build around primary reference Walker
+    cfg.stage08.smallgrid.h_offsets_km = [0];
+    cfg.stage08.smallgrid.i_offsets_deg = [-10 0 10];
+    cfg.stage08.smallgrid.P_offsets = [-2 0 2];
+    cfg.stage08.smallgrid.T_offsets = [-2 0 2];
+
+    cfg.stage08.smallgrid.min_i_deg = 20;
+    cfg.stage08.smallgrid.max_i_deg = 90;
+    cfg.stage08.smallgrid.min_P = 2;
+    cfg.stage08.smallgrid.min_T = 2;
+
+    cfg.stage08.smallgrid.F_fixed = 1;
+    cfg.stage08.smallgrid.round_to_integer = true;
+
+    % prevent Stage08.1 from generating an overly large config table
+    cfg.stage08.smallgrid.max_config_count = 64;
 end
