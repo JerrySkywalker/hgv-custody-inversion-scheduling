@@ -672,4 +672,10 @@ function cfg = default_params()
     % -------------------------------------------------
     cfg.stage08.scan = struct();
     cfg.stage08.scan.make_plot = true;
+
+    % -------------------------------------------------
+    % Stage08.3 casebank scan
+    % -------------------------------------------------
+    cfg.stage08.casebank = struct();
+    cfg.stage08.casebank.make_plot = true;
 end
