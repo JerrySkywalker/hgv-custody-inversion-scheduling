@@ -666,4 +666,10 @@ function cfg = default_params()
 
     % prevent Stage08.1 from generating an overly large config table
     cfg.stage08.smallgrid.max_config_count = 64;
+
+    % -------------------------------------------------
+    % Stage08.2 representative scan
+    % -------------------------------------------------
+    cfg.stage08.scan = struct();
+    cfg.stage08.scan.make_plot = true;
 end
