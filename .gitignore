@@ -15,6 +15,7 @@
 slprj/
 codegen/
 resources/project/
+derived/
 profile_results/
 *.prj.bak
 *.log.bak
