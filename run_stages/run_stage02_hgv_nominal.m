@@ -1,0 +1,26 @@
+%% run_stage02_hgv_nominal.m
+% 一键运行 Stage02：HGV 标称轨迹生成
+%
+% 本脚本按顺序执行 Stage02 下的唯一入口。
+%
+% Stage02 步骤说明：
+%   Step 2.1  hgv_nominal
+%             - 从 Stage01 最新 cache 加载 casebank
+%             - 对 nominal / heading / critical 三族分别进行 HGV 动力学传播（VTC 开环剖面）
+%             - 输出轨迹库 trajbank（含 ENU/ECEF/ECI），以及 family/heading/critical 汇总与图形
+%
+% 依赖：需先运行 Stage01（stage01_scenario_disk）
+%
+% 使用：在工程根目录下运行
+%   run_stages/run_stage02_hgv_nominal
+
+function run_stage02_hgv_nominal()
+    proj_root = fileparts(fileparts(mfilename('fullpath')));
+    if ~isempty(proj_root), addpath(proj_root); end
+    startup();
+
+    fprintf('[run_stages] === Stage02 一键运行 ===\n');
+
+    out = stage02_hgv_nominal();
+    fprintf('[run_stages] Stage02 完成\n');
+end

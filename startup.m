@@ -9,6 +9,7 @@ function startup()
         addpath(genpath(fullfile(root_dir, 'stages')));
         addpath(genpath(fullfile(root_dir, 'paper')));
         addpath(genpath(fullfile(root_dir, 'tests')));
+        addpath(genpath(fullfile(root_dir, 'run_stages')));
     
         % Add deliverables / milestone scripts
         deliverables_dir = fullfile(root_dir, 'deliverables');
