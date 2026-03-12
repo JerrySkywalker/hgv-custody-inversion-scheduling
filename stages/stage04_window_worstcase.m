@@ -52,14 +52,16 @@ function out = stage04_window_worstcase()
         if isfield(satbank, 'meta') && isfield(satbank.meta, 'geometry_mode')
             log_msg(log_fid, 'INFO', 'Satellite geometry mode = %s', satbank.meta.geometry_mode);
         end
-    
+
+        pool = local_prepare_parallel_pool(cfg, log_fid, 'stage04');
+
         % ------------------------------------------------------------
         % Run all families
         % ------------------------------------------------------------
         winbank = struct();
-        winbank.nominal = local_run_family(visbank.nominal, satbank, log_fid, cfg);
-        winbank.heading = local_run_family(visbank.heading, satbank, log_fid, cfg);
-        winbank.critical = local_run_family(visbank.critical, satbank, log_fid, cfg);
+        winbank.nominal = local_run_family(visbank.nominal, satbank, log_fid, cfg, pool, 'nominal');
+        winbank.heading = local_run_family(visbank.heading, satbank, log_fid, cfg, pool, 'heading');
+        winbank.critical = local_run_family(visbank.critical, satbank, log_fid, cfg, pool, 'critical');
     
         % ------------------------------------------------------------
         % Spectrum summaries
@@ -182,32 +184,79 @@ function out = stage04_window_worstcase()
         fprintf('=====================================\n');
     end
     
-    function family_out = local_run_family(vis_in, satbank, log_fid, cfg)
-    
+    function family_out = local_run_family(vis_in, satbank, log_fid, cfg, pool, family_name)
+
         if isempty(vis_in)
             family_out = struct('case_id', {}, 'window_case', {}, 'summary', {});
             return;
         end
-    
+
         family_out = repmat(struct('case_id', [], 'window_case', [], 'summary', []), numel(vis_in), 1);
-    
-        for k = 1:numel(vis_in)
-            vis_case = vis_in(k).vis_case;
-            window_case = scan_worst_window_stage04(vis_case, satbank, cfg);
-            s = summarize_window_case_stage04(window_case);
-    
-            family_out(k).case_id = vis_case.case_id;
-            family_out(k).window_case = window_case;
-            family_out(k).summary = s;
-    
+
+        if ~isempty(pool)
+            parfor k = 1:numel(vis_in)
+                family_out(k) = local_eval_window_case(vis_in(k).vis_case, satbank, cfg);
+            end
+        else
+            for k = 1:numel(vis_in)
+                family_out(k) = local_eval_window_case(vis_in(k).vis_case, satbank, cfg);
+            end
+        end
+
+        log_msg(log_fid, 'INFO', ...
+            'Family %s processed: %d cases | parallel=%d', ...
+            char(string(family_name)), numel(vis_in), ~isempty(pool));
+
+        for k = 1:numel(family_out)
+            s = family_out(k).summary;
             log_msg(log_fid, 'INFO', ...
                 'Case %-24s | lambda_worst=%.3e | lambda_mean=%.3e | t0_worst=%.1f s', ...
                 s.case_id, s.lambda_min_worst, s.lambda_min_mean, s.t0_worst_s);
         end
     end
-    
+
+    function case_out = local_eval_window_case(vis_case, satbank, cfg)
+        window_case = scan_worst_window_stage04(vis_case, satbank, cfg);
+        s = summarize_window_case_stage04(window_case);
+
+        case_out = struct();
+        case_out.case_id = vis_case.case_id;
+        case_out.window_case = window_case;
+        case_out.summary = s;
+    end
+
+    function pool = local_prepare_parallel_pool(cfg, log_fid, stage_name)
+        pool = [];
+
+        if ~isfield(cfg, stage_name) || ~isfield(cfg.(stage_name), 'use_parallel') || ...
+                ~cfg.(stage_name).use_parallel
+            log_msg(log_fid, 'INFO', 'Parallel mode disabled for %s.', stage_name);
+            return;
+        end
+
+        try
+            if isfield(cfg.(stage_name), 'auto_start_pool') && cfg.(stage_name).auto_start_pool
+                requested_profile = char(string(cfg.(stage_name).parallel_pool_profile));
+                pool = ensure_parallel_pool(requested_profile, cfg.(stage_name).parallel_num_workers);
+            else
+                pool = gcp('nocreate');
+                if isempty(pool)
+                    error(['cfg.' stage_name '.use_parallel=true but no parallel pool exists.']);
+                end
+            end
+
+            log_msg(log_fid, 'INFO', 'Parallel mode enabled for %s: %s', ...
+                stage_name, get_parallel_pool_desc(pool, string(cfg.(stage_name).parallel_pool_profile)));
+        catch ME
+            pool = [];
+            log_msg(log_fid, 'INFO', ...
+                'Parallel pool unavailable for %s. Fallback to serial. Reason: %s', ...
+                stage_name, ME.message);
+        end
+    end
+
     function hit = local_find_case(winbank, case_id)
-    
+
         all_structs = [winbank.nominal; winbank.heading; winbank.critical];
         idx = find(strcmp(string({all_structs.case_id}), string(case_id)), 1, 'first');
         assert(~isempty(idx), 'Case %s not found in winbank.', case_id);

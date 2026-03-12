@@ -50,18 +50,20 @@ function out = stage03_visibility_pipeline()
     
         walker = build_single_layer_walker_stage03(cfg);
         satbank = propagate_constellation_stage03(walker, t_s_common);
-    
+
         log_msg(log_fid, 'INFO', ...
             'Walker baseline built: h=%.1f km, i=%.1f deg, P=%d, T=%d, Ns=%d, Nt=%d', ...
             walker.h_km, walker.i_deg, walker.P, walker.T, walker.Ns, numel(t_s_common));
-    
+
+        pool = local_prepare_parallel_pool(cfg, log_fid, 'stage03');
+
         % ------------------------------------------------------------
         % Run all families
         % ------------------------------------------------------------
         visbank = struct();
-        visbank.nominal = local_run_family(trajbank.nominal, satbank, cfg, log_fid);
-        visbank.heading = local_run_family(trajbank.heading, satbank, cfg, log_fid);
-        visbank.critical = local_run_family(trajbank.critical, satbank, cfg, log_fid);
+        visbank.nominal = local_run_family(trajbank.nominal, satbank, cfg, log_fid, pool, 'nominal');
+        visbank.heading = local_run_family(trajbank.heading, satbank, cfg, log_fid, pool, 'heading');
+        visbank.critical = local_run_family(trajbank.critical, satbank, cfg, log_fid, pool, 'critical');
     
         summary_extra = summarize_visibility_bank_stage03(visbank);
     
@@ -115,30 +117,83 @@ function out = stage03_visibility_pipeline()
     % local helpers
     % ========================================================================
     
-    function family_out = local_run_family(trajs_in, satbank, cfg, log_fid)
-    
+    function family_out = local_run_family(trajs_in, satbank, cfg, log_fid, pool, family_name)
+
         family_out = repmat(struct('case_id', [], 'family', [], 'subfamily', [], ...
                                    'vis_case', [], 'los_geom', [], 'summary', []), numel(trajs_in), 1);
-    
-        for k = 1:numel(trajs_in)
-            traj_case = trajs_in(k);
-            vis_case = compute_visibility_matrix_stage03(traj_case, satbank, cfg);
-            los_geom = compute_los_geometry_stage03(vis_case, satbank);
-            s = summarize_visibility_case_stage03(vis_case, los_geom);
-    
-            family_out(k).case_id = traj_case.case.case_id;
-            family_out(k).family = traj_case.case.family;
-            family_out(k).subfamily = traj_case.case.subfamily;
-            family_out(k).vis_case = vis_case;
-            family_out(k).los_geom = los_geom;
-            family_out(k).summary = s;
-    
+
+        if isempty(trajs_in)
+            return;
+        end
+
+        if ~isempty(pool)
+            parfor k = 1:numel(trajs_in)
+                traj_case = trajs_in(k);
+                family_out(k) = local_eval_visibility_case(traj_case, satbank, cfg);
+            end
+        else
+            for k = 1:numel(trajs_in)
+                traj_case = trajs_in(k);
+                family_out(k) = local_eval_visibility_case(traj_case, satbank, cfg);
+            end
+        end
+
+        log_msg(log_fid, 'INFO', ...
+            'Family %s processed: %d cases | parallel=%d', ...
+            char(string(family_name)), numel(trajs_in), ~isempty(pool));
+
+        for k = 1:numel(family_out)
+            s = family_out(k).summary;
             log_msg(log_fid, 'INFO', ...
                 'Case %-24s | mean_vis=%.2f | dual_ratio=%.3f | min_LOS=%.2f deg', ...
                 s.case_id, s.mean_num_visible, s.dual_coverage_ratio, s.min_los_crossing_angle_deg);
         end
     end
-    
+
+    function case_out = local_eval_visibility_case(traj_case, satbank, cfg)
+        vis_case = compute_visibility_matrix_stage03(traj_case, satbank, cfg);
+        los_geom = compute_los_geometry_stage03(vis_case, satbank);
+        s = summarize_visibility_case_stage03(vis_case, los_geom);
+
+        case_out = struct();
+        case_out.case_id = traj_case.case.case_id;
+        case_out.family = traj_case.case.family;
+        case_out.subfamily = traj_case.case.subfamily;
+        case_out.vis_case = vis_case;
+        case_out.los_geom = los_geom;
+        case_out.summary = s;
+    end
+
+    function pool = local_prepare_parallel_pool(cfg, log_fid, stage_name)
+        pool = [];
+
+        if ~isfield(cfg, stage_name) || ~isfield(cfg.(stage_name), 'use_parallel') || ...
+                ~cfg.(stage_name).use_parallel
+            log_msg(log_fid, 'INFO', 'Parallel mode disabled for %s.', stage_name);
+            return;
+        end
+
+        try
+            if isfield(cfg.(stage_name), 'auto_start_pool') && cfg.(stage_name).auto_start_pool
+                requested_profile = char(string(cfg.(stage_name).parallel_pool_profile));
+                pool = ensure_parallel_pool(requested_profile, cfg.(stage_name).parallel_num_workers);
+            else
+                pool = gcp('nocreate');
+                if isempty(pool)
+                    error(['cfg.' stage_name '.use_parallel=true but no parallel pool exists.']);
+                end
+            end
+
+            log_msg(log_fid, 'INFO', 'Parallel mode enabled for %s: %s', ...
+                stage_name, get_parallel_pool_desc(pool, string(cfg.(stage_name).parallel_pool_profile)));
+        catch ME
+            pool = [];
+            log_msg(log_fid, 'INFO', ...
+                'Parallel pool unavailable for %s. Fallback to serial. Reason: %s', ...
+                stage_name, ME.message);
+        end
+    end
+
     function hit = local_find_case(visbank, case_id)
         all_structs = [visbank.nominal; visbank.heading; visbank.critical];
         idx = find(strcmp(string({all_structs.case_id}), string(case_id)), 1, 'first');

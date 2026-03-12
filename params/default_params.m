@@ -247,6 +247,12 @@ function cfg = default_params()
     cfg.stage03.enable_min_elevation_constraint = false;
     cfg.stage03.min_elevation_deg = 5;
 
+    % Parallel options
+    cfg.stage03.use_parallel = true;
+    cfg.stage03.auto_start_pool = true;
+    cfg.stage03.parallel_pool_profile = 'local';   % 'threads' or 'local'
+    cfg.stage03.parallel_num_workers = [];         % [] means default
+
     % ---------------------------
     % Stage04 windowed information matrix parameters
     % ---------------------------
@@ -267,6 +273,12 @@ function cfg = default_params()
     cfg.stage04.make_plot = true;
     cfg.stage04.example_case_id = 'N01';
     cfg.stage04.example_compare_case_ids = {'N01','H01_+60','C2_small_crossing_angle'};
+
+    % Parallel options
+    cfg.stage04.use_parallel = true;
+    cfg.stage04.auto_start_pool = true;
+    cfg.stage04.parallel_pool_profile = cfg.stage03.parallel_pool_profile;
+    cfg.stage04.parallel_num_workers = cfg.stage03.parallel_num_workers;
 
     % ============================================================
     % Stage04G.7 margin-threshold calibration
