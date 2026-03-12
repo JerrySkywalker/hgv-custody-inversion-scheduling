@@ -34,11 +34,48 @@ function out = compute_window_metrics_stage09(Wr, cfg_or_stage09)
         error('Wr must be square.');
     end
 
-    Wr_used = Wr;
+    % ------------------------------------------------------------
+    % Keep both raw and stabilized versions
+    % ------------------------------------------------------------
+    Wr_raw = Wr;
     if s9.force_symmetric
-        Wr_used = 0.5 * (Wr_used + Wr_used.');
+        Wr_raw = 0.5 * (Wr_raw + Wr_raw.');
     end
 
+    gamma_eff = local_resolve_gamma_eff_scalar(s9);
+
+    % ------------------------------------------------------------
+    % Zero-information / near-zero-information shortcut
+    % ------------------------------------------------------------
+    % If the whole window contains essentially no information,
+    % return DG=0 and DA=0 directly, instead of letting regularization
+    % create artificial floor values that destroy discrimination.
+    tiny_info_thresh = 1e-12;
+    if trace(Wr_raw) <= tiny_info_thresh || norm(Wr_raw, 'fro') <= tiny_info_thresh
+        out = struct();
+        out.Wr_used = Wr_raw;
+        out.lambda_min_raw = 0;
+        out.lambda_min_eff = 0;
+        out.Wr_eigvals = zeros(n1,1);
+        out.gamma_eff = gamma_eff;
+        out.DG = 0;
+
+        out.PA_lb = nan(size(s9.CA,1), size(s9.CA,1));
+        out.PA_eigvals = nan(size(s9.CA,1),1);
+        out.sigma_A_proj = inf;
+        out.DA = 0;
+
+        out.rank_Wr = 0;
+        out.Wr_cond = inf;
+        out.ok = true;
+        out.note = "zero_information_window";
+        return;
+    end
+
+    % ------------------------------------------------------------
+    % Stabilized version for DG only
+    % ------------------------------------------------------------
+    Wr_used = Wr_raw;
     if s9.wr_reg_eps > 0
         Wr_used = Wr_used + s9.wr_reg_eps * eye(size(Wr_used));
     end
@@ -46,18 +83,22 @@ function out = compute_window_metrics_stage09(Wr, cfg_or_stage09)
     wr_eigs = eig(Wr_used);
     wr_eigs = sort(real(wr_eigs(:)), 'ascend');
 
-    lambda_min_raw = wr_eigs(1);
-    lambda_min_eff = max(lambda_min_raw, s9.wr_eig_floor);
-
-    gamma_eff = local_resolve_gamma_eff_scalar(s9);
+    lambda_min_raw = min(real(eig(Wr_raw)));
+    lambda_min_eff = max(wr_eigs(1), s9.wr_eig_floor);
 
     DG = lambda_min_eff / gamma_eff;
 
-    proj = compute_projected_accuracy_stage09(Wr_used, s9.CA, s9);
+    % ------------------------------------------------------------
+    % IMPORTANT:
+    % For DA, pass the RAW Wr into projected-accuracy computation,
+    % so that regularization is applied only once inside
+    % compute_projected_accuracy_stage09.
+    % ------------------------------------------------------------
+    proj = compute_projected_accuracy_stage09(Wr_raw, s9.CA, s9);
     sigma_A_proj = proj.sigma_A_proj;
 
-    if sigma_A_proj <= 0
-        DA = inf;
+    if ~isfinite(sigma_A_proj) || sigma_A_proj <= 0
+        DA = 0;
     else
         DA = s9.sigma_A_req / sigma_A_proj;
     end
@@ -77,7 +118,7 @@ function out = compute_window_metrics_stage09(Wr, cfg_or_stage09)
 
     out.rank_Wr = proj.rank_Wr;
     out.Wr_cond = proj.Wr_cond;
-    out.ok = isfinite(DG) && isfinite(DA) && proj.ok;
+    out.ok = isfinite(DG) && (isfinite(DA) || DA == 0) && proj.ok;
     out.note = local_build_note(out, proj.note);
 end
 
@@ -112,6 +153,11 @@ function note = local_build_note(out, proj_note)
 
     if ~out.ok
         note = "invalid_metric";
+        return;
+    end
+
+    if isfield(out, 'note') && out.note == "zero_information_window"
+        note = out.note;
         return;
     end
 

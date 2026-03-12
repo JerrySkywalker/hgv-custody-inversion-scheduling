@@ -859,4 +859,26 @@ function cfg = default_params()
     % whether to force symmetrization on Wr / projected covariance
     cfg.stage09.force_symmetric = true;
 
+    % ------------------------------------------------------------
+    % Stage09.3 single-design evaluator controls
+    % ------------------------------------------------------------
+    cfg.stage09.require_DG_min = 1.0;
+    cfg.stage09.require_DA_min = 1.0;
+    cfg.stage09.require_DT_min = 1.0;
+    cfg.stage09.require_pass_ratio = 1.0;
+
+    % Early-stop rule:
+    % If require_pass_ratio == 1, one failed case already implies infeasible.
+    cfg.stage09.use_early_stop = false;
+
+    % Time-gap / custody definition
+    % A time sample is counted as "custody-active" iff num_visible >= visibility_min_for_custody.
+    cfg.stage09.visibility_min_for_custody = 2;
+
+    % Ranking rule for one theta
+    cfg.stage09.rank_rule = 'min_Ns_then_max_joint_margin';
+
+    % Whether to keep heavy per-case window details
+    cfg.stage09.save_case_window_bank = false;
+
 end
