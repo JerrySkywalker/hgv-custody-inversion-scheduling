@@ -86,6 +86,41 @@ function cfg = stage09_prepare_cfg(cfg)
     end
 
     % ------------------------------------------------------------
+    % Numeric kernel controls
+    % ------------------------------------------------------------
+    if ~isfield(cfg.stage09, 'wr_reg_eps') || isempty(cfg.stage09.wr_reg_eps)
+        cfg.stage09.wr_reg_eps = 1e-9;
+    end
+    if ~isfield(cfg.stage09, 'wr_eig_floor') || isempty(cfg.stage09.wr_eig_floor)
+        cfg.stage09.wr_eig_floor = 1e-10;
+    end
+    if ~isfield(cfg.stage09, 'wr_inv_mode') || isempty(cfg.stage09.wr_inv_mode)
+        cfg.stage09.wr_inv_mode = 'eig_floor';
+    end
+    if ~isfield(cfg.stage09, 'A_metric_mode') || isempty(cfg.stage09.A_metric_mode)
+        cfg.stage09.A_metric_mode = 'max_eig_rms';
+    end
+    if ~isfield(cfg.stage09, 'force_symmetric') || isempty(cfg.stage09.force_symmetric)
+        cfg.stage09.force_symmetric = true;
+    end
+
+    valid_inv_mode = {'eig_floor', 'pinv'};
+    if ~ismember(char(string(cfg.stage09.wr_inv_mode)), valid_inv_mode)
+        error('Unknown cfg.stage09.wr_inv_mode: %s', string(cfg.stage09.wr_inv_mode));
+    end
+
+    valid_A_metric_mode = {'max_eig_rms', 'trace_rms'};
+    if ~ismember(char(string(cfg.stage09.A_metric_mode)), valid_A_metric_mode)
+        error('Unknown cfg.stage09.A_metric_mode: %s', string(cfg.stage09.A_metric_mode));
+    end
+
+    if cfg.stage09.wr_reg_eps < 0
+        error('cfg.stage09.wr_reg_eps must be >= 0.');
+    end
+    if cfg.stage09.wr_eig_floor <= 0
+        error('cfg.stage09.wr_eig_floor must be > 0.');
+    end
+    % ------------------------------------------------------------
     % Search domain
     % ------------------------------------------------------------
     if ~isfield(cfg.stage09, 'search_domain') || isempty(cfg.stage09.search_domain)

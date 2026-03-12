@@ -837,4 +837,26 @@ function cfg = default_params()
     cfg.stage09.make_plot = false;
     cfg.stage09.save_eval_bank = false;
 
+    % ------------------------------------------------------------
+    % Stage09.2 numeric kernel controls
+    % ------------------------------------------------------------
+    % regularization added to Wr before inversion / eig processing
+    cfg.stage09.wr_reg_eps = 1e-9;
+
+    % minimum eigenvalue floor used when forming a stabilized inverse
+    cfg.stage09.wr_eig_floor = 1e-10;
+
+    % method used to invert Wr for projected-accuracy computation
+    % 'eig_floor' : eig-based stabilized inverse
+    % 'pinv'      : Moore-Penrose pseudo inverse
+    cfg.stage09.wr_inv_mode = 'eig_floor';
+
+    % how sigma_A_proj is extracted from projected covariance
+    % 'max_eig_rms' : sqrt(max eig)
+    % 'trace_rms'   : sqrt(trace)
+    cfg.stage09.A_metric_mode = 'max_eig_rms';
+
+    % whether to force symmetrization on Wr / projected covariance
+    cfg.stage09.force_symmetric = true;
+
 end
