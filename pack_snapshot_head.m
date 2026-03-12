@@ -64,7 +64,7 @@ function zipFilePath = package_for_chatgpt_baseline(includeDeliverables)
     end
 
     % Only include these directories: never results/; deliverables/ only if requested
-    wantDirs = {'params', 'src', 'stages'};
+    wantDirs = {'params', 'src', 'stages', 'run_stages'};
     if includeDeliverables && ismember('deliverables', topLevelDirs)
         wantDirs{end+1} = 'deliverables'; %#ok<AGROW>
     end

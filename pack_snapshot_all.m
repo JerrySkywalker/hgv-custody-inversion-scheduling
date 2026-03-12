@@ -32,7 +32,7 @@ function zipFilePath = package_for_chatgpt()
     zipFilePath = fullfile(parent_root, zipName);
 
     % Collect directories to include
-    dirs_to_include = {'params', 'src', 'stages'};
+    dirs_to_include = {'params', 'src', 'stages', 'run_stages'};
     include_list = {};
 
     for i = 1:numel(dirs_to_include)
