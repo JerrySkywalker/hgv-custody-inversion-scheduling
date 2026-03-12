@@ -881,4 +881,13 @@ function cfg = default_params()
     % Whether to keep heavy per-case window details
     cfg.stage09.save_case_window_bank = false;
 
+    % ------------------------------------------------------------
+    % Stage09.4 feasible-domain scan controls
+    % ------------------------------------------------------------
+    cfg.stage09.scan_case_limit = inf;       % optional throttle for debugging
+    cfg.stage09.scan_theta_limit = inf;      % optional throttle for debugging
+    cfg.stage09.scan_log_every = 10;         % print progress every N designs
+    cfg.stage09.sort_full_table = true;      % sort result table after scan
+    cfg.stage09.write_csv = true;            % export summary tables
+
 end

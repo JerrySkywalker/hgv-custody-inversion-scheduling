@@ -196,4 +196,29 @@ function cfg = stage09_prepare_cfg(cfg)
     if ~isfield(cfg.stage09, 'save_eval_bank') || isempty(cfg.stage09.save_eval_bank)
         cfg.stage09.save_eval_bank = false;
     end
+
+    % ------------------------------------------------------------
+    % Feasible-domain scan controls
+    % ------------------------------------------------------------
+    if ~isfield(cfg.stage09, 'scan_case_limit') || isempty(cfg.stage09.scan_case_limit)
+        cfg.stage09.scan_case_limit = inf;
+    end
+    if ~isfield(cfg.stage09, 'scan_theta_limit') || isempty(cfg.stage09.scan_theta_limit)
+        cfg.stage09.scan_theta_limit = inf;
+    end
+    if ~isfield(cfg.stage09, 'scan_log_every') || isempty(cfg.stage09.scan_log_every)
+        cfg.stage09.scan_log_every = 10;
+    end
+    if ~isfield(cfg.stage09, 'sort_full_table') || isempty(cfg.stage09.sort_full_table)
+        cfg.stage09.sort_full_table = true;
+    end
+    if ~isfield(cfg.stage09, 'write_csv') || isempty(cfg.stage09.write_csv)
+        cfg.stage09.write_csv = true;
+    end
+
+    if cfg.stage09.scan_log_every < 1
+        cfg.stage09.scan_log_every = 10;
+    end
+
+
 end
