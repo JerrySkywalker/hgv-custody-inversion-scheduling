@@ -755,7 +755,16 @@ function cfg = default_params()
     % ---------------------------
     cfg.stage09 = struct();
 
-    % Run tag (used in filenames)
+    % ------------------------------------------------------------
+    % Stage09 scheme switch
+    % ------------------------------------------------------------
+    % 'validation_small' : keep the current small-grid validation scheme
+    % 'full_main'        : formal main scan inheriting Stage05/06 granularity
+    % 'custom'           : fully manual control over search_domain / casebank
+    cfg.stage09.scheme_type = 'validation_small';
+
+    % Run tag (auto-adjusted in stage09_prepare_cfg for preset schemes
+    % unless you explicitly overwrite it)
     cfg.stage09.run_tag = 'inverse';
 
     % ------------------------------------------------------------
@@ -767,7 +776,6 @@ function cfg = default_params()
     cfg.stage09.Tw_manual_s = cfg.stage04.Tw_s;
 
     % Optional run_tag hint when locating Stage08.5 cache
-    % empty -> accept the latest Stage08.5 cache regardless of tag
     cfg.stage09.stage08_5_run_tag_hint = '';
 
     % ------------------------------------------------------------
@@ -775,56 +783,63 @@ function cfg = default_params()
     % ------------------------------------------------------------
     cfg.stage09.task_name = 'single_layer_walker_inverse_design';
     cfg.stage09.region_label = 'disk_defense_region';
-
-    % Representative maneuver uncertainty level
-    % current project uses eta / equivalent-SB style mapping later
     cfg.stage09.g_max_label = 'baseline';
-    cfg.stage09.g_max_value = 15;           % descriptive only at Stage09.1
+    cfg.stage09.g_max_value = 15;
     cfg.stage09.g_max_unit = 'g';
 
     % ------------------------------------------------------------
     % Formal thresholds used by D-series
     % ------------------------------------------------------------
-    % D_G threshold is inherited via gamma_eff / gamma_req path.
     cfg.stage09.gamma_source = 'inherit_stage04';
-
-    % D_A threshold:
-    % This is the formal task-direction accuracy requirement used in
-    % D_A = sigma_A_req / sigma_A_proj.
-    % At Stage09.1 this is only frozen as a configuration item;
-    % calibration is refined in later sub-stages.
     cfg.stage09.sigma_A_req = 1.0;
     cfg.stage09.sigma_A_req_unit = 'normalized';
-
-    % D_T threshold:
-    % maximum allowed outage / unobserved interval.
     cfg.stage09.dt_crit_s = 60;
 
     % ------------------------------------------------------------
     % Task-output projection C_A
     % ------------------------------------------------------------
-    % Stage09.1 freezes the projection definition.
-    % Current Wr pipeline is 3x3, so keep the first implementation
-    % aligned with a 3D position-like key subspace.
     cfg.stage09.CA_mode = 'position_xyz';   % 'position_xyz' / 'custom'
     cfg.stage09.CA_custom = eye(3);
     cfg.stage09.CA_label = 'task-position-projection';
 
     % ------------------------------------------------------------
     % Search domain
+    % NOTE:
+    %   These values are placeholders and may be overwritten by
+    %   stage09_prepare_cfg according to cfg.stage09.scheme_type.
     % ------------------------------------------------------------
-    % Initial default: inherit the engineering style of Stage06,
-    % but now allow h to vary so that Stage09 can extract feasible ranges.
     cfg.stage09.search_domain = struct();
-    cfg.stage09.search_domain.h_grid_km = [800 1000 1200];
-    cfg.stage09.search_domain.i_grid_deg = cfg.stage06.i_grid_deg;
-    cfg.stage09.search_domain.P_grid = cfg.stage06.P_grid;
-    cfg.stage09.search_domain.T_grid = cfg.stage06.T_grid;
+    cfg.stage09.search_domain.h_grid_km = [800 1000];
+    cfg.stage09.search_domain.i_grid_deg = [30 60 80];
+    cfg.stage09.search_domain.P_grid = [4 6];
+    cfg.stage09.search_domain.T_grid = [4 6 8];
     cfg.stage09.search_domain.F_fixed = 1;
 
     % Optional controls
     cfg.stage09.search_domain.round_to_integer = true;
     cfg.stage09.search_domain.max_config_count = inf;
+
+    % ------------------------------------------------------------
+    % Casebank scheme for Stage09
+    % NOTE:
+    %   These values may also be overwritten by stage09_prepare_cfg
+    %   according to cfg.stage09.scheme_type.
+    % ------------------------------------------------------------
+    % 'validation_small' : nominal all + heading subset + critical all
+    % 'full74'           : nominal all + heading all + critical all
+    % 'custom'           : manual control below
+    cfg.stage09.casebank_mode = 'validation_small';
+
+    cfg.stage09.casebank_include_nominal = true;
+    cfg.stage09.casebank_include_heading = true;
+    cfg.stage09.casebank_include_critical = true;
+
+    % For validation_small/custom modes
+    cfg.stage09.casebank_heading_subset_max = 10;
+
+    % heading selection mode when subset is used
+    % 'first' : take the first K heading cases
+    cfg.stage09.casebank_heading_subset_mode = 'first';
 
     % ------------------------------------------------------------
     % Ranking / boundary extraction
@@ -840,23 +855,10 @@ function cfg = default_params()
     % ------------------------------------------------------------
     % Stage09.2 numeric kernel controls
     % ------------------------------------------------------------
-    % regularization added to Wr before inversion / eig processing
     cfg.stage09.wr_reg_eps = 1e-9;
-
-    % minimum eigenvalue floor used when forming a stabilized inverse
     cfg.stage09.wr_eig_floor = 1e-10;
-
-    % method used to invert Wr for projected-accuracy computation
-    % 'eig_floor' : eig-based stabilized inverse
-    % 'pinv'      : Moore-Penrose pseudo inverse
     cfg.stage09.wr_inv_mode = 'eig_floor';
-
-    % how sigma_A_proj is extracted from projected covariance
-    % 'max_eig_rms' : sqrt(max eig)
-    % 'trace_rms'   : sqrt(trace)
     cfg.stage09.A_metric_mode = 'max_eig_rms';
-
-    % whether to force symmetrization on Wr / projected covariance
     cfg.stage09.force_symmetric = true;
 
     % ------------------------------------------------------------
@@ -867,27 +869,20 @@ function cfg = default_params()
     cfg.stage09.require_DT_min = 1.0;
     cfg.stage09.require_pass_ratio = 1.0;
 
-    % Early-stop rule:
-    % If require_pass_ratio == 1, one failed case already implies infeasible.
+    % For formal scans, I recommend false.
+    % For smoke tests, true can save time.
     cfg.stage09.use_early_stop = false;
 
-    % Time-gap / custody definition
-    % A time sample is counted as "custody-active" iff num_visible >= visibility_min_for_custody.
     cfg.stage09.visibility_min_for_custody = 2;
-
-    % Ranking rule for one theta
-    cfg.stage09.rank_rule = 'min_Ns_then_max_joint_margin';
-
-    % Whether to keep heavy per-case window details
     cfg.stage09.save_case_window_bank = false;
 
     % ------------------------------------------------------------
     % Stage09.4 feasible-domain scan controls
     % ------------------------------------------------------------
-    cfg.stage09.scan_case_limit = inf;       % optional throttle for debugging
-    cfg.stage09.scan_theta_limit = inf;      % optional throttle for debugging
-    cfg.stage09.scan_log_every = 10;         % print progress every N designs
-    cfg.stage09.sort_full_table = true;      % sort result table after scan
-    cfg.stage09.write_csv = true;            % export summary tables
+    cfg.stage09.scan_case_limit = inf;
+    cfg.stage09.scan_theta_limit = inf;
+    cfg.stage09.scan_log_every = 10;
+    cfg.stage09.sort_full_table = true;
+    cfg.stage09.write_csv = true;
 
 end

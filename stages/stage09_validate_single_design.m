@@ -41,7 +41,7 @@ function out = stage09_validate_single_design(cfg)
     % ------------------------------------------------------------
     % Build / load a trajectory family from current workspace pipeline
     % ------------------------------------------------------------
-    trajs_in = local_build_demo_casebank(cfg);
+    trajs_in = build_stage09_casebank(cfg);
     Tsearch = local_build_search_domain_table(cfg);
 
     if height(Tsearch) < 1

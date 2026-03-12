@@ -86,6 +86,15 @@ function cfg = stage09_prepare_cfg(cfg)
     end
 
     % ------------------------------------------------------------
+    % Stage09 scheme preset
+    % ------------------------------------------------------------
+    if ~isfield(cfg.stage09, 'scheme_type') || isempty(cfg.stage09.scheme_type)
+        cfg.stage09.scheme_type = 'validation_small';
+    end
+
+    cfg.stage09 = local_apply_stage09_scheme(cfg.stage09, cfg);
+
+    % ------------------------------------------------------------
     % Numeric kernel controls
     % ------------------------------------------------------------
     if ~isfield(cfg.stage09, 'wr_reg_eps') || isempty(cfg.stage09.wr_reg_eps)
@@ -181,6 +190,34 @@ function cfg = stage09_prepare_cfg(cfg)
     cfg.stage09.search_domain = sd;
 
     % ------------------------------------------------------------
+    % Casebank settings
+    % ------------------------------------------------------------
+    if ~isfield(cfg.stage09, 'casebank_mode') || isempty(cfg.stage09.casebank_mode)
+        cfg.stage09.casebank_mode = 'validation_small';
+    end
+
+    valid_casebank_mode = {'validation_small', 'full74', 'custom'};
+    if ~ismember(char(string(cfg.stage09.casebank_mode)), valid_casebank_mode)
+        error('Unknown cfg.stage09.casebank_mode: %s', string(cfg.stage09.casebank_mode));
+    end
+
+    if ~isfield(cfg.stage09, 'casebank_include_nominal') || isempty(cfg.stage09.casebank_include_nominal)
+        cfg.stage09.casebank_include_nominal = true;
+    end
+    if ~isfield(cfg.stage09, 'casebank_include_heading') || isempty(cfg.stage09.casebank_include_heading)
+        cfg.stage09.casebank_include_heading = true;
+    end
+    if ~isfield(cfg.stage09, 'casebank_include_critical') || isempty(cfg.stage09.casebank_include_critical)
+        cfg.stage09.casebank_include_critical = true;
+    end
+    if ~isfield(cfg.stage09, 'casebank_heading_subset_max') || isempty(cfg.stage09.casebank_heading_subset_max)
+        cfg.stage09.casebank_heading_subset_max = 10;
+    end
+    if ~isfield(cfg.stage09, 'casebank_heading_subset_mode') || isempty(cfg.stage09.casebank_heading_subset_mode)
+        cfg.stage09.casebank_heading_subset_mode = 'first';
+    end
+
+    % ------------------------------------------------------------
     % Rank rule
     % ------------------------------------------------------------
     if ~isfield(cfg.stage09, 'rank_rule') || isempty(cfg.stage09.rank_rule)
@@ -221,4 +258,80 @@ function cfg = stage09_prepare_cfg(cfg)
     end
 
 
+end
+
+function s9 = local_apply_stage09_scheme(s9, cfg)
+%LOCAL_APPLY_STAGE09_SCHEME
+% Resolve preset search-domain and casebank settings for Stage09.
+
+    scheme = lower(string(s9.scheme_type));
+
+    % Resolve default run_tag automatically if user has not intentionally
+    % customized it.
+    if ~isfield(s9, 'run_tag') || isempty(s9.run_tag)
+        s9.run_tag = local_default_stage09_run_tag(scheme);
+    else
+        rt = string(s9.run_tag);
+        if any(rt == ["inverse","inverse_small","inverse_full","inverse_custom"])
+            s9.run_tag = local_default_stage09_run_tag(scheme);
+        end
+    end
+
+    switch scheme
+        case "validation_small"
+            % Keep the currently proven small-grid validation scheme
+            s9.search_domain.h_grid_km = [800 1000];
+            s9.search_domain.i_grid_deg = [30 60 80];
+            s9.search_domain.P_grid = [4 6];
+            s9.search_domain.T_grid = [4 6 8];
+            s9.search_domain.F_fixed = 1;
+
+            s9.casebank_mode = 'validation_small';
+            s9.casebank_include_nominal = true;
+            s9.casebank_include_heading = true;
+            s9.casebank_include_critical = true;
+            s9.casebank_heading_subset_max = 10;
+            s9.casebank_heading_subset_mode = 'first';
+
+        case "full_main"
+            % Formal main scan:
+            % inherit Stage05/06 granularity on i/P/T, add h = 500:100:1000
+            s9.search_domain.h_grid_km = 500:100:1000;
+            s9.search_domain.i_grid_deg = cfg.stage05.i_grid_deg;
+            s9.search_domain.P_grid = cfg.stage05.P_grid;
+            s9.search_domain.T_grid = cfg.stage05.T_grid;
+            s9.search_domain.F_fixed = 1;
+
+            s9.casebank_mode = 'full74';
+            s9.casebank_include_nominal = true;
+            s9.casebank_include_heading = true;
+            s9.casebank_include_critical = true;
+            s9.casebank_heading_subset_max = inf;
+            s9.casebank_heading_subset_mode = 'first';
+
+        case "custom"
+            % Do not overwrite search_domain or casebank settings.
+            % User is responsible for setting them manually.
+            if ~isfield(s9, 'casebank_mode') || isempty(s9.casebank_mode)
+                s9.casebank_mode = 'custom';
+            end
+
+        otherwise
+            error('Unknown cfg.stage09.scheme_type: %s', string(s9.scheme_type));
+    end
+end
+
+
+function run_tag = local_default_stage09_run_tag(scheme)
+
+    switch lower(string(scheme))
+        case "validation_small"
+            run_tag = 'inverse_small';
+        case "full_main"
+            run_tag = 'inverse_full';
+        case "custom"
+            run_tag = 'inverse_custom';
+        otherwise
+            run_tag = 'inverse';
+    end
 end

@@ -43,7 +43,7 @@ function out = stage09_build_feasible_domain(cfg)
     % ------------------------------------------------------------
     % Build casebank (validation/demo route for now)
     % ------------------------------------------------------------
-    trajs_in = local_build_demo_casebank_stage09(cfg);
+    trajs_in = build_stage09_casebank(cfg);
 
     if isfinite(cfg.stage09.scan_case_limit)
         nKeep = min(numel(trajs_in), cfg.stage09.scan_case_limit);
