@@ -749,4 +749,92 @@ function cfg = default_params()
 
     % plotting
     cfg.stage08c.make_plot = true;
+
+    % ---------------------------
+    % Stage09 inverse-design configuration
+    % ---------------------------
+    cfg.stage09 = struct();
+
+    % Run tag (used in filenames)
+    cfg.stage09.run_tag = 'inverse';
+
+    % ------------------------------------------------------------
+    % Window source
+    % ------------------------------------------------------------
+    % 'inherit_stage08_5' : use the recommended Tw from Stage08.5
+    % 'manual'            : use cfg.stage09.Tw_manual_s
+    cfg.stage09.Tw_source = 'inherit_stage08_5';
+    cfg.stage09.Tw_manual_s = cfg.stage04.Tw_s;
+
+    % Optional run_tag hint when locating Stage08.5 cache
+    % empty -> accept the latest Stage08.5 cache regardless of tag
+    cfg.stage09.stage08_5_run_tag_hint = '';
+
+    % ------------------------------------------------------------
+    % Task / requirement description
+    % ------------------------------------------------------------
+    cfg.stage09.task_name = 'single_layer_walker_inverse_design';
+    cfg.stage09.region_label = 'disk_defense_region';
+
+    % Representative maneuver uncertainty level
+    % current project uses eta / equivalent-SB style mapping later
+    cfg.stage09.g_max_label = 'baseline';
+    cfg.stage09.g_max_value = 15;           % descriptive only at Stage09.1
+    cfg.stage09.g_max_unit = 'g';
+
+    % ------------------------------------------------------------
+    % Formal thresholds used by D-series
+    % ------------------------------------------------------------
+    % D_G threshold is inherited via gamma_eff / gamma_req path.
+    cfg.stage09.gamma_source = 'inherit_stage04';
+
+    % D_A threshold:
+    % This is the formal task-direction accuracy requirement used in
+    % D_A = sigma_A_req / sigma_A_proj.
+    % At Stage09.1 this is only frozen as a configuration item;
+    % calibration is refined in later sub-stages.
+    cfg.stage09.sigma_A_req = 1.0;
+    cfg.stage09.sigma_A_req_unit = 'normalized';
+
+    % D_T threshold:
+    % maximum allowed outage / unobserved interval.
+    cfg.stage09.dt_crit_s = 60;
+
+    % ------------------------------------------------------------
+    % Task-output projection C_A
+    % ------------------------------------------------------------
+    % Stage09.1 freezes the projection definition.
+    % Current Wr pipeline is 3x3, so keep the first implementation
+    % aligned with a 3D position-like key subspace.
+    cfg.stage09.CA_mode = 'position_xyz';   % 'position_xyz' / 'custom'
+    cfg.stage09.CA_custom = eye(3);
+    cfg.stage09.CA_label = 'task-position-projection';
+
+    % ------------------------------------------------------------
+    % Search domain
+    % ------------------------------------------------------------
+    % Initial default: inherit the engineering style of Stage06,
+    % but now allow h to vary so that Stage09 can extract feasible ranges.
+    cfg.stage09.search_domain = struct();
+    cfg.stage09.search_domain.h_grid_km = [800 1000 1200];
+    cfg.stage09.search_domain.i_grid_deg = cfg.stage06.i_grid_deg;
+    cfg.stage09.search_domain.P_grid = cfg.stage06.P_grid;
+    cfg.stage09.search_domain.T_grid = cfg.stage06.T_grid;
+    cfg.stage09.search_domain.F_fixed = 1;
+
+    % Optional controls
+    cfg.stage09.search_domain.round_to_integer = true;
+    cfg.stage09.search_domain.max_config_count = inf;
+
+    % ------------------------------------------------------------
+    % Ranking / boundary extraction
+    % ------------------------------------------------------------
+    cfg.stage09.rank_rule = 'min_Ns_then_max_joint_margin';
+
+    % ------------------------------------------------------------
+    % Output controls
+    % ------------------------------------------------------------
+    cfg.stage09.make_plot = false;
+    cfg.stage09.save_eval_bank = false;
+
 end
