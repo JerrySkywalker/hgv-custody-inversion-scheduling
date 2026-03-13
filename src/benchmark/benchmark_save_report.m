@@ -28,6 +28,31 @@ function saved = benchmark_save_report(report, save_opts)
             error('benchmark_save_report:openFailed', 'Failed to open %s for writing.', saved.json_file);
         end
         cleanup_fid = onCleanup(@() fclose(fid));
-        fprintf(fid, '%s', jsonencode(report, 'PrettyPrint', true));
+        fprintf(fid, '%s', jsonencode(local_make_json_safe_report(report), 'PrettyPrint', true));
+    end
+end
+
+function json_report = local_make_json_safe_report(report)
+    json_report = report;
+    json_report.serial = local_reduce_run_record(report.serial);
+    json_report.parallel = local_reduce_run_record(report.parallel);
+end
+
+function run_record = local_reduce_run_record(run_record)
+    if isfield(run_record, 'result')
+        result_value = run_record.result;
+        run_record.result_summary = local_result_summary(result_value);
+        run_record = rmfield(run_record, 'result');
+    end
+end
+
+function summary = local_result_summary(result_value)
+    summary = struct();
+    summary.class = class(result_value);
+
+    if isstruct(result_value)
+        summary.fields = fieldnames(result_value);
+    else
+        summary.size = size(result_value);
     end
 end
