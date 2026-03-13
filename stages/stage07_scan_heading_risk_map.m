@@ -1,4 +1,4 @@
-function out = stage07_scan_heading_risk_map(cfg)
+function out = stage07_scan_heading_risk_map(cfg, opts)
     %STAGE07_SCAN_HEADING_RISK_MAP
     % Stage07.3:
     %   Scan heading-risk map entry-by-entry under fixed reference Walker.
@@ -22,7 +22,11 @@ function out = stage07_scan_heading_risk_map(cfg)
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
+        if nargin < 2 || isempty(opts)
+            opts = struct();
+        end
         cfg.project_stage = 'stage07_scan_heading_risk_map';
+        cfg = local_apply_stage07_opts(cfg, opts);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -104,21 +108,44 @@ function out = stage07_scan_heading_risk_map(cfg)
         % ============================================================
         % Scan heading-risk map for each entry
         % ============================================================
+        disable_detail_bank = isfield(opts, 'disable_detail_bank') && opts.disable_detail_bank;
         risk_tables = cell(nEntry, 1);
         detail_banks = cell(nEntry, 1);
-    
+        entry_ids = nan(nEntry, 1);
+
+        use_parallel = isfield(cfg.stage07, 'use_parallel') && cfg.stage07.use_parallel;
+        if use_parallel && cfg.stage07.auto_start_pool
+            ensure_parallel_pool(cfg.stage07.parallel_pool_profile, cfg.stage07.parallel_num_workers);
+        end
+
+        if use_parallel
+            parfor i = 1:nEntry
+                base_item = nominal_bank(i);
+                [risk_tables{i}, detail_bank_i] = scan_heading_risk_map_stage07( ...
+                    base_item, reference_walker, scope_spec, cfg, disable_detail_bank);
+                if disable_detail_bank
+                    detail_banks{i} = [];
+                else
+                    detail_banks{i} = detail_bank_i;
+                end
+                entry_ids(i) = local_extract_entry_id_from_item(base_item, i);
+            end
+        else
+            for i = 1:nEntry
+                base_item = nominal_bank(i);
+
+                [risk_tables{i}, detail_banks{i}] = scan_heading_risk_map_stage07( ...
+                    base_item, reference_walker, scope_spec, cfg, disable_detail_bank);
+
+                entry_ids(i) = local_extract_entry_id_from_item(base_item, i);
+            end
+        end
+
         for i = 1:nEntry
-            base_item = nominal_bank(i);
-    
-            [risk_tables{i}, detail_banks{i}] = scan_heading_risk_map_stage07( ...
-                base_item, reference_walker, scope_spec, cfg);
-    
-            entry_id_i = local_extract_entry_id_from_item(base_item, i);
-    
             log_msg(log_fid, 'INFO', ...
                 '[%2d/%2d] entry=%d | heading_count=%d | candidate_count=%d | min_D_G=%.3f | min_angle=%.3f', ...
                 i, nEntry, ...
-                entry_id_i, ...
+                entry_ids(i), ...
                 height(risk_tables{i}), ...
                 sum(risk_tables{i}.is_counterexample_candidate), ...
                 min(risk_tables{i}.D_G_min, [], 'omitnan'), ...
@@ -329,4 +356,34 @@ function out = stage07_scan_heading_risk_map(cfg)
             entry_summary.heading_at_min_D_G_deg(i) = sub.heading_deg(idxDG);
             entry_summary.heading_at_min_angle_deg(i) = sub.heading_deg(idxAng);
         end
+    end
+
+    function cfg = local_apply_stage07_opts(cfg, opts)
+        if ~isfield(opts, 'mode') || isempty(opts.mode)
+            return;
+        end
+
+        use_parallel = strcmpi(string(opts.mode), "parallel");
+        cfg.stage07.use_parallel = use_parallel;
+
+        if ~isfield(opts, 'parallel_config') || isempty(opts.parallel_config)
+            opts.parallel_config = struct();
+        end
+        if ~isfield(opts.parallel_config, 'enabled') || isempty(opts.parallel_config.enabled)
+            opts.parallel_config.enabled = use_parallel;
+        end
+        if ~isfield(opts.parallel_config, 'profile_name') || isempty(opts.parallel_config.profile_name)
+            opts.parallel_config.profile_name = cfg.stage07.parallel_pool_profile;
+        end
+        if ~isfield(opts.parallel_config, 'num_workers')
+            opts.parallel_config.num_workers = cfg.stage07.parallel_num_workers;
+        end
+        if ~isfield(opts.parallel_config, 'auto_start_pool') || isempty(opts.parallel_config.auto_start_pool)
+            opts.parallel_config.auto_start_pool = cfg.stage07.auto_start_pool;
+        end
+
+        cfg.stage07.use_parallel = use_parallel && opts.parallel_config.enabled;
+        cfg.stage07.parallel_pool_profile = opts.parallel_config.profile_name;
+        cfg.stage07.parallel_num_workers = opts.parallel_config.num_workers;
+        cfg.stage07.auto_start_pool = opts.parallel_config.auto_start_pool;
     end

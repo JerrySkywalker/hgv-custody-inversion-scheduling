@@ -60,6 +60,10 @@ function cfg = default_params()
     cfg.benchmark.stage06_P_grid = [4 8];
     cfg.benchmark.stage06_T_grid = [4 8 12];
     cfg.benchmark.stage06_heading_offsets_deg = [0 -30 30];
+    cfg.benchmark.stage07_repeat = 3;
+    cfg.benchmark.stage07_entry_count = 4;
+    cfg.benchmark.stage07_heading_step_deg = 15;
+    cfg.benchmark.stage07_heading_max_abs_offset_deg = 45;
 
     % ---------------------------
     % run_stages execution policy note
@@ -686,6 +690,10 @@ function cfg = default_params()
     % save both png and fig
     cfg.stage07.plot.save_png = true;
     cfg.stage07.plot.save_fig = true;
+    cfg.stage07.use_parallel = false;
+    cfg.stage07.auto_start_pool = true;
+    cfg.stage07.parallel_pool_profile = 'local';
+    cfg.stage07.parallel_num_workers = [];
 
     % ---------------------------
     % Stage08: window-length sensitivity scope

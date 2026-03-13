@@ -42,7 +42,7 @@ function out = run_stage07_critical_geometry(cfg, interactive, opts)
     end
 
     [cfg, opts] = rs_cli_configure('stage07', cfg, interactive, opts);
-    [cfg, ~] = rs_apply_parallel_policy('stage07', cfg, opts);
+    [cfg, stage_opts] = rs_apply_parallel_policy('stage07', cfg, opts);
 
     fprintf('[run_stages] === Stage07 一键运行 ===\n');
 
@@ -58,7 +58,7 @@ function out = run_stage07_critical_geometry(cfg, interactive, opts)
 
     % Step 7.3
     fprintf('[run_stages] Step 7.3  scan_heading_risk_map ...\n');
-    out.out3 = stage07_scan_heading_risk_map(cfg);
+    out.out3 = stage07_scan_heading_risk_map(cfg, stage_opts);
     fprintf('[run_stages] Step 7.3 完成\n');
 
     % Step 7.4

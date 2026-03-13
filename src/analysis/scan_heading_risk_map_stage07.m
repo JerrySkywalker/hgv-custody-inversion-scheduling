@@ -1,4 +1,4 @@
-function [risk_table, detail_bank] = scan_heading_risk_map_stage07(base_case_item, reference_walker, scope_spec, cfg)
+function [risk_table, detail_bank] = scan_heading_risk_map_stage07(base_case_item, reference_walker, scope_spec, cfg, disable_detail_bank)
     %SCAN_HEADING_RISK_MAP_STAGE07
     % Stage07.3 core scanner:
     %   For one nominal entry case, scan heading offsets under fixed reference Walker.
@@ -18,9 +18,12 @@ function [risk_table, detail_bank] = scan_heading_risk_map_stage07(base_case_ite
     %   - Then it evaluates geometry using the fixed reference Walker
     %   - It relies on Stage02 propagation + Stage03 visibility + Stage04 window scan
     
-        if nargin < 4 || isempty(cfg)
-            cfg = default_params();
-        end
+    if nargin < 4 || isempty(cfg)
+        cfg = default_params();
+    end
+    if nargin < 5
+        disable_detail_bank = false;
+    end
     
         assert(isstruct(base_case_item) && isfield(base_case_item, 'case'), ...
             'base_case_item must be one Stage02 nominal traj item with .case');
@@ -108,7 +111,11 @@ function [risk_table, detail_bank] = scan_heading_risk_map_stage07(base_case_ite
                 (row.is_small_angle || row.is_low_DG || row.is_low_lambda);
     
             row_bank{k} = row;
+        if disable_detail_bank
+            detail_bank{k} = [];
+        else
             detail_bank{k} = eval_k;
+        end
         end
     
         risk_table = struct2table(vertcat(row_bank{:}));
