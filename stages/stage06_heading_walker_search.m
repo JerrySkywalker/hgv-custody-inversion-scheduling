@@ -80,11 +80,8 @@ function out = stage06_heading_walker_search(cfg, opts)
         % Build heading-extended family
         % ------------------------------------------------------------
         heading_offsets_deg = cfg.stage06.active_heading_offsets_deg(:).';
-        trajs_heading = stage06_build_heading_family( ...
-            trajs_nominal, heading_offsets_deg, ...
-            'HeadingMode', local_heading_mode_label(cfg.stage06, heading_offsets_deg), ...
-            'FamilyType', cfg.stage06.family_scope);
-        eval_context = local_prepare_eval_context(trajs_heading, cfg);
+        [trajs_heading, eval_context] = local_get_heading_family_cache( ...
+            stage02_file, trajs_nominal, heading_offsets_deg, cfg);
     
         family_size = numel(trajs_heading);
     
@@ -515,4 +512,28 @@ function out = stage06_heading_walker_search(cfg, opts)
 
         eval_context = struct();
         eval_context.t_s_common = (0:dt:t_max).';
+    end
+
+    function [trajs_heading, eval_context] = local_get_heading_family_cache(stage02_file, trajs_nominal, heading_offsets_deg, cfg)
+        persistent cache_key cache_trajs_heading cache_eval_context
+
+        family_scope = char(string(cfg.stage06.family_scope));
+        heading_mode = char(local_heading_mode_label(cfg.stage06, heading_offsets_deg));
+        key = sprintf('%s|%s|%s|%s', stage02_file, family_scope, heading_mode, mat2str(heading_offsets_deg));
+
+        if ~isempty(cache_key) && strcmp(cache_key, key)
+            trajs_heading = cache_trajs_heading;
+            eval_context = cache_eval_context;
+            return;
+        end
+
+        trajs_heading = stage06_build_heading_family( ...
+            trajs_nominal, heading_offsets_deg, ...
+            'HeadingMode', heading_mode, ...
+            'FamilyType', cfg.stage06.family_scope);
+        eval_context = local_prepare_eval_context(trajs_heading, cfg);
+
+        cache_key = key;
+        cache_trajs_heading = trajs_heading;
+        cache_eval_context = eval_context;
     end
