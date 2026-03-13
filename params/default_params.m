@@ -46,6 +46,9 @@ function cfg = default_params()
     cfg.benchmark.stage03_disable_plot = true;
     cfg.benchmark.stage03_repeat = 3;
     cfg.benchmark.stage03_disable_case_logging = true;
+    cfg.benchmark.stage04_disable_plot = true;
+    cfg.benchmark.stage04_repeat = 3;
+    cfg.benchmark.stage04_disable_case_logging = true;
 
     % ---------------------------
     % run_stages execution policy note
@@ -325,6 +328,7 @@ function cfg = default_params()
 
     % Plot / example settings
     cfg.stage04.make_plot = true;
+    cfg.stage04.log_each_case = true;
     cfg.stage04.example_case_id = 'N01';
     cfg.stage04.example_compare_case_ids = {'N01','H01_+60','C2_small_crossing_angle'};
 

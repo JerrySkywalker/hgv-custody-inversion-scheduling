@@ -60,10 +60,9 @@ function out = stage04_window_worstcase(cfg)
         % ------------------------------------------------------------
         % Run all families
         % ------------------------------------------------------------
-        winbank = struct();
-        winbank.nominal = local_run_family(visbank.nominal, satbank, log_fid, cfg, pool, 'nominal');
-        winbank.heading = local_run_family(visbank.heading, satbank, log_fid, cfg, pool, 'heading');
-        winbank.critical = local_run_family(visbank.critical, satbank, log_fid, cfg, pool, 'critical');
+        family_tasks = local_build_family_tasks(visbank);
+        family_results = local_run_tasks(family_tasks, satbank, log_fid, cfg, pool);
+        winbank = local_rebuild_winbank(family_results);
     
         % ------------------------------------------------------------
         % Spectrum summaries
@@ -186,34 +185,99 @@ function out = stage04_window_worstcase(cfg)
         fprintf('=====================================\n');
     end
     
-    function family_out = local_run_family(vis_in, satbank, log_fid, cfg, pool, family_name)
+    function family_tasks = local_build_family_tasks(visbank)
+        family_tasks = repmat(struct( ...
+            'family_name', '', ...
+            'family_index', 0, ...
+            'case_index', 0, ...
+            'vis_case', []), 0, 1);
 
-        if isempty(vis_in)
-            family_out = struct('case_id', {}, 'window_case', {}, 'summary', {});
+        family_names = {'nominal', 'heading', 'critical'};
+        for iFamily = 1:numel(family_names)
+            family_name = family_names{iFamily};
+            vis_in = visbank.(family_name);
+            if isempty(vis_in)
+                continue;
+            end
+
+            nCase = numel(vis_in);
+            base = numel(family_tasks);
+            family_tasks(base + nCase).family_name = '';
+            for k = 1:nCase
+                family_tasks(base + k).family_name = family_name;
+                family_tasks(base + k).family_index = iFamily;
+                family_tasks(base + k).case_index = k;
+                family_tasks(base + k).vis_case = vis_in(k).vis_case;
+            end
+        end
+    end
+
+    function family_results = local_run_tasks(family_tasks, satbank, log_fid, cfg, pool)
+        if isempty(family_tasks)
+            family_results = family_tasks;
             return;
         end
 
-        family_out = repmat(struct('case_id', [], 'window_case', [], 'summary', []), numel(vis_in), 1);
+        family_results = repmat(struct( ...
+            'family_name', '', ...
+            'family_index', 0, ...
+            'case_index', 0, ...
+            'case_out', []), numel(family_tasks), 1);
 
         if ~isempty(pool)
-            parfor k = 1:numel(vis_in)
-                family_out(k) = local_eval_window_case(vis_in(k).vis_case, satbank, cfg);
+            parfor k = 1:numel(family_tasks)
+                family_results(k) = local_eval_task(family_tasks(k), satbank, cfg);
             end
         else
-            for k = 1:numel(vis_in)
-                family_out(k) = local_eval_window_case(vis_in(k).vis_case, satbank, cfg);
+            for k = 1:numel(family_tasks)
+                family_results(k) = local_eval_task(family_tasks(k), satbank, cfg);
             end
         end
 
-        log_msg(log_fid, 'INFO', ...
-            'Family %s processed: %d cases | parallel=%d', ...
-            char(string(family_name)), numel(vis_in), ~isempty(pool));
-
-        for k = 1:numel(family_out)
-            s = family_out(k).summary;
+        family_names = {'nominal', 'heading', 'critical'};
+        for iFamily = 1:numel(family_names)
+            family_name = family_names{iFamily};
+            idx_family = strcmp({family_results.family_name}, family_name);
+            family_cases = family_results(idx_family);
             log_msg(log_fid, 'INFO', ...
-                'Case %-24s | lambda_worst=%.3e | lambda_mean=%.3e | t0_worst=%.1f s', ...
-                s.case_id, s.lambda_min_worst, s.lambda_min_mean, s.t0_worst_s);
+                'Family %s processed: %d cases | parallel=%d', ...
+                family_name, sum(idx_family), ~isempty(pool));
+
+            if isfield(cfg.stage04, 'log_each_case') && ~cfg.stage04.log_each_case
+                continue;
+            end
+
+            for k = 1:numel(family_cases)
+                s = family_cases(k).case_out.summary;
+                log_msg(log_fid, 'INFO', ...
+                    'Case %-24s | lambda_worst=%.3e | lambda_mean=%.3e | t0_worst=%.1f s', ...
+                    s.case_id, s.lambda_min_worst, s.lambda_min_mean, s.t0_worst_s);
+            end
+        end
+    end
+
+    function family_result = local_eval_task(task, satbank, cfg)
+        family_result = struct();
+        family_result.family_name = task.family_name;
+        family_result.family_index = task.family_index;
+        family_result.case_index = task.case_index;
+        family_result.case_out = local_eval_window_case(task.vis_case, satbank, cfg);
+    end
+
+    function winbank = local_rebuild_winbank(family_results)
+        family_names = {'nominal', 'heading', 'critical'};
+        winbank = struct();
+        for iFamily = 1:numel(family_names)
+            family_name = family_names{iFamily};
+            idx_family = find(strcmp({family_results.family_name}, family_name));
+            if isempty(idx_family)
+                winbank.(family_name) = struct('case_id', {}, 'window_case', {}, 'summary', {});
+                continue;
+            end
+
+            [~, order] = sort([family_results(idx_family).case_index]);
+            idx_family = idx_family(order);
+            winbank.(family_name) = reshape([family_results(idx_family).case_out], [], 1);
         end
     end
 
