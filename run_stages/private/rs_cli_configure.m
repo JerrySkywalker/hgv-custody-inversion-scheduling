@@ -145,6 +145,28 @@ function [cfg, opts] = rs_cli_configure(stage_name, cfg, interactive, opts)
             opts.stage09_run_plot_after_scan = ask_yesno( ...
                 'stage09_run_plot_after_scan', opts.stage09_run_plot_after_scan);
 
+                case "stage10"
+            cfg.stage10.mode = ask_choice( ...
+                'stage10.mode', cfg.stage10.mode, {'single_window_debug','full'});
+
+            cfg.stage10.case_index = ask_scalar('stage10.case_index', cfg.stage10.case_index);
+            cfg.stage10.window_index = ask_scalar('stage10.window_index', cfg.stage10.window_index);
+
+            cfg.stage10.theta_source = ask_choice( ...
+                'stage10.theta_source', cfg.stage10.theta_source, {'first_search_row','manual'});
+
+            if strcmpi(cfg.stage10.theta_source, 'manual')
+                cfg.stage10.manual_theta.h_km = ask_scalar( ...
+                    'stage10.manual_theta.h_km', cfg.stage10.manual_theta.h_km);
+                cfg.stage10.manual_theta.i_deg = ask_scalar( ...
+                    'stage10.manual_theta.i_deg', cfg.stage10.manual_theta.i_deg);
+                cfg.stage10.manual_theta.P = ask_scalar( ...
+                    'stage10.manual_theta.P', cfg.stage10.manual_theta.P);
+                cfg.stage10.manual_theta.T = ask_scalar( ...
+                    'stage10.manual_theta.T', cfg.stage10.manual_theta.T);
+                cfg.stage10.manual_theta.F = ask_scalar( ...
+                    'stage10.manual_theta.F', cfg.stage10.manual_theta.F);
+            end
         otherwise
             fprintf('[run_stages][CLI] %s 没有额外交互项，使用默认 cfg。\n', stage_name);
     end

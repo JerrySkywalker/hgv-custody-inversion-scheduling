@@ -885,4 +885,56 @@ function cfg = default_params()
     cfg.stage09.sort_full_table = true;
     cfg.stage09.write_csv = true;
 
+    % ---------------------------
+    % Stage10 FFT / structured-spectrum validation
+    % ---------------------------
+    cfg.stage10 = struct();
+
+    % global run tag
+    cfg.stage10.run_tag = 'fftcheck';
+
+    % work mode:
+    %   'single_window_debug' : Stage10.1 minimal smoke test
+    %   'full'                : reserved for later Stage10.x
+    cfg.stage10.mode = 'single_window_debug';
+
+    % data source
+    %   'inherit_stage09_casebank' : reuse Stage09 casebank builder
+    %   'custom'                   : reserved
+    cfg.stage10.case_source = 'inherit_stage09_casebank';
+
+    % candidate theta source
+    %   'first_search_row' : use first row of Stage09 search domain
+    %   'manual'           : use manual walker below
+    cfg.stage10.theta_source = 'first_search_row';
+
+    % manual walker fallback
+    cfg.stage10.manual_theta = struct();
+    cfg.stage10.manual_theta.h_km = 1000;
+    cfg.stage10.manual_theta.i_deg = 60;
+    cfg.stage10.manual_theta.P = 8;
+    cfg.stage10.manual_theta.T = 4;
+    cfg.stage10.manual_theta.F = 1;
+
+    % case / window selector (for Stage10.1)
+    cfg.stage10.case_index = 1;
+    cfg.stage10.window_index = 1;
+
+    % when true, if requested index exceeds available count, clip to last
+    cfg.stage10.clip_case_index = true;
+    cfg.stage10.clip_window_index = true;
+
+    % FFT / block construction options
+    cfg.stage10.block_mode = 'plane_block_diag';
+    cfg.stage10.cyclic_mode = 'lag0_mean_block';
+    cfg.stage10.eps_norm = 'fro';
+
+    % output controls
+    cfg.stage10.write_csv = true;
+    cfg.stage10.save_mat_cache = true;
+    cfg.stage10.make_plot = false;
+
+    % logging
+    cfg.stage10.scan_log_every = 1;
+
 end
