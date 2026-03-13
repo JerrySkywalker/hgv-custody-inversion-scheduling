@@ -1,4 +1,4 @@
-function out = stage03_visibility_pipeline(cfg)
+function out = stage03_visibility_pipeline(cfg, opts)
     %STAGE03_VISIBILITY_PIPELINE
     % Build single-layer Walker baseline and compute visibility pipeline
     % for Stage02 trajectory bank.
@@ -12,6 +12,11 @@ function out = stage03_visibility_pipeline(cfg)
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
+        if nargin < 2
+            opts = struct();
+        end
+        opts = local_normalize_opts(cfg, opts);
+        cfg = local_apply_opts_to_cfg(cfg, opts);
         cfg.project_stage = 'stage03_visibility_pipeline';
         seed_rng(cfg.random.seed);
     
@@ -31,10 +36,10 @@ function out = stage03_visibility_pipeline(cfg)
         % ------------------------------------------------------------
         d = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
         assert(~isempty(d), 'No Stage02 cache found. Please run stage02_hgv_nominal first.');
-    
+
         [~, idx_latest] = max([d.datenum]);
         stage02_file = fullfile(d(idx_latest).folder, d(idx_latest).name);
-    
+
         tmp = load(stage02_file);
         trajbank = tmp.out.trajbank;
     
@@ -62,10 +67,7 @@ function out = stage03_visibility_pipeline(cfg)
         % ------------------------------------------------------------
         % Run all families
         % ------------------------------------------------------------
-        visbank = struct();
-        visbank.nominal = local_run_family(trajbank.nominal, satbank, cfg, log_fid, pool, 'nominal');
-        visbank.heading = local_run_family(trajbank.heading, satbank, cfg, log_fid, pool, 'heading');
-        visbank.critical = local_run_family(trajbank.critical, satbank, cfg, log_fid, pool, 'critical');
+        visbank = local_run_visbank(trajbank, satbank, cfg, log_fid, pool);
     
         summary_extra = summarize_visibility_bank_stage03(visbank);
     
@@ -99,9 +101,13 @@ function out = stage03_visibility_pipeline(cfg)
         out.fig_file = fig_file;
         out.stage = cfg.project_stage;
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
-    
+        out.benchmark = struct( ...
+            'mode', opts.mode, ...
+            'parallel_config', opts.parallel_config);
+
         cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage03_visibility_pipeline_%s.mat', datestr(now, 'yyyymmdd_HHMMSS')));
+            sprintf('stage03_visibility_pipeline_%s_%s.mat', opts.mode, datestr(now, 'yyyymmdd_HHMMSS')));
+        out.cache_file = cache_file;
         save(cache_file, 'out', '-v7.3');
     
         log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
@@ -110,6 +116,7 @@ function out = stage03_visibility_pipeline(cfg)
         fprintf('\n');
         fprintf('========== Stage03 Summary ==========\n');
         fprintf('Log file  : %s\n', out.log_file);
+        fprintf('Mode      : %s\n', opts.mode);
         fprintf('Figure    : %s\n', out.fig_file);
         fprintf('Cache     : %s\n', cache_file);
         fprintf('=====================================\n');
@@ -119,37 +126,36 @@ function out = stage03_visibility_pipeline(cfg)
     % local helpers
     % ========================================================================
     
-    function family_out = local_run_family(trajs_in, satbank, cfg, log_fid, pool, family_name)
-
-        family_out = repmat(struct('case_id', [], 'family', [], 'subfamily', [], ...
-                                   'vis_case', [], 'los_geom', [], 'summary', []), numel(trajs_in), 1);
-
-        if isempty(trajs_in)
-            return;
-        end
-
+    function visbank = local_run_visbank(trajbank, satbank, cfg, log_fid, pool)
+        all_trajs = [trajbank.nominal; trajbank.heading; trajbank.critical];
+        all_out = repmat(struct('case_id', [], 'family', [], 'subfamily', [], ...
+                                'vis_case', [], 'los_geom', [], 'summary', []), numel(all_trajs), 1);
         if ~isempty(pool)
-            parfor k = 1:numel(trajs_in)
-                traj_case = trajs_in(k);
-                family_out(k) = local_eval_visibility_case(traj_case, satbank, cfg);
+            parfor k = 1:numel(all_trajs)
+                all_out(k) = local_eval_visibility_case(all_trajs(k), satbank, cfg);
             end
         else
-            for k = 1:numel(trajs_in)
-                traj_case = trajs_in(k);
-                family_out(k) = local_eval_visibility_case(traj_case, satbank, cfg);
+            for k = 1:numel(all_trajs)
+                all_out(k) = local_eval_visibility_case(all_trajs(k), satbank, cfg);
             end
         end
 
-        log_msg(log_fid, 'INFO', ...
-            'Family %s processed: %d cases | parallel=%d', ...
-            char(string(family_name)), numel(trajs_in), ~isempty(pool));
+        n_nominal = numel(trajbank.nominal);
+        n_heading = numel(trajbank.heading);
+        n_critical = numel(trajbank.critical);
 
-        for k = 1:numel(family_out)
-            s = family_out(k).summary;
-            log_msg(log_fid, 'INFO', ...
-                'Case %-24s | mean_vis=%.2f | dual_ratio=%.3f | min_LOS=%.2f deg', ...
-                s.case_id, s.mean_num_visible, s.dual_coverage_ratio, s.min_los_crossing_angle_deg);
-        end
+        idx_nominal = 1:n_nominal;
+        idx_heading = n_nominal + (1:n_heading);
+        idx_critical = n_nominal + n_heading + (1:n_critical);
+
+        visbank = struct();
+        visbank.nominal = all_out(idx_nominal);
+        visbank.heading = all_out(idx_heading);
+        visbank.critical = all_out(idx_critical);
+
+        local_log_family('nominal', visbank.nominal, log_fid, ~isempty(pool), cfg);
+        local_log_family('heading', visbank.heading, log_fid, ~isempty(pool), cfg);
+        local_log_family('critical', visbank.critical, log_fid, ~isempty(pool), cfg);
     end
 
     function case_out = local_eval_visibility_case(traj_case, satbank, cfg)
@@ -194,6 +200,53 @@ function out = stage03_visibility_pipeline(cfg)
                 'Parallel pool unavailable for %s. Fallback to serial. Reason: %s', ...
                 stage_name, ME.message);
         end
+    end
+
+    function local_log_family(family_name, family_out, log_fid, used_parallel, cfg)
+        log_msg(log_fid, 'INFO', ...
+            'Family %s processed: %d cases | parallel=%d', ...
+            char(string(family_name)), numel(family_out), used_parallel);
+
+        if ~isfield(cfg.stage03, 'log_each_case') || ~cfg.stage03.log_each_case
+            return;
+        end
+
+        for k = 1:numel(family_out)
+            s = family_out(k).summary;
+            log_msg(log_fid, 'INFO', ...
+                'Case %-24s | mean_vis=%.2f | dual_ratio=%.3f | min_LOS=%.2f deg', ...
+                s.case_id, s.mean_num_visible, s.dual_coverage_ratio, s.min_los_crossing_angle_deg);
+        end
+    end
+
+    function opts = local_normalize_opts(cfg, opts)
+        if ~isfield(opts, 'mode') || isempty(opts.mode)
+            opts.mode = 'serial';
+        end
+        opts.mode = char(lower(string(opts.mode)));
+
+        if ~isfield(opts, 'parallel_config') || isempty(opts.parallel_config)
+            opts.parallel_config = struct();
+        end
+        if ~isfield(opts.parallel_config, 'enabled') || isempty(opts.parallel_config.enabled)
+            opts.parallel_config.enabled = strcmp(opts.mode, 'parallel');
+        end
+        if ~isfield(opts.parallel_config, 'profile_name') || isempty(opts.parallel_config.profile_name)
+            opts.parallel_config.profile_name = cfg.stage03.parallel_pool_profile;
+        end
+        if ~isfield(opts.parallel_config, 'num_workers')
+            opts.parallel_config.num_workers = cfg.stage03.parallel_num_workers;
+        end
+        if ~isfield(opts.parallel_config, 'auto_start_pool') || isempty(opts.parallel_config.auto_start_pool)
+            opts.parallel_config.auto_start_pool = cfg.stage03.auto_start_pool;
+        end
+    end
+
+    function cfg = local_apply_opts_to_cfg(cfg, opts)
+        cfg.stage03.use_parallel = strcmp(opts.mode, 'parallel') && opts.parallel_config.enabled;
+        cfg.stage03.parallel_pool_profile = opts.parallel_config.profile_name;
+        cfg.stage03.parallel_num_workers = opts.parallel_config.num_workers;
+        cfg.stage03.auto_start_pool = opts.parallel_config.auto_start_pool;
     end
 
     function hit = local_find_case(visbank, case_id)
