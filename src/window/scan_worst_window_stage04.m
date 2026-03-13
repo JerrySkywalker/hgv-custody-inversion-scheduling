@@ -9,6 +9,8 @@ function window_case = scan_worst_window_stage04(vis_case, satbank, cfg)
     
         t_s = vis_case.t_s;
         window_grid = build_window_grid_stage04(t_s, cfg);
+        Wr_t = build_time_info_series_stage04(vis_case, satbank, cfg);
+        Wr_prefix = [zeros(1, 9); cumsum(reshape(Wr_t, size(Wr_t, 1), 9), 1)];
     
         nW = window_grid.num_windows;
         lambda_min = nan(nW,1);
@@ -18,7 +20,7 @@ function window_case = scan_worst_window_stage04(vis_case, satbank, cfg)
             i0 = window_grid.start_idx(w);
             i1 = window_grid.end_idx(w);
     
-            Wr = build_window_info_matrix_stage04(vis_case, i0, i1, satbank, cfg);
+            Wr = reshape(Wr_prefix(i1 + 1, :) - Wr_prefix(i0, :), 3, 3);
             Wr = 0.5 * (Wr + Wr.');  % enforce symmetry
     
             ev = eig(Wr);
