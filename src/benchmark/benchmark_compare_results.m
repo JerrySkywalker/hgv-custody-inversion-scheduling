@@ -69,6 +69,13 @@ function state = local_compare_value(a, b, path_str, opts, state)
         return;
     end
 
+    if isa(a, 'function_handle') && isa(b, 'function_handle')
+        if ~strcmp(func2str(a), func2str(b))
+            state.messages{end + 1} = sprintf('%s function-handle mismatch.', path_str);
+        end
+        return;
+    end
+
     if isstring(a) || ischar(a) || isstring(b) || ischar(b)
         if ~strcmp(string(a), string(b))
             state.messages{end + 1} = sprintf('%s text mismatch.', path_str);
