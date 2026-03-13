@@ -9,6 +9,8 @@ function report = run_solver_benchmark(solver_fn, input_value, bench_cfg)
 
     serial_setup_s = 0;
     parallel_setup_s = 0;
+    serial_kernel_prewarm_s = 0;
+    parallel_kernel_prewarm_s = 0;
 
     if ~isempty(bench_cfg.serial_setup_fn)
         t_setup = tic;
@@ -26,19 +28,44 @@ function report = run_solver_benchmark(solver_fn, input_value, bench_cfg)
         solver_fn(input_value, bench_cfg.parallel_opts);
     end
 
-    serial_elapsed = inf(bench_cfg.repeat, 1);
-    parallel_elapsed = inf(bench_cfg.repeat, 1);
+    serial_elapsed_cold = inf(bench_cfg.repeat, 1);
+    parallel_elapsed_cold = inf(bench_cfg.repeat, 1);
+    serial_elapsed_warm = inf(bench_cfg.repeat, 1);
+    parallel_elapsed_warm = inf(bench_cfg.repeat, 1);
     serial_result = [];
     parallel_result = [];
 
     for iRep = 1:bench_cfg.repeat
         t0 = tic;
         serial_result = solver_fn(input_value, bench_cfg.serial_opts);
-        serial_elapsed(iRep) = toc(t0);
+        serial_elapsed_cold(iRep) = toc(t0);
 
         t0 = tic;
         parallel_result = solver_fn(input_value, bench_cfg.parallel_opts);
-        parallel_elapsed(iRep) = toc(t0);
+        parallel_elapsed_cold(iRep) = toc(t0);
+    end
+
+    if bench_cfg.enable_kernel_prewarm
+        t0 = tic;
+        serial_result = solver_fn(input_value, bench_cfg.serial_opts);
+        serial_kernel_prewarm_s = toc(t0);
+
+        t0 = tic;
+        parallel_result = solver_fn(input_value, bench_cfg.parallel_opts);
+        parallel_kernel_prewarm_s = toc(t0);
+
+        for iRep = 1:bench_cfg.repeat
+            t0 = tic;
+            serial_result = solver_fn(input_value, bench_cfg.serial_opts);
+            serial_elapsed_warm(iRep) = toc(t0);
+
+            t0 = tic;
+            parallel_result = solver_fn(input_value, bench_cfg.parallel_opts);
+            parallel_elapsed_warm(iRep) = toc(t0);
+        end
+    else
+        serial_elapsed_warm = serial_elapsed_cold;
+        parallel_elapsed_warm = parallel_elapsed_cold;
     end
 
     cmp = bench_cfg.compare_fn(serial_result, parallel_result, bench_cfg.compare_opts);
@@ -56,20 +83,28 @@ function report = run_solver_benchmark(solver_fn, input_value, bench_cfg)
     if isfield(bench_cfg, 'default_opts') && ~isempty(bench_cfg.default_opts)
         report.default = benchmark_make_run_record('default', bench_cfg.default_opts, NaN, []);
     end
-    report.serial = benchmark_make_run_record('serial', bench_cfg.serial_opts, min(serial_elapsed), serial_result);
-    report.parallel = benchmark_make_run_record('parallel', bench_cfg.parallel_opts, min(parallel_elapsed), parallel_result);
+    report.serial = benchmark_make_run_record('serial', bench_cfg.serial_opts, min(serial_elapsed_warm), serial_result);
+    report.parallel = benchmark_make_run_record('parallel', bench_cfg.parallel_opts, min(parallel_elapsed_warm), parallel_result);
     report.timing = struct( ...
         'serial_setup_s', serial_setup_s, ...
         'parallel_setup_s', parallel_setup_s, ...
-        'serial_runs_s', serial_elapsed, ...
-        'parallel_runs_s', parallel_elapsed, ...
-        'serial_best_s', min(serial_elapsed), ...
-        'parallel_best_s', min(parallel_elapsed), ...
-        'speedup_best', min(serial_elapsed) / min(parallel_elapsed), ...
-        'speedup_mean', mean(serial_elapsed) / mean(parallel_elapsed));
+        'serial_kernel_prewarm_s', serial_kernel_prewarm_s, ...
+        'parallel_kernel_prewarm_s', parallel_kernel_prewarm_s, ...
+        'primary_view', char(string(bench_cfg.primary_timing_view)), ...
+        'cold', local_make_timing_view(serial_elapsed_cold, parallel_elapsed_cold), ...
+        'warm', local_make_timing_view(serial_elapsed_warm, parallel_elapsed_warm));
+    report.timing.serial_runs_s = report.timing.(report.timing.primary_view).serial_runs_s;
+    report.timing.parallel_runs_s = report.timing.(report.timing.primary_view).parallel_runs_s;
+    report.timing.serial_best_s = report.timing.(report.timing.primary_view).serial_best_s;
+    report.timing.parallel_best_s = report.timing.(report.timing.primary_view).parallel_best_s;
+    report.timing.speedup_best = report.timing.(report.timing.primary_view).speedup_best;
+    report.timing.speedup_mean = report.timing.(report.timing.primary_view).speedup_mean;
     report.compare = cmp;
     report.paths = struct('output_dir', fullfile(bench_cfg.output_root, bench_cfg.stage_name));
     report.notes = bench_cfg.notes;
+    report.benchmark_guidance = struct( ...
+        'primary_view', char(string(bench_cfg.primary_timing_view)), ...
+        'rationale', local_make_primary_view_rationale(bench_cfg.primary_timing_view));
 
     saved = benchmark_save_report(report, bench_cfg.save_opts);
     report.paths.mat_file = saved.mat_file;
@@ -111,6 +146,12 @@ function bench_cfg = local_normalize_bench_cfg(bench_cfg)
     if ~isfield(bench_cfg, 'parallel_setup_fn')
         bench_cfg.parallel_setup_fn = [];
     end
+    if ~isfield(bench_cfg, 'enable_kernel_prewarm') || isempty(bench_cfg.enable_kernel_prewarm)
+        bench_cfg.enable_kernel_prewarm = true;
+    end
+    if ~isfield(bench_cfg, 'primary_timing_view') || isempty(bench_cfg.primary_timing_view)
+        bench_cfg.primary_timing_view = 'cold';
+    end
 end
 
 function summary = local_default_input_summary(input_value)
@@ -118,5 +159,29 @@ function summary = local_default_input_summary(input_value)
         summary = struct('class', class(input_value), 'fields', {fieldnames(input_value)});
     else
         summary = struct('class', class(input_value), 'size', size(input_value));
+    end
+end
+
+function timing_view = local_make_timing_view(serial_runs_s, parallel_runs_s)
+    timing_view = struct( ...
+        'serial_runs_s', serial_runs_s, ...
+        'parallel_runs_s', parallel_runs_s, ...
+        'serial_best_s', min(serial_runs_s), ...
+        'parallel_best_s', min(parallel_runs_s), ...
+        'speedup_best', min(serial_runs_s) / min(parallel_runs_s), ...
+        'speedup_mean', mean(serial_runs_s) / mean(parallel_runs_s));
+end
+
+function rationale = local_make_primary_view_rationale(primary_view)
+    view_name = lower(char(string(primary_view)));
+    switch view_name
+        case 'cold'
+            rationale = ['Cold timing is the recommended decision metric for one-shot ', ...
+                'end-to-end experiment runs because it preserves first-run worker/code cold-start cost.'];
+        case 'warm'
+            rationale = ['Warm timing is the recommended decision metric for steady-state kernel analysis ', ...
+                'because it excludes first-run worker/code cold-start cost.'];
+        otherwise
+            rationale = 'Primary timing view selected by benchmark configuration.';
     end
 end

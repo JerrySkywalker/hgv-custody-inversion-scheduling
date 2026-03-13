@@ -30,6 +30,7 @@ function cfg = default_params()
     cfg.benchmark = struct();
     cfg.benchmark.enabled = true;
     cfg.benchmark.warmup_runs = 0;
+    cfg.benchmark.enable_kernel_prewarm = true;
     cfg.benchmark.repeat = 1;
     cfg.benchmark.save_json = true;
     cfg.benchmark.save_mat = true;
@@ -37,6 +38,7 @@ function cfg = default_params()
     cfg.benchmark.default_rel_tol = 1e-9;
     cfg.benchmark.default_ignored_fields = { ...
         'timestamp', 'log_file', 'cache_file', 'fig_file', 'fig3d_file', 'benchmark'};
+    cfg.benchmark.primary_timing_view = 'cold';
 
     % Stage-level benchmark policy
     cfg.benchmark.stage01_disable_plot = true;

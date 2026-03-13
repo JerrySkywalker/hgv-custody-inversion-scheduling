@@ -26,6 +26,8 @@ function report = run_benchmark_stage04(cfg)
     bench_cfg.output_root = cfg.paths.benchmarks;
     bench_cfg.warmup_runs = cfg.benchmark.warmup_runs;
     bench_cfg.repeat = cfg.benchmark.stage04_repeat;
+    bench_cfg.enable_kernel_prewarm = cfg.benchmark.enable_kernel_prewarm;
+    bench_cfg.primary_timing_view = cfg.benchmark.primary_timing_view;
     bench_cfg.default_mode = default_mode;
     bench_cfg.default_opts = default_opts;
     bench_cfg.serial_opts = serial_opts;
@@ -43,9 +45,14 @@ function report = run_benchmark_stage04(cfg)
 
     report = run_solver_benchmark(@stage04_window_worstcase, cfg, bench_cfg);
 
-    fprintf('[benchmark] Stage04 serial runs   : %s\n', mat2str(report.timing.serial_runs_s, 6));
-    fprintf('[benchmark] Stage04 parallel runs : %s\n', mat2str(report.timing.parallel_runs_s, 6));
+    fprintf('[benchmark] Stage04 primary view  : %s\n', report.timing.primary_view);
+    fprintf('[benchmark] Stage04 cold serial   : %s\n', mat2str(report.timing.cold.serial_runs_s, 6));
+    fprintf('[benchmark] Stage04 cold parallel : %s\n', mat2str(report.timing.cold.parallel_runs_s, 6));
+    fprintf('[benchmark] Stage04 warm serial   : %s\n', mat2str(report.timing.warm.serial_runs_s, 6));
+    fprintf('[benchmark] Stage04 warm parallel : %s\n', mat2str(report.timing.warm.parallel_runs_s, 6));
     fprintf('[benchmark] Stage04 parallel setup: %.6f s (excluded from run timing)\n', report.timing.parallel_setup_s);
+    fprintf('[benchmark] Stage04 kernel prewarm serial   : %.6f s\n', report.timing.serial_kernel_prewarm_s);
+    fprintf('[benchmark] Stage04 kernel prewarm parallel : %.6f s\n', report.timing.parallel_kernel_prewarm_s);
     fprintf('[benchmark] Stage04 serial best   : %.6f s\n', report.timing.serial_best_s);
     fprintf('[benchmark] Stage04 parallel best : %.6f s\n', report.timing.parallel_best_s);
     fprintf('[benchmark] Stage04 speedup(best) : %.4f x\n', report.timing.speedup_best);
