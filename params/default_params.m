@@ -144,7 +144,7 @@ function cfg = default_params()
     cfg.stage01.critical_C2_heading_offset_deg = -10;
 
     % Plot
-    cfg.stage01.make_plot = true;
+    cfg.stage01.make_plot = false;
     cfg.stage01.axis_limit_km = 5500;
 
     % ---------------------------

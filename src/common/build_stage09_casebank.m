@@ -12,7 +12,7 @@ function trajs_in = build_stage09_casebank(cfg)
     end
     cfg = stage09_prepare_cfg(cfg);
 
-    stage01_out = stage01_scenario_disk();
+    stage01_out = stage01_scenario_disk(cfg);
     casebank = stage01_out.casebank;
 
     nominal_cases = repmat(struct(), 0, 1);

@@ -28,6 +28,7 @@ function out = run_stage01_scenario_disk(cfg, interactive)
     end
 
     [cfg, ~] = rs_cli_configure('stage01', cfg, interactive);
+    cfg.stage01.make_plot = true;
 
     fprintf('[run_stages] === Stage01 一键运行 ===\n');
 

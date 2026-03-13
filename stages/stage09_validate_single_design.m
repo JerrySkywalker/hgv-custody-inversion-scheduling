@@ -120,7 +120,7 @@ function trajs_in = local_build_demo_casebank(cfg)
 % Therefore we must wrap propagated trajectories into the same
 % Stage02-style family struct, instead of returning raw traj structs.
 
-    stage01_out = stage01_scenario_disk();
+    stage01_out = stage01_scenario_disk(cfg);
     casebank = stage01_out.casebank;
 
     % Keep validation lightweight:

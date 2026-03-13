@@ -181,7 +181,7 @@ function trajs_in = local_build_demo_casebank_stage09(cfg)
 %   - critical all
 % and wrap each element into Stage02-family style.
 
-    stage01_out = stage01_scenario_disk();
+    stage01_out = stage01_scenario_disk(cfg);
     casebank = stage01_out.casebank;
 
     nominal_cases = casebank.nominal(:);

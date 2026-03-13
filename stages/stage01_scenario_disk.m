@@ -80,11 +80,16 @@ function out = stage01_scenario_disk(cfg)
         % ------------------------------------------------------------
         % Plot
         % ------------------------------------------------------------
-        fig = local_plot_stage01(casebank, cfg);
-        fig_file = fullfile(cfg.paths.figs, sprintf('stage01_scenario_scheme_%s.png', ts));
-        exportgraphics(fig, fig_file, 'Resolution', 180);
-        close(fig);
-        log_msg(log_fid, 'INFO', 'Scenario plot saved to: %s', fig_file);
+        fig_file = '';
+        if local_should_make_plot(cfg)
+            fig = plot_casebank_stage01(casebank, cfg);
+            fig_file = fullfile(cfg.paths.figs, sprintf('stage01_scenario_scheme_%s.png', ts));
+            exportgraphics(fig, fig_file, 'Resolution', 180);
+            close(fig);
+            log_msg(log_fid, 'INFO', 'Scenario plot saved to: %s', fig_file);
+        else
+            log_msg(log_fid, 'INFO', 'Scenario plotting skipped (cfg.stage01.make_plot = false).');
+        end
     
         % ------------------------------------------------------------
         % Save cache
@@ -122,7 +127,11 @@ function out = stage01_scenario_disk(cfg)
         fprintf('Critical    : %d\n', n_critical);
         fprintf('Total cases : %d\n', n_total);
         fprintf('Log file    : %s\n', log_file);
-        fprintf('Figure      : %s\n', fig_file);
+        if ~isempty(fig_file)
+            fprintf('Figure      : %s\n', fig_file);
+        else
+            fprintf('Figure      : <skipped>\n');
+        end
         fprintf('Cache       : %s\n', cache_file);
         fprintf('=====================================\n');
     end
@@ -131,66 +140,10 @@ function out = stage01_scenario_disk(cfg)
     % Local helpers
     % ========================================================================
     
-    function fig = local_plot_stage01(casebank, cfg)
-    
-        fig = figure('Color', 'w', 'Position', [100,100,960,860]);
-        ax = axes(fig); hold(ax, 'on'); grid(ax, 'on');
-    
-        R_D  = cfg.stage01.R_D_km;
-        R_in = cfg.stage01.R_in_km;
-    
-        th = linspace(0, 2*pi, 400);
-        plot(ax, R_D*cos(th),  R_D*sin(th),  'LineWidth', 2.2);
-        plot(ax, R_in*cos(th), R_in*sin(th), '--', 'LineWidth', 1.8);
-    
-        scatter(ax, 0, 0, 70, 'filled');
-    
-        % nominal cases
-        for k = 1:numel(casebank.nominal)
-            c = casebank.nominal(k);
-            p = c.entry_point_enu_km(:).';
-            scatter(ax, p(1), p(2), 28, 'filled');
-    
-            u = c.heading_unit_enu(:).';
-            quiver(ax, p(1), p(2), 1100*u(1), 1100*u(2), 0, ...
-                'LineWidth', 1.2, 'MaxHeadSize', 0.45);
-        end
-    
-        % heading fan around first nominal point
-        if ~isempty(casebank.heading)
-            ids = string({casebank.heading.case_id});
-            idx = startsWith(ids, "H01_");
-            H = casebank.heading(idx);
-            if isempty(H)
-                H = casebank.heading(1:min(5, numel(casebank.heading)));
-            end
-            p = H(1).entry_point_enu_km(:).';
-            for i = 1:numel(H)
-                u = H(i).heading_unit_enu(:).';
-                quiver(ax, p(1), p(2), 1300*u(1), 1300*u(2), 0, ...
-                    'LineWidth', 1.1, 'MaxHeadSize', 0.45);
-            end
-        end
-    
-        % critical
-        for k = 1:numel(casebank.critical)
-            c = casebank.critical(k);
-            p = c.entry_point_enu_km(:).';
-            u = c.heading_unit_enu(:).';
-            quiver(ax, p(1), p(2), 1600*u(1), 1600*u(2), 0, ...
-                'LineWidth', 1.8, 'MaxHeadSize', 0.5);
-            text(ax, p(1)+120, p(2)+120, strrep(c.case_id, '_', '\_'), 'Interpreter', 'tex');
-        end
-    
-        axis(ax, 'equal');
-        xlim(ax, [-5500, 5500]);
-        ylim(ax, [-5500, 5500]);
-        xlabel(ax, 'Regional ENU east (km)', 'Interpreter', 'none');
-        ylabel(ax, 'Regional ENU north (km)', 'Interpreter', 'none');
-    
-        if isfield(cfg, 'meta') && isfield(cfg.meta, 'scene_mode')
-            title(ax, sprintf('Scenario design (%s mode)', cfg.meta.scene_mode), 'Interpreter', 'none');
-        end
+    function tf = local_should_make_plot(cfg)
+        tf = isfield(cfg, 'stage01') && ...
+            isfield(cfg.stage01, 'make_plot') && ...
+            logical(cfg.stage01.make_plot);
     end
     
     function scene_mode = local_get_scene_mode(cfg)
