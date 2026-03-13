@@ -1,12 +1,6 @@
 function out = run_stage10_fft_validation(cfg, interactive, opts)
 %RUN_STAGE10_FFT_VALIDATION
 % One-click entry for Stage10 FFT validation.
-%
-% Usage:
-%   run_stage10_fft_validation()
-%   run_stage10_fft_validation(cfg)
-%   run_stage10_fft_validation(cfg, false)
-%   run_stage10_fft_validation(cfg, true, opts)
 
     if nargin < 1
         cfg = [];
@@ -32,6 +26,10 @@ function out = run_stage10_fft_validation(cfg, interactive, opts)
     switch lower(string(cfg.stage10.mode))
         case "single_window_debug"
             out.out10_1 = stage10_validate_single_window_fft(cfg);
+
+        case "calibrate_alpha"
+            out.out10_1d = stage10_calibrate_template_alpha(cfg);
+
         otherwise
             error('Stage10 mode not implemented yet: %s', string(cfg.stage10.mode));
     end
