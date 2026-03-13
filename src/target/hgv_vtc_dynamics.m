@@ -17,8 +17,16 @@ end
 
 [rho, a_s] = atmosphere_us76(h);
 Ma = v / a_s;
-alpha = deg2rad(ctrl.alpha(t));
-gamma = deg2rad(ctrl.gamma(t));
+if isfield(ctrl, 'alpha_rad')
+    alpha = ctrl.alpha_rad;
+else
+    alpha = deg2rad(ctrl.alpha(t));
+end
+if isfield(ctrl, 'gamma_rad')
+    gamma = ctrl.gamma_rad;
+else
+    gamma = deg2rad(ctrl.gamma(t));
+end
 
 CL = p.coef_L(1) + p.coef_L(2)*alpha + p.coef_L(3)*alpha^2 + p.coef_L(4)*Ma + p.coef_L(5)*exp(p.coef_L(6)*Ma);
 CD = p.coef_D(1) + p.coef_D(2)*alpha + p.coef_D(3)*alpha^2 + p.coef_D(4)*Ma + p.coef_D(5)*exp(p.coef_D(6)*Ma);

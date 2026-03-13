@@ -28,14 +28,18 @@ function r_eci_m = ecef_to_eci(r_ecef_m, epoch_utc, dt_s)
         gmst0 = gmst_from_utc(epoch_utc);
         omega = 7.2921150e-5;  % rad/s
     
-        r_eci_m = zeros(size(r_ecef_m));
-        for k = 1:N
-            theta = gmst0 + omega * dt_s(k);
-            R3 = [ cos(theta), -sin(theta), 0; ...
-                   sin(theta),  cos(theta), 0; ...
-                   0,           0,          1];
-            r_eci_m(:,k) = R3 * r_ecef_m(:,k);
-        end
+        theta = gmst0 + omega * dt_s;
+        cos_theta = cos(theta);
+        sin_theta = sin(theta);
+
+        x = r_ecef_m(1,:);
+        y = r_ecef_m(2,:);
+        z = r_ecef_m(3,:);
+
+        r_eci_m = [ ...
+            cos_theta .* x - sin_theta .* y; ...
+            sin_theta .* x + cos_theta .* y; ...
+            z];
     
         if was_row_major
             r_eci_m = r_eci_m.';

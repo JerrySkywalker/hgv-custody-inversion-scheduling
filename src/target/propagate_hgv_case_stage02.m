@@ -12,14 +12,7 @@ function traj = propagate_hgv_case_stage02(case_i, cfg)
         % ------------------------------------------------------------
         % Parameter set
         % ------------------------------------------------------------
-        p = struct();
-        p.Re = 6378137;
-        p.mu = 3.986e14;
-        p.g0 = 9.80665;
-        p.m = 907.2;
-        p.S = 0.4839;
-        p.coef_L = [0.0301, 2.2992, 1.2287, -1.3001e-4, 0.2047, -6.1460e-2];
-        p.coef_D = [0.0100, -0.1748, 2.7247, 4.5781e-4, 0.3591, -6.9440e-2];
+        p = local_hgv_params();
     
         % ------------------------------------------------------------
         % Initial state
@@ -37,8 +30,8 @@ function traj = propagate_hgv_case_stage02(case_i, cfg)
         % Control profile
         % ------------------------------------------------------------
         ctrl = struct();
-        ctrl.alpha = @(t) hgv_cfg.ctrl_profile.alpha_deg;
-        ctrl.gamma = @(t) hgv_cfg.ctrl_profile.bank_deg;
+        ctrl.alpha_rad = deg2rad(hgv_cfg.ctrl_profile.alpha_deg);
+        ctrl.gamma_rad = deg2rad(hgv_cfg.ctrl_profile.bank_deg);
     
         t0 = cfg.stage02.t0_s;
         tf = cfg.stage02.Tmax_s;
@@ -72,21 +65,15 @@ function traj = propagate_hgv_case_stage02(case_i, cfg)
         % ------------------------------------------------------------
         % ECEF
         % ------------------------------------------------------------
-        r_ecef_m = zeros(N,3);
-        for k = 1:N
-            r_ecef_m(k,:) = geodetic_to_ecef(lat_deg(k), lon_deg(k), h_m(k), cfg).';
-        end
+        r_ecef_m = geodetic_to_ecef(lat_deg, lon_deg, h_m, cfg).';
         r_ecef_km = r_ecef_m / 1000;
     
         % ------------------------------------------------------------
         % Anchor-local ENU
         % ------------------------------------------------------------
-        r_enu_m = zeros(N,3);
-        for k = 1:N
-            r_enu_m(k,:) = ecef_to_local_enu( ...
-                r_ecef_m(k,:).', ...
-                cfg.geo.lat0_deg, cfg.geo.lon0_deg, cfg.geo.h0_m, cfg).';
-        end
+        r_enu_m = ecef_to_local_enu( ...
+            r_ecef_m, ...
+            cfg.geo.lat0_deg, cfg.geo.lon0_deg, cfg.geo.h0_m, cfg);
         r_enu_km = r_enu_m / 1000;
         xy_km = r_enu_km(:,1:2);
     
@@ -168,4 +155,19 @@ function traj = propagate_hgv_case_stage02(case_i, cfg)
         else
             v = NaN;
         end
+    end
+
+    function p = local_hgv_params()
+        persistent params_cached
+        if isempty(params_cached)
+            params_cached = struct();
+            params_cached.Re = 6378137;
+            params_cached.mu = 3.986e14;
+            params_cached.g0 = 9.80665;
+            params_cached.m = 907.2;
+            params_cached.S = 0.4839;
+            params_cached.coef_L = [0.0301, 2.2992, 1.2287, -1.3001e-4, 0.2047, -6.1460e-2];
+            params_cached.coef_D = [0.0100, -0.1748, 2.7247, 4.5781e-4, 0.3591, -6.9440e-2];
+        end
+        p = params_cached;
     end
