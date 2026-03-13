@@ -1,28 +1,20 @@
 function out = group_average_plane_cyclic_stage10(plane_bank, cfg)
-%GROUP_AVERAGE_PLANE_CYCLIC_STAGE10 Build an active-plane-preserving proxy.
+%GROUP_AVERAGE_PLANE_CYCLIC_STAGE10 Build a non-circular template proxy.
 %
-% Stage10.1b improvement over Stage10.1:
-%   1) preserve active-plane support set
-%   2) preserve total scale (strength conservation)
-%   3) use weighted mean shape over active planes
+% Stage10.1c:
+%   Use current window only for low-order support information:
+%       - active-plane support set
+%       - measurement counts by plane
+%   But do NOT use current true plane blocks W_p to build proxy shape/scale.
 %
-% Let each active plane block be:
-%   W_p = alpha_p * S_p
-% where alpha_p is a scalar scale (trace or fro norm), and S_p is the
-% normalized shape block.
+% Proxy model:
+%   W_proxy_plane(:,:,p) = n_p * alpha_obs_template * S_template,  p in active set
+% where
+%   n_p   : observation count on plane p in current window
+%   alpha_obs_template : fixed/offline template per-observation strength
+%   S_template         : fixed/offline normalized shape template
 %
-% We then define:
-%   S_bar = sum(alpha_p * S_p) / sum(alpha_p)
-% and place identical proxy blocks only on active planes:
-%   W_proxy_plane(:,:,p) = alpha_bar * S_bar,  p in active set
-% with alpha_bar = sum(alpha_p)/n_active
-%
-% Hence:
-%   sum_p W_proxy_plane(:,:,p) = sum(alpha_p) * S_bar
-% which preserves the total scale of active-plane contributions.
-%
-% For Stage10.1b we still keep zero-lag only in first_col_blocks.
-% Non-zero lag blocks are reserved for later Stage10.x.
+% This avoids circular reconstruction while keeping support-awareness.
 
     if nargin < 2
         error('group_average_plane_cyclic_stage10 requires plane_bank and cfg.');
@@ -30,113 +22,71 @@ function out = group_average_plane_cyclic_stage10(plane_bank, cfg)
 
     cfg = stage10_prepare_cfg(cfg);
 
-    % ------------------------------------------------------------
-    % Read inputs
-    % ------------------------------------------------------------
-    if isfield(plane_bank, 'W_plane')
-        W = plane_bank.W_plane;
-    elseif isfield(plane_bank, 'plane_blocks_3x3xP')
-        W = plane_bank.plane_blocks_3x3xP;
-    else
-        error('plane_bank must contain W_plane or plane_blocks_3x3xP.');
-    end
-
     P = plane_bank.P;
     active = plane_bank.active_plane_mask(:);
     active_idx = find(active);
     nActive = numel(active_idx);
 
-    % ------------------------------------------------------------
-    % Degenerate case: no active plane
-    % ------------------------------------------------------------
-    if nActive == 0
-        Wbar = zeros(3,3);
-        alpha_bar = 0;
-        alpha_vec = zeros(0,1);
-        shape_stack = zeros(3,3,0);
-        shape_bar = zeros(3,3);
-        plane_blocks_proxy = zeros(3,3,P);
-        Wr_fft_proxy = zeros(3,3);
-        first_col_blocks = zeros(3,3,P);
-
-        out = struct();
-        out.proxy_mode = "active_support_strength_preserving";
-        out.shape_norm_mode = string(cfg.stage10.shape_norm_mode);
-        out.active_idx = active_idx;
-        out.nActive = nActive;
-        out.alpha_vec_active = alpha_vec;
-        out.alpha_sum = 0;
-        out.alpha_bar = alpha_bar;
-        out.shape_stack_active = shape_stack;
-        out.shape_bar = shape_bar;
-        out.Wbar = Wbar;
-        out.plane_blocks_cyclic_3x3xP = plane_blocks_proxy;
-        out.first_col_blocks_3x3xP = first_col_blocks;
-        out.Wr_fft_proxy = Wr_fft_proxy;
-        return;
-    end
-
-    % ------------------------------------------------------------
-    % Decompose each active plane block into scale * shape
-    % ------------------------------------------------------------
-    alpha_vec = zeros(nActive,1);
-    shape_stack = zeros(3,3,nActive);
-
-    for kk = 1:nActive
-        p = active_idx(kk);
-        Wp = W(:,:,p);
-
-        switch lower(string(cfg.stage10.shape_norm_mode))
-            case "trace"
-                alpha_p = trace(Wp);
-            case "fro"
-                alpha_p = norm(Wp, 'fro');
-            otherwise
-                error('Unknown cfg.stage10.shape_norm_mode: %s', string(cfg.stage10.shape_norm_mode));
-        end
-
-        if ~isfinite(alpha_p) || alpha_p <= 0
-            alpha_p = 0;
-            Sp = zeros(3,3);
-        else
-            Sp = Wp / alpha_p;
-        end
-
-        if cfg.stage10.force_symmetric
-            Sp = 0.5 * (Sp + Sp.');
-        end
-
-        alpha_vec(kk) = alpha_p;
-        shape_stack(:,:,kk) = Sp;
-    end
-
-    alpha_sum = sum(alpha_vec);
-
-    if alpha_sum <= 0
-        shape_bar = zeros(3,3);
+    if isfield(plane_bank, 'measurement_count_by_plane')
+        meas_count = plane_bank.measurement_count_by_plane(:);
+    elseif isfield(plane_bank, 'plane_visible_obs')
+        meas_count = plane_bank.plane_visible_obs(:);
     else
-        shape_bar = zeros(3,3);
-        for kk = 1:nActive
-            shape_bar = shape_bar + alpha_vec(kk) * shape_stack(:,:,kk);
-        end
-        shape_bar = shape_bar / alpha_sum;
+        error('plane_bank must contain measurement_count_by_plane or plane_visible_obs.');
+    end
+
+    % ------------------------------------------------------------
+    % Build template shape
+    % ------------------------------------------------------------
+    switch lower(string(cfg.stage10.template_mode))
+        case "fixed_isotropic_like"
+            S_template = cfg.stage10.template_shape_matrix;
+        case "custom_matrix"
+            S_template = cfg.stage10.template_shape_matrix;
+        otherwise
+            error('Unknown cfg.stage10.template_mode: %s', string(cfg.stage10.template_mode));
     end
 
     if cfg.stage10.force_symmetric
-        shape_bar = 0.5 * (shape_bar + shape_bar.');
+        S_template = 0.5 * (S_template + S_template.');
     end
 
-    % Each active plane gets the same proxy block, but only on active support.
-    alpha_bar = alpha_sum / nActive;
-    Wbar = alpha_bar * shape_bar;
+    % normalize template shape according to selected convention
+    switch lower(string(cfg.stage10.shape_norm_mode))
+        case "trace"
+            denom = trace(S_template);
+        case "fro"
+            denom = norm(S_template, 'fro');
+        otherwise
+            error('Unknown cfg.stage10.shape_norm_mode: %s', string(cfg.stage10.shape_norm_mode));
+    end
+
+    if denom <= 0 || ~isfinite(denom)
+        error('Template shape normalization denominator must be positive.');
+    end
+    S_template = S_template / denom;
+
+    alpha_obs = cfg.stage10.template_alpha_per_obs;
 
     % ------------------------------------------------------------
-    % Support-preserving proxy plane blocks
+    % Build support-aware proxy from counts only
     % ------------------------------------------------------------
     plane_blocks_proxy = zeros(3,3,P);
+    alpha_vec_active = zeros(nActive,1);
+
     for kk = 1:nActive
         p = active_idx(kk);
-        plane_blocks_proxy(:,:,p) = Wbar;
+        np = meas_count(p);
+
+        switch lower(string(cfg.stage10.proxy_scale_mode))
+            case "count_times_alpha"
+                alpha_p = np * alpha_obs;
+            otherwise
+                error('Unknown cfg.stage10.proxy_scale_mode: %s', string(cfg.stage10.proxy_scale_mode));
+        end
+
+        plane_blocks_proxy(:,:,p) = alpha_p * S_template;
+        alpha_vec_active(kk) = alpha_p;
     end
 
     Wr_fft_proxy = sum(plane_blocks_proxy, 3);
@@ -145,32 +95,43 @@ function out = group_average_plane_cyclic_stage10(plane_bank, cfg)
     end
 
     % ------------------------------------------------------------
-    % Stage10.1b first-column block-circulant representation
+    % Stage10.1c first-column block-circulant representation
     %
-    % We still keep only lag-0 for now, but we use active-support-preserving
-    % total block instead of blindly repeating over all P planes.
+    % Still zero-lag only for now, but now the lag-0 representative block
+    % is a template block rather than a truth-derived block.
     % ------------------------------------------------------------
     first_col_blocks = zeros(3,3,P);
-    first_col_blocks(:,:,1) = Wbar;
+    if nActive > 0
+        alpha_bar = mean(alpha_vec_active);
+        Wbar = alpha_bar * S_template;
+        first_col_blocks(:,:,1) = Wbar;
+    else
+        alpha_bar = 0;
+        Wbar = zeros(3,3);
+    end
 
     % ------------------------------------------------------------
     % Export
     % ------------------------------------------------------------
     out = struct();
-    out.proxy_mode = "active_support_strength_preserving";
+    out.proxy_mode = "template_active_support";
     out.shape_norm_mode = string(cfg.stage10.shape_norm_mode);
+    out.template_mode = string(cfg.stage10.template_mode);
+    out.proxy_scale_mode = string(cfg.stage10.proxy_scale_mode);
 
     out.active_idx = active_idx;
     out.nActive = nActive;
+    out.measurement_count_by_plane = meas_count;
 
-    out.alpha_vec_active = alpha_vec;
-    out.alpha_sum = alpha_sum;
+    out.alpha_obs_template = alpha_obs;
+    out.alpha_vec_active = alpha_vec_active;
+    out.alpha_sum = sum(alpha_vec_active);
     out.alpha_bar = alpha_bar;
 
-    out.shape_stack_active = shape_stack;
-    out.shape_bar = shape_bar;
-
+    out.shape_bar = S_template;                % keep field name for compatibility
+    out.shape_stack_active = [];              % no truth-derived shape stack now
     out.Wbar = Wbar;
+
     out.plane_blocks_cyclic_3x3xP = plane_blocks_proxy;
     out.first_col_blocks_3x3xP = first_col_blocks;
     out.Wr_fft_proxy = Wr_fft_proxy;

@@ -2,12 +2,10 @@ function cfg = stage10_prepare_cfg(cfg)
 %STAGE10_PREPARE_CFG
 % Normalize / resolve Stage10 configuration fields.
 %
-% Stage10.1 responsibility:
-%   - ensure cfg.stage10 exists
-%   - normalize run_tag / mode / source switches
-%   - normalize single-window debug selectors
-%   - provide Stage10-specific defaults in one place
-%   - keep Stage09 numeric kernel compatible
+% Stage10.1c:
+%   - keep Stage10.1 runnable
+%   - avoid circular reconstruction in proxy construction
+%   - provide template-based proxy defaults
 
     if nargin < 1 || isempty(cfg)
         cfg = default_params();
@@ -130,7 +128,7 @@ function cfg = stage10_prepare_cfg(cfg)
     end
 
     % ------------------------------------------------------------
-    % Stage10.1 structured-spectrum defaults
+    % Structured-spectrum common defaults
     % ------------------------------------------------------------
     if ~isfield(cfg.stage10, 'force_symmetric') || isempty(cfg.stage10.force_symmetric)
         cfg.stage10.force_symmetric = true;
@@ -149,9 +147,9 @@ function cfg = stage10_prepare_cfg(cfg)
     end
 
     if ~isfield(cfg.stage10, 'fft_proxy_mode') || isempty(cfg.stage10.fft_proxy_mode)
-        cfg.stage10.fft_proxy_mode = 'lag0_mean_block';
+        cfg.stage10.fft_proxy_mode = 'template_active_support';
     end
-    valid_fft_proxy_mode = {'lag0_mean_block'};
+    valid_fft_proxy_mode = {'lag0_mean_block', 'template_active_support'};
     if ~ismember(char(string(cfg.stage10.fft_proxy_mode)), valid_fft_proxy_mode)
         error('Unknown cfg.stage10.fft_proxy_mode: %s', string(cfg.stage10.fft_proxy_mode));
     end
@@ -173,6 +171,50 @@ function cfg = stage10_prepare_cfg(cfg)
     if ~isfield(cfg.stage10, 'compute_bounds') || isempty(cfg.stage10.compute_bounds)
         cfg.stage10.compute_bounds = true;
     end
+
+    % ------------------------------------------------------------
+    % Stage10.1c template-proxy defaults
+    % ------------------------------------------------------------
+    if ~isfield(cfg.stage10, 'template_mode') || isempty(cfg.stage10.template_mode)
+        cfg.stage10.template_mode = 'fixed_isotropic_like';
+    end
+    valid_template_mode = {'fixed_isotropic_like', 'custom_matrix'};
+    if ~ismember(char(string(cfg.stage10.template_mode)), valid_template_mode)
+        error('Unknown cfg.stage10.template_mode: %s', string(cfg.stage10.template_mode));
+    end
+
+    if ~isfield(cfg.stage10, 'proxy_scale_mode') || isempty(cfg.stage10.proxy_scale_mode)
+        cfg.stage10.proxy_scale_mode = 'count_times_alpha';
+    end
+    valid_proxy_scale_mode = {'count_times_alpha'};
+    if ~ismember(char(string(cfg.stage10.proxy_scale_mode)), valid_proxy_scale_mode)
+        error('Unknown cfg.stage10.proxy_scale_mode: %s', string(cfg.stage10.proxy_scale_mode));
+    end
+
+    % single-observation template strength
+    if ~isfield(cfg.stage10, 'template_alpha_per_obs') || isempty(cfg.stage10.template_alpha_per_obs)
+        % A moderate default. Can be calibrated later from offline library.
+        cfg.stage10.template_alpha_per_obs = 1000;
+    end
+    if ~isscalar(cfg.stage10.template_alpha_per_obs) || cfg.stage10.template_alpha_per_obs <= 0
+        error('cfg.stage10.template_alpha_per_obs must be a positive scalar.');
+    end
+
+    % custom template shape matrix if needed
+    if ~isfield(cfg.stage10, 'template_shape_matrix') || isempty(cfg.stage10.template_shape_matrix)
+        cfg.stage10.template_shape_matrix = diag([0.50, 0.30, 0.20]);
+    end
+    S = cfg.stage10.template_shape_matrix;
+    if ~isnumeric(S) || ~isequal(size(S), [3,3])
+        error('cfg.stage10.template_shape_matrix must be a 3x3 numeric matrix.');
+    end
+    if cfg.stage10.force_symmetric
+        S = 0.5 * (S + S.');
+    end
+    if trace(S) <= 0
+        error('cfg.stage10.template_shape_matrix must have positive trace.');
+    end
+    cfg.stage10.template_shape_matrix = S;
 
     % ------------------------------------------------------------
     % Outputs
