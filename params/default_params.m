@@ -230,7 +230,7 @@ function cfg = default_params()
     % Parallel options
     cfg.stage02.use_parallel = true;
     cfg.stage02.auto_start_pool = true;
-    cfg.stage02.parallel_pool_profile = 'local';
+    cfg.stage02.parallel_pool_profile = 'threads';
     cfg.stage02.parallel_num_workers = [];
 
     % 3D explanation plot options

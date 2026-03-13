@@ -82,10 +82,7 @@ function out = stage02_hgv_nominal(cfg, opts)
         % Run families
         % ------------------------------------------------------------
         pool = local_prepare_parallel_pool(cfg, log_fid, 'stage02');
-        trajbank = struct();
-        trajbank.nominal = local_run_family(casebank.nominal, cfg, log_fid, pool, 'nominal');
-        trajbank.heading = local_run_family(casebank.heading, cfg, log_fid, pool, 'heading');
-        trajbank.critical = local_run_family(casebank.critical, cfg, log_fid, pool, 'critical');
+        trajbank = local_run_casebank(casebank, cfg, log_fid, pool);
     
         % ------------------------------------------------------------
         % Build structured summaries
@@ -191,30 +188,44 @@ function out = stage02_hgv_nominal(cfg, opts)
     % ========================================================================
     % Local helper: run one family
     % ========================================================================
-    function family_out = local_run_family(cases_in, cfg, log_fid, pool, family_name)
-    
-        if isempty(cases_in)
-            family_out = struct('case', {}, 'traj', {}, 'validation', {}, 'summary', {});
-            return;
-        end
-    
-        family_out = repmat(struct('case', [], 'traj', [], 'validation', [], 'summary', []), numel(cases_in), 1);
-    
+    function trajbank = local_run_casebank(casebank, cfg, log_fid, pool)
+        all_cases = [casebank.nominal; casebank.heading; casebank.critical];
+        all_out = repmat(struct('case', [], 'traj', [], 'validation', [], 'summary', []), numel(all_cases), 1);
+
         if ~isempty(pool)
-            parfor k = 1:numel(cases_in)
-                family_out(k) = local_eval_case(cases_in(k), cfg);
+            parfor k = 1:numel(all_cases)
+                all_out(k) = local_eval_case(all_cases(k), cfg);
             end
         else
-            for k = 1:numel(cases_in)
-                family_out(k) = local_eval_case(cases_in(k), cfg);
+            for k = 1:numel(all_cases)
+                all_out(k) = local_eval_case(all_cases(k), cfg);
             end
         end
 
+        n_nominal = numel(casebank.nominal);
+        n_heading = numel(casebank.heading);
+        n_critical = numel(casebank.critical);
+
+        idx_nominal = 1:n_nominal;
+        idx_heading = n_nominal + (1:n_heading);
+        idx_critical = n_nominal + n_heading + (1:n_critical);
+
+        trajbank = struct();
+        trajbank.nominal = all_out(idx_nominal);
+        trajbank.heading = all_out(idx_heading);
+        trajbank.critical = all_out(idx_critical);
+
+        local_log_family('nominal', trajbank.nominal, log_fid, ~isempty(pool));
+        local_log_family('heading', trajbank.heading, log_fid, ~isempty(pool));
+        local_log_family('critical', trajbank.critical, log_fid, ~isempty(pool));
+    end
+
+    function local_log_family(family_name, family_out, log_fid, used_parallel)
         log_msg(log_fid, 'INFO', ...
             'Family %s processed: %d cases | parallel=%d', ...
-            char(string(family_name)), numel(cases_in), ~isempty(pool));
+            char(string(family_name)), numel(family_out), used_parallel);
 
-        for k = 1:numel(cases_in)
+        for k = 1:numel(family_out)
             s = family_out(k).summary;
             log_msg(log_fid, 'INFO', ...
                 'Case %-24s | family=%-8s | pass=%d | steps=%d | dur=%.1f s | h=[%.1f, %.1f] km | V=[%.0f, %.0f] m/s | rmin=%.1f km', ...
