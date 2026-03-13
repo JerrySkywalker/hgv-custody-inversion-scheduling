@@ -2,21 +2,24 @@ function los_geom = compute_los_geometry_stage03(vis_case, satbank)
     %COMPUTE_LOS_GEOMETRY_STAGE03 Compute LOS crossing-angle statistics.
     
         Nt = numel(vis_case.t_s);
+        Ns = satbank.Ns;
         min_crossing_angle_deg = nan(Nt,1);
         mean_crossing_angle_deg = nan(Nt,1);
-    
+
+        r_sat_eci_km = permute(satbank.r_eci_km(1:Nt,:,:), [1, 3, 2]);
+        r_tgt_batch_km = reshape(vis_case.r_tgt_eci_km, [Nt, 1, 3]);
+        los_all = r_sat_eci_km - r_tgt_batch_km;
+        los_norm = sqrt(sum(los_all.^2, 3));
+        los_unit = los_all ./ max(los_norm, eps);
+
         for k = 1:Nt
-            vis_idx = find(vis_case.visible_mask(k,:));
-            if numel(vis_idx) < 2
+            vis_idx = vis_case.visible_mask(k,:);
+            if nnz(vis_idx) < 2
                 continue;
             end
-    
-            r_tgt = vis_case.r_tgt_eci_km(k,:);
-            r_sat_vis = squeeze(satbank.r_eci_km(k,:,vis_idx)).';
-            los_all = r_sat_vis - r_tgt;
-            los_all = los_all ./ max(sqrt(sum(los_all.^2, 2)), eps);
 
-            gram = los_all * los_all.';
+            los_vis = reshape(los_unit(k, vis_idx, :), [], 3);
+            gram = los_vis * los_vis.';
             gram = min(max(gram, -1), 1);
             pair_mask = triu(true(size(gram)), 1);
             angles = acosd(gram(pair_mask));

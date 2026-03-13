@@ -17,27 +17,25 @@ function satbank = propagate_constellation_stage03(walker, t_s)
     
         for s = 1:Ns
             sat = walker.sat(s);
-    
+
             i = deg2rad(sat.i_deg);
             Omega = deg2rad(sat.raan_deg);
             M0 = deg2rad(sat.M0_deg);
-    
-            for k = 1:Nt
-                M = M0 + n_rad_s * t_s(k);   % circular orbit => true anomaly ~ mean anomaly
-                u = M;
-    
-                r_pf = [a_km*cos(u); a_km*sin(u); 0];
-    
-                R3_Omega = [ cos(Omega), -sin(Omega), 0;
-                             sin(Omega),  cos(Omega), 0;
-                             0,           0,          1 ];
-                R1_i = [1, 0, 0;
-                        0, cos(i), -sin(i);
-                        0, sin(i),  cos(i)];
-    
-                r_eci = R3_Omega * R1_i * r_pf;
-                r_eci_km(k,:,s) = r_eci(:).';
-            end
+
+            u = M0 + n_rad_s * t_s(:);
+            cu = cos(u);
+            su = sin(u);
+
+            cos_Omega = cos(Omega);
+            sin_Omega = sin(Omega);
+            cos_i = cos(i);
+            sin_i = sin(i);
+
+            x = a_km * (cos_Omega * cu - sin_Omega * cos_i .* su);
+            y = a_km * (sin_Omega * cu + cos_Omega * cos_i .* su);
+            z = a_km * (sin_i .* su);
+
+            r_eci_km(:,:,s) = [x, y, z];
         end
     
         satbank = struct();
