@@ -51,6 +51,9 @@ function out = stage07_scan_heading_risk_map(cfg, opts)
     entry_ids = nan(nEntry, 1);
 
     use_parallel = isfield(cfg.stage07, 'use_parallel') && cfg.stage07.use_parallel;
+    if use_parallel
+        cfg = local_apply_parallel_runtime_policy(cfg, disable_detail_bank);
+    end
     if use_parallel && cfg.stage07.auto_start_pool
         ensure_parallel_pool(cfg.stage07.parallel_pool_profile, cfg.stage07.parallel_num_workers);
     end
@@ -367,4 +370,15 @@ function cfg = local_apply_stage07_opts(cfg, opts)
     cfg.stage07.parallel_pool_profile = opts.parallel_config.profile_name;
     cfg.stage07.parallel_num_workers = opts.parallel_config.num_workers;
     cfg.stage07.auto_start_pool = opts.parallel_config.auto_start_pool;
+end
+
+function cfg = local_apply_parallel_runtime_policy(cfg, disable_detail_bank)
+    prefer_threads = isfield(cfg.stage07, 'prefer_thread_pool_for_batch') && ...
+        cfg.stage07.prefer_thread_pool_for_batch;
+    if ~prefer_threads || ~disable_detail_bank
+        return;
+    end
+    if strcmpi(string(cfg.stage07.parallel_pool_profile), "local")
+        cfg.stage07.parallel_pool_profile = 'threads';
+    end
 end

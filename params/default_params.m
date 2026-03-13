@@ -694,6 +694,7 @@ function cfg = default_params()
     cfg.stage07.auto_start_pool = true;
     cfg.stage07.parallel_pool_profile = 'local';
     cfg.stage07.parallel_num_workers = [];
+    cfg.stage07.prefer_thread_pool_for_batch = true;
 
     % ---------------------------
     % Stage08: window-length sensitivity scope
