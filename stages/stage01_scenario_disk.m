@@ -1,4 +1,4 @@
-function out = stage01_scenario_disk(cfg)
+function out = stage01_scenario_disk(cfg, opts)
     %STAGE01_SCENARIO_DISK
     % Build abstract protected-disk scenario with optional geodetic anchor.
     %
@@ -23,6 +23,10 @@ function out = stage01_scenario_disk(cfg)
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
+        if nargin < 2
+            opts = struct();
+        end
+        opts = local_normalize_opts(cfg, opts);
         cfg.project_stage = 'stage01_scenario_disk';
     
         if exist('seed_rng', 'file') == 2
@@ -59,7 +63,7 @@ function out = stage01_scenario_disk(cfg)
         % ------------------------------------------------------------
         % Build casebank
         % ------------------------------------------------------------
-        casebank = build_casebank_stage01(cfg);
+        casebank = build_casebank_stage01(cfg, opts);
     
         n_nominal  = numel(casebank.nominal);
         n_heading  = numel(casebank.heading);
@@ -110,8 +114,12 @@ function out = stage01_scenario_disk(cfg)
         out.log_file = log_file;
         out.fig_file = fig_file;
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
-    
-        cache_file = fullfile(cfg.paths.cache, sprintf('stage01_scenario_disk_%s.mat', ts));
+        out.benchmark = struct( ...
+            'mode', opts.mode, ...
+            'parallel_config', opts.parallel_config);
+
+        cache_file = fullfile(cfg.paths.cache, sprintf('stage01_scenario_disk_%s_%s.mat', opts.mode, ts));
+        out.cache_file = cache_file;
         save(cache_file, 'out', '-v7.3');
         log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
         log_msg(log_fid, 'INFO', 'Stage01 finished successfully.');
@@ -127,6 +135,7 @@ function out = stage01_scenario_disk(cfg)
         fprintf('Critical    : %d\n', n_critical);
         fprintf('Total cases : %d\n', n_total);
         fprintf('Log file    : %s\n', log_file);
+        fprintf('Mode        : %s\n', opts.mode);
         if ~isempty(fig_file)
             fprintf('Figure      : %s\n', fig_file);
         else
@@ -153,5 +162,29 @@ function out = stage01_scenario_disk(cfg)
             scene_mode = 'geodetic';
         else
             scene_mode = 'abstract';
+        end
+    end
+
+    function opts = local_normalize_opts(cfg, opts)
+        if ~isfield(opts, 'mode') || isempty(opts.mode)
+            opts.mode = 'serial';
+        end
+        opts.mode = char(lower(string(opts.mode)));
+
+        if ~isfield(opts, 'parallel_config') || isempty(opts.parallel_config)
+            opts.parallel_config = struct();
+        end
+
+        if ~isfield(opts.parallel_config, 'enabled') || isempty(opts.parallel_config.enabled)
+            opts.parallel_config.enabled = strcmp(opts.mode, 'parallel');
+        end
+        if ~isfield(opts.parallel_config, 'profile_name') || isempty(opts.parallel_config.profile_name)
+            opts.parallel_config.profile_name = cfg.stage01.parallel_pool_profile;
+        end
+        if ~isfield(opts.parallel_config, 'num_workers')
+            opts.parallel_config.num_workers = cfg.stage01.parallel_num_workers;
+        end
+        if ~isfield(opts.parallel_config, 'auto_start_pool') || isempty(opts.parallel_config.auto_start_pool)
+            opts.parallel_config.auto_start_pool = cfg.stage01.auto_start_pool;
         end
     end

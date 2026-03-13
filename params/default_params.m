@@ -35,7 +35,10 @@ function cfg = default_params()
     cfg.benchmark.save_mat = true;
     cfg.benchmark.default_abs_tol = 1e-12;
     cfg.benchmark.default_rel_tol = 1e-9;
-    cfg.benchmark.default_ignored_fields = {'timestamp', 'log_file', 'cache_file', 'benchmark'};
+    cfg.benchmark.default_ignored_fields = {'timestamp', 'log_file', 'cache_file', 'fig_file', 'benchmark'};
+
+    % Stage-level benchmark policy
+    cfg.benchmark.stage01_disable_plot = true;
 
     % ============================================================
     % Geodetic anchor and time-base configuration
@@ -160,6 +163,9 @@ function cfg = default_params()
     % Plot
     cfg.stage01.make_plot = false;
     cfg.stage01.axis_limit_km = 5500;
+    cfg.stage01.parallel_pool_profile = 'local';
+    cfg.stage01.parallel_num_workers = [];
+    cfg.stage01.auto_start_pool = true;
 
     % ---------------------------
     % Stage02 VTC-HGV trajectory generation parameters

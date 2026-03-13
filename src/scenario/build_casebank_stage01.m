@@ -1,4 +1,4 @@
-function casebank = build_casebank_stage01(cfg)
+function casebank = build_casebank_stage01(cfg, opts)
     %BUILD_CASEBANK_STAGE01
     % Build protected-disk scenario casebank.
     %
@@ -11,6 +11,11 @@ function casebank = build_casebank_stage01(cfg)
         % ------------------------------------------------------------
         % Read / infer design parameters
         % ------------------------------------------------------------
+        if nargin < 2
+            opts = struct();
+        end
+        opts = local_normalize_opts(cfg, opts);
+
         R_in_km = cfg.stage01.R_in_km;
     
         if isfield(cfg.stage01, 'nominal_entry_theta_deg')
@@ -57,25 +62,36 @@ function casebank = build_casebank_stage01(cfg)
         % Build nominal cases
         % ------------------------------------------------------------
         nominal = repmat(local_empty_case_struct(), numel(nominal_theta_deg), 1);
-    
-        for k = 1:numel(nominal_theta_deg)
-            theta_deg = nominal_theta_deg(k);
-    
-            % local explanatory ENU point (for plotting / legacy interpretation)
-            p_enu_km_plot = R_in_km * [cosd(theta_deg); sind(theta_deg); 0];
-    
-            % default heading points approximately toward disk center
-            heading_deg = wrapTo180(theta_deg + 180);
-    
-            nominal(k) = local_make_case( ...
-                sprintf('N%02d', k), ...
-                'nominal', ...
-                'nominal', ...
-                theta_deg, ...
-                heading_deg, ...
-                0, ...
-                p_enu_km_plot, ...
-                cfg);
+        if opts.use_parallel
+            parfor k = 1:numel(nominal_theta_deg)
+                theta_deg = nominal_theta_deg(k);
+                p_enu_km_plot = R_in_km * [cosd(theta_deg); sind(theta_deg); 0];
+                heading_deg = wrapTo180(theta_deg + 180);
+                nominal(k) = local_make_case( ...
+                    sprintf('N%02d', k), ...
+                    'nominal', ...
+                    'nominal', ...
+                    theta_deg, ...
+                    heading_deg, ...
+                    0, ...
+                    p_enu_km_plot, ...
+                    cfg);
+            end
+        else
+            for k = 1:numel(nominal_theta_deg)
+                theta_deg = nominal_theta_deg(k);
+                p_enu_km_plot = R_in_km * [cosd(theta_deg); sind(theta_deg); 0];
+                heading_deg = wrapTo180(theta_deg + 180);
+                nominal(k) = local_make_case( ...
+                    sprintf('N%02d', k), ...
+                    'nominal', ...
+                    'nominal', ...
+                    theta_deg, ...
+                    heading_deg, ...
+                    0, ...
+                    p_enu_km_plot, ...
+                    cfg);
+            end
         end
     
         % ------------------------------------------------------------
@@ -84,17 +100,15 @@ function casebank = build_casebank_stage01(cfg)
         n_heading = numel(nominal_theta_deg) * numel(heading_offsets_deg);
         heading = repmat(local_empty_case_struct(), n_heading, 1);
     
-        idx = 0;
-        for k = 1:numel(nominal_theta_deg)
-            base_theta_deg = nominal_theta_deg(k);
-            p_enu_km_plot = R_in_km * [cosd(base_theta_deg); sind(base_theta_deg); 0];
-            base_heading_deg = wrapTo180(base_theta_deg + 180);
-    
-            for j = 1:numel(heading_offsets_deg)
-                idx = idx + 1;
+        if opts.use_parallel
+            parfor idx = 1:n_heading
+                k = ceil(idx / numel(heading_offsets_deg));
+                j = idx - (k - 1) * numel(heading_offsets_deg);
+                base_theta_deg = nominal_theta_deg(k);
+                p_enu_km_plot = R_in_km * [cosd(base_theta_deg); sind(base_theta_deg); 0];
+                base_heading_deg = wrapTo180(base_theta_deg + 180);
                 off_deg = heading_offsets_deg(j);
                 heading_deg = wrapTo180(base_heading_deg + off_deg);
-    
                 heading(idx) = local_make_case( ...
                     sprintf('H%02d_%+03d', k, off_deg), ...
                     'heading', ...
@@ -105,6 +119,29 @@ function casebank = build_casebank_stage01(cfg)
                     p_enu_km_plot, ...
                     cfg);
             end
+        else
+            idx = 0;
+            for k = 1:numel(nominal_theta_deg)
+                base_theta_deg = nominal_theta_deg(k);
+                p_enu_km_plot = R_in_km * [cosd(base_theta_deg); sind(base_theta_deg); 0];
+                base_heading_deg = wrapTo180(base_theta_deg + 180);
+
+                for j = 1:numel(heading_offsets_deg)
+                    idx = idx + 1;
+                    off_deg = heading_offsets_deg(j);
+                    heading_deg = wrapTo180(base_heading_deg + off_deg);
+
+                    heading(idx) = local_make_case( ...
+                        sprintf('H%02d_%+03d', k, off_deg), ...
+                        'heading', ...
+                        'heading', ...
+                        base_theta_deg, ...
+                        heading_deg, ...
+                        off_deg, ...
+                        p_enu_km_plot, ...
+                        cfg);
+                end
+            end
         end
     
         % ------------------------------------------------------------
@@ -112,19 +149,34 @@ function casebank = build_casebank_stage01(cfg)
         % ------------------------------------------------------------
         critical = repmat(local_empty_case_struct(), numel(critical_cases), 1);
     
-        for k = 1:numel(critical_cases)
-            c = critical_cases(k);
-            p_enu_km_plot = R_in_km * [cosd(c.entry_theta_deg); sind(c.entry_theta_deg); 0];
-    
-            critical(k) = local_make_case( ...
-                c.case_id, ...
-                c.family, ...
-                c.subfamily, ...
-                c.entry_theta_deg, ...
-                c.heading_deg, ...
-                NaN, ...
-                p_enu_km_plot, ...
-                cfg);
+        if opts.use_parallel
+            parfor k = 1:numel(critical_cases)
+                c = critical_cases(k);
+                p_enu_km_plot = R_in_km * [cosd(c.entry_theta_deg); sind(c.entry_theta_deg); 0];
+                critical(k) = local_make_case( ...
+                    c.case_id, ...
+                    c.family, ...
+                    c.subfamily, ...
+                    c.entry_theta_deg, ...
+                    c.heading_deg, ...
+                    NaN, ...
+                    p_enu_km_plot, ...
+                    cfg);
+            end
+        else
+            for k = 1:numel(critical_cases)
+                c = critical_cases(k);
+                p_enu_km_plot = R_in_km * [cosd(c.entry_theta_deg); sind(c.entry_theta_deg); 0];
+                critical(k) = local_make_case( ...
+                    c.case_id, ...
+                    c.family, ...
+                    c.subfamily, ...
+                    c.entry_theta_deg, ...
+                    c.heading_deg, ...
+                    NaN, ...
+                    p_enu_km_plot, ...
+                    cfg);
+            end
         end
     
         % ------------------------------------------------------------
@@ -302,4 +354,38 @@ function casebank = build_casebank_stage01(cfg)
                sin(theta),  cos(theta), 0; ...
                0,           0,          1];
         u_eci = R3 * u_ecef;
+    end
+
+    function opts = local_normalize_opts(cfg, opts)
+        if ~isfield(opts, 'mode') || isempty(opts.mode)
+            opts.mode = 'serial';
+        end
+        opts.mode = char(lower(string(opts.mode)));
+
+        opts.use_parallel = strcmp(opts.mode, 'parallel');
+        if ~isfield(opts, 'parallel_config') || isempty(opts.parallel_config)
+            opts.parallel_config = struct();
+        end
+        if ~isfield(opts.parallel_config, 'enabled') || isempty(opts.parallel_config.enabled)
+            opts.parallel_config.enabled = opts.use_parallel;
+        end
+        if ~isfield(opts.parallel_config, 'profile_name') || isempty(opts.parallel_config.profile_name)
+            opts.parallel_config.profile_name = cfg.stage01.parallel_pool_profile;
+        end
+        if ~isfield(opts.parallel_config, 'num_workers')
+            opts.parallel_config.num_workers = cfg.stage01.parallel_num_workers;
+        end
+        if ~isfield(opts.parallel_config, 'auto_start_pool') || isempty(opts.parallel_config.auto_start_pool)
+            opts.parallel_config.auto_start_pool = cfg.stage01.auto_start_pool;
+        end
+
+        if opts.use_parallel && opts.parallel_config.enabled
+            pool = gcp('nocreate');
+            if isempty(pool) && opts.parallel_config.auto_start_pool
+                pool = ensure_parallel_pool(opts.parallel_config.profile_name, opts.parallel_config.num_workers);
+            end
+            opts.use_parallel = ~isempty(pool);
+        else
+            opts.use_parallel = false;
+        end
     end

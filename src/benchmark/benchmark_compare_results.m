@@ -83,6 +83,18 @@ function state = local_compare_value(a, b, path_str, opts, state)
 end
 
 function state = local_compare_struct(a, b, path_str, opts, state)
+    if numel(a) ~= numel(b) || ~isequal(size(a), size(b))
+        state.messages{end + 1} = sprintf('%s struct array size mismatch.', path_str);
+        return;
+    end
+
+    if numel(a) > 1
+        for iElem = 1:numel(a)
+            state = local_compare_struct(a(iElem), b(iElem), sprintf('%s(%d)', path_str, iElem), opts, state);
+        end
+        return;
+    end
+
     a_fields = setdiff(fieldnames(a), opts.ignored_fields);
     b_fields = setdiff(fieldnames(b), opts.ignored_fields);
 
