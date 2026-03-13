@@ -13,6 +13,9 @@ function report = run_benchmark_stage02(cfg)
         cfg.stage02.make_plot = false;
         cfg.stage02.make_plot_3d = false;
     end
+    if isfield(cfg.benchmark, 'stage02_disable_case_logging') && cfg.benchmark.stage02_disable_case_logging
+        cfg.stage02.log_each_case = false;
+    end
 
     bench_cfg = struct();
     bench_cfg.stage_name = 'stage02';
@@ -28,6 +31,7 @@ function report = run_benchmark_stage02(cfg)
             'profile_name', cfg.stage02.parallel_pool_profile, ...
             'num_workers', cfg.stage02.parallel_num_workers, ...
             'auto_start_pool', cfg.stage02.auto_start_pool));
+    bench_cfg.parallel_setup_fn = @local_prepare_stage02_parallel;
     bench_cfg.compare_opts = struct( ...
         'abs_tol', cfg.benchmark.default_abs_tol, ...
         'rel_tol', cfg.benchmark.default_rel_tol, ...
@@ -42,6 +46,7 @@ function report = run_benchmark_stage02(cfg)
 
     fprintf('[benchmark] Stage02 serial runs   : %s\n', mat2str(report.timing.serial_runs_s, 6));
     fprintf('[benchmark] Stage02 parallel runs : %s\n', mat2str(report.timing.parallel_runs_s, 6));
+    fprintf('[benchmark] Stage02 parallel setup: %.6f s (excluded from run timing)\n', report.timing.parallel_setup_s);
     fprintf('[benchmark] Stage02 serial best   : %.6f s\n', report.timing.serial_best_s);
     fprintf('[benchmark] Stage02 parallel best : %.6f s\n', report.timing.parallel_best_s);
     fprintf('[benchmark] Stage02 speedup(best) : %.4f x\n', report.timing.speedup_best);
@@ -57,4 +62,11 @@ function summary = local_stage02_input_summary(cfg)
     summary.make_plot_3d = cfg.stage02.make_plot_3d;
     summary.Tmax_s = cfg.stage02.Tmax_s;
     summary.Ts_s = cfg.stage02.Ts_s;
+end
+
+function local_prepare_stage02_parallel(cfg, opts)
+    if ~isfield(opts, 'parallel_config') || ~opts.parallel_config.enabled
+        return;
+    end
+    ensure_parallel_pool(opts.parallel_config.profile_name, opts.parallel_config.num_workers);
 end

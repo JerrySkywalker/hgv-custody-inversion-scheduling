@@ -7,6 +7,20 @@ function report = run_solver_benchmark(solver_fn, input_value, bench_cfg)
 
     bench_cfg = local_normalize_bench_cfg(bench_cfg);
 
+    serial_setup_s = 0;
+    parallel_setup_s = 0;
+
+    if ~isempty(bench_cfg.serial_setup_fn)
+        t_setup = tic;
+        bench_cfg.serial_setup_fn(input_value, bench_cfg.serial_opts);
+        serial_setup_s = toc(t_setup);
+    end
+    if ~isempty(bench_cfg.parallel_setup_fn)
+        t_setup = tic;
+        bench_cfg.parallel_setup_fn(input_value, bench_cfg.parallel_opts);
+        parallel_setup_s = toc(t_setup);
+    end
+
     for iWarmup = 1:bench_cfg.warmup_runs
         solver_fn(input_value, bench_cfg.serial_opts);
         solver_fn(input_value, bench_cfg.parallel_opts);
@@ -38,6 +52,8 @@ function report = run_solver_benchmark(solver_fn, input_value, bench_cfg)
     report.serial = benchmark_make_run_record('serial', bench_cfg.serial_opts, min(serial_elapsed), serial_result);
     report.parallel = benchmark_make_run_record('parallel', bench_cfg.parallel_opts, min(parallel_elapsed), parallel_result);
     report.timing = struct( ...
+        'serial_setup_s', serial_setup_s, ...
+        'parallel_setup_s', parallel_setup_s, ...
         'serial_runs_s', serial_elapsed, ...
         'parallel_runs_s', parallel_elapsed, ...
         'serial_best_s', min(serial_elapsed), ...
@@ -81,6 +97,12 @@ function bench_cfg = local_normalize_bench_cfg(bench_cfg)
     end
     if ~isfield(bench_cfg, 'save_opts') || isempty(bench_cfg.save_opts)
         bench_cfg.save_opts = struct();
+    end
+    if ~isfield(bench_cfg, 'serial_setup_fn')
+        bench_cfg.serial_setup_fn = [];
+    end
+    if ~isfield(bench_cfg, 'parallel_setup_fn')
+        bench_cfg.parallel_setup_fn = [];
     end
 end
 

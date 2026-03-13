@@ -42,6 +42,7 @@ function cfg = default_params()
     cfg.benchmark.stage01_disable_plot = true;
     cfg.benchmark.stage02_disable_plot = true;
     cfg.benchmark.stage02_repeat = 3;
+    cfg.benchmark.stage02_disable_case_logging = true;
 
     % ============================================================
     % Geodetic anchor and time-base configuration
@@ -232,6 +233,7 @@ function cfg = default_params()
     cfg.stage02.auto_start_pool = true;
     cfg.stage02.parallel_pool_profile = 'threads';
     cfg.stage02.parallel_num_workers = [];
+    cfg.stage02.log_each_case = true;
 
     % 3D explanation plot options
     cfg.stage02.make_plot_3d = true;

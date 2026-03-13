@@ -19,7 +19,7 @@ function out = stage02_hgv_nominal(cfg, opts)
         % ------------------------------------------------------------
         % Init
         % ------------------------------------------------------------
-        startup();
+        local_ensure_startup_once();
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
@@ -62,17 +62,7 @@ function out = stage02_hgv_nominal(cfg, opts)
         % ------------------------------------------------------------
         % Load latest Stage01 cache
         % ------------------------------------------------------------
-        d = dir(fullfile(cfg.paths.cache, 'stage01_scenario_disk_*.mat'));
-        assert(~isempty(d), 'No Stage01 cache found. Please run stage01_scenario_disk first.');
-    
-        [~, idx_latest] = max([d.datenum]);
-        stage01_file = fullfile(d(idx_latest).folder, d(idx_latest).name);
-    
-        tmp = load(stage01_file);
-        assert(isfield(tmp, 'out') && isfield(tmp.out, 'casebank'), ...
-            'Invalid Stage01 cache format: missing out.casebank');
-    
-        casebank = tmp.out.casebank;
+        [casebank, stage01_file] = local_load_latest_stage01_casebank(cfg);
     
         log_msg(log_fid, 'INFO', 'Loaded Stage01 cache: %s', stage01_file);
         n_total_stage01 = local_count_casebank(casebank);
@@ -215,15 +205,19 @@ function out = stage02_hgv_nominal(cfg, opts)
         trajbank.heading = all_out(idx_heading);
         trajbank.critical = all_out(idx_critical);
 
-        local_log_family('nominal', trajbank.nominal, log_fid, ~isempty(pool));
-        local_log_family('heading', trajbank.heading, log_fid, ~isempty(pool));
-        local_log_family('critical', trajbank.critical, log_fid, ~isempty(pool));
+        local_log_family('nominal', trajbank.nominal, log_fid, ~isempty(pool), cfg);
+        local_log_family('heading', trajbank.heading, log_fid, ~isempty(pool), cfg);
+        local_log_family('critical', trajbank.critical, log_fid, ~isempty(pool), cfg);
     end
 
-    function local_log_family(family_name, family_out, log_fid, used_parallel)
+    function local_log_family(family_name, family_out, log_fid, used_parallel, cfg)
         log_msg(log_fid, 'INFO', ...
             'Family %s processed: %d cases | parallel=%d', ...
             char(string(family_name)), numel(family_out), used_parallel);
+
+        if ~isfield(cfg.stage02, 'log_each_case') || ~cfg.stage02.log_each_case
+            return;
+        end
 
         for k = 1:numel(family_out)
             s = family_out(k).summary;
@@ -335,5 +329,36 @@ function out = stage02_hgv_nominal(cfg, opts)
             log_msg(log_fid, 'INFO', ...
                 'Parallel pool unavailable for %s. Fallback to serial. Reason: %s', ...
                 stage_name, ME.message);
+        end
+    end
+
+    function [casebank, stage01_file] = local_load_latest_stage01_casebank(cfg)
+        persistent cached_stage01_file cached_casebank
+
+        d = dir(fullfile(cfg.paths.cache, 'stage01_scenario_disk_*.mat'));
+        assert(~isempty(d), 'No Stage01 cache found. Please run stage01_scenario_disk first.');
+
+        [~, idx_latest] = max([d.datenum]);
+        stage01_file = fullfile(d(idx_latest).folder, d(idx_latest).name);
+
+        if ~isempty(cached_stage01_file) && strcmp(cached_stage01_file, stage01_file)
+            casebank = cached_casebank;
+            return;
+        end
+
+        tmp = load(stage01_file);
+        assert(isfield(tmp, 'out') && isfield(tmp.out, 'casebank'), ...
+            'Invalid Stage01 cache format: missing out.casebank');
+
+        casebank = tmp.out.casebank;
+        cached_stage01_file = stage01_file;
+        cached_casebank = casebank;
+    end
+
+    function local_ensure_startup_once()
+        persistent startup_done
+        if isempty(startup_done) || ~startup_done
+            startup();
+            startup_done = true;
         end
     end
