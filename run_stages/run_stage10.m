@@ -48,6 +48,7 @@ function out = run_stage10(cfg, interactive, opts)
     end
 
     [cfg, opts] = rs_cli_configure('stage10', cfg, interactive, opts);
+    [cfg, ~] = rs_apply_parallel_policy('stage10', cfg, opts);
     cfg = stage10F_prepare_cfg(cfg);
 
     entry = upper(char(string(opts.entry)));

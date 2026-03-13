@@ -19,7 +19,7 @@
 % 使用：在工程根目录下运行
 %   run_stages/run_stage05_nominal_walker
 
-function out = run_stage05_nominal_walker(cfg, interactive)
+function out = run_stage05_nominal_walker(cfg, interactive, opts)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
@@ -30,8 +30,12 @@ function out = run_stage05_nominal_walker(cfg, interactive)
     if nargin < 2 || isempty(interactive)
         interactive = (nargin == 0);
     end
+    if nargin < 3 || isempty(opts)
+        opts = struct();
+    end
 
-    [cfg, ~] = rs_cli_configure('stage05', cfg, interactive);
+    [cfg, opts] = rs_cli_configure('stage05', cfg, interactive, opts);
+    [cfg, ~] = rs_apply_parallel_policy('stage05', cfg, opts);
 
     fprintf('[run_stages] === Stage05 一键运行 ===\n');
 

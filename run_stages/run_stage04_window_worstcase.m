@@ -15,7 +15,7 @@
 % 使用：在工程根目录下运行
 %   run_stages/run_stage04_window_worstcase
 
-function out = run_stage04_window_worstcase(cfg, interactive)
+function out = run_stage04_window_worstcase(cfg, interactive, opts)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
@@ -26,8 +26,12 @@ function out = run_stage04_window_worstcase(cfg, interactive)
     if nargin < 2 || isempty(interactive)
         interactive = (nargin == 0);
     end
+    if nargin < 3 || isempty(opts)
+        opts = struct();
+    end
 
-    [cfg, ~] = rs_cli_configure('stage04', cfg, interactive);
+    [cfg, opts] = rs_cli_configure('stage04', cfg, interactive, opts);
+    [cfg, ~] = rs_apply_parallel_policy('stage04', cfg, opts);
 
     fprintf('[run_stages] === Stage04 一键运行 ===\n');
 

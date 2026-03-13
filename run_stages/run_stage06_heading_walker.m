@@ -22,7 +22,7 @@
 %
 % 说明：若需多组航向批量运行，请直接调用 stage06_batch_heading_runs(cfg)，并在 cfg.stage06.batch 中配置 run_tags 与 heading_offset_sets。
 
-function out = run_stage06_heading_walker(cfg, interactive)
+function out = run_stage06_heading_walker(cfg, interactive, opts)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
@@ -33,8 +33,12 @@ function out = run_stage06_heading_walker(cfg, interactive)
     if nargin < 2 || isempty(interactive)
         interactive = (nargin == 0);
     end
+    if nargin < 3 || isempty(opts)
+        opts = struct();
+    end
 
-    [cfg, ~] = rs_cli_configure('stage06', cfg, interactive);
+    [cfg, opts] = rs_cli_configure('stage06', cfg, interactive, opts);
+    [cfg, ~] = rs_apply_parallel_policy('stage06', cfg, opts);
 
     fprintf('[run_stages] === Stage06 一键运行 ===\n');
 

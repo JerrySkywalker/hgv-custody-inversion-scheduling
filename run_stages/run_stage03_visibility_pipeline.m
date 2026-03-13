@@ -15,7 +15,7 @@
 % 使用：在工程根目录下运行
 %   run_stages/run_stage03_visibility_pipeline
 
-function out = run_stage03_visibility_pipeline(cfg, interactive)
+function out = run_stage03_visibility_pipeline(cfg, interactive, opts)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
@@ -26,11 +26,15 @@ function out = run_stage03_visibility_pipeline(cfg, interactive)
     if nargin < 2 || isempty(interactive)
         interactive = (nargin == 0);
     end
+    if nargin < 3 || isempty(opts)
+        opts = struct();
+    end
 
-    [cfg, ~] = rs_cli_configure('stage03', cfg, interactive);
+    [cfg, opts] = rs_cli_configure('stage03', cfg, interactive, opts);
+    [cfg, stage_opts] = rs_apply_parallel_policy('stage03', cfg, opts);
 
     fprintf('[run_stages] === Stage03 一键运行 ===\n');
 
-    out = stage03_visibility_pipeline(cfg);
+    out = stage03_visibility_pipeline(cfg, stage_opts);
     fprintf('[run_stages] Stage03 完成\n');
 end

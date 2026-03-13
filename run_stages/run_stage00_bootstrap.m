@@ -14,7 +14,7 @@
 %   cd('cpt4_disk_fresh')
 %   run_stages/run_stage00_bootstrap
 
-function out = run_stage00_bootstrap(cfg, interactive)
+function out = run_stage00_bootstrap(cfg, interactive, opts)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
@@ -25,12 +25,16 @@ function out = run_stage00_bootstrap(cfg, interactive)
     if nargin < 2 || isempty(interactive)
         interactive = (nargin == 0);
     end
+    if nargin < 3 || isempty(opts)
+        opts = struct();
+    end
 
-    [cfg, ~] = rs_cli_configure('stage00', cfg, interactive);
+    [cfg, opts] = rs_cli_configure('stage00', cfg, interactive, opts);
+    [cfg, stage_opts] = rs_apply_parallel_policy('stage00', cfg, opts);
 
     fprintf('[run_stages] === Stage00 一键运行 ===\n');
 
     % Step 0.1: 引导与自检
-    out = stage00_bootstrap(cfg);
+    out = stage00_bootstrap(cfg, stage_opts);
     fprintf('[run_stages] Stage00 完成: %s\n', out.status);
 end

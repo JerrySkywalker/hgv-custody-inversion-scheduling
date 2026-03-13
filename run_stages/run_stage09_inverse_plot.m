@@ -11,7 +11,7 @@
 %   run_stage09_inverse_plot(cfg)
 %   run_stage09_inverse_plot(cfg, false)
 
-function out = run_stage09_inverse_plot(cfg, interactive)
+function out = run_stage09_inverse_plot(cfg, interactive, opts)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root)
         addpath(proj_root);
@@ -25,8 +25,12 @@ function out = run_stage09_inverse_plot(cfg, interactive)
     if nargin < 2 || isempty(interactive)
         interactive = (nargin == 0);
     end
+    if nargin < 3 || isempty(opts)
+        opts = struct();
+    end
 
-    [cfg, ~] = rs_cli_configure('stage09', cfg, interactive, struct());
+    [cfg, opts] = rs_cli_configure('stage09', cfg, interactive, opts);
+    [cfg, ~] = rs_apply_parallel_policy('stage09', cfg, opts);
     cfg = stage09_prepare_cfg(cfg);
 
     fprintf('[run_stages] === Stage09 作图入口 ===\n');

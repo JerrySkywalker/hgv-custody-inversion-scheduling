@@ -32,6 +32,7 @@ function out = run_stage09_inverse_design(cfg, interactive, opts)
         cfg = default_params();
     end
     [cfg, opts] = rs_cli_configure('stage09', cfg, interactive, opts);
+    [cfg, ~] = rs_apply_parallel_policy('stage09', cfg, opts);
 
     out.scan = run_stage09_inverse_scan(cfg, false, opts);
 
@@ -41,7 +42,7 @@ function out = run_stage09_inverse_design(cfg, interactive, opts)
     end
 
     if run_plot
-        out.plot = run_stage09_inverse_plot(out.scan.cfg, false);
+        out.plot = run_stage09_inverse_plot(out.scan.cfg, false, opts);
     else
         out.plot = struct();
     end

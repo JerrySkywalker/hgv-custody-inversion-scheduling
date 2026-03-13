@@ -46,20 +46,20 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_s
     fprintf('[run_stages] ========== 全流程 Stage00 -> Stage09 ==========\n');
 
     outs = struct();
-    outs.stage00 = run_stage00_bootstrap(cfg, false);
-    outs.stage01 = run_stage01_scenario_disk(cfg, false);
-    outs.stage02 = run_stage02_hgv_nominal(cfg, false);
-    outs.stage03 = run_stage03_visibility_pipeline(cfg, false);
-    outs.stage04 = run_stage04_window_worstcase(cfg, false);
-    outs.stage05 = run_stage05_nominal_walker(cfg, false);
-    outs.stage06 = run_stage06_heading_walker(cfg, false);
-    outs.stage07 = run_stage07_critical_geometry(cfg, false);
-    outs.stage08 = run_stage08_window_selection(cfg, false);
+    outs.stage00 = run_stage00_bootstrap(cfg, false, opts);
+    outs.stage01 = run_stage01_scenario_disk(cfg, false, opts);
+    outs.stage02 = run_stage02_hgv_nominal(cfg, false, opts);
+    outs.stage03 = run_stage03_visibility_pipeline(cfg, false, opts);
+    outs.stage04 = run_stage04_window_worstcase(cfg, false, opts);
+    outs.stage05 = run_stage05_nominal_walker(cfg, false, opts);
+    outs.stage06 = run_stage06_heading_walker(cfg, false, opts);
+    outs.stage07 = run_stage07_critical_geometry(cfg, false, opts);
+    outs.stage08 = run_stage08_window_selection(cfg, false, opts);
 
     if run_stage09
         outs.stage09_scan = run_stage09_inverse_scan(cfg, false, opts);
         if run_stage09_plot
-            outs.stage09_plot = run_stage09_inverse_plot(cfg, false);
+            outs.stage09_plot = run_stage09_inverse_plot(cfg, false, opts);
         end
     end
 

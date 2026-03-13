@@ -35,6 +35,7 @@ function out = run_stage09_inverse_scan(cfg, interactive, opts)
 
     % CLI 交互配置
     [cfg, opts] = rs_cli_configure('stage09', cfg, interactive, opts);
+    [cfg, ~] = rs_apply_parallel_policy('stage09', cfg, opts);
 
     % Stage09 正式建议：除非用户明确设置，否则关闭 early-stop
     if ~isfield(cfg.stage09, 'use_early_stop') || isempty(cfg.stage09.use_early_stop)
