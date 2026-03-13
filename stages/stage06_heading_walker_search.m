@@ -84,6 +84,7 @@ function out = stage06_heading_walker_search(cfg, opts)
             trajs_nominal, heading_offsets_deg, ...
             'HeadingMode', local_heading_mode_label(cfg.stage06, heading_offsets_deg), ...
             'FamilyType', cfg.stage06.family_scope);
+        eval_context = local_prepare_eval_context(trajs_heading, cfg);
     
         family_size = numel(trajs_heading);
     
@@ -194,7 +195,7 @@ function out = stage06_heading_walker_search(cfg, opts)
                 end
     
                 futures(r) = parfeval(pool, @evaluate_single_layer_walker_stage06, 1, ...
-                    row, trajs_heading, gamma_req, cfg, hard_order);
+                    row, trajs_heading, gamma_req, cfg, hard_order, eval_context);
             end
     
             future_to_grid_idx = 1:nGrid;
@@ -241,7 +242,7 @@ function out = stage06_heading_walker_search(cfg, opts)
 
             parfor r = 1:nGrid
                 row = grid(r,:);
-                result_bank(r) = evaluate_single_layer_walker_stage06(row, trajs_heading, gamma_req, cfg, hard_order);
+                result_bank(r) = evaluate_single_layer_walker_stage06(row, trajs_heading, gamma_req, cfg, hard_order, eval_context);
             end
 
             for r = 1:nGrid
@@ -281,7 +282,7 @@ function out = stage06_heading_walker_search(cfg, opts)
                     log_msg(log_fid, 'INFO', '%s', msg);
                 end
     
-                res = evaluate_single_layer_walker_stage06(row, trajs_heading, gamma_req, cfg, hard_order);
+                res = evaluate_single_layer_walker_stage06(row, trajs_heading, gamma_req, cfg, hard_order, eval_context);
     
                 if ~isempty(eval_bank)
                     eval_bank{r} = res;
@@ -499,4 +500,13 @@ function out = stage06_heading_walker_search(cfg, opts)
             'n_case_total', NaN, ...
             'n_case_evaluated', NaN, ...
             'failed_early', false);
+    end
+
+    function eval_context = local_prepare_eval_context(trajs_heading, cfg)
+        t_end_all = arrayfun(@(s) s.traj.t_s(end), trajs_heading);
+        t_max = max(t_end_all);
+        dt = cfg.stage02.Ts_s;
+
+        eval_context = struct();
+        eval_context.t_s_common = (0:dt:t_max).';
     end

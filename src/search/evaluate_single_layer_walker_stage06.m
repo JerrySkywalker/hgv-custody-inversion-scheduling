@@ -1,4 +1,4 @@
-function result = evaluate_single_layer_walker_stage06(row, trajs_in, gamma_req, cfg, hard_order)
+function result = evaluate_single_layer_walker_stage06(row, trajs_in, gamma_req, cfg, hard_order, eval_context)
     %EVALUATE_SINGLE_LAYER_WALKER_STAGE06
     % Evaluate one Walker design against Stage06 heading-extended family.
     %
@@ -22,17 +22,24 @@ function result = evaluate_single_layer_walker_stage06(row, trajs_in, gamma_req,
     %     feasible_flag
     %     rank_score
     
-        if nargin < 5 || isempty(hard_order)
-            hard_order = (1:numel(trajs_in)).';
-        end
-    
-        % ------------------------------------------------------------
-        % Build time grid from input family trajectories
-        % ------------------------------------------------------------
+    if nargin < 5 || isempty(hard_order)
+        hard_order = (1:numel(trajs_in)).';
+    end
+    if nargin < 6
+        eval_context = struct();
+    end
+
+    % ------------------------------------------------------------
+    % Build time grid from input family trajectories
+    % ------------------------------------------------------------
+    if isfield(eval_context, 't_s_common') && ~isempty(eval_context.t_s_common)
+        t_s_common = eval_context.t_s_common;
+    else
         t_end_all = arrayfun(@(s) s.traj.t_s(end), trajs_in);
         t_max = max(t_end_all);
         dt = cfg.stage02.Ts_s;
         t_s_common = (0:dt:t_max).';
+    end
     
         % ------------------------------------------------------------
         % Build Walker by patching Stage03 config
@@ -72,12 +79,10 @@ function result = evaluate_single_layer_walker_stage06(row, trajs_in, gamma_req,
             k = hard_order(kk);
             traj_case = trajs_in(k);
     
-            vis_case = compute_visibility_matrix_stage03(traj_case, satbank, cfg_eval);
-            los_geom = compute_los_geometry_stage03(vis_case, satbank);
-            s_vis = summarize_visibility_case_stage03(vis_case, los_geom);
-    
-            window_case = scan_worst_window_stage04(vis_case, satbank, cfg_eval);
-            s_win = summarize_window_case_stage04(window_case);
+        vis_case = compute_visibility_matrix_stage03(traj_case, satbank, cfg_eval);
+
+        window_case = scan_worst_window_stage04(vis_case, satbank, cfg_eval);
+        s_win = summarize_window_case_stage04(window_case);
     
             case_id(k) = string(traj_case.case.case_id);
     
@@ -100,8 +105,8 @@ function result = evaluate_single_layer_walker_stage06(row, trajs_in, gamma_req,
             pass_flag(k) = (D_G(k) >= cfg.stage06.require_D_G_min);
             t0_worst(k) = s_win.t0_worst_s;
     
-            mean_vis(k) = s_vis.mean_num_visible;
-            dual_ratio(k) = s_vis.dual_coverage_ratio;
+        mean_vis(k) = mean(vis_case.num_visible, 'omitnan');
+        dual_ratio(k) = mean(vis_case.dual_coverage_mask, 'omitnan');
     
             n_evaluated = n_evaluated + 1;
     
