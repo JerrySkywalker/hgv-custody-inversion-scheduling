@@ -886,55 +886,234 @@ function cfg = default_params()
     cfg.stage09.write_csv = true;
 
     % ---------------------------
-    % Stage10 FFT / structured-spectrum validation
+    % Stage10 structured-spectrum / screening package
     % ---------------------------
     cfg.stage10 = struct();
 
-    % global run tag
-    cfg.stage10.run_tag = 'fftcheck';
+    % Official public entry of Stage10:
+    %   'all'                  : run Stage10.A -> F
+    %   'A','B','B1','C','D','E','E1','F' : run a single sub-stage
+    %   'fft_validation_legacy': keep old Stage10.1 / 10.1d compatibility
+    cfg.stage10.entry = 'all';
 
-    % work mode:
-    %   'single_window_debug' : Stage10.1 minimal smoke test
-    %   'full'                : reserved for later Stage10.x
+    % legacy mode switch kept only for compatibility with old Stage10.1 code
     cfg.stage10.mode = 'single_window_debug';
 
-    % data source
-    %   'inherit_stage09_casebank' : reuse Stage09 casebank builder
-    %   'custom'                   : reserved
+    cfg.stage10.run_tag = 'stage10';
+
+    % source policy
     cfg.stage10.case_source = 'inherit_stage09_casebank';
+    cfg.stage10.theta_source = 'manual';
 
-    % candidate theta source
-    %   'first_search_row' : use first row of Stage09 search domain
-    %   'manual'           : use manual walker below
-    cfg.stage10.theta_source = 'first_search_row';
-
-    % manual walker fallback
+    % representative manual theta for no-arg Stage10 runs
     cfg.stage10.manual_theta = struct();
     cfg.stage10.manual_theta.h_km = 1000;
-    cfg.stage10.manual_theta.i_deg = 60;
+    cfg.stage10.manual_theta.i_deg = 70;
     cfg.stage10.manual_theta.P = 8;
-    cfg.stage10.manual_theta.T = 4;
+    cfg.stage10.manual_theta.T = 12;
     cfg.stage10.manual_theta.F = 1;
 
-    % case / window selector (for Stage10.1)
+    % representative case/window
     cfg.stage10.case_index = 1;
     cfg.stage10.window_index = 1;
-
-    % when true, if requested index exceeds available count, clip to last
     cfg.stage10.clip_case_index = true;
     cfg.stage10.clip_window_index = true;
 
-    % FFT / block construction options
-    cfg.stage10.block_mode = 'plane_block_diag';
-    cfg.stage10.cyclic_mode = 'lag0_mean_block';
-    cfg.stage10.eps_norm = 'fro';
+    % common numerical options
+    cfg.stage10.force_symmetric = true;
+    cfg.stage10.active_plane_min_trace = 0;
+    cfg.stage10.shape_norm_mode = 'trace';
+    cfg.stage10.fft_proxy_mode = 'template_active_support';
+    cfg.stage10.eps_sb_norm = 'fro';
+    cfg.stage10.compute_bounds = true;
 
-    % output controls
+    % legacy template-proxy defaults
+    cfg.stage10.template_mode = 'fixed_isotropic_like';
+    cfg.stage10.proxy_scale_mode = 'count_times_alpha';
+    cfg.stage10.template_alpha_per_obs = 1000;
+    cfg.stage10.template_shape_matrix = diag([0.50, 0.30, 0.20]);
+    cfg.stage10.alpha_grid = [500, 750, 1000, 1250, 1500];
+    cfg.stage10.alpha_fit_metric = 'lambda_abs_error';
+    cfg.stage10.alpha_pick_rule = 'min_error';
+
     cfg.stage10.write_csv = true;
     cfg.stage10.save_mat_cache = true;
-    cfg.stage10.make_plot = false;
-
-    % logging
+    cfg.stage10.make_plot = true;
     cfg.stage10.scan_log_every = 1;
+
+    % ---------------------------
+    % Stage10.A truth structure diagnostics
+    % ---------------------------
+    cfg.stage10A = struct();
+    cfg.stage10A.run_tag = 'truthdiag';
+    cfg.stage10A.case_source = cfg.stage10.case_source;
+    cfg.stage10A.theta_source = cfg.stage10.theta_source;
+    cfg.stage10A.manual_theta = cfg.stage10.manual_theta;
+    cfg.stage10A.case_index = cfg.stage10.case_index;
+    cfg.stage10A.window_index = cfg.stage10.window_index;
+    cfg.stage10A.clip_case_index = true;
+    cfg.stage10A.clip_window_index = true;
+    cfg.stage10A.anchor_mode = 'max_trace_active';
+    cfg.stage10A.manual_anchor_plane = 1;
+    cfg.stage10A.active_plane_min_trace = cfg.stage10.active_plane_min_trace;
+    cfg.stage10A.force_symmetric = true;
+    cfg.stage10A.make_plot = true;
+    cfg.stage10A.write_csv = true;
+    cfg.stage10A.save_mat_cache = true;
+    cfg.stage10A.plot_visible = false;
+    cfg.stage10A.entropy_eps = 1e-12;
+    cfg.stage10A.scan_log_every = 1;
+
+    % ---------------------------
+    % Stage10.B bcirc prototype construction
+    % ---------------------------
+    cfg.stage10B = struct();
+    cfg.stage10B.run_tag = 'bcircref';
+    cfg.stage10B.case_source = cfg.stage10.case_source;
+    cfg.stage10B.theta_source = cfg.stage10.theta_source;
+    cfg.stage10B.manual_theta = cfg.stage10.manual_theta;
+    cfg.stage10B.case_index = cfg.stage10.case_index;
+    cfg.stage10B.window_index = cfg.stage10.window_index;
+    cfg.stage10B.clip_case_index = true;
+    cfg.stage10B.clip_window_index = true;
+    cfg.stage10B.anchor_mode = 'max_trace_active';
+    cfg.stage10B.manual_anchor_plane = 1;
+    cfg.stage10B.bcirc_firstcol_source = 'active_anchor_mean';
+    cfg.stage10B.truth_reduced_source = 'active_anchor_mean';
+    cfg.stage10B.make_plot = true;
+    cfg.stage10B.write_csv = true;
+    cfg.stage10B.save_mat_cache = true;
+
+    % ---------------------------
+    % Stage10.B.1 legal bcirc baseline
+    % ---------------------------
+    cfg.stage10B1 = struct();
+    cfg.stage10B1.run_tag = 'bcirclegal';
+    cfg.stage10B1.case_source = cfg.stage10.case_source;
+    cfg.stage10B1.theta_source = cfg.stage10.theta_source;
+    cfg.stage10B1.manual_theta = cfg.stage10.manual_theta;
+    cfg.stage10B1.case_index = cfg.stage10.case_index;
+    cfg.stage10B1.window_index = cfg.stage10.window_index;
+    cfg.stage10B1.clip_case_index = true;
+    cfg.stage10B1.clip_window_index = true;
+    cfg.stage10B1.anchor_mode = 'max_trace_active';
+    cfg.stage10B1.manual_anchor_plane = 1;
+    cfg.stage10B1.prototype_source = 'active_anchor_mean';
+    cfg.stage10B1.force_block_symmetry = true;
+    cfg.stage10B1.do_mirror_symmetrization = true;
+    cfg.stage10B1.do_psd_projection = true;
+    cfg.stage10B1.psd_floor = 0;
+    cfg.stage10B1.make_plot = true;
+    cfg.stage10B1.write_csv = true;
+    cfg.stage10B1.save_mat_cache = true;
+    cfg.stage10B1.scan_log_every = 1;
+
+    % ---------------------------
+    % Stage10.C FFT spectral validation
+    % ---------------------------
+    cfg.stage10C = struct();
+    cfg.stage10C.run_tag = 'fftspec';
+    cfg.stage10C.case_source = cfg.stage10.case_source;
+    cfg.stage10C.theta_source = cfg.stage10.theta_source;
+    cfg.stage10C.manual_theta = cfg.stage10.manual_theta;
+    cfg.stage10C.case_index = cfg.stage10.case_index;
+    cfg.stage10C.window_index = cfg.stage10.window_index;
+    cfg.stage10C.clip_case_index = true;
+    cfg.stage10C.clip_window_index = true;
+    cfg.stage10C.anchor_mode = 'max_trace_active';
+    cfg.stage10C.manual_anchor_plane = 1;
+    cfg.stage10C.prototype_source = 'active_anchor_mean';
+    cfg.stage10C.mode_order = 'natural';
+    cfg.stage10C.make_plot = true;
+    cfg.stage10C.write_csv = true;
+    cfg.stage10C.save_mat_cache = true;
+
+    % ---------------------------
+    % Stage10.D symmetry-breaking margin
+    % ---------------------------
+    cfg.stage10D = struct();
+    cfg.stage10D.run_tag = 'margin';
+    cfg.stage10D.case_source = cfg.stage10.case_source;
+    cfg.stage10D.theta_source = cfg.stage10.theta_source;
+    cfg.stage10D.manual_theta = cfg.stage10.manual_theta;
+    cfg.stage10D.case_index = cfg.stage10.case_index;
+    cfg.stage10D.window_index = cfg.stage10.window_index;
+    cfg.stage10D.clip_case_index = true;
+    cfg.stage10D.clip_window_index = true;
+    cfg.stage10D.anchor_mode = 'max_trace_active';
+    cfg.stage10D.manual_anchor_plane = 1;
+    cfg.stage10D.prototype_source = 'active_anchor_mean';
+    cfg.stage10D.eps_norm_mode = 2;
+    cfg.stage10D.make_plot = true;
+    cfg.stage10D.write_csv = true;
+    cfg.stage10D.save_mat_cache = true;
+
+    % ---------------------------
+    % Stage10.E small-grid screening benchmark
+    % ---------------------------
+    cfg.stage10E = struct();
+    cfg.stage10E.run_tag = 'screen';
+    cfg.stage10E.case_index = cfg.stage10.case_index;
+    cfg.stage10E.window_index = cfg.stage10.window_index;
+    cfg.stage10E.anchor_mode = 'max_trace_active';
+    cfg.stage10E.manual_anchor_plane = 1;
+    cfg.stage10E.prototype_source = 'active_anchor_mean';
+    cfg.stage10E.grid_h_km = [900, 1000, 1100];
+    cfg.stage10E.grid_i_deg = [60, 70, 80];
+    cfg.stage10E.grid_P = [6, 8];
+    cfg.stage10E.grid_T = [10, 12];
+    cfg.stage10E.grid_F = 1;
+    cfg.stage10E.threshold_truth = 2.0e4;
+    cfg.stage10E.threshold_zero = 2.0e4;
+    cfg.stage10E.threshold_bcirc = 1.0;
+    cfg.stage10E.two_stage_rule = 'zero_pass_and_bcirc_nonnegative';
+    cfg.stage10E.make_plot = true;
+    cfg.stage10E.write_csv = true;
+    cfg.stage10E.save_mat_cache = true;
+
+    % ---------------------------
+    % Stage10.E.1 refined rule
+    % ---------------------------
+    cfg.stage10E1 = struct();
+    cfg.stage10E1.run_tag = 'screen_refine';
+    cfg.stage10E1.case_index = cfg.stage10.case_index;
+    cfg.stage10E1.window_index = cfg.stage10.window_index;
+    cfg.stage10E1.anchor_mode = 'max_trace_active';
+    cfg.stage10E1.manual_anchor_plane = 1;
+    cfg.stage10E1.prototype_source = 'active_anchor_mean';
+    cfg.stage10E1.grid_h_km = cfg.stage10E.grid_h_km;
+    cfg.stage10E1.grid_i_deg = cfg.stage10E.grid_i_deg;
+    cfg.stage10E1.grid_P = cfg.stage10E.grid_P;
+    cfg.stage10E1.grid_T = cfg.stage10E.grid_T;
+    cfg.stage10E1.grid_F = cfg.stage10E.grid_F;
+    cfg.stage10E1.threshold_truth = cfg.stage10E.threshold_truth;
+    cfg.stage10E1.threshold_zero = cfg.stage10E.threshold_zero;
+    cfg.stage10E1.threshold_bcirc = cfg.stage10E.threshold_bcirc;
+    cfg.stage10E1.make_plot = true;
+    cfg.stage10E1.write_csv = true;
+    cfg.stage10E1.save_mat_cache = true;
+
+    % ---------------------------
+    % Stage10.F final evidence pack
+    % ---------------------------
+    cfg.stage10F = struct();
+    cfg.stage10F.run_tag = 'finalpack';
+    cfg.stage10F.case_index = cfg.stage10.case_index;
+    cfg.stage10F.window_index = cfg.stage10.window_index;
+    cfg.stage10F.anchor_mode = 'max_trace_active';
+    cfg.stage10F.manual_anchor_plane = 1;
+    cfg.stage10F.prototype_source = 'active_anchor_mean';
+    cfg.stage10F.manual_theta = cfg.stage10.manual_theta;
+    cfg.stage10F.grid_h_km = cfg.stage10E1.grid_h_km;
+    cfg.stage10F.grid_i_deg = cfg.stage10E1.grid_i_deg;
+    cfg.stage10F.grid_P = cfg.stage10E1.grid_P;
+    cfg.stage10F.grid_T = cfg.stage10E1.grid_T;
+    cfg.stage10F.grid_F = cfg.stage10E1.grid_F;
+    cfg.stage10F.threshold_truth = cfg.stage10E1.threshold_truth;
+    cfg.stage10F.threshold_zero = cfg.stage10E1.threshold_zero;
+    cfg.stage10F.threshold_bcirc = cfg.stage10E1.threshold_bcirc;
+    cfg.stage10F.make_plot = true;
+    cfg.stage10F.write_csv = true;
+    cfg.stage10F.save_mat_cache = true;
 
 end

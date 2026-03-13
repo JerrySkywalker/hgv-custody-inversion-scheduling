@@ -1,4 +1,4 @@
-function outs = run_all_stages(interactive, run_stage09, run_stage09_plot)
+function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_stage10_flag)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root)
         addpath(proj_root);
@@ -14,6 +14,9 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot)
     end
     if nargin < 3 || isempty(run_stage09_plot)
         run_stage09_plot = true;
+    end
+    if nargin < 4 || isempty(run_stage10_flag)
+        run_stage10_flag = false;
     end
 
     cfg = default_params();
@@ -35,6 +38,9 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot)
         if run_stage09
             [cfg, opts] = rs_cli_configure('stage09', cfg, true, opts);
         end
+        if run_stage10_flag
+            [cfg, opts] = rs_cli_configure('stage10', cfg, true, opts);
+        end
     end
 
     fprintf('[run_stages] ========== 全流程 Stage00 -> Stage09 ==========\n');
@@ -55,6 +61,10 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot)
         if run_stage09_plot
             outs.stage09_plot = run_stage09_inverse_plot(cfg, false);
         end
+    end
+
+    if run_stage10_flag
+        outs.stage10 = run_stage10(cfg, false, opts);
     end
 
     fprintf('[run_stages] ========== 全流程完成 ==========\n');
