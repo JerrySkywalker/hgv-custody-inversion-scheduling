@@ -1,4 +1,4 @@
-function out = stage05_nominal_walker_search(cfg, opts)
+function out = stage05_nominal_walker_search(cfg)
     %STAGE05_NOMINAL_WALKER_SEARCH
     % Stage05.2b: nominal-family Walker static search over (i, P, T) with fixed h.
     %
@@ -13,11 +13,6 @@ function out = stage05_nominal_walker_search(cfg, opts)
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
-        if nargin < 2
-            opts = struct();
-        end
-        opts = local_normalize_opts(cfg, opts);
-        cfg = local_apply_opts_to_cfg(cfg, opts);
         cfg.project_stage = 'stage05_nominal_walker_search';
     
         seed_rng(cfg.random.seed);
@@ -376,13 +371,9 @@ function out = stage05_nominal_walker_search(cfg, opts)
         out.feasible_table_file = feasible_table_file;
         out.stage = cfg.project_stage;
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
-        out.benchmark = struct( ...
-            'mode', opts.mode, ...
-            'parallel_config', opts.parallel_config);
-
+    
         cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage05_nominal_walker_search_%s_%s.mat', opts.mode, timestamp));
-        out.cache_file = cache_file;
+            sprintf('stage05_nominal_walker_search_%s.mat', timestamp));
         save(cache_file, 'out', '-v7.3');
     
         log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
@@ -394,40 +385,9 @@ function out = stage05_nominal_walker_search(cfg, opts)
         fprintf('Result table   : %s\n', out.table_file);
         fprintf('Feasible table : %s\n', out.feasible_table_file);
         fprintf('Cache          : %s\n', cache_file);
-        fprintf('Mode           : %s\n', opts.mode);
         fprintf('Grid size      : %d\n', height(out.grid));
         fprintf('Feasible count : %d\n', summary.num_feasible);
         fprintf('Early-stop cnt : %d\n', summary.num_failed_early);
         fprintf('Wall time (s)  : %.2f\n', summary.walltime_s);
         fprintf('========================================\n');
-    end
-
-    function opts = local_normalize_opts(cfg, opts)
-        if ~isfield(opts, 'mode') || isempty(opts.mode)
-            opts.mode = 'serial';
-        end
-        opts.mode = char(lower(string(opts.mode)));
-
-        if ~isfield(opts, 'parallel_config') || isempty(opts.parallel_config)
-            opts.parallel_config = struct();
-        end
-        if ~isfield(opts.parallel_config, 'enabled') || isempty(opts.parallel_config.enabled)
-            opts.parallel_config.enabled = strcmp(opts.mode, 'parallel');
-        end
-        if ~isfield(opts.parallel_config, 'profile_name') || isempty(opts.parallel_config.profile_name)
-            opts.parallel_config.profile_name = cfg.stage05.parallel_pool_profile;
-        end
-        if ~isfield(opts.parallel_config, 'num_workers')
-            opts.parallel_config.num_workers = cfg.stage05.parallel_num_workers;
-        end
-        if ~isfield(opts.parallel_config, 'auto_start_pool') || isempty(opts.parallel_config.auto_start_pool)
-            opts.parallel_config.auto_start_pool = cfg.stage05.auto_start_pool;
-        end
-    end
-
-    function cfg = local_apply_opts_to_cfg(cfg, opts)
-        cfg.stage05.use_parallel = strcmp(opts.mode, 'parallel') && opts.parallel_config.enabled;
-        cfg.stage05.parallel_pool_profile = opts.parallel_config.profile_name;
-        cfg.stage05.parallel_num_workers = opts.parallel_config.num_workers;
-        cfg.stage05.auto_start_pool = opts.parallel_config.auto_start_pool;
     end

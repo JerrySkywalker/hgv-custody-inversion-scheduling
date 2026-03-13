@@ -1,4 +1,4 @@
-function out = stage04_window_worstcase(cfg, opts)
+function out = stage04_window_worstcase(cfg)
     %STAGE04_WINDOW_WORSTCASE
     % Build windowed information matrices, scan worst windows,
     % and summarize both spectrum-level and margin-level statistics.
@@ -12,11 +12,6 @@ function out = stage04_window_worstcase(cfg, opts)
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
-        if nargin < 2
-            opts = struct();
-        end
-        opts = local_normalize_opts(cfg, opts);
-        cfg = local_apply_opts_to_cfg(cfg, opts);
         cfg.project_stage = 'stage04_window_worstcase';
         seed_rng(cfg.random.seed);
     
@@ -173,13 +168,9 @@ function out = stage04_window_worstcase(cfg, opts)
         out.fig_margin_file = fig_margin_file;
         out.stage = cfg.project_stage;
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
-        out.benchmark = struct( ...
-            'mode', opts.mode, ...
-            'parallel_config', opts.parallel_config);
-
+    
         cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage04_window_worstcase_%s_%s.mat', opts.mode, datestr(now, 'yyyymmdd_HHMMSS')));
-        out.cache_file = cache_file;
+            sprintf('stage04_window_worstcase_%s.mat', datestr(now, 'yyyymmdd_HHMMSS')));
         save(cache_file, 'out', '-v7.3');
     
         log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
@@ -188,7 +179,6 @@ function out = stage04_window_worstcase(cfg, opts)
         fprintf('\n');
         fprintf('========== Stage04 Summary ==========\n');
         fprintf('Log file        : %s\n', out.log_file);
-        fprintf('Mode            : %s\n', opts.mode);
         fprintf('Figure case     : %s\n', out.fig_file);
         fprintf('Figure family   : %s\n', out.fig_family_file);
         fprintf('Figure margin   : %s\n', out.fig_margin_file);
@@ -274,34 +264,4 @@ function out = stage04_window_worstcase(cfg, opts)
         assert(~isempty(idx), 'Case %s not found in winbank.', case_id);
     
         hit = all_structs(idx);
-    end
-
-    function opts = local_normalize_opts(cfg, opts)
-        if ~isfield(opts, 'mode') || isempty(opts.mode)
-            opts.mode = 'serial';
-        end
-        opts.mode = char(lower(string(opts.mode)));
-
-        if ~isfield(opts, 'parallel_config') || isempty(opts.parallel_config)
-            opts.parallel_config = struct();
-        end
-        if ~isfield(opts.parallel_config, 'enabled') || isempty(opts.parallel_config.enabled)
-            opts.parallel_config.enabled = strcmp(opts.mode, 'parallel');
-        end
-        if ~isfield(opts.parallel_config, 'profile_name') || isempty(opts.parallel_config.profile_name)
-            opts.parallel_config.profile_name = cfg.stage04.parallel_pool_profile;
-        end
-        if ~isfield(opts.parallel_config, 'num_workers')
-            opts.parallel_config.num_workers = cfg.stage04.parallel_num_workers;
-        end
-        if ~isfield(opts.parallel_config, 'auto_start_pool') || isempty(opts.parallel_config.auto_start_pool)
-            opts.parallel_config.auto_start_pool = cfg.stage04.auto_start_pool;
-        end
-    end
-
-    function cfg = local_apply_opts_to_cfg(cfg, opts)
-        cfg.stage04.use_parallel = strcmp(opts.mode, 'parallel') && opts.parallel_config.enabled;
-        cfg.stage04.parallel_pool_profile = opts.parallel_config.profile_name;
-        cfg.stage04.parallel_num_workers = opts.parallel_config.num_workers;
-        cfg.stage04.auto_start_pool = opts.parallel_config.auto_start_pool;
     end

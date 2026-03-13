@@ -1,4 +1,4 @@
-function out = stage02_hgv_nominal(cfg, opts)
+function out = stage02_hgv_nominal(cfg)
     %STAGE02_HGV_NOMINAL
     % Fresh-start Stage02 using VTC HGV dynamics with open-loop profiles.
     %
@@ -23,11 +23,6 @@ function out = stage02_hgv_nominal(cfg, opts)
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
-        if nargin < 2
-            opts = struct();
-        end
-        opts = local_normalize_opts(cfg, opts);
-        cfg = local_apply_opts_to_cfg(cfg, opts);
     
         assert(isfield(cfg, 'stage01'), 'Missing cfg.stage01 in default_params().');
         assert(isfield(cfg, 'stage02'), 'Missing cfg.stage02 in default_params().');
@@ -82,10 +77,9 @@ function out = stage02_hgv_nominal(cfg, opts)
         % Run families
         % ------------------------------------------------------------
         trajbank = struct();
-        pool = local_prepare_parallel_pool(cfg, log_fid, 'stage02');
-        trajbank.nominal = local_run_family(casebank.nominal, cfg, log_fid, pool, 'nominal');
-        trajbank.heading = local_run_family(casebank.heading, cfg, log_fid, pool, 'heading');
-        trajbank.critical = local_run_family(casebank.critical, cfg, log_fid, pool, 'critical');
+        trajbank.nominal = local_run_family(casebank.nominal, cfg, log_fid);
+        trajbank.heading = local_run_family(casebank.heading, cfg, log_fid);
+        trajbank.critical = local_run_family(casebank.critical, cfg, log_fid);
     
         % ------------------------------------------------------------
         % Build structured summaries
@@ -158,13 +152,9 @@ function out = stage02_hgv_nominal(cfg, opts)
         out.fig_file = fig_file;
         out.fig3d_file = fig3d_file;
         out.timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
-        out.benchmark = struct( ...
-            'mode', opts.mode, ...
-            'parallel_config', opts.parallel_config);
-
+    
         cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage02_hgv_nominal_%s_%s.mat', opts.mode, datestr(now, 'yyyymmdd_HHMMSS')));
-        out.cache_file = cache_file;
+            sprintf('stage02_hgv_nominal_%s.mat', datestr(now, 'yyyymmdd_HHMMSS')));
         save(cache_file, 'out', '-v7.3');
     
         log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
@@ -181,7 +171,6 @@ function out = stage02_hgv_nominal(cfg, opts)
         fprintf('Pass        : %d\n', out.summary.num_pass);
         fprintf('Fail        : %d\n', out.summary.num_fail);
         fprintf('Log file    : %s\n', out.log_file);
-        fprintf('Mode        : %s\n', opts.mode);
         fprintf('Figure 2D   : %s\n', out.fig_file);
         fprintf('Figure 3D   : %s\n', out.fig3d_file);
         fprintf('Cache       : %s\n', cache_file);
@@ -191,7 +180,7 @@ function out = stage02_hgv_nominal(cfg, opts)
     % ========================================================================
     % Local helper: run one family
     % ========================================================================
-    function family_out = local_run_family(cases_in, cfg, log_fid, pool, family_name)
+    function family_out = local_run_family(cases_in, cfg, log_fid)
     
         if isempty(cases_in)
             family_out = struct('case', {}, 'traj', {}, 'validation', {}, 'summary', {});
@@ -200,22 +189,18 @@ function out = stage02_hgv_nominal(cfg, opts)
     
         family_out = repmat(struct('case', [], 'traj', [], 'validation', [], 'summary', []), numel(cases_in), 1);
     
-        if ~isempty(pool)
-            parfor k = 1:numel(cases_in)
-                family_out(k) = local_eval_case(cases_in(k), cfg);
-            end
-        else
-            for k = 1:numel(cases_in)
-                family_out(k) = local_eval_case(cases_in(k), cfg);
-            end
-        end
-
-        log_msg(log_fid, 'INFO', ...
-            'Family %s processed: %d cases | parallel=%d', ...
-            char(string(family_name)), numel(cases_in), ~isempty(pool));
-
         for k = 1:numel(cases_in)
-            s = family_out(k).summary;
+            case_i = cases_in(k);
+    
+            traj = propagate_hgv_case_stage02(case_i, cfg);
+            val = validate_hgv_trajectory_stage02(traj, cfg);
+            s = summarize_hgv_case_stage02(case_i, traj, val);
+    
+            family_out(k).case = case_i;
+            family_out(k).traj = traj;
+            family_out(k).validation = val;
+            family_out(k).summary = s;
+    
             log_msg(log_fid, 'INFO', ...
                 'Case %-24s | family=%-8s | pass=%d | steps=%d | dur=%.1f s | h=[%.1f, %.1f] km | V=[%.0f, %.0f] m/s | rmin=%.1f km', ...
                 s.case_id, s.family, s.pass, s.num_steps, s.duration_s, ...
@@ -223,14 +208,6 @@ function out = stage02_hgv_nominal(cfg, opts)
                 s.v_range_mps(1), s.v_range_mps(2), ...
                 s.r_min_to_center_km);
         end
-    end
-
-    function case_out = local_eval_case(case_i, cfg)
-        traj = propagate_hgv_case_stage02(case_i, cfg);
-        val = validate_hgv_trajectory_stage02(traj, cfg);
-        s = summarize_hgv_case_stage02(case_i, traj, val);
-
-        case_out = struct('case', case_i, 'traj', traj, 'validation', val, 'summary', s);
     end
     
     % ========================================================================
@@ -264,65 +241,5 @@ function out = stage02_hgv_nominal(cfg, opts)
             y = a;
         else
             y = b;
-        end
-    end
-
-    function opts = local_normalize_opts(cfg, opts)
-        if ~isfield(opts, 'mode') || isempty(opts.mode)
-            opts.mode = 'serial';
-        end
-        opts.mode = char(lower(string(opts.mode)));
-
-        if ~isfield(opts, 'parallel_config') || isempty(opts.parallel_config)
-            opts.parallel_config = struct();
-        end
-        if ~isfield(opts.parallel_config, 'enabled') || isempty(opts.parallel_config.enabled)
-            opts.parallel_config.enabled = strcmp(opts.mode, 'parallel');
-        end
-        if ~isfield(opts.parallel_config, 'profile_name') || isempty(opts.parallel_config.profile_name)
-            opts.parallel_config.profile_name = cfg.stage02.parallel_pool_profile;
-        end
-        if ~isfield(opts.parallel_config, 'num_workers')
-            opts.parallel_config.num_workers = cfg.stage02.parallel_num_workers;
-        end
-        if ~isfield(opts.parallel_config, 'auto_start_pool') || isempty(opts.parallel_config.auto_start_pool)
-            opts.parallel_config.auto_start_pool = cfg.stage02.auto_start_pool;
-        end
-    end
-
-    function cfg = local_apply_opts_to_cfg(cfg, opts)
-        cfg.stage02.use_parallel = strcmp(opts.mode, 'parallel') && opts.parallel_config.enabled;
-        cfg.stage02.parallel_pool_profile = opts.parallel_config.profile_name;
-        cfg.stage02.parallel_num_workers = opts.parallel_config.num_workers;
-        cfg.stage02.auto_start_pool = opts.parallel_config.auto_start_pool;
-    end
-
-    function pool = local_prepare_parallel_pool(cfg, log_fid, stage_name)
-        pool = [];
-
-        if ~isfield(cfg, stage_name) || ~isfield(cfg.(stage_name), 'use_parallel') || ...
-                ~cfg.(stage_name).use_parallel
-            log_msg(log_fid, 'INFO', 'Parallel mode disabled for %s.', stage_name);
-            return;
-        end
-
-        try
-            if isfield(cfg.(stage_name), 'auto_start_pool') && cfg.(stage_name).auto_start_pool
-                requested_profile = char(string(cfg.(stage_name).parallel_pool_profile));
-                pool = ensure_parallel_pool(requested_profile, cfg.(stage_name).parallel_num_workers);
-            else
-                pool = gcp('nocreate');
-                if isempty(pool)
-                    error(['cfg.' stage_name '.use_parallel=true but no parallel pool exists.']);
-                end
-            end
-
-            log_msg(log_fid, 'INFO', 'Parallel mode enabled for %s: %s', ...
-                stage_name, get_parallel_pool_desc(pool, string(cfg.(stage_name).parallel_pool_profile)));
-        catch ME
-            pool = [];
-            log_msg(log_fid, 'INFO', ...
-                'Parallel pool unavailable for %s. Fallback to serial. Reason: %s', ...
-                stage_name, ME.message);
         end
     end
