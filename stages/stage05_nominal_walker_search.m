@@ -1,4 +1,4 @@
-function out = stage05_nominal_walker_search(cfg)
+function out = stage05_nominal_walker_search(cfg, opts)
     %STAGE05_NOMINAL_WALKER_SEARCH
     % Stage05.2b: nominal-family Walker static search over (i, P, T) with fixed h.
     %
@@ -13,7 +13,11 @@ function out = stage05_nominal_walker_search(cfg)
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
+        if nargin < 2 || isempty(opts)
+            opts = struct();
+        end
         cfg.project_stage = 'stage05_nominal_walker_search';
+        cfg = local_apply_stage05_opts(cfg, opts);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -63,6 +67,7 @@ function out = stage05_nominal_walker_search(cfg)
             'Invalid Stage02 cache: missing out.trajbank.nominal');
     
         trajs_nominal = S2.out.trajbank.nominal;
+        eval_context = local_prepare_eval_context(trajs_nominal, cfg);
         log_msg(log_fid, 'INFO', 'Loaded Stage02 cache: %s', stage02_file);
         log_msg(log_fid, 'INFO', 'Nominal family size: %d', numel(trajs_nominal));
     
@@ -126,9 +131,13 @@ function out = stage05_nominal_walker_search(cfg)
         % Pool setup
         % ------------------------------------------------------------
         use_parallel = cfg.stage05.use_parallel;
-    
+        use_live_progress = cfg.stage05.use_live_progress;
+        if isfield(opts, 'disable_live_progress') && opts.disable_live_progress
+            use_live_progress = false;
+        end
+
         requested_profile = string(cfg.stage05.parallel_pool_profile);
-        if use_parallel && cfg.stage05.use_live_progress && requested_profile == "threads"
+        if use_parallel && use_live_progress && requested_profile == "threads"
             log_msg(log_fid, 'INFO', ...
                 'Live progress is more reliable with process-based workers. Switching profile from threads to local.');
             requested_profile = "local";
@@ -158,7 +167,11 @@ function out = stage05_nominal_walker_search(cfg)
         % ------------------------------------------------------------
         % Preallocate result arrays
         % ------------------------------------------------------------
-        if isfield(cfg.stage05, 'save_eval_bank') && cfg.stage05.save_eval_bank
+        save_eval_bank_enabled = isfield(cfg.stage05, 'save_eval_bank') && cfg.stage05.save_eval_bank;
+        if isfield(opts, 'disable_eval_bank') && opts.disable_eval_bank
+            save_eval_bank_enabled = false;
+        end
+        if save_eval_bank_enabled
             eval_bank = cell(nGrid,1);
         else
             eval_bank = [];
@@ -183,7 +196,7 @@ function out = stage05_nominal_walker_search(cfg)
         % ------------------------------------------------------------
         % Evaluate
         % ------------------------------------------------------------
-        if use_parallel
+        if use_parallel && use_live_progress
             futures(nGrid,1) = parallel.FevalFuture;
     
             % ---- submit stage ----
@@ -191,7 +204,7 @@ function out = stage05_nominal_walker_search(cfg)
                 row = grid(r,:);
     
                 started_count = started_count + 1;
-                if cfg.stage05.use_live_progress && mod(started_count, cfg.stage05.progress_every) == 0
+                if use_live_progress && mod(started_count, cfg.stage05.progress_every) == 0
                     elapsed_s = toc(t_start);
                     msg = sprintf(['[SUBMIT   ] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | elapsed=%.1fs'], ...
                         r, nGrid, row.i_deg, row.P, row.T, row.Ns, elapsed_s);
@@ -200,7 +213,7 @@ function out = stage05_nominal_walker_search(cfg)
                 end
     
                 futures(r) = parfeval(pool, @evaluate_single_layer_walker_stage05, 1, ...
-                    row, trajs_nominal, gamma_req, cfg, hard_order);
+                    row, trajs_nominal, gamma_req, cfg, hard_order, eval_context);
             end
     
             % ---- collect stage ----
@@ -229,7 +242,7 @@ function out = stage05_nominal_walker_search(cfg)
                 completed_count = completed_count + 1;
                 feasible_count_live = feasible_count_live + double(res.feasible_flag);
     
-                if cfg.stage05.use_live_progress && mod(completed_count, cfg.stage05.progress_every) == 0
+                if use_live_progress && mod(completed_count, cfg.stage05.progress_every) == 0
                     elapsed_s = toc(t_start);
                     msg = sprintf(['[LIVE-DONE] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | ' ...
                                    'D_G_min=%.3f | pass_ratio=%.3f | feasible=%d | ' ...
@@ -243,12 +256,42 @@ function out = stage05_nominal_walker_search(cfg)
                 end
             end
     
+        elseif use_parallel
+            result_bank = repmat(local_make_empty_eval_result(), nGrid, 1);
+            parfor r = 1:nGrid
+                row = grid(r,:);
+                result_bank(r) = evaluate_single_layer_walker_stage05(row, trajs_nominal, gamma_req, cfg, hard_order, eval_context);
+            end
+
+            for r = 1:nGrid
+                row = grid(r,:);
+                res = result_bank(r);
+
+                if ~isempty(eval_bank)
+                    eval_bank{r} = res;
+                end
+
+                is_evaluated(r) = true;
+                lambda_worst_min(r) = res.lambda_worst_min;
+                lambda_worst_mean(r) = res.lambda_worst_mean;
+                D_G_min(r) = res.D_G_min;
+                D_G_mean(r) = res.D_G_mean;
+                pass_ratio(r) = res.pass_ratio;
+                feasible_flag(r) = res.feasible_flag;
+                rank_score(r) = res.rank_score;
+                n_case_evaluated(r) = res.n_case_evaluated;
+                failed_early(r) = res.failed_early;
+            end
+
+            completed_count = nGrid;
+            feasible_count_live = sum(feasible_flag);
+
         else
             for r = 1:nGrid
                 row = grid(r,:);
     
                 started_count = started_count + 1;
-                if cfg.stage05.use_live_progress && mod(started_count, cfg.stage05.progress_every) == 0
+                if use_live_progress && mod(started_count, cfg.stage05.progress_every) == 0
                     elapsed_s = toc(t_start);
                     msg = sprintf(['[SUBMIT   ] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | elapsed=%.1fs'], ...
                         r, nGrid, row.i_deg, row.P, row.T, row.Ns, elapsed_s);
@@ -256,7 +299,7 @@ function out = stage05_nominal_walker_search(cfg)
                     log_msg(log_fid, 'INFO', '%s', msg);
                 end
     
-                res = evaluate_single_layer_walker_stage05(row, trajs_nominal, gamma_req, cfg, hard_order);
+                res = evaluate_single_layer_walker_stage05(row, trajs_nominal, gamma_req, cfg, hard_order, eval_context);
     
                 if ~isempty(eval_bank)
                     eval_bank{r} = res;
@@ -276,7 +319,7 @@ function out = stage05_nominal_walker_search(cfg)
                 completed_count = completed_count + 1;
                 feasible_count_live = feasible_count_live + double(res.feasible_flag);
     
-                if cfg.stage05.use_live_progress && mod(completed_count, cfg.stage05.progress_every) == 0
+                if use_live_progress && mod(completed_count, cfg.stage05.progress_every) == 0
                     elapsed_s = toc(t_start);
                     msg = sprintf(['[LIVE-DONE] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | ' ...
                                    'D_G_min=%.3f | pass_ratio=%.3f | feasible=%d | ' ...
@@ -390,4 +433,60 @@ function out = stage05_nominal_walker_search(cfg)
         fprintf('Early-stop cnt : %d\n', summary.num_failed_early);
         fprintf('Wall time (s)  : %.2f\n', summary.walltime_s);
         fprintf('========================================\n');
+    end
+
+    function cfg = local_apply_stage05_opts(cfg, opts)
+        if ~isfield(opts, 'mode') || isempty(opts.mode)
+            return;
+        end
+
+        use_parallel = strcmpi(string(opts.mode), "parallel");
+        cfg.stage05.use_parallel = use_parallel;
+
+        if ~isfield(opts, 'parallel_config') || isempty(opts.parallel_config)
+            opts.parallel_config = struct();
+        end
+        if ~isfield(opts.parallel_config, 'enabled') || isempty(opts.parallel_config.enabled)
+            opts.parallel_config.enabled = use_parallel;
+        end
+        if ~isfield(opts.parallel_config, 'profile_name') || isempty(opts.parallel_config.profile_name)
+            opts.parallel_config.profile_name = cfg.stage05.parallel_pool_profile;
+        end
+        if ~isfield(opts.parallel_config, 'num_workers')
+            opts.parallel_config.num_workers = cfg.stage05.parallel_num_workers;
+        end
+        if ~isfield(opts.parallel_config, 'auto_start_pool') || isempty(opts.parallel_config.auto_start_pool)
+            opts.parallel_config.auto_start_pool = cfg.stage05.auto_start_pool;
+        end
+
+        cfg.stage05.use_parallel = use_parallel && opts.parallel_config.enabled;
+        cfg.stage05.parallel_pool_profile = opts.parallel_config.profile_name;
+        cfg.stage05.parallel_num_workers = opts.parallel_config.num_workers;
+        cfg.stage05.auto_start_pool = opts.parallel_config.auto_start_pool;
+    end
+
+    function result = local_make_empty_eval_result()
+        result = struct( ...
+            'walker', struct(), ...
+            'satbank', struct(), ...
+            'case_table', table(), ...
+            'lambda_worst_min', NaN, ...
+            'lambda_worst_mean', NaN, ...
+            'D_G_min', NaN, ...
+            'D_G_mean', NaN, ...
+            'pass_ratio', NaN, ...
+            'feasible_flag', false, ...
+            'rank_score', NaN, ...
+            'n_case_total', NaN, ...
+            'n_case_evaluated', NaN, ...
+            'failed_early', false);
+    end
+
+    function eval_context = local_prepare_eval_context(trajs_nominal, cfg)
+        t_end_all = arrayfun(@(s) s.traj.t_s(end), trajs_nominal);
+        t_max = max(t_end_all);
+        dt = cfg.stage02.Ts_s;
+
+        eval_context = struct();
+        eval_context.t_s_common = (0:dt:t_max).';
     end
