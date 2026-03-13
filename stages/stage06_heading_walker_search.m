@@ -1,4 +1,4 @@
-function out = stage06_heading_walker_search(cfg)
+function out = stage06_heading_walker_search(cfg, opts)
     %STAGE06_HEADING_WALKER_SEARCH
     % Stage06.3: heading-extended-family Walker static search over (i, P, T) with fixed h.
     %
@@ -14,8 +14,12 @@ function out = stage06_heading_walker_search(cfg)
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
+        if nargin < 2 || isempty(opts)
+            opts = struct();
+        end
         cfg = stage06_prepare_cfg(cfg);
         cfg.project_stage = 'stage06_heading_walker_search';
+        cfg = local_apply_stage06_opts(cfg, opts);
         run_tag = char(cfg.stage06.run_tag);
 
         seed_rng(cfg.random.seed);
@@ -107,9 +111,13 @@ function out = stage06_heading_walker_search(cfg)
         % Pool setup
         % ------------------------------------------------------------
         use_parallel = cfg.stage06.use_parallel;
-    
+        use_live_progress = cfg.stage06.use_live_progress;
+        if isfield(opts, 'disable_live_progress') && opts.disable_live_progress
+            use_live_progress = false;
+        end
+
         requested_profile = string(cfg.stage06.parallel_pool_profile);
-        if use_parallel && cfg.stage06.use_live_progress && requested_profile == "threads"
+        if use_parallel && use_live_progress && requested_profile == "threads"
             log_msg(log_fid, 'INFO', ...
                 'Live progress is more reliable with process-based workers. Switching profile from threads to local.');
             requested_profile = "local";
@@ -139,7 +147,11 @@ function out = stage06_heading_walker_search(cfg)
         % ------------------------------------------------------------
         % Preallocate result arrays
         % ------------------------------------------------------------
-        if isfield(cfg.stage06, 'save_eval_bank') && cfg.stage06.save_eval_bank
+        save_eval_bank_enabled = isfield(cfg.stage06, 'save_eval_bank') && cfg.stage06.save_eval_bank;
+        if isfield(opts, 'disable_eval_bank') && opts.disable_eval_bank
+            save_eval_bank_enabled = false;
+        end
+        if save_eval_bank_enabled
             eval_bank = cell(nGrid,1);
         else
             eval_bank = [];
@@ -164,14 +176,14 @@ function out = stage06_heading_walker_search(cfg)
         % ------------------------------------------------------------
         % Evaluate
         % ------------------------------------------------------------
-        if use_parallel
+        if use_parallel && use_live_progress
             futures(nGrid,1) = parallel.FevalFuture;
     
             for r = 1:nGrid
                 row = grid(r,:);
     
                 started_count = started_count + 1;
-                if cfg.stage06.use_live_progress && mod(started_count, cfg.stage06.progress_every) == 0
+                if use_live_progress && mod(started_count, cfg.stage06.progress_every) == 0
                     elapsed_s = toc(t_start);
                     msg = sprintf(['[SUBMIT   ] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | ' ...
                                    'family=%s | nCase=%2d | elapsed=%.1fs'], ...
@@ -210,7 +222,7 @@ function out = stage06_heading_walker_search(cfg)
                 completed_count = completed_count + 1;
                 feasible_count_live = feasible_count_live + double(res.feasible_flag);
     
-                if cfg.stage06.use_live_progress && mod(completed_count, cfg.stage06.progress_every) == 0
+                if use_live_progress && mod(completed_count, cfg.stage06.progress_every) == 0
                     elapsed_s = toc(t_start);
                     msg = sprintf(['[LIVE-DONE] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | ' ...
                                    'D_G_min=%.3f | pass_ratio=%.3f | feasible=%d | ' ...
@@ -224,12 +236,42 @@ function out = stage06_heading_walker_search(cfg)
                 end
             end
     
+        elseif use_parallel
+            result_bank = repmat(local_make_empty_eval_result(), nGrid, 1);
+
+            parfor r = 1:nGrid
+                row = grid(r,:);
+                result_bank(r) = evaluate_single_layer_walker_stage06(row, trajs_heading, gamma_req, cfg, hard_order);
+            end
+
+            for r = 1:nGrid
+                res = result_bank(r);
+
+                if ~isempty(eval_bank)
+                    eval_bank{r} = res;
+                end
+
+                is_evaluated(r) = true;
+                lambda_worst_min(r) = res.lambda_worst_min;
+                lambda_worst_mean(r) = res.lambda_worst_mean;
+                D_G_min(r) = res.D_G_min;
+                D_G_mean(r) = res.D_G_mean;
+                pass_ratio(r) = res.pass_ratio;
+                feasible_flag(r) = res.feasible_flag;
+                rank_score(r) = res.rank_score;
+                n_case_evaluated(r) = res.n_case_evaluated;
+                failed_early(r) = res.failed_early;
+            end
+
+            completed_count = nGrid;
+            feasible_count_live = sum(feasible_flag);
+
         else
             for r = 1:nGrid
                 row = grid(r,:);
     
                 started_count = started_count + 1;
-                if cfg.stage06.use_live_progress && mod(started_count, cfg.stage06.progress_every) == 0
+                if use_live_progress && mod(started_count, cfg.stage06.progress_every) == 0
                     elapsed_s = toc(t_start);
                     msg = sprintf(['[SUBMIT   ] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | ' ...
                                    'family=%s | nCase=%2d | elapsed=%.1fs'], ...
@@ -259,7 +301,7 @@ function out = stage06_heading_walker_search(cfg)
                 completed_count = completed_count + 1;
                 feasible_count_live = feasible_count_live + double(res.feasible_flag);
     
-                if cfg.stage06.use_live_progress && mod(completed_count, cfg.stage06.progress_every) == 0
+                if use_live_progress && mod(completed_count, cfg.stage06.progress_every) == 0
                     elapsed_s = toc(t_start);
                     msg = sprintf(['[LIVE-DONE] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | ' ...
                                    'D_G_min=%.3f | pass_ratio=%.3f | feasible=%d | ' ...
@@ -410,4 +452,51 @@ function out = stage06_heading_walker_search(cfg)
         tmp = table(idx, abs_offset);
         tmp = sortrows(tmp, {'abs_offset','idx'}, {'descend','ascend'});
         hard_order = tmp.idx;
+    end
+
+    function cfg = local_apply_stage06_opts(cfg, opts)
+        if ~isfield(opts, 'mode') || isempty(opts.mode)
+            return;
+        end
+
+        use_parallel = strcmpi(string(opts.mode), "parallel");
+        cfg.stage06.use_parallel = use_parallel;
+
+        if ~isfield(opts, 'parallel_config') || isempty(opts.parallel_config)
+            opts.parallel_config = struct();
+        end
+        if ~isfield(opts.parallel_config, 'enabled') || isempty(opts.parallel_config.enabled)
+            opts.parallel_config.enabled = use_parallel;
+        end
+        if ~isfield(opts.parallel_config, 'profile_name') || isempty(opts.parallel_config.profile_name)
+            opts.parallel_config.profile_name = cfg.stage06.parallel_pool_profile;
+        end
+        if ~isfield(opts.parallel_config, 'num_workers')
+            opts.parallel_config.num_workers = cfg.stage06.parallel_num_workers;
+        end
+        if ~isfield(opts.parallel_config, 'auto_start_pool') || isempty(opts.parallel_config.auto_start_pool)
+            opts.parallel_config.auto_start_pool = cfg.stage06.auto_start_pool;
+        end
+
+        cfg.stage06.use_parallel = use_parallel && opts.parallel_config.enabled;
+        cfg.stage06.parallel_pool_profile = opts.parallel_config.profile_name;
+        cfg.stage06.parallel_num_workers = opts.parallel_config.num_workers;
+        cfg.stage06.auto_start_pool = opts.parallel_config.auto_start_pool;
+    end
+
+    function result = local_make_empty_eval_result()
+        result = struct( ...
+            'walker', struct(), ...
+            'satbank', struct(), ...
+            'case_table', table(), ...
+            'lambda_worst_min', NaN, ...
+            'lambda_worst_mean', NaN, ...
+            'D_G_min', NaN, ...
+            'D_G_mean', NaN, ...
+            'pass_ratio', NaN, ...
+            'feasible_flag', false, ...
+            'rank_score', NaN, ...
+            'n_case_total', NaN, ...
+            'n_case_evaluated', NaN, ...
+            'failed_early', false);
     end

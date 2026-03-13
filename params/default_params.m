@@ -55,6 +55,11 @@ function cfg = default_params()
     cfg.benchmark.stage05_i_grid_deg = [40 60 80];
     cfg.benchmark.stage05_P_grid = [4 8];
     cfg.benchmark.stage05_T_grid = [4 8 12];
+    cfg.benchmark.stage06_repeat = 3;
+    cfg.benchmark.stage06_i_grid_deg = [40 60 80];
+    cfg.benchmark.stage06_P_grid = [4 8];
+    cfg.benchmark.stage06_T_grid = [4 8 12];
+    cfg.benchmark.stage06_heading_offsets_deg = [0 -30 30];
 
     % ---------------------------
     % run_stages execution policy note

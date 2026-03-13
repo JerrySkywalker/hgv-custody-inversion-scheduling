@@ -38,7 +38,7 @@ function out = run_stage06_heading_walker(cfg, interactive, opts)
     end
 
     [cfg, opts] = rs_cli_configure('stage06', cfg, interactive, opts);
-    [cfg, ~] = rs_apply_parallel_policy('stage06', cfg, opts);
+    [cfg, stage_opts] = rs_apply_parallel_policy('stage06', cfg, opts);
 
     fprintf('[run_stages] === Stage06 一键运行 ===\n');
 
@@ -54,7 +54,7 @@ function out = run_stage06_heading_walker(cfg, interactive, opts)
 
     % Step 6.3: 航向族 Walker 搜索
     fprintf('[run_stages] Step 6.3  heading_walker_search ...\n');
-    out.out3 = stage06_heading_walker_search(cfg);
+    out.out3 = stage06_heading_walker_search(cfg, stage_opts);
     fprintf('[run_stages] Step 6.3 完成\n');
 
     % Step 6.4: 与 Stage05 对比
