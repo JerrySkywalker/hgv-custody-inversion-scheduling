@@ -142,6 +142,12 @@ function out = stage05_nominal_walker_search(cfg, opts)
                 'Live progress is more reliable with process-based workers. Switching profile from threads to local.');
             requested_profile = "local";
         end
+        if use_parallel && ~use_live_progress && requested_profile == "local" && ...
+                isfield(cfg.stage05, 'prefer_thread_pool_for_batch') && cfg.stage05.prefer_thread_pool_for_batch
+            log_msg(log_fid, 'INFO', ...
+                'Batch execution detected without live progress. Switching profile from local to threads.');
+            requested_profile = "threads";
+        end
     
         if use_parallel && cfg.stage05.auto_start_pool
             pool = ensure_parallel_pool(char(requested_profile), cfg.stage05.parallel_num_workers);

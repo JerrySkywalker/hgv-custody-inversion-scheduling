@@ -419,6 +419,7 @@ function cfg = default_params()
     cfg.stage05.auto_start_pool = true;
     cfg.stage05.parallel_pool_profile = 'local';   % 'threads' or 'local'
     cfg.stage05.parallel_num_workers = [];           % [] means default
+    cfg.stage05.prefer_thread_pool_for_batch = true;
 
     % early-stop options
     cfg.stage05.use_early_stop = true;
