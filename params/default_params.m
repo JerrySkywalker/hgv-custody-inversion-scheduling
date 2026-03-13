@@ -8,7 +8,7 @@ function cfg = default_params()
     % ---------------------------
     cfg.project_name   = 'cpt4_disk_fresh';
     cfg.project_stage  = 'stage00';
-    cfg.timestamp      = datestr(now, 'yyyy-mm-dd HH:MM:SS');
+    cfg.timestamp      = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
 
     % ---------------------------
     % Paths
@@ -46,6 +46,17 @@ function cfg = default_params()
     cfg.benchmark.stage03_disable_plot = true;
     cfg.benchmark.stage03_repeat = 3;
     cfg.benchmark.stage03_disable_case_logging = true;
+
+    % ---------------------------
+    % run_stages execution policy note
+    % ---------------------------
+    % The authoritative stage default mode policy is centralized in
+    % run_stages/rs_apply_parallel_policy.m.
+    %
+    % Fields such as cfg.stageXX.use_parallel in this file are kept as
+    % conservative direct-call fallbacks for stage functions that still read
+    % a local use_parallel flag internally. They should not be interpreted
+    % as the project-wide default execution mode.
 
     % ============================================================
     % Geodetic anchor and time-base configuration
@@ -232,7 +243,11 @@ function cfg = default_params()
     cfg.stage02.enable_task_capture_event = true;
 
     % Parallel options
-    cfg.stage02.use_parallel = true;
+    % NOTE:
+    %   Project-wide default mode is controlled by rs_apply_parallel_policy.m.
+    %   use_parallel here is only the fallback when stage02_hgv_nominal is
+    %   called directly without a wrapper-provided opts.mode.
+    cfg.stage02.use_parallel = false;
     cfg.stage02.auto_start_pool = true;
     cfg.stage02.parallel_pool_profile = 'threads';
     cfg.stage02.parallel_num_workers = [];
@@ -282,7 +297,11 @@ function cfg = default_params()
     cfg.stage03.min_elevation_deg = 5;
 
     % Parallel options
-    cfg.stage03.use_parallel = true;
+    % NOTE:
+    %   Project-wide default mode is controlled by rs_apply_parallel_policy.m.
+    %   use_parallel here is only the fallback when stage03_visibility_pipeline
+    %   is called directly without a wrapper-provided opts.mode.
+    cfg.stage03.use_parallel = false;
     cfg.stage03.auto_start_pool = true;
     cfg.stage03.parallel_pool_profile = 'local';   % 'threads' or 'local'
     cfg.stage03.parallel_num_workers = [];         % [] means default
@@ -310,7 +329,10 @@ function cfg = default_params()
     cfg.stage04.example_compare_case_ids = {'N01','H01_+60','C2_small_crossing_angle'};
 
     % Parallel options
-    cfg.stage04.use_parallel = true;
+    % NOTE:
+    %   Wrapper-level default mode is controlled by rs_apply_parallel_policy.m.
+    %   use_parallel here is a local fallback for direct stage04 calls.
+    cfg.stage04.use_parallel = false;
     cfg.stage04.auto_start_pool = true;
     cfg.stage04.parallel_pool_profile = cfg.stage03.parallel_pool_profile;
     cfg.stage04.parallel_num_workers = cfg.stage03.parallel_num_workers;
@@ -380,7 +402,10 @@ function cfg = default_params()
     cfg.stage05.rank_rule = 'min_Ns_then_max_DG';
 
     % parallel options
-    cfg.stage05.use_parallel = true;
+    % NOTE:
+    %   Wrapper-level default mode is controlled by rs_apply_parallel_policy.m.
+    %   use_parallel here is a local fallback for direct stage05 calls.
+    cfg.stage05.use_parallel = false;
     cfg.stage05.auto_start_pool = true;
     cfg.stage05.parallel_pool_profile = 'local';   % 'threads' or 'local'
     cfg.stage05.parallel_num_workers = [];           % [] means default
@@ -451,7 +476,10 @@ function cfg = default_params()
     cfg.stage06.gamma_source = 'inherit_stage04';
 
     % Parallel / logging
-    cfg.stage06.use_parallel = cfg.stage05.use_parallel;
+    % NOTE:
+    %   Wrapper-level default mode is controlled by rs_apply_parallel_policy.m.
+    %   use_parallel here is a local fallback for direct stage06 calls.
+    cfg.stage06.use_parallel = false;
     cfg.stage06.auto_start_pool = cfg.stage05.auto_start_pool;
     cfg.stage06.parallel_pool_profile = cfg.stage05.parallel_pool_profile;
     cfg.stage06.parallel_num_workers = cfg.stage05.parallel_num_workers;
@@ -698,7 +726,7 @@ function cfg = default_params()
     cfg.stage08.smallgrid.enable = true;
 
     % build around primary reference Walker
-    cfg.stage08.smallgrid.h_offsets_km = [0];
+    cfg.stage08.smallgrid.h_offsets_km = 0;
     cfg.stage08.smallgrid.i_offsets_deg = [-10 0 10];
     cfg.stage08.smallgrid.P_offsets = [-2 0 2];
     cfg.stage08.smallgrid.T_offsets = [-2 0 2];
@@ -736,7 +764,10 @@ function cfg = default_params()
     cfg.stage08.smallgrid.require_pass_geom_ratio = 0.90;
     cfg.stage08.smallgrid.require_C2_pass_ratio = 0.50;
 
-    cfg.stage08.smallgrid.use_parallel = true;
+    % NOTE:
+    %   Wrapper-level default mode is controlled by rs_apply_parallel_policy.m.
+    %   use_parallel here is a local fallback for direct Stage08 reduced-grid calls.
+    cfg.stage08.smallgrid.use_parallel = false;
     cfg.stage08.smallgrid.max_workers = inf;   % 或者 8 / 12
     cfg.stage08.smallgrid.pool_idle_timeout_min = 120;
     cfg.stage08.smallgrid.progress_step = 1;   % every 1 task completion feedback
@@ -778,7 +809,10 @@ function cfg = default_params()
     cfg.stage08c.require_DG_min = 1.0;
 
     % parallel + progress
-    cfg.stage08c.use_parallel = true;
+    % NOTE:
+    %   Wrapper-level default mode is controlled by rs_apply_parallel_policy.m.
+    %   use_parallel here is a local fallback for direct Stage08c calls.
+    cfg.stage08c.use_parallel = false;
     cfg.stage08c.max_workers = inf;
     cfg.stage08c.progress_step = 1;
 
