@@ -14,6 +14,8 @@ cpt4_disk_fresh/
 ├── startup.m                 # 工程路径与 results 目录初始化，各 Stage 入口前需先运行
 ├── params/
 │   └── default_params.m      # 默认配置（路径、几何、时间、Stage01–08 参数等）
+├── benchmarks/               # 基线测速脚本（固定输入、串并行对照、结果一致性校验）
+│   └── run_benchmark_stage00.m
 ├── stages/                   # 各 Stage 的代码入口（按步骤拆分的 .m 脚本）
 │   ├── stage00_bootstrap.m
 │   ├── stage01_scenario_disk.m
@@ -57,6 +59,7 @@ cpt4_disk_fresh/
 ├── src/                      # 公共源码（几何、目标、传感、星座、窗口、搜索等）
 ├── results/                  # 运行输出（由 startup 创建）
 │   ├── cache/                # 各 Stage 的 .mat 缓存
+│   ├── benchmarks/           # benchmark 报告（MAT/JSON）
 │   ├── logs/                 # 日志
 │   ├── figs/                 # 图形
 │   ├── tables/               # 表格 CSV
@@ -117,12 +120,29 @@ cpt4_disk_fresh/
 
 4. **结果位置**  
    - 缓存与中间结果：`results/cache/`  
+   - benchmark 报告：`results/benchmarks/`
    - 日志：`results/logs/`  
    - 图：`results/figs/`  
    - 表：`results/tables/`  
 
 5. **多组航向批量（Stage06）**  
    若需多组航向配置批量跑，请直接调用 `stages/stage06_batch_heading_runs(cfg)`，并在 `params/default_params.m` 的 `cfg.stage06.batch` 中配置 `run_tags` 与 `heading_offset_sets`。
+
+## Benchmark 基线
+
+为后续并行化重构提供统一测速基线，现已引入独立 benchmark 层：
+
+- 核心接口采用 `solver(input, opts)`，其中 `opts.mode = 'serial' | 'parallel'`
+- benchmark 脚本只负责固定输入、串并行运行、耗时记录、结果一致性校验、元数据落盘
+- benchmark 结果保存在 `results/benchmarks/`，包含运行时间、speedup、Git commit、MATLAB 版本、机器信息等
+
+当前已提供 Stage00 示例入口：
+
+```matlab
+benchmarks/run_benchmark_stage00
+```
+
+该入口会自动完成串行基线、并行对照、输出一致性比较，并保存 `MAT` / `JSON` 报告，作为后续逐 Stage 优化的回归起点。
 
 ## 使用说明小结
 

@@ -22,6 +22,20 @@ function cfg = default_params()
     cfg.paths.figs    = fullfile(root_dir, 'results', 'figs');
     cfg.paths.tables  = fullfile(root_dir, 'results', 'tables');
     cfg.paths.bundles = fullfile(root_dir, 'results', 'bundles');
+    cfg.paths.benchmarks = fullfile(root_dir, 'results', 'benchmarks');
+
+    % ---------------------------
+    % Benchmark controls
+    % ---------------------------
+    cfg.benchmark = struct();
+    cfg.benchmark.enabled = true;
+    cfg.benchmark.warmup_runs = 0;
+    cfg.benchmark.repeat = 1;
+    cfg.benchmark.save_json = true;
+    cfg.benchmark.save_mat = true;
+    cfg.benchmark.default_abs_tol = 1e-12;
+    cfg.benchmark.default_rel_tol = 1e-9;
+    cfg.benchmark.default_ignored_fields = {'timestamp', 'log_file', 'cache_file', 'benchmark'};
 
     % ============================================================
     % Geodetic anchor and time-base configuration

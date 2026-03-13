@@ -7,6 +7,7 @@ function startup()
         addpath(genpath(fullfile(root_dir, 'params')));
         addpath(genpath(fullfile(root_dir, 'src')));
         addpath(genpath(fullfile(root_dir, 'stages')));
+        addpath(genpath(fullfile(root_dir, 'benchmarks')));
         addpath(genpath(fullfile(root_dir, 'paper')));
         addpath(genpath(fullfile(root_dir, 'tests')));
         addpath(genpath(fullfile(root_dir, 'run_stages')));
@@ -24,6 +25,7 @@ function startup()
         ensure_dir(fullfile(root_dir, 'results', 'logs'));
         ensure_dir(fullfile(root_dir, 'results', 'tables'));
         ensure_dir(fullfile(root_dir, 'results', 'bundles'));
+        ensure_dir(fullfile(root_dir, 'results', 'benchmarks'));
     
         fprintf('[startup] Project root: %s\n', root_dir);
         fprintf('[startup] Paths initialized successfully.\n');
