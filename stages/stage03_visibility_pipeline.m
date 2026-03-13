@@ -8,7 +8,7 @@ function out = stage03_visibility_pipeline(cfg, opts)
     %   - keep current project structure unchanged
     %   - keep outputs compatible with Stage04
     
-        startup();
+        local_ensure_startup_once();
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
@@ -34,14 +34,7 @@ function out = stage03_visibility_pipeline(cfg, opts)
         % ------------------------------------------------------------
         % Load latest Stage02 cache
         % ------------------------------------------------------------
-        d = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
-        assert(~isempty(d), 'No Stage02 cache found. Please run stage02_hgv_nominal first.');
-
-        [~, idx_latest] = max([d.datenum]);
-        stage02_file = fullfile(d(idx_latest).folder, d(idx_latest).name);
-
-        tmp = load(stage02_file);
-        trajbank = tmp.out.trajbank;
+        [trajbank, stage02_file] = local_load_latest_stage02_trajbank(cfg);
     
         log_msg(log_fid, 'INFO', 'Loaded Stage02 cache: %s', stage02_file);
     
@@ -130,9 +123,11 @@ function out = stage03_visibility_pipeline(cfg, opts)
         all_trajs = [trajbank.nominal; trajbank.heading; trajbank.critical];
         all_out = repmat(struct('case_id', [], 'family', [], 'subfamily', [], ...
                                 'vis_case', [], 'los_geom', [], 'summary', []), numel(all_trajs), 1);
+        satbank_const = [];
         if ~isempty(pool)
+            satbank_const = parallel.pool.Constant(satbank);
             parfor k = 1:numel(all_trajs)
-                all_out(k) = local_eval_visibility_case(all_trajs(k), satbank, cfg);
+                all_out(k) = local_eval_visibility_case(all_trajs(k), satbank_const.Value, cfg);
             end
         else
             for k = 1:numel(all_trajs)
@@ -254,4 +249,32 @@ function out = stage03_visibility_pipeline(cfg, opts)
         idx = find(strcmp(string({all_structs.case_id}), string(case_id)), 1, 'first');
         assert(~isempty(idx), 'Case %s not found in visbank.', case_id);
         hit = all_structs(idx);
+    end
+
+    function [trajbank, stage02_file] = local_load_latest_stage02_trajbank(cfg)
+        persistent cached_stage02_file cached_trajbank
+
+        d = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+        assert(~isempty(d), 'No Stage02 cache found. Please run stage02_hgv_nominal first.');
+
+        [~, idx_latest] = max([d.datenum]);
+        stage02_file = fullfile(d(idx_latest).folder, d(idx_latest).name);
+
+        if ~isempty(cached_stage02_file) && strcmp(cached_stage02_file, stage02_file)
+            trajbank = cached_trajbank;
+            return;
+        end
+
+        tmp = load(stage02_file);
+        trajbank = tmp.out.trajbank;
+        cached_stage02_file = stage02_file;
+        cached_trajbank = trajbank;
+    end
+
+    function local_ensure_startup_once()
+        persistent startup_done
+        if isempty(startup_done) || ~startup_done
+            startup();
+            startup_done = true;
+        end
     end
