@@ -123,7 +123,13 @@ function out = stage06_heading_walker_search(cfg, opts)
                 'Live progress is more reliable with process-based workers. Switching profile from threads to local.');
             requested_profile = "local";
         end
-    
+        if use_parallel && ~use_live_progress && requested_profile == "local" && ...
+                isfield(cfg.stage06, 'prefer_thread_pool_for_batch') && cfg.stage06.prefer_thread_pool_for_batch
+            log_msg(log_fid, 'INFO', ...
+                'Batch execution detected without live progress. Switching profile from local to threads.');
+            requested_profile = "threads";
+        end
+
         if use_parallel && cfg.stage06.auto_start_pool
             pool = ensure_parallel_pool(char(requested_profile), cfg.stage06.parallel_num_workers);
             pool_type = class(pool);

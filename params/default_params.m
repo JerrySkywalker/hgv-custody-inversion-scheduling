@@ -499,6 +499,7 @@ function cfg = default_params()
     cfg.stage06.auto_start_pool = cfg.stage05.auto_start_pool;
     cfg.stage06.parallel_pool_profile = cfg.stage05.parallel_pool_profile;
     cfg.stage06.parallel_num_workers = cfg.stage05.parallel_num_workers;
+    cfg.stage06.prefer_thread_pool_for_batch = true;
 
     % Early stop
     cfg.stage06.use_early_stop = cfg.stage05.use_early_stop;
