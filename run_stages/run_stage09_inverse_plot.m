@@ -8,15 +8,10 @@
 %
 % 使用：
 %   run_stage09_inverse_plot()
-%   run_stage09_inverse_plot('full_main')
-%   run_stage09_inverse_plot('validation_small')
-%   run_stage09_inverse_plot('custom', cfg)
-%
-% 说明：
-%   若 out9_4 / out9_5 已在工作区中，也可直接调用：
-%       stage09_plot_inverse_design_results(out9_4, out9_5, cfg)
+%   run_stage09_inverse_plot(cfg)
+%   run_stage09_inverse_plot(cfg, false)
 
-function out = run_stage09_inverse_plot(scheme_type, cfg)
+function out = run_stage09_inverse_plot(cfg, interactive)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root)
         addpath(proj_root);
@@ -24,19 +19,14 @@ function out = run_stage09_inverse_plot(scheme_type, cfg)
     end
     startup();
 
-    if nargin < 2 || isempty(cfg)
+    if nargin < 1 || isempty(cfg)
         cfg = default_params();
     end
-
-    if nargin < 1 || isempty(scheme_type)
-        if isfield(cfg, 'stage09') && isfield(cfg.stage09, 'scheme_type')
-            scheme_type = cfg.stage09.scheme_type;
-        else
-            scheme_type = 'validation_small';
-        end
+    if nargin < 2 || isempty(interactive)
+        interactive = (nargin == 0);
     end
 
-    cfg.stage09.scheme_type = char(string(scheme_type));
+    [cfg, ~] = rs_cli_configure('stage09', cfg, interactive, struct());
     cfg = stage09_prepare_cfg(cfg);
 
     fprintf('[run_stages] === Stage09 作图入口 ===\n');

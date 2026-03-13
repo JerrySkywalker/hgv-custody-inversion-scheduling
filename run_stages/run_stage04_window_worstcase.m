@@ -15,13 +15,22 @@
 % 使用：在工程根目录下运行
 %   run_stages/run_stage04_window_worstcase
 
-function run_stage04_window_worstcase()
+function out = run_stage04_window_worstcase(cfg, interactive)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
 
+    if nargin < 1 || isempty(cfg)
+        cfg = default_params();
+    end
+    if nargin < 2 || isempty(interactive)
+        interactive = (nargin == 0);
+    end
+
+    [cfg, ~] = rs_cli_configure('stage04', cfg, interactive);
+
     fprintf('[run_stages] === Stage04 一键运行 ===\n');
 
-    out = stage04_window_worstcase();
+    out = stage04_window_worstcase(cfg);
     fprintf('[run_stages] Stage04 完成\n');
 end

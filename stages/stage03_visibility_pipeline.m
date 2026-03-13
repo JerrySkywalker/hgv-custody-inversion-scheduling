@@ -1,4 +1,4 @@
-function out = stage03_visibility_pipeline()
+function out = stage03_visibility_pipeline(cfg)
     %STAGE03_VISIBILITY_PIPELINE
     % Build single-layer Walker baseline and compute visibility pipeline
     % for Stage02 trajectory bank.
@@ -9,7 +9,9 @@ function out = stage03_visibility_pipeline()
     %   - keep outputs compatible with Stage04
     
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
         cfg.project_stage = 'stage03_visibility_pipeline';
         seed_rng(cfg.random.seed);
     

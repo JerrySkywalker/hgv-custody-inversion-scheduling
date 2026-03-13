@@ -14,13 +14,22 @@
 % 使用：在工程根目录下运行
 %   run_stages/run_stage02_hgv_nominal
 
-function run_stage02_hgv_nominal()
+function out = run_stage02_hgv_nominal(cfg, interactive)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
 
+    if nargin < 1 || isempty(cfg)
+        cfg = default_params();
+    end
+    if nargin < 2 || isempty(interactive)
+        interactive = (nargin == 0);
+    end
+
+    [cfg, ~] = rs_cli_configure('stage02', cfg, interactive);
+
     fprintf('[run_stages] === Stage02 一键运行 ===\n');
 
-    out = stage02_hgv_nominal();
+    out = stage02_hgv_nominal(cfg);
     fprintf('[run_stages] Stage02 完成\n');
 end

@@ -1,4 +1,4 @@
-function out = stage02_hgv_nominal()
+function out = stage02_hgv_nominal(cfg)
     %STAGE02_HGV_NOMINAL
     % Fresh-start Stage02 using VTC HGV dynamics with open-loop profiles.
     %
@@ -20,7 +20,9 @@ function out = stage02_hgv_nominal()
         % Init
         % ------------------------------------------------------------
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
     
         assert(isfield(cfg, 'stage01'), 'Missing cfg.stage01 in default_params().');
         assert(isfield(cfg, 'stage02'), 'Missing cfg.stage02 in default_params().');

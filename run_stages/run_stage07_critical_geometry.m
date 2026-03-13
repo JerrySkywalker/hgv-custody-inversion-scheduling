@@ -26,51 +26,60 @@
 % 使用：在工程根目录下运行
 %   run_stages/run_stage07_critical_geometry
 
-function run_stage07_critical_geometry()
+function out = run_stage07_critical_geometry(cfg, interactive)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
+
+    if nargin < 1 || isempty(cfg)
+        cfg = default_params();
+    end
+    if nargin < 2 || isempty(interactive)
+        interactive = (nargin == 0);
+    end
+
+    [cfg, ~] = rs_cli_configure('stage07', cfg, interactive);
 
     fprintf('[run_stages] === Stage07 一键运行 ===\n');
 
     % Step 7.1
     fprintf('[run_stages] Step 7.1  select_reference_walker ...\n');
-    stage07_select_reference_walker();
+    out.out1 = stage07_select_reference_walker(cfg);
     fprintf('[run_stages] Step 7.1 完成\n');
 
     % Step 7.2
     fprintf('[run_stages] Step 7.2  define_critical_scope_refwalker ...\n');
-    stage07_define_critical_scope_refwalker();
+    out.out2 = stage07_define_critical_scope_refwalker(cfg);
     fprintf('[run_stages] Step 7.2 完成\n');
 
     % Step 7.3
     fprintf('[run_stages] Step 7.3  scan_heading_risk_map ...\n');
-    stage07_scan_heading_risk_map();
+    out.out3 = stage07_scan_heading_risk_map(cfg);
     fprintf('[run_stages] Step 7.3 完成\n');
 
     % Step 7.4
     fprintf('[run_stages] Step 7.4  select_critical_examples ...\n');
-    stage07_select_critical_examples();
+    out.out4 = stage07_select_critical_examples(cfg);
     fprintf('[run_stages] Step 7.4 完成\n');
 
     % Step 7.5
     fprintf('[run_stages] Step 7.5  define_paper_plot_scope ...\n');
-    stage07_define_paper_plot_scope();
+    out.out5 = stage07_define_paper_plot_scope(cfg);
     fprintf('[run_stages] Step 7.5 完成\n');
 
     % Step 7.6
     fprintf('[run_stages] Step 7.6  plot_paper_subset ...\n');
-    stage07_plot_paper_subset();
+    out.out6 = stage07_plot_paper_subset(cfg);
     fprintf('[run_stages] Step 7.6 完成\n');
 
     % Step 7.7
     fprintf('[run_stages] Step 7.7  plot_critical_geometry ...\n');
-    stage07_plot_critical_geometry();
+    out.out7 = stage07_plot_critical_geometry(cfg);
     fprintf('[run_stages] Step 7.7 完成\n');
 
     % Step 7.8
     fprintf('[run_stages] Step 7.8  write_paper_figure_notes ...\n');
-    stage07_write_paper_figure_notes();
+    out.out8 = stage07_write_paper_figure_notes(cfg);
     fprintf('[run_stages] Step 7.8 完成\n');
 
     fprintf('[run_stages] Stage07 全部完成\n');

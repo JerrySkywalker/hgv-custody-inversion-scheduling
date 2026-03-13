@@ -8,23 +8,43 @@
 %
 % 使用：
 %   run_stage09_inverse_design()
-%   run_stage09_inverse_design('validation_small')
-%   run_stage09_inverse_design('full_main')
-%   run_stage09_inverse_design('custom', cfg)
+%   run_stage09_inverse_design(cfg)
+%   run_stage09_inverse_design(cfg, false)
+%   run_stage09_inverse_design(cfg, true, opts)
 
-function out = run_stage09_inverse_design(scheme_type, cfg)
-    if nargin < 2
+function out = run_stage09_inverse_design(cfg, interactive, opts)
+    if nargin < 1
         cfg = [];
     end
-    if nargin < 1
-        scheme_type = [];
+    if nargin < 2
+        interactive = (nargin == 0);
+    end
+    if nargin < 3
+        opts = struct();
     end
 
     fprintf('[run_stages] === Stage09 全流程入口（scan + plot）===\n');
 
     out = struct();
-    out.scan = run_stage09_inverse_scan(scheme_type, cfg);
-    out.plot = run_stage09_inverse_plot(scheme_type, cfg);
+
+    % 只在入口层交互一次
+    if isempty(cfg)
+        cfg = default_params();
+    end
+    [cfg, opts] = rs_cli_configure('stage09', cfg, interactive, opts);
+
+    out.scan = run_stage09_inverse_scan(cfg, false, opts);
+
+    run_plot = true;
+    if isfield(opts, 'stage09_run_plot_after_scan')
+        run_plot = opts.stage09_run_plot_after_scan;
+    end
+
+    if run_plot
+        out.plot = run_stage09_inverse_plot(out.scan.cfg, false);
+    else
+        out.plot = struct();
+    end
 
     fprintf('[run_stages] === Stage09 全流程完成 ===\n');
 end

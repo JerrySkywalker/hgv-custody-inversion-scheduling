@@ -22,41 +22,50 @@
 % 使用：在工程根目录下运行
 %   run_stages/run_stage08_window_selection
 
-function run_stage08_window_selection()
+function out = run_stage08_window_selection(cfg, interactive)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
+
+    if nargin < 1 || isempty(cfg)
+        cfg = default_params();
+    end
+    if nargin < 2 || isempty(interactive)
+        interactive = (nargin == 0);
+    end
+
+    [cfg, ~] = rs_cli_configure('stage08', cfg, interactive);
 
     fprintf('[run_stages] === Stage08 一键运行 ===\n');
 
     % Step 8.1
     fprintf('[run_stages] Step 8.1  define_window_scope ...\n');
-    stage08_define_window_scope();
+    out.out1 = stage08_define_window_scope(cfg);
     fprintf('[run_stages] Step 8.1 完成\n');
 
     % Step 8.2
     fprintf('[run_stages] Step 8.2  scan_representative_cases ...\n');
-    stage08_scan_representative_cases();
+    out.out2 = stage08_scan_representative_cases(cfg);
     fprintf('[run_stages] Step 8.2 完成\n');
 
     % Step 8.3
     fprintf('[run_stages] Step 8.3  scan_casebank_stats ...\n');
-    stage08_scan_casebank_stats();
+    out.out3 = stage08_scan_casebank_stats(cfg);
     fprintf('[run_stages] Step 8.3 完成\n');
 
     % Step 8.4
     fprintf('[run_stages] Step 8.4  scan_smallgrid_search ...\n');
-    stage08_scan_smallgrid_search();
+    out.out4 = stage08_scan_smallgrid_search(cfg);
     fprintf('[run_stages] Step 8.4 完成\n');
 
     % Step 8.5
     fprintf('[run_stages] Step 8.5  boundary_window_sensitivity ...\n');
-    stage08_boundary_window_sensitivity();
+    out.out5 = stage08_boundary_window_sensitivity(cfg);
     fprintf('[run_stages] Step 8.5 完成\n');
 
     % Step 8.6
     fprintf('[run_stages] Step 8.6  finalize_window_selection ...\n');
-    stage08_finalize_window_selection();
+    out.out6 = stage08_finalize_window_selection(cfg);
     fprintf('[run_stages] Step 8.6 完成\n');
 
     fprintf('[run_stages] Stage08 全部完成\n');

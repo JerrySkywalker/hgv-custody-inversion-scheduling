@@ -1,4 +1,4 @@
-function out = stage00_bootstrap()
+function out = stage00_bootstrap(cfg)
     %STAGE00_BOOTSTRAP Bootstrap the fresh-start Chapter 4 experiment project.
     %
     % This stage verifies:
@@ -13,11 +13,13 @@ function out = stage00_bootstrap()
         % Initialize project
         % ---------------------------
         startup();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
     
         % ---------------------------
         % Load default config
         % ---------------------------
-        cfg = default_params();
         cfg.project_stage = 'stage00_bootstrap';
     
         % ---------------------------

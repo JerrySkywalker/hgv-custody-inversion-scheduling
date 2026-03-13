@@ -19,26 +19,35 @@
 % 使用：在工程根目录下运行
 %   run_stages/run_stage05_nominal_walker
 
-function run_stage05_nominal_walker()
+function out = run_stage05_nominal_walker(cfg, interactive)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
+
+    if nargin < 1 || isempty(cfg)
+        cfg = default_params();
+    end
+    if nargin < 2 || isempty(interactive)
+        interactive = (nargin == 0);
+    end
+
+    [cfg, ~] = rs_cli_configure('stage05', cfg, interactive);
 
     fprintf('[run_stages] === Stage05 一键运行 ===\n');
 
     % Step 5.1: 标称 Walker 网格搜索
     fprintf('[run_stages] Step 5.1  nominal_walker_search ...\n');
-    out1 = stage05_nominal_walker_search();
+    out.out1 = stage05_nominal_walker_search(cfg);
     fprintf('[run_stages] Step 5.1 完成\n');
 
     % Step 5.2: 结果可视化
     fprintf('[run_stages] Step 5.2  plot_nominal_results ...\n');
-    out2 = stage05_plot_nominal_results();
+    out.out2 = stage05_plot_nominal_results(cfg);
     fprintf('[run_stages] Step 5.2 完成\n');
 
     % Step 5.3: Pareto 与转换分析
     fprintf('[run_stages] Step 5.3  analyze_pareto_transition ...\n');
-    out3 = stage05_analyze_pareto_transition();
+    out.out3 = stage05_analyze_pareto_transition();
     fprintf('[run_stages] Step 5.3 完成\n');
 
     fprintf('[run_stages] Stage05 全部完成\n');

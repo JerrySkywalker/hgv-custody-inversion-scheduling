@@ -1,4 +1,4 @@
-function out = stage04_window_worstcase()
+function out = stage04_window_worstcase(cfg)
     %STAGE04_WINDOW_WORSTCASE
     % Build windowed information matrices, scan worst windows,
     % and summarize both spectrum-level and margin-level statistics.
@@ -9,7 +9,9 @@ function out = stage04_window_worstcase()
     %   - keep spectrum summaries unchanged
     
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
         cfg.project_stage = 'stage04_window_worstcase';
         seed_rng(cfg.random.seed);
     

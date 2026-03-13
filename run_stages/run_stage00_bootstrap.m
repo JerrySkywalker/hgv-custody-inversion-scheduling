@@ -14,14 +14,23 @@
 %   cd('cpt4_disk_fresh')
 %   run_stages/run_stage00_bootstrap
 
-function run_stage00_bootstrap()
+function out = run_stage00_bootstrap(cfg, interactive)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
 
+    if nargin < 1 || isempty(cfg)
+        cfg = default_params();
+    end
+    if nargin < 2 || isempty(interactive)
+        interactive = (nargin == 0);
+    end
+
+    [cfg, ~] = rs_cli_configure('stage00', cfg, interactive);
+
     fprintf('[run_stages] === Stage00 一键运行 ===\n');
 
     % Step 0.1: 引导与自检
-    out = stage00_bootstrap();
+    out = stage00_bootstrap(cfg);
     fprintf('[run_stages] Stage00 完成: %s\n', out.status);
 end

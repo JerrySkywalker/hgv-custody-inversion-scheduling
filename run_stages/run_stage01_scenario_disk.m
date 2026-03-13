@@ -15,13 +15,22 @@
 % 使用：在工程根目录下运行
 %   run_stages/run_stage01_scenario_disk
 
-function run_stage01_scenario_disk()
+function out = run_stage01_scenario_disk(cfg, interactive)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
     startup();
 
+    if nargin < 1 || isempty(cfg)
+        cfg = default_params();
+    end
+    if nargin < 2 || isempty(interactive)
+        interactive = (nargin == 0);
+    end
+
+    [cfg, ~] = rs_cli_configure('stage01', cfg, interactive);
+
     fprintf('[run_stages] === Stage01 一键运行 ===\n');
 
-    out = stage01_scenario_disk();
+    out = stage01_scenario_disk(cfg);
     fprintf('[run_stages] Stage01 完成: %s\n', out.status);
 end

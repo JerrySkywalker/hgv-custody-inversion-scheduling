@@ -1,4 +1,4 @@
-function outp = stage05_plot_nominal_results()
+function outp = stage05_plot_nominal_results(cfg)
     %STAGE05_PLOT_NOMINAL_RESULTS
     % Stage05.3:
     % Post-process and visualize Stage05.2b nominal Walker static search results.
@@ -24,7 +24,9 @@ function outp = stage05_plot_nominal_results()
     %   results/cache
     
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
         cfg.project_stage = 'stage05_plot_nominal_results';
     
         ensure_dir(cfg.paths.logs);

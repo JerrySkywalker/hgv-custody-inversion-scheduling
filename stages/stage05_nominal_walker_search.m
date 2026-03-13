@@ -1,4 +1,4 @@
-function out = stage05_nominal_walker_search()
+function out = stage05_nominal_walker_search(cfg)
     %STAGE05_NOMINAL_WALKER_SEARCH
     % Stage05.2b: nominal-family Walker static search over (i, P, T) with fixed h.
     %
@@ -10,7 +10,9 @@ function out = stage05_nominal_walker_search()
     %   - keeps auto pool startup, hard-case-first, early-stop, and light cache
     
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
         cfg.project_stage = 'stage05_nominal_walker_search';
     
         seed_rng(cfg.random.seed);

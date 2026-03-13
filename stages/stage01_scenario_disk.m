@@ -1,4 +1,4 @@
-function out = stage01_scenario_disk()
+function out = stage01_scenario_disk(cfg)
     %STAGE01_SCENARIO_DISK
     % Build abstract protected-disk scenario with optional geodetic anchor.
     %
@@ -20,7 +20,9 @@ function out = stage01_scenario_disk()
         % Init
         % ------------------------------------------------------------
         startup();
-        cfg = default_params();
+        if nargin < 1 || isempty(cfg)
+            cfg = default_params();
+        end
         cfg.project_stage = 'stage01_scenario_disk';
     
         if exist('seed_rng', 'file') == 2
