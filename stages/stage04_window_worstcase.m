@@ -1,4 +1,4 @@
-function out = stage04_window_worstcase(cfg)
+function out = stage04_window_worstcase(cfg, opts)
     %STAGE04_WINDOW_WORSTCASE
     % Build windowed information matrices, scan worst windows,
     % and summarize both spectrum-level and margin-level statistics.
@@ -12,8 +12,12 @@ function out = stage04_window_worstcase(cfg)
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
+        if nargin < 2 || isempty(opts)
+            opts = struct();
+        end
         cfg.project_stage = 'stage04_window_worstcase';
         seed_rng(cfg.random.seed);
+        cfg = local_apply_stage04_opts(cfg, opts);
     
         ensure_dir(cfg.paths.logs);
         ensure_dir(cfg.paths.cache);
@@ -328,4 +332,32 @@ function out = stage04_window_worstcase(cfg)
         assert(~isempty(idx), 'Case %s not found in winbank.', case_id);
     
         hit = all_structs(idx);
+    end
+
+    function cfg = local_apply_stage04_opts(cfg, opts)
+        if ~isfield(opts, 'mode') || isempty(opts.mode)
+            opts.mode = 'serial';
+        end
+        opts.mode = char(lower(string(opts.mode)));
+
+        if ~isfield(opts, 'parallel_config') || isempty(opts.parallel_config)
+            opts.parallel_config = struct();
+        end
+        if ~isfield(opts.parallel_config, 'enabled') || isempty(opts.parallel_config.enabled)
+            opts.parallel_config.enabled = strcmp(opts.mode, 'parallel');
+        end
+        if ~isfield(opts.parallel_config, 'profile_name') || isempty(opts.parallel_config.profile_name)
+            opts.parallel_config.profile_name = cfg.stage04.parallel_pool_profile;
+        end
+        if ~isfield(opts.parallel_config, 'num_workers')
+            opts.parallel_config.num_workers = cfg.stage04.parallel_num_workers;
+        end
+        if ~isfield(opts.parallel_config, 'auto_start_pool') || isempty(opts.parallel_config.auto_start_pool)
+            opts.parallel_config.auto_start_pool = cfg.stage04.auto_start_pool;
+        end
+
+        cfg.stage04.use_parallel = strcmp(opts.mode, 'parallel') && opts.parallel_config.enabled;
+        cfg.stage04.parallel_pool_profile = opts.parallel_config.profile_name;
+        cfg.stage04.parallel_num_workers = opts.parallel_config.num_workers;
+        cfg.stage04.auto_start_pool = opts.parallel_config.auto_start_pool;
     end
