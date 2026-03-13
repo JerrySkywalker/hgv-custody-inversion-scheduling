@@ -46,9 +46,16 @@ function report = run_solver_benchmark(solver_fn, input_value, bench_cfg)
     report = struct();
     report.stage_name = bench_cfg.stage_name;
     report.benchmark_name = bench_cfg.benchmark_name;
-    report.run_id = sprintf('%s_%s', bench_cfg.benchmark_name, datestr(now, 'yyyymmdd_HHMMSS'));
+    timestamp = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
+    report.run_id = sprintf('%s_%s', bench_cfg.benchmark_name, timestamp);
     report.system = benchmark_collect_system_info();
     report.input_summary = bench_cfg.input_summary_fn(input_value);
+    if isfield(bench_cfg, 'default_mode') && ~isempty(bench_cfg.default_mode)
+        report.default_mode = char(string(bench_cfg.default_mode));
+    end
+    if isfield(bench_cfg, 'default_opts') && ~isempty(bench_cfg.default_opts)
+        report.default = benchmark_make_run_record('default', bench_cfg.default_opts, NaN, []);
+    end
     report.serial = benchmark_make_run_record('serial', bench_cfg.serial_opts, min(serial_elapsed), serial_result);
     report.parallel = benchmark_make_run_record('parallel', bench_cfg.parallel_opts, min(parallel_elapsed), parallel_result);
     report.timing = struct( ...

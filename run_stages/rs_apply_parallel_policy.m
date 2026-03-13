@@ -1,9 +1,8 @@
-function [cfg, stage_opts, mode] = rs_apply_parallel_policy(stage_name, cfg, opts)
+function [cfg, stage_opts, mode] = rs_apply_parallel_policy(stage_name, cfg, opts, mode_override)
 %RS_APPLY_PARALLEL_POLICY Apply centralized serial/parallel defaults.
 %
-% The run_stages wrappers call this helper so the default execution mode for
-% each stage is controlled in one place. Later optimization work can switch
-% defaults here without touching every wrapper again.
+% The run_stages wrappers and benchmark entrypoints call this helper so the
+% default execution mode for each stage is controlled in one place.
 
     if nargin < 2 || isempty(cfg)
         cfg = default_params();
@@ -11,14 +10,22 @@ function [cfg, stage_opts, mode] = rs_apply_parallel_policy(stage_name, cfg, opt
     if nargin < 3 || isempty(opts)
         opts = struct();
     end
+    if nargin < 4
+        mode_override = '';
+    end
 
     stage_key = lower(char(string(stage_name)));
     default_modes = local_default_modes();
     mode = default_modes.(stage_key);
 
-    override_mode = local_get_override_mode(stage_key, cfg, opts);
-    if ~isempty(override_mode)
-        mode = override_mode;
+    forced_mode = local_normalize_mode(mode_override);
+    if ~isempty(forced_mode)
+        mode = forced_mode;
+    else
+        override_mode = local_get_override_mode(stage_key, cfg, opts);
+        if ~isempty(override_mode)
+            mode = override_mode;
+        end
     end
 
     if ~isfield(cfg, 'run_stages') || ~isstruct(cfg.run_stages)

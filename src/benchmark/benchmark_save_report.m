@@ -34,6 +34,9 @@ end
 
 function json_report = local_make_json_safe_report(report)
     json_report = report;
+    if isfield(report, 'default')
+        json_report.default = local_reduce_run_record(report.default);
+    end
     json_report.serial = local_reduce_run_record(report.serial);
     json_report.parallel = local_reduce_run_record(report.parallel);
 end

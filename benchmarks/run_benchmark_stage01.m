@@ -9,6 +9,10 @@ function report = run_benchmark_stage01(cfg)
         cfg = default_params();
     end
 
+    [cfg, default_opts, default_mode] = rs_apply_parallel_policy('stage01', cfg, struct());
+    [~, serial_opts] = rs_apply_parallel_policy('stage01', cfg, struct(), 'serial');
+    [~, parallel_opts] = rs_apply_parallel_policy('stage01', cfg, struct(), 'parallel');
+
     if cfg.benchmark.stage01_disable_plot
         cfg.stage01.make_plot = false;
     end
@@ -19,14 +23,10 @@ function report = run_benchmark_stage01(cfg)
     bench_cfg.output_root = cfg.paths.benchmarks;
     bench_cfg.warmup_runs = cfg.benchmark.warmup_runs;
     bench_cfg.repeat = cfg.benchmark.repeat;
-    bench_cfg.serial_opts = struct('mode', 'serial');
-    bench_cfg.parallel_opts = struct( ...
-        'mode', 'parallel', ...
-        'parallel_config', struct( ...
-            'enabled', true, ...
-            'profile_name', cfg.stage01.parallel_pool_profile, ...
-            'num_workers', cfg.stage01.parallel_num_workers, ...
-            'auto_start_pool', cfg.stage01.auto_start_pool));
+    bench_cfg.default_mode = default_mode;
+    bench_cfg.default_opts = default_opts;
+    bench_cfg.serial_opts = serial_opts;
+    bench_cfg.parallel_opts = parallel_opts;
     bench_cfg.compare_opts = struct( ...
         'abs_tol', cfg.benchmark.default_abs_tol, ...
         'rel_tol', cfg.benchmark.default_rel_tol, ...
@@ -52,4 +52,7 @@ function summary = local_stage01_input_summary(cfg)
     summary.nominal_count = cfg.stage01.num_nominal_entry_points;
     summary.heading_offsets_deg = cfg.stage01.heading_offsets_deg;
     summary.make_plot = cfg.stage01.make_plot;
+    if isfield(cfg, 'run_stages') && isfield(cfg.run_stages, 'parallel_modes')
+        summary.default_mode = cfg.run_stages.parallel_modes.stage01;
+    end
 end
