@@ -24,8 +24,7 @@ function result = evaluate_critical_case_geometry_stage07(case_item, reference_w
     cfg_eval.stage03.F = reference_walker.F;
     cfg_eval.stage04.gamma_req = gamma_req;
 
-    walker = build_single_layer_walker_stage03(cfg_eval);
-    satbank = propagate_constellation_stage03(walker, t_s_common);
+    [walker, satbank] = local_get_constellation_cache(reference_walker, t_s_common, cfg_eval);
 
     vis_case = compute_visibility_matrix_stage03(case_item, satbank, cfg_eval);
     s_vis = local_summarize_visibility_fast(vis_case, satbank);
@@ -158,5 +157,67 @@ function [min_cross_deg, mean_cross_deg] = local_compute_crossing_angle_summary(
     else
         min_cross_deg = NaN;
         mean_cross_deg = NaN;
+    end
+end
+
+function [walker, satbank] = local_get_constellation_cache(reference_walker, t_s_common, cfg_eval)
+    persistent cache_bank
+
+    cache_key = local_build_constellation_cache_key(reference_walker, t_s_common);
+    if isempty(cache_bank)
+        cache_bank = struct('key', {}, 'walker', {}, 'satbank', {});
+    end
+
+    hit_idx = [];
+    for i = 1:numel(cache_bank)
+        if strcmp(cache_bank(i).key, cache_key)
+            hit_idx = i;
+            break;
+        end
+    end
+
+    if isempty(hit_idx)
+        walker = build_single_layer_walker_stage03(cfg_eval);
+        satbank = propagate_constellation_stage03(walker, t_s_common);
+
+        entry = struct();
+        entry.key = cache_key;
+        entry.walker = walker;
+        entry.satbank = satbank;
+        cache_bank = [entry, cache_bank]; %#ok<AGROW>
+        if numel(cache_bank) > 8
+            cache_bank = cache_bank(1:8);
+        end
+    else
+        walker = cache_bank(hit_idx).walker;
+        satbank = cache_bank(hit_idx).satbank;
+        if hit_idx > 1
+            cache_bank = [cache_bank(hit_idx), cache_bank(1:hit_idx-1), cache_bank(hit_idx+1:end)];
+        end
+    end
+end
+
+function cache_key = local_build_constellation_cache_key(reference_walker, t_s_common)
+    if isempty(t_s_common)
+        time_key = 'empty';
+    else
+        time_key = sprintf('n%d_t0%.6f_tn%.6f_dt%.6f', ...
+            numel(t_s_common), t_s_common(1), t_s_common(end), local_estimate_time_step(t_s_common));
+    end
+
+    cache_key = sprintf('h%.6f_i%.6f_P%d_T%d_F%d_%s', ...
+        reference_walker.h_km, ...
+        reference_walker.i_deg, ...
+        reference_walker.P, ...
+        reference_walker.T, ...
+        reference_walker.F, ...
+        time_key);
+end
+
+function dt = local_estimate_time_step(t_s_common)
+    if numel(t_s_common) < 2
+        dt = 0;
+    else
+        dt = median(diff(t_s_common));
     end
 end
