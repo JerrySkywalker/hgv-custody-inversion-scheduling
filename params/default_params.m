@@ -51,6 +51,10 @@ function cfg = default_params()
     cfg.benchmark.stage04_disable_plot = true;
     cfg.benchmark.stage04_repeat = 3;
     cfg.benchmark.stage04_disable_case_logging = true;
+    cfg.benchmark.stage05_repeat = 3;
+    cfg.benchmark.stage05_i_grid_deg = [40 60 80];
+    cfg.benchmark.stage05_P_grid = [4 8];
+    cfg.benchmark.stage05_T_grid = [4 8 12];
 
     % ---------------------------
     % run_stages execution policy note
