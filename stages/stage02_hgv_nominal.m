@@ -180,15 +180,16 @@ function out = stage02_hgv_nominal(cfg, opts)
     % ========================================================================
     function trajbank = local_run_casebank(casebank, cfg, log_fid, pool)
         all_cases = [casebank.nominal; casebank.heading; casebank.critical];
-        all_out = repmat(struct('case', [], 'traj', [], 'validation', [], 'summary', []), numel(all_cases), 1);
+        all_tasks = local_prepare_case_tasks(all_cases, cfg);
+        all_out = repmat(struct('case', [], 'traj', [], 'validation', [], 'summary', []), numel(all_tasks), 1);
 
         if ~isempty(pool)
-            parfor k = 1:numel(all_cases)
-                all_out(k) = local_eval_case(all_cases(k), cfg);
+            parfor k = 1:numel(all_tasks)
+                all_out(k) = local_eval_case(all_tasks(k).case, cfg, all_tasks(k).hgv_cfg);
             end
         else
-            for k = 1:numel(all_cases)
-                all_out(k) = local_eval_case(all_cases(k), cfg);
+            for k = 1:numel(all_tasks)
+                all_out(k) = local_eval_case(all_tasks(k).case, cfg, all_tasks(k).hgv_cfg);
             end
         end
 
@@ -230,8 +231,16 @@ function out = stage02_hgv_nominal(cfg, opts)
         end
     end
 
-    function case_out = local_eval_case(case_i, cfg)
-        traj = propagate_hgv_case_stage02(case_i, cfg);
+    function tasks = local_prepare_case_tasks(all_cases, cfg)
+        tasks = repmat(struct('case', [], 'hgv_cfg', []), numel(all_cases), 1);
+        for k = 1:numel(all_cases)
+            tasks(k).case = all_cases(k);
+            tasks(k).hgv_cfg = build_hgv_cfg_from_case_stage02(all_cases(k), cfg);
+        end
+    end
+
+    function case_out = local_eval_case(case_i, cfg, hgv_cfg)
+        traj = propagate_hgv_case_stage02(case_i, cfg, hgv_cfg);
         val = validate_hgv_trajectory_stage02(traj, cfg);
         s = summarize_hgv_case_stage02(case_i, traj, val);
 
