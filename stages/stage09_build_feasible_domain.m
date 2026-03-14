@@ -62,6 +62,7 @@ function out = stage09_build_feasible_domain(cfg, opts)
     if isfinite(cfg.stage09.scan_theta_limit)
         Tsearch = Tsearch(1:min(height(Tsearch), cfg.stage09.scan_theta_limit), :);
     end
+    row_bank = table2struct(Tsearch);
 
     nTheta = height(Tsearch);
     if nTheta < 1
@@ -73,7 +74,7 @@ function out = stage09_build_feasible_domain(cfg, opts)
 
     % Use the first evaluated design as the struct template, so that
     % later indexed assignment is field-compatible.
-    first_row = Tsearch(1,:);
+    first_row = row_bank(1);
     first_result = evaluate_single_layer_walker_stage09(first_row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
 
     result_bank = repmat(first_result, nTheta, 1);
@@ -84,12 +85,12 @@ function out = stage09_build_feasible_domain(cfg, opts)
     disable_progress = isfield(cfg.stage09, 'disable_progress') && cfg.stage09.disable_progress;
     if use_parallel
         parfor it = 2:nTheta
-            row = Tsearch(it,:);
+            row = row_bank(it);
             result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
         end
     else
         for it = 2:nTheta
-            row = Tsearch(it,:);
+            row = row_bank(it);
             result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
 
             if ~disable_progress && (mod(it, cfg.stage09.scan_log_every) == 0 || it == 2 || it == nTheta)
@@ -336,25 +337,15 @@ function T = local_build_search_domain_table_stage09(cfg)
 
     sd = cfg.stage09.search_domain;
 
-    rows = {};
-    idx = 0;
-    for ih = 1:numel(sd.h_grid_km)
-        for ii = 1:numel(sd.i_grid_deg)
-            for ip = 1:numel(sd.P_grid)
-                for it = 1:numel(sd.T_grid)
-                    idx = idx + 1;
-                    rows{idx,1} = struct( ... %#ok<AGROW>
-                        'h_km', sd.h_grid_km(ih), ...
-                        'i_deg', sd.i_grid_deg(ii), ...
-                        'P', sd.P_grid(ip), ...
-                        'T', sd.T_grid(it), ...
-                        'F', sd.F_fixed, ...
-                        'Ns', sd.P_grid(ip) * sd.T_grid(it));
-                end
-            end
-        end
-    end
+    [H, I, P, TT] = ndgrid(sd.h_grid_km(:), sd.i_grid_deg(:), sd.P_grid(:), sd.T_grid(:));
+    H = H(:);
+    I = I(:);
+    P = P(:);
+    TT = TT(:);
+    F = repmat(sd.F_fixed, size(H));
+    Ns = P .* TT;
 
-    T = struct2table(vertcat(rows{:}));
+    T = table(H, I, P, TT, F, Ns, ...
+        'VariableNames', {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns'});
     T = sortrows(T, {'Ns','h_km','i_deg','P','T'}, {'ascend','ascend','ascend','ascend','ascend'});
 end
