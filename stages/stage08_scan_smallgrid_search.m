@@ -68,6 +68,8 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
         nCase = height(casebank_table);
         nCfg = height(smallgrid_table);
         nTw = numel(Tw_grid_s);
+        sample_type = string(casebank_table.sample_type);
+        config_bank = local_build_smallgrid_config_bank(smallgrid_table, cfg);
     
         log_msg(log_fid, 'INFO', ...
             'Casebank cases = %d | small-grid configs = %d | Tw count = %d', ...
@@ -108,12 +110,12 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
         if use_parallel
             parfor iTask = 1:nTask
                 raw_rows{iTask} = local_run_smallgrid_task( ...
-                    task_table(iTask, :), smallgrid_table, case_items, casebank_table, cfg, q);
+                    task_table(iTask, :), config_bank, case_items, sample_type, cfg, q);
             end
         else
             for iTask = 1:nTask
                 raw_rows{iTask} = local_run_smallgrid_task( ...
-                    task_table(iTask, :), smallgrid_table, case_items, casebank_table, cfg, []);
+                    task_table(iTask, :), config_bank, case_items, sample_type, cfg, []);
                 if ~disable_progress
                     progressCallback(local_make_progress_msg(raw_rows{iTask}, iTask));
                 end
@@ -470,21 +472,22 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
     end
     
     
-    function row = local_run_smallgrid_task(task_row, smallgrid_table, case_items, casebank_table, cfg, q)
+    function row = local_run_smallgrid_task(task_row, config_bank, case_items, sample_type, cfg, q)
     
         iCfg = task_row.cfg_id;
         Tw_s = task_row.Tw_s;
     
-        walker_cfg = smallgrid_table(iCfg, :);
-        ref_walker = local_make_ref_from_smallgrid_row(walker_cfg, iCfg, cfg);
-        gamma_req = local_resolve_gamma_req(ref_walker, cfg);
-        cfg_label = local_make_smallgrid_label(ref_walker, iCfg);
+        cfg_item = config_bank(iCfg);
+        walker_cfg = cfg_item.walker_cfg;
+        ref_walker = cfg_item.ref_walker;
+        gamma_req = cfg_item.gamma_req;
+        cfg_label = cfg_item.cfg_label;
     
         cfg_eval = cfg;
         cfg_eval.stage04.Tw_s = Tw_s;
     
         metric = local_evaluate_smallgrid_config_over_casebank( ...
-            case_items, casebank_table, ref_walker, gamma_req, cfg_eval);
+            case_items, sample_type, ref_walker, gamma_req, cfg_eval);
     
         row = local_build_smallgrid_raw_row( ...
             walker_cfg, ref_walker, iCfg, cfg_label, Tw_s, metric);
@@ -681,9 +684,27 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
         label = sprintf('G%d_h%.0f_i%.0f_P%dT%d', ...
             iCfg, ref_walker.h_km, ref_walker.i_deg, round(ref_walker.P), round(ref_walker.T));
     end
+
+    function config_bank = local_build_smallgrid_config_bank(smallgrid_table, cfg)
+        nCfg = height(smallgrid_table);
+        config_bank = repmat(struct( ...
+            'walker_cfg', table(), ...
+            'ref_walker', struct(), ...
+            'gamma_req', NaN, ...
+            'cfg_label', ""), nCfg, 1);
+
+        for iCfg = 1:nCfg
+            walker_cfg = smallgrid_table(iCfg, :);
+            ref_walker = local_make_ref_from_smallgrid_row(walker_cfg, iCfg, cfg);
+            config_bank(iCfg).walker_cfg = walker_cfg;
+            config_bank(iCfg).ref_walker = ref_walker;
+            config_bank(iCfg).gamma_req = local_resolve_gamma_req(ref_walker, cfg);
+            config_bank(iCfg).cfg_label = local_make_smallgrid_label(ref_walker, iCfg);
+        end
+    end
     
     
-    function metric = local_evaluate_smallgrid_config_over_casebank(case_items, casebank_table, ref_walker, gamma_req, cfg_eval)
+    function metric = local_evaluate_smallgrid_config_over_casebank(case_items, sample_type, ref_walker, gamma_req, cfg_eval)
     
         nCase = numel(case_items);
     
@@ -693,8 +714,6 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
         coverage_ratio = nan(nCase, 1);
         mean_angle = nan(nCase, 1);
         pass_geom = false(nCase, 1);
-    
-        sample_type = strings(nCase, 1);
     
         for iCase = 1:nCase
             eval_out = evaluate_critical_case_geometry_stage07( ...
@@ -709,7 +728,6 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
             mean_angle(iCase) = local_get_diag_value(diag_row, 'mean_los_intersection_angle_deg', NaN);
     
             pass_geom(iCase) = isfinite(D_G_min(iCase)) && D_G_min(iCase) >= 1;
-            sample_type(iCase) = string(local_get_table_value(casebank_table(iCase, :), 'sample_type', "unknown"));
         end
     
         metric = struct();
