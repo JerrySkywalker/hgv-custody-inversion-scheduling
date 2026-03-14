@@ -1,4 +1,4 @@
-function out = stage08_boundary_window_sensitivity(cfg)
+function out = stage08_boundary_window_sensitivity(cfg, opts)
     %STAGE08_BOUNDARY_WINDOW_SENSITIVITY
     % Stage08.4c:
     %   Boundary-driven window sensitivity analysis using
@@ -22,7 +22,11 @@ function out = stage08_boundary_window_sensitivity(cfg)
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
+        if nargin < 2 || isempty(opts)
+            opts = struct();
+        end
         cfg = local_prepare_stage08c_cfg(cfg);
+        cfg = local_apply_stage08c_opts(cfg, opts);
         cfg.project_stage = 'stage08_boundary_window_sensitivity';
     
         seed_rng(cfg.random.seed);
@@ -80,6 +84,7 @@ function out = stage08_boundary_window_sensitivity(cfg)
         log_msg(log_fid, 'INFO', 'Loaded Stage07.4 selected examples: %s', stage07_sel_file);
         log_msg(log_fid, 'INFO', 'Stage07.4 selection rows = %d', height(selection_table));
     
+        scope = local_apply_stage08c_scope_overrides(scope, opts);
         Tw_grid_s = scope.Tw_grid_s(:).';
         log_msg(log_fid, 'INFO', 'Tw grid = %s', mat2str(Tw_grid_s));
     
@@ -122,7 +127,8 @@ function out = stage08_boundary_window_sensitivity(cfg)
         nComplete = 0;
         progress_step = cfg.stage08c.progress_step;
     
-        if use_parallel
+        disable_progress = cfg.stage08c.disable_progress;
+        if use_parallel && ~disable_progress
             q = parallel.pool.DataQueue;
             afterEach(q, @progressCallback);
         else
@@ -147,7 +153,9 @@ function out = stage08_boundary_window_sensitivity(cfg)
                 [raw_task_rows{iTask}, raw_case_tables{iTask}, dominant_rows{iTask}] = ...
                     local_run_boundary_task(task_table(iTask, :), weakside_smallgrid_table, ...
                     hardcase_table, hardcase_items, cfg, []);
-                progressCallback(local_make_progress_msg_from_taskrow(raw_task_rows{iTask}));
+                if ~disable_progress
+                    progressCallback(local_make_progress_msg_from_taskrow(raw_task_rows{iTask}));
+                end
             end
         end
     
@@ -377,10 +385,54 @@ function out = stage08_boundary_window_sensitivity(cfg)
         if ~isfield(f, 'use_parallel') || isempty(f.use_parallel), f.use_parallel = true; end
         if ~isfield(f, 'max_workers') || isempty(f.max_workers), f.max_workers = inf; end
         if ~isfield(f, 'progress_step') || isempty(f.progress_step), f.progress_step = 1; end
-    
+        if ~isfield(f, 'disable_progress') || isempty(f.disable_progress), f.disable_progress = false; end
+        if ~isfield(f, 'prefer_thread_pool_for_batch') || isempty(f.prefer_thread_pool_for_batch), f.prefer_thread_pool_for_batch = true; end
+
         if ~isfield(f, 'make_plot') || isempty(f.make_plot), f.make_plot = true; end
-    
+
         cfg.stage08c = f;
+    end
+
+
+    function cfg = local_apply_stage08c_opts(cfg, opts)
+
+        if isfield(opts, 'mode') && ~isempty(opts.mode)
+            cfg.stage08c.use_parallel = strcmpi(string(opts.mode), "parallel");
+        end
+
+        if isfield(opts, 'parallel_config') && isstruct(opts.parallel_config)
+            if isfield(opts.parallel_config, 'num_workers') && ~isempty(opts.parallel_config.num_workers)
+                cfg.stage08c.max_workers = opts.parallel_config.num_workers;
+            end
+        end
+
+        if isfield(opts, 'disable_progress') && ~isempty(opts.disable_progress)
+            cfg.stage08c.disable_progress = logical(opts.disable_progress);
+        end
+
+        if isfield(opts, 'benchmark_mode') && logical(opts.benchmark_mode)
+            cfg.stage08c.make_plot = false;
+            cfg.stage08c.disable_progress = true;
+        end
+
+        if isfield(opts, 'benchmark_h_km_list') && ~isempty(opts.benchmark_h_km_list)
+            cfg.stage08c.h_km_list = opts.benchmark_h_km_list;
+        end
+        if isfield(opts, 'benchmark_i_deg_list') && ~isempty(opts.benchmark_i_deg_list)
+            cfg.stage08c.i_deg_list = opts.benchmark_i_deg_list;
+        end
+        if isfield(opts, 'benchmark_PT_pairs') && ~isempty(opts.benchmark_PT_pairs)
+            cfg.stage08c.PT_pairs = opts.benchmark_PT_pairs;
+        end
+    end
+
+
+    function scope = local_apply_stage08c_scope_overrides(scope, opts)
+
+        if isfield(opts, 'benchmark_max_tw_count') && ~isempty(opts.benchmark_max_tw_count)
+            n_tw = min(numel(scope.Tw_grid_s), opts.benchmark_max_tw_count);
+            scope.Tw_grid_s = scope.Tw_grid_s(1:n_tw);
+        end
     end
     
     
@@ -457,7 +509,15 @@ function out = stage08_boundary_window_sensitivity(cfg)
         try
             p = gcp('nocreate');
             if isempty(p)
-                if isfinite(cfg.stage08c.max_workers)
+                prefer_threads = isfield(cfg.stage08c, 'prefer_thread_pool_for_batch') && ...
+                    cfg.stage08c.prefer_thread_pool_for_batch && cfg.stage08c.disable_progress;
+                if prefer_threads
+                    if isfinite(cfg.stage08c.max_workers)
+                        p = parpool('threads', min(feature('numcores'), cfg.stage08c.max_workers));
+                    else
+                        p = parpool('threads');
+                    end
+                elseif isfinite(cfg.stage08c.max_workers)
                     p = parpool(min(feature('numcores'), cfg.stage08c.max_workers));
                 else
                     p = parpool;

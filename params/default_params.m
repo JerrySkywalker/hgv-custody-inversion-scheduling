@@ -67,6 +67,11 @@ function cfg = default_params()
     cfg.benchmark.stage08_repeat = 3;
     cfg.benchmark.stage08_smallgrid_max_config_count = 6;
     cfg.benchmark.stage08_smallgrid_max_tw_count = 3;
+    cfg.benchmark.stage08c_repeat = 3;
+    cfg.benchmark.stage08c_h_km_list = 1000;
+    cfg.benchmark.stage08c_i_deg_list = [50, 60];
+    cfg.benchmark.stage08c_PT_pairs = [8, 4; 10, 4; 12, 4];
+    cfg.benchmark.stage08c_max_tw_count = 3;
 
     % ---------------------------
     % run_stages execution policy note
@@ -846,6 +851,8 @@ function cfg = default_params()
     cfg.stage08c.use_parallel = false;
     cfg.stage08c.max_workers = inf;
     cfg.stage08c.progress_step = 1;
+    cfg.stage08c.disable_progress = false;
+    cfg.stage08c.prefer_thread_pool_for_batch = true;
 
     % plotting
     cfg.stage08c.make_plot = true;
