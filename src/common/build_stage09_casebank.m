@@ -12,6 +12,13 @@ function trajs_in = build_stage09_casebank(cfg)
     end
     cfg = stage09_prepare_cfg(cfg);
 
+    persistent last_signature last_casebank
+    signature = local_stage09_casebank_signature(cfg);
+    if ~isempty(last_signature) && isequal(last_signature, signature)
+        trajs_in = last_casebank;
+        return;
+    end
+
     stage01_out = stage01_scenario_disk(cfg);
     casebank = stage01_out.casebank;
 
@@ -98,4 +105,35 @@ function trajs_in = build_stage09_casebank(cfg)
         trajs_in(k).validation = val_i;
         trajs_in(k).summary = sum_i;
     end
+
+    last_signature = signature;
+    last_casebank = trajs_in;
+end
+
+function signature = local_stage09_casebank_signature(cfg)
+    signature_data = struct();
+    signature_data.casebank_mode = string(cfg.stage09.casebank_mode);
+    signature_data.include_nominal = logical(cfg.stage09.casebank_include_nominal);
+    signature_data.include_heading = logical(cfg.stage09.casebank_include_heading);
+    signature_data.include_critical = logical(cfg.stage09.casebank_include_critical);
+    signature_data.heading_subset_max = cfg.stage09.casebank_heading_subset_max;
+    signature_data.heading_subset_mode = string(cfg.stage09.casebank_heading_subset_mode);
+    signature_data.R_D_km = cfg.stage01.R_D_km;
+    signature_data.R_in_km = cfg.stage01.R_in_km;
+    signature_data.num_nominal_entry_points = cfg.stage01.num_nominal_entry_points;
+    signature_data.heading_offsets_deg = cfg.stage01.heading_offsets_deg;
+    signature_data.critical_C1_y_offset_km = cfg.stage01.critical_C1_y_offset_km;
+    signature_data.critical_C2_start_angle_deg = cfg.stage01.critical_C2_start_angle_deg;
+    signature_data.critical_C2_heading_offset_deg = cfg.stage01.critical_C2_heading_offset_deg;
+    signature_data.Ts_s = cfg.stage02.Ts_s;
+    signature_data.Tmax_s = cfg.stage02.Tmax_s;
+    signature_data.alpha_nominal_deg = cfg.stage02.alpha_nominal_deg;
+    signature_data.bank_nominal_deg = cfg.stage02.bank_nominal_deg;
+    signature_data.alpha_heading_deg = cfg.stage02.alpha_heading_deg;
+    signature_data.bank_heading_deg = cfg.stage02.bank_heading_deg;
+    signature_data.alpha_c1_deg = cfg.stage02.alpha_c1_deg;
+    signature_data.bank_c1_deg = cfg.stage02.bank_c1_deg;
+    signature_data.alpha_c2_deg = cfg.stage02.alpha_c2_deg;
+    signature_data.bank_c2_deg = cfg.stage02.bank_c2_deg;
+    signature = jsonencode(signature_data);
 end

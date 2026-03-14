@@ -161,21 +161,31 @@ function out = stage09_build_feasible_domain(cfg, opts)
 
     cache_file = fullfile(cfg.paths.cache, ...
         sprintf('stage09_build_feasible_domain_%s_%s.mat', run_tag, timestamp));
-    save(cache_file, 'out', '-v7.3');
-    out.files.cache_file = cache_file;
+    if ~isfield(cfg.stage09, 'save_cache_file') || cfg.stage09.save_cache_file
+        save(cache_file, 'out', '-v7.3');
+        out.files.cache_file = cache_file;
+    else
+        out.files.cache_file = "";
+    end
 
     log_msg(log_fid, 'INFO', 'Scan elapsed time = %.3f s', elapsed_s);
     log_msg(log_fid, 'INFO', 'Total theta      = %d', height(S.full_theta_table));
     log_msg(log_fid, 'INFO', 'Feasible theta   = %d', height(S.feasible_theta_table));
     log_msg(log_fid, 'INFO', 'Infeasible theta = %d', height(S.infeasible_theta_table));
-    log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
+    if strlength(string(out.files.cache_file)) > 0
+        log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
+    else
+        log_msg(log_fid, 'INFO', 'Cache save skipped.');
+    end
     log_msg(log_fid, 'INFO', 'Stage09.4 finished.');
 
     fprintf('\n');
     fprintf('========== Stage09.4 Feasible-Domain Summary ==========\n');
     disp(S.summary_table);
     disp(S.fail_partition_table);
-    fprintf('Cache          : %s\n', cache_file);
+    if strlength(string(out.files.cache_file)) > 0
+        fprintf('Cache          : %s\n', cache_file);
+    end
     if cfg.stage09.write_csv
         fprintf('Full table CSV : %s\n', full_csv);
         fprintf('Feasible CSV   : %s\n', feasible_csv);
@@ -212,6 +222,7 @@ function cfg = local_apply_stage09_opts(cfg, opts)
     if isfield(opts, 'benchmark_mode') && logical(opts.benchmark_mode)
         cfg.stage09.write_csv = false;
         cfg.stage09.disable_progress = true;
+        cfg.stage09.save_cache_file = false;
     end
 
     if isfield(opts, 'benchmark_h_grid_km') && ~isempty(opts.benchmark_h_grid_km)
