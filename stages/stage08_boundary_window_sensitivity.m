@@ -67,7 +67,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         % ============================================================
         % Build workset
         % ============================================================
-        [hardcase_table, weakside_smallgrid_table, hardcase_items, task_table] = ...
+        [hardcase_table, weakside_smallgrid_table, hardcase_items, task_table, config_bank, hardcase_family] = ...
             local_prepare_stage08c_workset(selection_table, risk_table, nominal_bank, Tw_grid_s, ...
             cfg, stage08_scope_file, stage02_file, stage07_risk_file, stage07_sel_file);
         log_msg(log_fid, 'INFO', 'Hard-case bank rows = %d', height(hardcase_table));
@@ -105,14 +105,14 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         if use_parallel
             parfor iTask = 1:nTask
                 [raw_task_rows{iTask}, raw_case_tables{iTask}, dominant_rows{iTask}] = ...
-                    local_run_boundary_task(task_table(iTask, :), weakside_smallgrid_table, ...
-                    hardcase_table, hardcase_items, cfg, q);
+                    local_run_boundary_task(task_table(iTask, :), config_bank, ...
+                    hardcase_table, hardcase_family, hardcase_items, cfg, q);
             end
         else
             for iTask = 1:nTask
                 [raw_task_rows{iTask}, raw_case_tables{iTask}, dominant_rows{iTask}] = ...
-                    local_run_boundary_task(task_table(iTask, :), weakside_smallgrid_table, ...
-                    hardcase_table, hardcase_items, cfg, []);
+                    local_run_boundary_task(task_table(iTask, :), config_bank, ...
+                    hardcase_table, hardcase_family, hardcase_items, cfg, []);
                 if ~disable_progress
                     progressCallback(local_make_progress_msg_from_taskrow(raw_task_rows{iTask}));
                 end
@@ -624,7 +624,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
     end
 
 
-    function [hardcase_table, weakside_smallgrid_table, hardcase_items, task_table] = ...
+    function [hardcase_table, weakside_smallgrid_table, hardcase_items, task_table, config_bank, hardcase_family] = ...
             local_prepare_stage08c_workset(selection_table, risk_table, nominal_bank, Tw_grid_s, ...
             cfg, stage08_scope_file, stage02_file, stage07_risk_file, stage07_sel_file)
         persistent cache
@@ -640,6 +640,8 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
             hardcase_table = local_build_hardcase_table(selection_table, risk_table, cfg);
             weakside_smallgrid_table = local_build_weakside_smallgrid_table(cfg);
             task_table = local_build_task_table(weakside_smallgrid_table, Tw_grid_s);
+            config_bank = local_build_stage08c_config_bank(weakside_smallgrid_table, cfg);
+            hardcase_family = string(hardcase_table.family_name);
             hardcase_items = cell(height(hardcase_table), 1);
             for iHard = 1:height(hardcase_table)
                 hardcase_items{iHard} = local_build_case_item_from_row(hardcase_table(iHard, :), nominal_bank, cfg, 'S08C');
@@ -651,12 +653,16 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
             cache.weakside_smallgrid_table = weakside_smallgrid_table;
             cache.hardcase_items = hardcase_items;
             cache.task_table = task_table;
+            cache.config_bank = config_bank;
+            cache.hardcase_family = hardcase_family;
         end
 
         hardcase_table = cache.hardcase_table;
         weakside_smallgrid_table = cache.weakside_smallgrid_table;
         hardcase_items = cache.hardcase_items;
         task_table = cache.task_table;
+        config_bank = cache.config_bank;
+        hardcase_family = cache.hardcase_family;
     end
     
     
@@ -824,14 +830,15 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
     % main task evaluation
     % ============================================================
     
-    function [task_row_struct, case_scan_table, dominant_struct] = local_run_boundary_task(task_row, grid_table, hardcase_table, hardcase_items, cfg, q)
-    
+    function [task_row_struct, case_scan_table, dominant_struct] = local_run_boundary_task(task_row, config_bank, hardcase_table, hardcase_family, hardcase_items, cfg, q)
+
         cfg_id = task_row.cfg_id;
         Tw_s = task_row.Tw_s;
-    
-        grid_row = grid_table(grid_table.cfg_id == cfg_id, :);
-        ref_walker = local_make_ref_from_grid_row(grid_row, cfg);
-        gamma_req = local_resolve_gamma_req(ref_walker, cfg);
+
+        cfg_item = config_bank(cfg_id);
+        grid_row = cfg_item.grid_row;
+        ref_walker = cfg_item.ref_walker;
+        gamma_req = cfg_item.gamma_req;
     
         cfg_eval = cfg;
         cfg_eval.stage04.Tw_s = Tw_s;
@@ -850,9 +857,9 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
     
             raw_case_rows{iHard} = local_build_raw_case_row( ...
                 grid_row, hardcase_table(iHard, :), Tw_s, diag_row);
-    
+
             DG_vals(iHard) = local_get_diag_scalar(diag_row, 'D_G_min', NaN);
-            fam_vals(iHard) = string(local_get_table_scalar(hardcase_table(iHard, :), 'family_name', "unknown"));
+            fam_vals(iHard) = hardcase_family(iHard);
         end
     
         case_scan_table = struct2table(vertcat(raw_case_rows{:}));
@@ -962,6 +969,24 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
     
         flag = isfinite(tail_hard_min) && isfinite(tail_C2_min) && ...
                (tail_hard_min >= req) && (tail_C2_min >= req);
+    end
+
+
+    function config_bank = local_build_stage08c_config_bank(grid_table, cfg)
+
+        nCfg = height(grid_table);
+        config_bank = repmat(struct( ...
+            'grid_row', table(), ...
+            'ref_walker', struct(), ...
+            'gamma_req', NaN), nCfg, 1);
+
+        for iCfg = 1:nCfg
+            grid_row = grid_table(iCfg, :);
+            ref_walker = local_make_ref_from_grid_row(grid_row, cfg);
+            config_bank(iCfg).grid_row = grid_row;
+            config_bank(iCfg).ref_walker = ref_walker;
+            config_bank(iCfg).gamma_req = local_resolve_gamma_req(ref_walker, cfg);
+        end
     end
     
     
