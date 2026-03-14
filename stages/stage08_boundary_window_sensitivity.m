@@ -67,7 +67,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         % ============================================================
         % Build workset
         % ============================================================
-        [hardcase_table, weakside_smallgrid_table, hardcase_items, task_table, config_bank, hardcase_family] = ...
+        [hardcase_table, weakside_smallgrid_table, hardcase_items, task_table, config_bank, hardcase_bank] = ...
             local_prepare_stage08c_workset(selection_table, risk_table, nominal_bank, Tw_grid_s, ...
             cfg, stage08_scope_file, stage02_file, stage07_risk_file, stage07_sel_file);
         log_msg(log_fid, 'INFO', 'Hard-case bank rows = %d', height(hardcase_table));
@@ -106,13 +106,13 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
             parfor iTask = 1:nTask
                 [raw_task_rows{iTask}, raw_case_tables{iTask}, dominant_rows{iTask}] = ...
                     local_run_boundary_task(task_table(iTask, :), config_bank, ...
-                    hardcase_table, hardcase_family, hardcase_items, cfg, q);
+                    hardcase_table, hardcase_bank, hardcase_items, cfg, q);
             end
         else
             for iTask = 1:nTask
                 [raw_task_rows{iTask}, raw_case_tables{iTask}, dominant_rows{iTask}] = ...
                     local_run_boundary_task(task_table(iTask, :), config_bank, ...
-                    hardcase_table, hardcase_family, hardcase_items, cfg, []);
+                    hardcase_table, hardcase_bank, hardcase_items, cfg, []);
                 if ~disable_progress
                     progressCallback(local_make_progress_msg_from_taskrow(raw_task_rows{iTask}));
                 end
@@ -624,7 +624,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
     end
 
 
-    function [hardcase_table, weakside_smallgrid_table, hardcase_items, task_table, config_bank, hardcase_family] = ...
+    function [hardcase_table, weakside_smallgrid_table, hardcase_items, task_table, config_bank, hardcase_bank] = ...
             local_prepare_stage08c_workset(selection_table, risk_table, nominal_bank, Tw_grid_s, ...
             cfg, stage08_scope_file, stage02_file, stage07_risk_file, stage07_sel_file)
         persistent cache
@@ -641,7 +641,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
             weakside_smallgrid_table = local_build_weakside_smallgrid_table(cfg);
             task_table = local_build_task_table(weakside_smallgrid_table, Tw_grid_s);
             config_bank = local_build_stage08c_config_bank(weakside_smallgrid_table, cfg);
-            hardcase_family = string(hardcase_table.family_name);
+            hardcase_bank = local_build_stage08c_hardcase_bank(hardcase_table);
             hardcase_items = cell(height(hardcase_table), 1);
             for iHard = 1:height(hardcase_table)
                 hardcase_items{iHard} = local_build_case_item_from_row(hardcase_table(iHard, :), nominal_bank, cfg, 'S08C');
@@ -654,7 +654,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
             cache.hardcase_items = hardcase_items;
             cache.task_table = task_table;
             cache.config_bank = config_bank;
-            cache.hardcase_family = hardcase_family;
+            cache.hardcase_bank = hardcase_bank;
         end
 
         hardcase_table = cache.hardcase_table;
@@ -662,7 +662,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         hardcase_items = cache.hardcase_items;
         task_table = cache.task_table;
         config_bank = cache.config_bank;
-        hardcase_family = cache.hardcase_family;
+        hardcase_bank = cache.hardcase_bank;
     end
     
     
@@ -830,7 +830,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
     % main task evaluation
     % ============================================================
     
-    function [task_row_struct, case_scan_table, dominant_struct] = local_run_boundary_task(task_row, config_bank, hardcase_table, hardcase_family, hardcase_items, cfg, q)
+    function [task_row_struct, case_scan_table, dominant_struct] = local_run_boundary_task(task_row, config_bank, hardcase_table, hardcase_bank, hardcase_items, cfg, q)
 
         cfg_id = task_row.cfg_id;
         Tw_s = task_row.Tw_s;
@@ -852,14 +852,15 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         for iHard = 1:nHard
             eval_out = evaluate_critical_case_geometry_stage07( ...
                 hardcase_items{iHard}, ref_walker, gamma_req, cfg_eval);
-    
+
             diag_row = eval_out.diag_row;
-    
+            hard_item = hardcase_bank(iHard);
+
             raw_case_rows{iHard} = local_build_raw_case_row( ...
-                grid_row, hardcase_table(iHard, :), Tw_s, diag_row);
+                grid_row, hard_item, Tw_s, diag_row);
 
             DG_vals(iHard) = local_get_diag_scalar(diag_row, 'D_G_min', NaN);
-            fam_vals(iHard) = hardcase_family(iHard);
+            fam_vals(iHard) = hard_item.family_name;
         end
     
         case_scan_table = struct2table(vertcat(raw_case_rows{:}));
@@ -873,10 +874,10 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         dominant_struct = struct();
         dominant_struct.cfg_id = cfg_id;
         dominant_struct.Tw_s = Tw_s;
-        dominant_struct.dominant_hard_id = local_get_table_scalar(hardcase_table(iDom, :), 'hard_id', NaN);
-        dominant_struct.dominant_family = string(local_get_table_scalar(hardcase_table(iDom, :), 'family_name', ""));
-        dominant_struct.dominant_entry_id = local_get_table_scalar(hardcase_table(iDom, :), 'entry_id', NaN);
-        dominant_struct.dominant_heading_deg = local_get_table_scalar(hardcase_table(iDom, :), 'heading_deg', NaN);
+        dominant_struct.dominant_hard_id = hardcase_bank(iDom).hard_id;
+        dominant_struct.dominant_family = hardcase_bank(iDom).family_name;
+        dominant_struct.dominant_entry_id = hardcase_bank(iDom).entry_id;
+        dominant_struct.dominant_heading_deg = hardcase_bank(iDom).heading_deg;
         dominant_struct.dominant_D_G_min = DG_sorted(1);
     
         task_row_struct = struct();
@@ -925,7 +926,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
     end
     
     
-    function row = local_build_raw_case_row(grid_row, hard_row, Tw_s, diag_row)
+    function row = local_build_raw_case_row(grid_row, hard_item, Tw_s, diag_row)
     
         row = struct();
         row.cfg_id = local_get_table_scalar(grid_row, 'cfg_id', NaN);
@@ -937,10 +938,10 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         row.Ns = local_get_table_scalar(grid_row, 'Ns', NaN);
         row.Tw_s = Tw_s;
     
-        row.hard_id = local_get_table_scalar(hard_row, 'hard_id', NaN);
-        row.family_name = string(local_get_table_scalar(hard_row, 'family_name', ""));
-        row.entry_id = local_get_table_scalar(hard_row, 'entry_id', NaN);
-        row.heading_deg = local_get_table_scalar(hard_row, 'heading_deg', NaN);
+        row.hard_id = hard_item.hard_id;
+        row.family_name = hard_item.family_name;
+        row.entry_id = hard_item.entry_id;
+        row.heading_deg = hard_item.heading_deg;
     
         row.lambda_worst = local_get_diag_scalar(diag_row, 'lambda_worst', NaN);
         row.D_G_min = local_get_diag_scalar(diag_row, 'D_G_min', NaN);
@@ -986,6 +987,25 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
             config_bank(iCfg).grid_row = grid_row;
             config_bank(iCfg).ref_walker = ref_walker;
             config_bank(iCfg).gamma_req = local_resolve_gamma_req(ref_walker, cfg);
+        end
+    end
+
+
+    function hardcase_bank = local_build_stage08c_hardcase_bank(hardcase_table)
+
+        nHard = height(hardcase_table);
+        hardcase_bank = repmat(struct( ...
+            'hard_id', NaN, ...
+            'family_name', "", ...
+            'entry_id', NaN, ...
+            'heading_deg', NaN), nHard, 1);
+
+        for iHard = 1:nHard
+            hard_row = hardcase_table(iHard, :);
+            hardcase_bank(iHard).hard_id = local_get_table_scalar(hard_row, 'hard_id', NaN);
+            hardcase_bank(iHard).family_name = string(local_get_table_scalar(hard_row, 'family_name', ""));
+            hardcase_bank(iHard).entry_id = local_get_table_scalar(hard_row, 'entry_id', NaN);
+            hardcase_bank(iHard).heading_deg = local_get_table_scalar(hard_row, 'heading_deg', NaN);
         end
     end
     
