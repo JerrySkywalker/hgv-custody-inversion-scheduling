@@ -51,38 +51,9 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
     
         log_msg(log_fid, 'INFO', 'Stage08.4 started.');
     
-        % ============================================================
-        % Load latest Stage08.1 scope
-        % ============================================================
-        d81 = dir(fullfile(cfg.paths.cache, ...
-            sprintf('stage08_define_window_scope_%s_*.mat', run_tag)));
-        assert(~isempty(d81), ...
-            'No Stage08.1 scope cache found for run_tag=%s.', run_tag);
-    
-        [~, idx81] = max([d81.datenum]);
-        stage08_scope_file = fullfile(d81(idx81).folder, d81(idx81).name);
-        S81 = load(stage08_scope_file);
-    
-        assert(isfield(S81, 'out') && isfield(S81.out, 'scope'), ...
-            'Invalid Stage08.1 cache: missing out.scope');
-    scope = S81.out.scope;
-    scope = local_apply_smallgrid_scope_overrides(scope, cfg, opts);
-    
-        log_msg(log_fid, 'INFO', 'Loaded Stage08.1 scope: %s', stage08_scope_file);
-    
-        % ============================================================
-        % Load latest Stage02 nominal bank
-        % ============================================================
-        d2 = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
-        assert(~isempty(d2), 'No Stage02 nominal cache found.');
-    
-        [~, idx2] = max([d2.datenum]);
-        stage02_file = fullfile(d2(idx2).folder, d2(idx2).name);
-        S2 = load(stage02_file);
-    
-        assert(isfield(S2, 'out') && isfield(S2.out, 'trajbank') && isfield(S2.out.trajbank, 'nominal'), ...
-            'Invalid Stage02 cache: missing out.trajbank.nominal');
-        nominal_bank = S2.out.trajbank.nominal;
+        [scope_base, nominal_bank, stage08_scope_file, stage02_file] = ...
+            local_load_smallgrid_inputs(cfg, run_tag);
+        [scope, cfg] = local_apply_smallgrid_scope_overrides(scope_base, cfg, opts);
     
         log_msg(log_fid, 'INFO', 'Loaded Stage02 nominal cache: %s', stage02_file);
         log_msg(log_fid, 'INFO', 'Nominal family size = %d', numel(nominal_bank));
@@ -90,14 +61,9 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
         % ============================================================
         % Resolve casebank / Tw / smallgrid
         % ============================================================
-        casebank_table = local_build_casebank_master_table(scope);
+        [casebank_table, case_items, smallgrid_table, Tw_grid_s] = ...
+            local_prepare_smallgrid_workset(scope, nominal_bank, cfg, stage08_scope_file, stage02_file);
         assert(~isempty(casebank_table), 'Stage08.1 casebank is empty.');
-    
-        assert(isfield(scope, 'smallgrid_table') && istable(scope.smallgrid_table) && ...
-            ~isempty(scope.smallgrid_table), 'Stage08.1 smallgrid_table is missing or empty.');
-    smallgrid_table = scope.smallgrid_table;
-    
-    Tw_grid_s = scope.Tw_grid_s(:).';
     
         nCase = height(casebank_table);
         nCfg = height(smallgrid_table);
@@ -107,18 +73,8 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
             'Casebank cases = %d | small-grid configs = %d | Tw count = %d', ...
             nCase, nCfg, nTw);
     
-        % ============================================================
-        % Prebuild all case items once
-        % ============================================================
-        case_items = cell(nCase, 1);
-        for iCase = 1:nCase
-            case_items{iCase} = local_build_casebank_case_item(casebank_table(iCase, :), nominal_bank, cfg);
-        end
         log_msg(log_fid, 'INFO', 'Prebuilt casebank case items: %d', nCase);
-    
-        % ============================================================
-        % Prepare task table: one task = one (config, Tw)
-        % ============================================================
+
         task_table = local_build_smallgrid_task_table(smallgrid_table, Tw_grid_s);
         nTask = height(task_table);
         log_msg(log_fid, 'INFO', 'Prepared task count = %d', nTask);
@@ -376,6 +332,9 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
         if ~isfield(cfg.stage08.smallgrid, 'disable_progress') || isempty(cfg.stage08.smallgrid.disable_progress)
             cfg.stage08.smallgrid.disable_progress = false;
         end
+        if ~isfield(cfg.stage08.smallgrid, 'prefer_thread_pool_for_batch') || isempty(cfg.stage08.smallgrid.prefer_thread_pool_for_batch)
+            cfg.stage08.smallgrid.prefer_thread_pool_for_batch = true;
+        end
     end
     
     
@@ -390,15 +349,17 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
             log_msg(log_fid, 'INFO', 'Parallel disabled by cfg.stage08.smallgrid.use_parallel = false.');
             return;
         end
+
+        profile_name = local_resolve_parallel_profile(cfg);
     
         try
             p = gcp('nocreate');
             if isempty(p)
                 max_workers = cfg.stage08.smallgrid.max_workers;
                 if isfinite(max_workers)
-                    p = parpool(min(feature('numcores'), max_workers));
+                    p = parpool(profile_name, min(feature('numcores'), max_workers));
                 else
-                    p = parpool;
+                    p = parpool(profile_name);
                 end
             end
     
@@ -410,6 +371,80 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
             pool_info.use_parallel = false;
             pool_info.num_workers = 0;
             log_msg(log_fid, 'INFO', 'Parallel pool unavailable. Fallback to serial. Reason: %s', ME.message);
+        end
+    end
+
+    function profile_name = local_resolve_parallel_profile(cfg)
+        profile_name = 'local';
+        prefer_threads = isfield(cfg.stage08.smallgrid, 'prefer_thread_pool_for_batch') && ...
+            cfg.stage08.smallgrid.prefer_thread_pool_for_batch;
+        if prefer_threads && cfg.stage08.smallgrid.disable_progress
+            profile_name = 'threads';
+        end
+    end
+
+    function [scope, nominal_bank, stage08_scope_file, stage02_file] = local_load_smallgrid_inputs(cfg, run_tag)
+        persistent cache
+
+        d81 = dir(fullfile(cfg.paths.cache, ...
+            sprintf('stage08_define_window_scope_%s_*.mat', run_tag)));
+        assert(~isempty(d81), 'No Stage08.1 scope cache found for run_tag=%s.', run_tag);
+        [~, idx81] = max([d81.datenum]);
+        stage08_scope_file = fullfile(d81(idx81).folder, d81(idx81).name);
+
+        d2 = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+        assert(~isempty(d2), 'No Stage02 nominal cache found.');
+        [~, idx2] = max([d2.datenum]);
+        stage02_file = fullfile(d2(idx2).folder, d2(idx2).name);
+
+        cache_hit = isstruct(cache) && ...
+            isfield(cache, 'stage08_scope_file') && strcmp(cache.stage08_scope_file, stage08_scope_file) && ...
+            isfield(cache, 'stage02_file') && strcmp(cache.stage02_file, stage02_file);
+
+        if ~cache_hit
+            S81 = load(stage08_scope_file);
+            assert(isfield(S81, 'out') && isfield(S81.out, 'scope'), ...
+                'Invalid Stage08.1 cache: missing out.scope');
+
+            S2 = load(stage02_file);
+            assert(isfield(S2, 'out') && isfield(S2.out, 'trajbank') && isfield(S2.out.trajbank, 'nominal'), ...
+                'Invalid Stage02 cache: missing out.trajbank.nominal');
+
+            cache = struct();
+            cache.stage08_scope_file = stage08_scope_file;
+            cache.stage02_file = stage02_file;
+            cache.scope = S81.out.scope;
+            cache.nominal_bank = S2.out.trajbank.nominal;
+        end
+
+        scope = cache.scope;
+        nominal_bank = cache.nominal_bank;
+    end
+
+    function [casebank_table, case_items, smallgrid_table, Tw_grid_s] = local_prepare_smallgrid_workset(scope, nominal_bank, cfg, stage08_scope_file, stage02_file)
+        persistent cache
+
+        casebank_table = local_build_casebank_master_table(scope);
+        assert(isfield(scope, 'smallgrid_table') && istable(scope.smallgrid_table) && ...
+            ~isempty(scope.smallgrid_table), 'Stage08.1 smallgrid_table is missing or empty.');
+        smallgrid_table = scope.smallgrid_table;
+        Tw_grid_s = scope.Tw_grid_s(:).';
+
+        workset_key = sprintf('%s|%s|ncase%d|ncfg%d|ntw%d', ...
+            stage08_scope_file, stage02_file, height(casebank_table), height(smallgrid_table), numel(Tw_grid_s));
+        cache_hit = isstruct(cache) && isfield(cache, 'key') && strcmp(cache.key, workset_key);
+
+        if ~cache_hit
+            case_items = cell(height(casebank_table), 1);
+            for iCase = 1:height(casebank_table)
+                case_items{iCase} = local_build_casebank_case_item(casebank_table(iCase, :), nominal_bank, cfg);
+            end
+
+            cache = struct();
+            cache.key = workset_key;
+            cache.case_items = case_items;
+        else
+            case_items = cache.case_items;
         end
     end
     
@@ -1043,14 +1078,12 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
         if isfield(opts, 'disable_progress') && ~isempty(opts.disable_progress)
             cfg.stage08.smallgrid.disable_progress = logical(opts.disable_progress);
         end
-    end
-
-    function scope = local_apply_smallgrid_scope_overrides(scope, cfg, opts)
-        benchmark_mode = isfield(opts, 'benchmark_mode') && opts.benchmark_mode;
-        if benchmark_mode
+        if isfield(opts, 'benchmark_mode') && opts.benchmark_mode
             cfg.stage08.smallgrid.make_plot = false;
         end
+    end
 
+    function [scope, cfg] = local_apply_smallgrid_scope_overrides(scope, cfg, opts)
         if isfield(opts, 'benchmark_smallgrid_max_config_count') && ~isempty(opts.benchmark_smallgrid_max_config_count)
             n_cfg = min(height(scope.smallgrid_table), opts.benchmark_smallgrid_max_config_count);
             scope.smallgrid_table = scope.smallgrid_table(1:n_cfg, :);

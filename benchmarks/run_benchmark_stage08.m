@@ -69,5 +69,5 @@ function local_prepare_stage08_parallel(~, opts)
     if ~isfield(opts, 'mode') || ~strcmpi(string(opts.mode), "parallel")
         return;
     end
-    ensure_parallel_pool('local', []);
+    ensure_parallel_pool('threads', []);
 end

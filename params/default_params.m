@@ -801,6 +801,7 @@ function cfg = default_params()
     cfg.stage08.smallgrid.pool_idle_timeout_min = 120;
     cfg.stage08.smallgrid.progress_step = 1;   % every 1 task completion feedback
     cfg.stage08.smallgrid.disable_progress = false;
+    cfg.stage08.smallgrid.prefer_thread_pool_for_batch = true;
 
     % -------------------------------------------------
     % Stage08.4b feasibility profile
