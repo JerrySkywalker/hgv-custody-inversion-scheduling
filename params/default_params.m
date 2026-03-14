@@ -1235,4 +1235,43 @@ function cfg = default_params()
     cfg.stage10F.write_csv = true;
     cfg.stage10F.save_mat_cache = true;
 
+    % ---------------------------
+    % Stage11 tightened geometric certificate package
+    % ---------------------------
+    cfg.stage11 = struct();
+    cfg.stage11.entry = 'all';
+    cfg.stage11.run_tag = 'stage11';
+    cfg.stage11.source_stage10_entry = 'E1';
+    cfg.stage11.case_source = cfg.stage10.case_source;
+    cfg.stage11.casebank_mode = cfg.stage09.casebank_mode;
+    cfg.stage11.theta_source = 'stage10E1_grid';
+    cfg.stage11.manual_theta = cfg.stage10.manual_theta;
+    cfg.stage11.case_index = cfg.stage10.case_index;
+    cfg.stage11.window_index = cfg.stage10.window_index;
+    cfg.stage11.clip_case_index = true;
+    cfg.stage11.clip_window_index = true;
+    cfg.stage11.grid_h_km = cfg.stage10E1.grid_h_km;
+    cfg.stage11.grid_i_deg = cfg.stage10E1.grid_i_deg;
+    cfg.stage11.grid_P = cfg.stage10E1.grid_P;
+    cfg.stage11.grid_T = cfg.stage10E1.grid_T;
+    cfg.stage11.grid_F = cfg.stage10E1.grid_F;
+    cfg.stage11.threshold_truth = cfg.stage10E1.threshold_truth;
+    cfg.stage11.threshold_zero = cfg.stage10E1.threshold_zero;
+    cfg.stage11.threshold_bcirc = cfg.stage10E1.threshold_bcirc;
+    cfg.stage11.two_stage_rule = cfg.stage10E.two_stage_rule;
+    cfg.stage11.force_symmetric = true;
+    cfg.stage11.partition_mode = 'plane';
+    cfg.stage11.partition_rep = 'mean';
+    cfg.stage11.enable_weak = true;
+    cfg.stage11.enable_sub = true;
+    cfg.stage11.enable_blk = true;
+    cfg.stage11.enable_ablation = true;
+    cfg.stage11.cache_mode = 'reuse_or_build';
+    cfg.stage11.scan_log_every = 1;
+    cfg.stage11.make_plot = true;
+    cfg.stage11.write_csv = true;
+    cfg.stage11.save_mat_cache = true;
+    cfg.stage11.write_report = true;
+    cfg.stage11.use_parallel = false;
+
 end

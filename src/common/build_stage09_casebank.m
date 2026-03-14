@@ -72,12 +72,23 @@ function trajs_in = build_stage09_casebank(cfg)
             error('Unknown cfg.stage09.casebank_mode: %s', string(cfg.stage09.casebank_mode));
     end
 
-    cases_all = [nominal_cases; heading_cases; critical_cases];
-    nCase = numel(cases_all);
+    parts = cell(0,1);
+    if ~isempty(nominal_cases)
+        parts{end+1,1} = nominal_cases(:); %#ok<AGROW>
+    end
+    if ~isempty(heading_cases)
+        parts{end+1,1} = heading_cases(:); %#ok<AGROW>
+    end
+    if ~isempty(critical_cases)
+        parts{end+1,1} = critical_cases(:); %#ok<AGROW>
+    end
 
-    if nCase < 1
+    if isempty(parts)
         error('No cases selected for Stage09 casebank.');
     end
+
+    cases_all = vertcat(parts{:});
+    nCase = numel(cases_all);
 
     % Build first element as template
     case_i = cases_all(1);

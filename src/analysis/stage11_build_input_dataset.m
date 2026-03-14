@@ -1,0 +1,215 @@
+function input_dataset = stage11_build_input_dataset(cfg)
+%STAGE11_BUILD_INPUT_DATASET Build unified Stage11 window/case tables.
+
+    if nargin < 1 || isempty(cfg)
+        cfg = default_params();
+    end
+    cfg = stage11_prepare_cfg(cfg);
+
+    stage10_meta = stage11_load_stage10_cache(cfg);
+    gamma_eff_scalar = 1.0;
+
+    cfg_case = cfg;
+    cfg_case.stage09.casebank_mode = cfg.stage11.casebank_mode;
+    trajs_in = build_stage09_casebank(cfg_case);
+    eval_ctx = build_stage09_eval_context(trajs_in, cfg_case, gamma_eff_scalar);
+    theta_grid = local_build_theta_grid(cfg);
+
+    window_rows = cell(0,1);
+    case_rows = cell(0,1);
+    window_row_counter = 0;
+
+    n_theta = height(theta_grid);
+    for itheta = 1:n_theta
+        row = theta_grid(itheta,:);
+        cfg_eval = cfg_case;
+        cfg_eval.stage03.h_km = row.h_km;
+        cfg_eval.stage03.i_deg = row.i_deg;
+        cfg_eval.stage03.P = row.P;
+        cfg_eval.stage03.T = row.T;
+        cfg_eval.stage03.F = row.F;
+        walker = build_single_layer_walker_stage03(cfg_eval);
+        satbank = propagate_constellation_stage03(walker, eval_ctx.t_s_common);
+
+        for icase = 1:numel(trajs_in)
+            traj_case = trajs_in(icase);
+            vis_case = compute_visibility_matrix_stage03(traj_case, satbank, cfg_eval);
+            window_grid = build_window_grid_stage04(vis_case.t_s, cfg_eval);
+            n_window = window_grid.num_windows;
+            if n_window < 1
+                error('Stage11 found no valid windows for case %s.', string(traj_case.case.case_id));
+            end
+
+            case_window_rows = zeros(n_window, 1);
+            truth_lambda = nan(n_window, 1);
+            zero_mode = nan(n_window, 1);
+            bcirc_lambda = nan(n_window, 1);
+
+            for iw = 1:n_window
+                idx_start = window_grid.start_idx(iw);
+                idx_end = window_grid.end_idx(iw);
+
+                Wr = build_window_info_matrix_stage04(vis_case, idx_start, idx_end, satbank, cfg_eval);
+                if cfg.stage11.force_symmetric
+                    Wr = 0.5 * (Wr + Wr.');
+                end
+                wm = compute_window_metrics_stage09(Wr, cfg_eval);
+                old_pack = local_compute_old_pack(vis_case, idx_start, idx_end, satbank, walker, Wr, cfg_eval);
+
+                window_row_counter = window_row_counter + 1;
+                case_window_rows(iw) = window_row_counter;
+                truth_lambda(iw) = wm.lambda_min_eff;
+                zero_mode(iw) = old_pack.lambda_zero_mode;
+                bcirc_lambda(iw) = old_pack.lambda_min_bcirc;
+
+                window_rows{window_row_counter, 1} = struct( ... %#ok<AGROW>
+                    'row_id', window_row_counter, ...
+                    'theta_id', itheta, ...
+                    'case_id', string(traj_case.case.case_id), ...
+                    'case_index', icase, ...
+                    'window_id', iw, ...
+                    'idx_start', idx_start, ...
+                    'idx_end', idx_end, ...
+                    't0_s', window_grid.t0_s(iw), ...
+                    't1_s', window_grid.t1_s(iw), ...
+                    'theta_struct', local_theta_struct(row), ...
+                    'Wr', {Wr}, ...
+                    'truth_lambda_min', wm.lambda_min_eff, ...
+                    'truth_DG', wm.DG, ...
+                    'truth_pass', wm.lambda_min_eff >= cfg.stage11.threshold_truth, ...
+                    'old_bound', old_pack.bcirc_lb, ...
+                    'old_DG', old_pack.bcirc_lb / gamma_eff_scalar, ...
+                    'old_zero_mode', old_pack.lambda_zero_mode, ...
+                    'old_zero_lb', old_pack.zero_lb, ...
+                    'old_lambda_min_bcirc', old_pack.lambda_min_bcirc, ...
+                    'old_bcirc_lb', old_pack.bcirc_lb, ...
+                    'old_eps_sb_2', old_pack.eps_sb_2, ...
+                    'old_zero_pass', old_pack.zero_pass, ...
+                    'old_bcirc_pass', old_pack.bcirc_pass, ...
+                    'old_stage_label', string(old_pack.stage_label), ...
+                    'case_family', string(local_safe_get(traj_case.case, 'family', "")), ...
+                    'case_subfamily', string(local_safe_get(traj_case.case, 'subfamily', "")), ...
+                    'entry_id', local_safe_get(traj_case.case, 'entry_id', nan), ...
+                    'heading_offset_deg', local_safe_get(traj_case.case, 'heading_offset_deg', nan), ...
+                    'visible_count_mean', mean(vis_case.num_visible(idx_start:idx_end)), ...
+                    'stage10_cache_file', string(stage10_meta.cache_file));
+            end
+
+            truth_case_pass = min(truth_lambda) >= cfg.stage11.threshold_truth;
+            zero_case_pass = min(zero_mode) >= cfg.stage11.threshold_zero;
+            bcirc_case_pass = min(bcirc_lambda) >= cfg.stage11.threshold_bcirc;
+
+            case_rows{end+1, 1} = struct( ... %#ok<AGROW>
+                'theta_id', itheta, ...
+                'case_id', string(traj_case.case.case_id), ...
+                'case_index', icase, ...
+                'theta_struct', local_theta_struct(row), ...
+                'truth_case_label', string(local_truth_label(truth_case_pass)), ...
+                'old_case_label', string(local_old_label(zero_case_pass, bcirc_case_pass)), ...
+                'truth_case_pass', truth_case_pass, ...
+                'old_zero_case_pass', zero_case_pass, ...
+                'old_bcirc_case_pass', bcirc_case_pass, ...
+                'truth_lambda_worst', min(truth_lambda), ...
+                'old_zero_worst', min(zero_mode), ...
+                'old_bcirc_worst', min(bcirc_lambda), ...
+                'window_index_list', {case_window_rows}, ...
+                'window_count', n_window, ...
+                'case_family', string(local_safe_get(traj_case.case, 'family', "")), ...
+                'case_subfamily', string(local_safe_get(traj_case.case, 'subfamily', "")), ...
+                'heading_offset_deg', local_safe_get(traj_case.case, 'heading_offset_deg', nan));
+        end
+    end
+
+    input_dataset = struct();
+    input_dataset.stage10_meta = stage10_meta;
+    input_dataset.theta_grid = theta_grid;
+    input_dataset.window_table = struct2table(vertcat(window_rows{:}));
+    input_dataset.case_table = struct2table(vertcat(case_rows{:}));
+end
+
+
+function theta_grid = local_build_theta_grid(cfg)
+    rows = cell(0,1);
+    idx = 0;
+    for ih = 1:numel(cfg.stage11.grid_h_km)
+        for ii = 1:numel(cfg.stage11.grid_i_deg)
+            for ip = 1:numel(cfg.stage11.grid_P)
+                for it = 1:numel(cfg.stage11.grid_T)
+                    idx = idx + 1;
+                    rows{idx,1} = struct( ... %#ok<AGROW>
+                        'theta_id', idx, ...
+                        'h_km', cfg.stage11.grid_h_km(ih), ...
+                        'i_deg', cfg.stage11.grid_i_deg(ii), ...
+                        'P', cfg.stage11.grid_P(ip), ...
+                        'T', cfg.stage11.grid_T(it), ...
+                        'F', cfg.stage11.grid_F, ...
+                        'Ns', cfg.stage11.grid_P(ip) * cfg.stage11.grid_T(it));
+                end
+            end
+        end
+    end
+    theta_grid = struct2table(vertcat(rows{:}));
+end
+
+
+function old_pack = local_compute_old_pack(vis_case, idx_start, idx_end, satbank, walker, Wr, cfg)
+    plane_pack = wr_build_plane_blocks_stage10(vis_case, idx_start, idx_end, satbank, walker, cfg);
+    lag_pack = wr_build_plane_lag_tensor_stage10A(plane_pack, cfg);
+    bcirc_pack = group_average_to_bcirc_stage10B(lag_pack, cfg);
+
+    sym_out = symmetrize_firstcol_bcirc_stage10B1(bcirc_pack.first_col_blocks_3x3xP, cfg);
+    psd_out = project_bcirc_psd_stage10B1(sym_out.first_col_blocks_sym, cfg);
+    spec = bcirc_fft_minEig_stage10C(psd_out.first_col_blocks_psd, cfg);
+    A0 = psd_out.mode_blocks_after(:,:,1);
+    eps_pack = compute_eps_sb_stage10D(Wr, A0, cfg);
+
+    old_pack = struct();
+    old_pack.lambda_zero_mode = min(real(eig(0.5 * (A0 + A0.'))));
+    old_pack.lambda_min_bcirc = spec.lambda_min_fft;
+    old_pack.eps_sb_2 = eps_pack.eps_sb_2;
+    old_pack.zero_lb = old_pack.lambda_zero_mode - old_pack.eps_sb_2;
+    old_pack.bcirc_lb = old_pack.lambda_min_bcirc - old_pack.eps_sb_2;
+    old_pack.zero_pass = old_pack.lambda_zero_mode >= cfg.stage11.threshold_zero;
+    old_pack.bcirc_pass = old_pack.lambda_min_bcirc >= cfg.stage11.threshold_bcirc;
+    old_pack.stage_label = local_old_label(old_pack.zero_pass, old_pack.bcirc_pass);
+end
+
+
+function theta = local_theta_struct(row)
+    theta = struct( ...
+        'h_km', row.h_km, ...
+        'i_deg', row.i_deg, ...
+        'P', row.P, ...
+        'T', row.T, ...
+        'F', row.F, ...
+        'Ns', row.Ns);
+end
+
+
+function label = local_old_label(zero_pass, bcirc_pass)
+    if ~zero_pass
+        label = "reject";
+    elseif bcirc_pass
+        label = "safe_pass";
+    else
+        label = "warn_pass";
+    end
+end
+
+
+function label = local_truth_label(truth_pass)
+    if truth_pass
+        label = "truth_pass";
+    else
+        label = "truth_fail";
+    end
+end
+
+
+function value = local_safe_get(s, field_name, default_value)
+    if isfield(s, field_name)
+        value = s.(field_name);
+    else
+        value = default_value;
+    end
+end

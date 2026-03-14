@@ -64,6 +64,9 @@ function [cfg, stage_opts, mode] = rs_apply_parallel_policy(stage_name, cfg, opt
 
         case 'stage09'
             cfg.stage09.use_parallel = strcmp(mode, 'parallel');
+
+        case 'stage11'
+            cfg.stage11.use_parallel = strcmp(mode, 'parallel');
     end
 end
 
@@ -80,7 +83,8 @@ function modes = local_default_modes()
         'stage07', 'parallel', ...
         'stage08', 'parallel', ...
         'stage09', 'parallel', ...
-        'stage10', 'serial');
+        'stage10', 'serial', ...
+        'stage11', 'serial');
 end
 
 

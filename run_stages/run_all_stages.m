@@ -17,7 +17,7 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_s
         run_stage09_plot = true;
     end
     if nargin < 5 || isempty(final_stage)
-        final_stage = 10;
+        final_stage = 11;
     end
     if nargin < 4 || isempty(run_stage10_flag)
         run_stage10_flag = (final_stage >= 10);
@@ -29,7 +29,7 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_s
         end
     end
 
-    validateattributes(final_stage, {'numeric'}, {'scalar', 'integer', '>=', 1, '<=', 10}, ...
+    validateattributes(final_stage, {'numeric'}, {'scalar', 'integer', '>=', 1, '<=', 11}, ...
         mfilename, 'final_stage');
 
     run_stage09_effective = (final_stage >= 9) && run_stage09;
@@ -73,6 +73,9 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_s
         if run_stage10_effective
             [cfg, opts] = rs_cli_configure('stage10', cfg, true, opts);
         end
+        if final_stage >= 11
+            [cfg, opts] = rs_cli_configure('stage11', cfg, true, opts);
+        end
     end
 
     fprintf('[run_stages] ========== 全流程 Stage00 -> Stage%02d ==========\n', final_stage);
@@ -114,13 +117,16 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_s
     if run_stage10_effective
         outs.stage10 = run_stage10(cfg, false, opts);
     end
+    if final_stage >= 11
+        outs.stage11 = run_stage11(cfg, false, opts);
+    end
 
     fprintf('[run_stages] ========== 全流程完成 ==========\n');
 end
 
 function final_stage = local_prompt_final_stage(default_stage)
     fprintf('[run_stages] 请选择运行到哪个最终 Stage。\n');
-    fprintf('[run_stages] 可选范围: 1 到 10，默认值: %d\n', default_stage);
+    fprintf('[run_stages] 可选范围: 1 到 11，默认值: %d\n', default_stage);
 
     s = strtrim(input(sprintf('[run_stages] final_stage [default=%d]: ', default_stage), 's'));
     if isempty(s)
@@ -129,8 +135,8 @@ function final_stage = local_prompt_final_stage(default_stage)
     end
 
     parsed = str2double(s);
-    if ~isfinite(parsed) || parsed ~= floor(parsed) || parsed < 1 || parsed > 10
-        error('final_stage must be an integer between 1 and 10.');
+    if ~isfinite(parsed) || parsed ~= floor(parsed) || parsed < 1 || parsed > 11
+        error('final_stage must be an integer between 1 and 11.');
     end
 
     final_stage = parsed;
