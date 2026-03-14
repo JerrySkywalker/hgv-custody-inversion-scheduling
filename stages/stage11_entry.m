@@ -39,14 +39,21 @@ function out = stage11_entry(cfg)
 
     if cfg.stage11.enable_weak
         contrib_bank = stage11_extract_contributions(input_dataset, cfg);
-        weak_table = stage11_build_partition(input_dataset, contrib_bank, cfg);
+        ref_library = stage11_build_reference_library(input_dataset, contrib_bank, cfg);
+        weak_table = stage11_build_partition(input_dataset, contrib_bank, ref_library, cfg);
 
         out.contrib_bank = contrib_bank;
+        out.reference_library = ref_library;
         out.weak_table = weak_table;
         out.window_table.contrib_recon_error_fro = [contrib_bank.recon_error_fro].';
         out.window_table.contrib_recon_error_max_abs = [contrib_bank.recon_error_max_abs].';
+        out.window_table.W_pi = weak_table.W_pi;
         out.window_table.L_weak = weak_table.L_weak;
         out.window_table.eps_pi = weak_table.eps_pi;
+        out.window_table.eta_pi = weak_table.eta_pi;
+        out.window_table.rep_source_used = weak_table.rep_source_used;
+        out.window_table.reference_key_coverage = weak_table.reference_key_coverage;
+        out.window_table.partition_valid = weak_table.partition_valid;
         out.window_table.weak_valid = weak_table.weak_valid;
     end
 

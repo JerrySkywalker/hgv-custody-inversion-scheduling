@@ -8,12 +8,12 @@ function input_dataset = stage11_build_input_dataset(cfg)
 
     stage10_meta = stage11_load_stage10_cache(cfg);
     gamma_eff_scalar = 1.0;
+    theta_grid = local_build_theta_grid(cfg, stage10_meta);
 
     cfg_case = cfg;
     cfg_case.stage09.casebank_mode = cfg.stage11.casebank_mode;
     trajs_in = build_stage09_casebank(cfg_case);
     eval_ctx = build_stage09_eval_context(trajs_in, cfg_case, gamma_eff_scalar);
-    theta_grid = local_build_theta_grid(cfg);
 
     window_rows = cell(0,1);
     case_rows = cell(0,1);
@@ -140,25 +140,38 @@ function input_dataset = stage11_build_input_dataset(cfg)
     input_dataset.detail_list = detail_list;
     input_dataset.window_table = struct2table(vertcat(window_rows{:}));
     input_dataset.case_table = struct2table(vertcat(case_rows{:}));
+    input_dataset.cache_reuse_mode = stage10_meta.cache_reuse_mode;
+    input_dataset.n_windows_reused = 0;
+    input_dataset.n_windows_recomputed = height(input_dataset.window_table);
 end
 
 
-function theta_grid = local_build_theta_grid(cfg)
+function theta_grid = local_build_theta_grid(cfg, stage10_meta)
+    grid = struct( ...
+        'h_km', cfg.stage11.grid_h_km, ...
+        'i_deg', cfg.stage11.grid_i_deg, ...
+        'P', cfg.stage11.grid_P, ...
+        'T', cfg.stage11.grid_T, ...
+        'F', cfg.stage11.grid_F);
+    if nargin >= 2 && isfield(stage10_meta, 'grid') && strcmpi(char(string(cfg.stage11.theta_source)), 'stage10e1_grid')
+        grid = stage10_meta.grid;
+    end
+
     rows = cell(0,1);
     idx = 0;
-    for ih = 1:numel(cfg.stage11.grid_h_km)
-        for ii = 1:numel(cfg.stage11.grid_i_deg)
-            for ip = 1:numel(cfg.stage11.grid_P)
-                for it = 1:numel(cfg.stage11.grid_T)
+    for ih = 1:numel(grid.h_km)
+        for ii = 1:numel(grid.i_deg)
+            for ip = 1:numel(grid.P)
+                for it = 1:numel(grid.T)
                     idx = idx + 1;
                     rows{idx,1} = struct( ... %#ok<AGROW>
                         'theta_id', idx, ...
-                        'h_km', cfg.stage11.grid_h_km(ih), ...
-                        'i_deg', cfg.stage11.grid_i_deg(ii), ...
-                        'P', cfg.stage11.grid_P(ip), ...
-                        'T', cfg.stage11.grid_T(it), ...
-                        'F', cfg.stage11.grid_F, ...
-                        'Ns', cfg.stage11.grid_P(ip) * cfg.stage11.grid_T(it));
+                        'h_km', grid.h_km(ih), ...
+                        'i_deg', grid.i_deg(ii), ...
+                        'P', grid.P(ip), ...
+                        'T', grid.T(it), ...
+                        'F', grid.F, ...
+                        'Ns', grid.P(ip) * grid.T(it));
                 end
             end
         end

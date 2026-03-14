@@ -1,7 +1,7 @@
-function weak_table = stage11_build_partition(input_dataset, contrib_bank, cfg)
+function weak_table = stage11_build_partition(input_dataset, contrib_bank, ref_library, cfg)
 %STAGE11_BUILD_PARTITION Build weak-symmetry partition and L_weak.
 
-    if nargin < 3 || isempty(cfg)
+    if nargin < 4 || isempty(cfg)
         cfg = default_params();
     end
     cfg = stage11_prepare_cfg(cfg);
@@ -21,19 +21,35 @@ function weak_table = stage11_build_partition(input_dataset, contrib_bank, cfg)
         if isempty(J_list)
             W_pi = zeros(size(Wr));
             eps_pi = 0;
+            eta_pi = 0;
             L_weak = 0;
             group_count = 0;
             partition_keys = "";
+            rep_source_used = "empty";
+            reference_key_coverage = 0;
+            partition_valid = false;
         else
             keys = local_partition_keys(J_meta, cfg.stage11.partition_mode);
             [group_values, ~, group_idx] = unique(keys, 'stable');
             group_count = numel(group_values);
             W_pi = zeros(size(Wr));
             eps_pi = 0;
+            used_sources = strings(group_count, 1);
+            n_ref_key = 0;
+            partition_valid = true;
 
             for g = 1:group_count
                 members = find(group_idx == g);
-                J_hat = local_representative(J_list(members), cfg.stage11.partition_rep);
+                [J_hat, source_token] = local_get_reference_template( ...
+                    group_values(g), i, input_dataset, contrib_bank, ref_library, cfg);
+                used_sources(g) = source_token;
+                if source_token == "reference_library"
+                    n_ref_key = n_ref_key + 1;
+                end
+                if isempty(J_hat)
+                    partition_valid = false;
+                    continue;
+                end
                 delta_g = 0;
                 for m = 1:numel(members)
                     delta_g = max(delta_g, norm(J_list{members(m)} - J_hat, 2));
@@ -43,20 +59,30 @@ function weak_table = stage11_build_partition(input_dataset, contrib_bank, cfg)
             end
 
             W_pi = 0.5 * (W_pi + W_pi.');
-            L_weak = min(real(eig(W_pi))) - eps_pi;
+            if partition_valid
+                L_weak = min(real(eig(W_pi))) - eps_pi;
+            else
+                L_weak = NaN;
+            end
             partition_keys = string(strjoin(cellstr(group_values), '|'));
+            eta_pi = norm(Wr - W_pi, 'fro') / (norm(Wr, 'fro') + eps);
+            reference_key_coverage = n_ref_key / max(group_count, 1);
+            rep_source_used = local_reduce_sources(used_sources, partition_valid);
         end
 
-        truth_lambda = WT.truth_lambda_min(i);
         rows{i,1} = struct( ... %#ok<AGROW>
             'row_id', WT.row_id(i), ...
             'group_count', group_count, ...
             'partition_keys', partition_keys, ...
             'eps_pi', eps_pi, ...
             'W_pi', {W_pi}, ...
+            'eta_pi', eta_pi, ...
+            'rep_source_used', string(rep_source_used), ...
+            'reference_key_coverage', reference_key_coverage, ...
+            'partition_valid', partition_valid, ...
             'lambda_min_W_pi', min(real(eig(0.5 * (W_pi + W_pi.')))), ...
             'L_weak', L_weak, ...
-            'weak_valid', truth_lambda + 1e-9 >= L_weak);
+            'weak_valid', partition_valid && isfinite(L_weak));
     end
 
     weak_table = struct2table(vertcat(rows{:}));
@@ -81,16 +107,76 @@ function keys = local_partition_keys(J_meta, partition_mode)
 end
 
 
-function J_hat = local_representative(J_group, rep_mode)
-    switch lower(char(string(rep_mode)))
-        case 'mean'
-            J_hat = zeros(size(J_group{1}));
-            for i = 1:numel(J_group)
-                J_hat = J_hat + J_group{i};
-            end
-            J_hat = J_hat / numel(J_group);
-        otherwise
-            error('Unsupported partition_rep: %s', string(rep_mode));
+function [J_hat, source_token] = local_get_reference_template(key_value, row_index, input_dataset, contrib_bank, ref_library, cfg)
+    J_hat = [];
+    source_token = "invalid";
+
+    ref_idx = find(ref_library.partition_keys == key_value, 1, 'first');
+    ref_row_matches_current = (ref_library.reference_row_id == input_dataset.window_table.row_id(row_index));
+    if ~isempty(ref_idx) && ~ref_row_matches_current
+        J_hat = ref_library.templates{ref_idx};
+        source_token = "reference_library";
+        return;
     end
-    J_hat = 0.5 * (J_hat + J_hat.');
+
+    if strcmpi(char(string(cfg.stage11.reference_fallback)), 'leave_one_out')
+        [J_hat, ok] = local_leave_one_out_template(key_value, row_index, input_dataset, contrib_bank, cfg.stage11.partition_mode);
+        if ok
+            source_token = "leave_one_out";
+            return;
+        end
+    end
+end
+
+
+function [J_hat, ok] = local_leave_one_out_template(key_value, row_index, input_dataset, contrib_bank, partition_mode)
+    WT = input_dataset.window_table;
+    theta_id = WT.theta_id(row_index);
+    J_hat = [];
+    ok = false;
+
+    acc = [];
+    n = 0;
+    for r = 1:numel(contrib_bank)
+        if WT.theta_id(r) ~= theta_id || WT.row_id(r) == WT.row_id(row_index)
+            continue;
+        end
+        J_meta_r = contrib_bank(r).J_meta;
+        if isempty(J_meta_r)
+            continue;
+        end
+        keys_r = local_partition_keys(J_meta_r, partition_mode);
+        match_idx = find(keys_r == key_value);
+        for j = 1:numel(match_idx)
+            J = contrib_bank(r).J_list{match_idx(j)};
+            if isempty(acc)
+                acc = zeros(size(J));
+            end
+            acc = acc + J;
+            n = n + 1;
+        end
+    end
+
+    if n < 1
+        return;
+    end
+
+    J_hat = 0.5 * ((acc / n) + (acc / n).');
+    ok = true;
+end
+
+
+function token = local_reduce_sources(used_sources, partition_valid)
+    if ~partition_valid
+        token = "invalid";
+        return;
+    end
+    used_sources = used_sources(strlength(used_sources) > 0);
+    if isempty(used_sources)
+        token = "invalid";
+    elseif all(used_sources == used_sources(1))
+        token = used_sources(1);
+    else
+        token = "mixed";
+    end
 end
