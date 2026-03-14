@@ -61,6 +61,9 @@ function [cfg, stage_opts, mode] = rs_apply_parallel_policy(stage_name, cfg, opt
             use_parallel = strcmp(mode, 'parallel');
             cfg.stage08.smallgrid.use_parallel = use_parallel;
             cfg.stage08c.use_parallel = use_parallel;
+
+        case 'stage09'
+            cfg.stage09.use_parallel = strcmp(mode, 'parallel');
     end
 end
 

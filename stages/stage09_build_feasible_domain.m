@@ -1,4 +1,4 @@
-function out = stage09_build_feasible_domain(cfg)
+function out = stage09_build_feasible_domain(cfg, opts)
 %STAGE09_BUILD_FEASIBLE_DOMAIN
 % Stage09.4:
 %   Scan the Walker parameter grid and build the feasible domain under
@@ -19,7 +19,11 @@ function out = stage09_build_feasible_domain(cfg)
     if nargin < 1 || isempty(cfg)
         cfg = default_params();
     end
+    if nargin < 2 || isempty(opts)
+        opts = struct();
+    end
     cfg = stage09_prepare_cfg(cfg);
+    cfg = local_apply_stage09_opts(cfg, opts);
     cfg.project_stage = 'stage09_build_feasible_domain';
 
     seed_rng(cfg.random.seed);
@@ -75,15 +79,24 @@ function out = stage09_build_feasible_domain(cfg)
     result_bank(1) = first_result;
 
     t_scan = tic;
-    for it = 2:nTheta
-        row = Tsearch(it,:);
-        result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg);
+    use_parallel = local_prepare_stage09_parallel(cfg, log_fid);
+    disable_progress = isfield(cfg.stage09, 'disable_progress') && cfg.stage09.disable_progress;
+    if use_parallel
+        parfor it = 2:nTheta
+            row = Tsearch(it,:);
+            result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg);
+        end
+    else
+        for it = 2:nTheta
+            row = Tsearch(it,:);
+            result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg);
 
-        if mod(it, cfg.stage09.scan_log_every) == 0 || it == 2 || it == nTheta
-            log_msg(log_fid, 'INFO', ...
-                'Scanned %d / %d designs (%.1f%%). Current: h=%.0f km, i=%.0f deg, P=%d, T=%d, feasible=%d', ...
-                it, nTheta, 100*it/nTheta, ...
-                row.h_km, row.i_deg, row.P, row.T, result_bank(it).feasible_flag);
+            if ~disable_progress && (mod(it, cfg.stage09.scan_log_every) == 0 || it == 2 || it == nTheta)
+                log_msg(log_fid, 'INFO', ...
+                    'Scanned %d / %d designs (%.1f%%). Current: h=%.0f km, i=%.0f deg, P=%d, T=%d, feasible=%d', ...
+                    it, nTheta, 100*it/nTheta, ...
+                    row.h_km, row.i_deg, row.P, row.T, result_bank(it).feasible_flag);
+            end
         end
     end
 
@@ -171,6 +184,86 @@ function out = stage09_build_feasible_domain(cfg)
         fprintf('Summary CSV    : %s\n', summary_csv);
     end
     fprintf('=======================================================\n');
+end
+
+
+function cfg = local_apply_stage09_opts(cfg, opts)
+
+    if isfield(opts, 'mode') && ~isempty(opts.mode)
+        cfg.stage09.use_parallel = strcmpi(string(opts.mode), "parallel");
+    end
+
+    if isfield(opts, 'parallel_config') && isstruct(opts.parallel_config)
+        if isfield(opts.parallel_config, 'profile_name') && ~isempty(opts.parallel_config.profile_name)
+            cfg.stage09.parallel_pool_profile = char(string(opts.parallel_config.profile_name));
+        end
+        if isfield(opts.parallel_config, 'num_workers')
+            cfg.stage09.parallel_num_workers = opts.parallel_config.num_workers;
+        end
+        if isfield(opts.parallel_config, 'auto_start_pool') && ~isempty(opts.parallel_config.auto_start_pool)
+            cfg.stage09.auto_start_pool = logical(opts.parallel_config.auto_start_pool);
+        end
+    end
+
+    if isfield(opts, 'disable_progress') && ~isempty(opts.disable_progress)
+        cfg.stage09.disable_progress = logical(opts.disable_progress);
+    end
+
+    if isfield(opts, 'benchmark_mode') && logical(opts.benchmark_mode)
+        cfg.stage09.write_csv = false;
+        cfg.stage09.disable_progress = true;
+    end
+
+    if isfield(opts, 'benchmark_h_grid_km') && ~isempty(opts.benchmark_h_grid_km)
+        cfg.stage09.search_domain.h_grid_km = opts.benchmark_h_grid_km;
+    end
+    if isfield(opts, 'benchmark_i_grid_deg') && ~isempty(opts.benchmark_i_grid_deg)
+        cfg.stage09.search_domain.i_grid_deg = opts.benchmark_i_grid_deg;
+    end
+    if isfield(opts, 'benchmark_P_grid') && ~isempty(opts.benchmark_P_grid)
+        cfg.stage09.search_domain.P_grid = opts.benchmark_P_grid;
+    end
+    if isfield(opts, 'benchmark_T_grid') && ~isempty(opts.benchmark_T_grid)
+        cfg.stage09.search_domain.T_grid = opts.benchmark_T_grid;
+    end
+    if isfield(opts, 'benchmark_case_limit') && ~isempty(opts.benchmark_case_limit)
+        cfg.stage09.scan_case_limit = opts.benchmark_case_limit;
+    end
+end
+
+
+function use_parallel = local_prepare_stage09_parallel(cfg, log_fid)
+    use_parallel = false;
+
+    if ~isfield(cfg.stage09, 'use_parallel') || ~cfg.stage09.use_parallel
+        log_msg(log_fid, 'INFO', 'Parallel disabled by cfg.stage09.use_parallel=false.');
+        return;
+    end
+
+    requested_profile = string(cfg.stage09.parallel_pool_profile);
+    if isfield(cfg.stage09, 'prefer_thread_pool_for_batch') && cfg.stage09.prefer_thread_pool_for_batch && ...
+            isfield(cfg.stage09, 'disable_progress') && cfg.stage09.disable_progress && ...
+            requested_profile == "local"
+        requested_profile = "threads";
+        cfg.stage09.parallel_pool_profile = char(requested_profile);
+    end
+
+    try
+        pool = gcp('nocreate');
+        if isempty(pool) && cfg.stage09.auto_start_pool
+            pool = ensure_parallel_pool(char(requested_profile), cfg.stage09.parallel_num_workers);
+        end
+        use_parallel = ~isempty(pool);
+        if use_parallel
+            log_msg(log_fid, 'INFO', 'Parallel pool ready. %s', ...
+                get_parallel_pool_desc(pool, requested_profile));
+        else
+            log_msg(log_fid, 'INFO', 'No parallel pool available. Falling back to serial.');
+        end
+    catch ME
+        use_parallel = false;
+        log_msg(log_fid, 'INFO', 'Parallel unavailable. Falling back to serial. Reason: %s', ME.message);
+    end
 end
 
 

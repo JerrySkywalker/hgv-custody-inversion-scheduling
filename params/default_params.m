@@ -72,6 +72,12 @@ function cfg = default_params()
     cfg.benchmark.stage08c_i_deg_list = [50, 60];
     cfg.benchmark.stage08c_PT_pairs = [8, 4; 10, 4; 12, 4];
     cfg.benchmark.stage08c_max_tw_count = 3;
+    cfg.benchmark.stage09_repeat = 3;
+    cfg.benchmark.stage09_h_grid_km = [800, 1000];
+    cfg.benchmark.stage09_i_grid_deg = [30, 60];
+    cfg.benchmark.stage09_P_grid = [4, 6];
+    cfg.benchmark.stage09_T_grid = [4, 6];
+    cfg.benchmark.stage09_case_limit = 16;
 
     % ---------------------------
     % run_stages execution policy note
@@ -979,6 +985,12 @@ function cfg = default_params()
     % For formal scans, I recommend false.
     % For smoke tests, true can save time.
     cfg.stage09.use_early_stop = false;
+    cfg.stage09.use_parallel = false;
+    cfg.stage09.auto_start_pool = true;
+    cfg.stage09.parallel_pool_profile = 'threads';
+    cfg.stage09.parallel_num_workers = [];
+    cfg.stage09.disable_progress = false;
+    cfg.stage09.prefer_thread_pool_for_batch = true;
 
     cfg.stage09.visibility_min_for_custody = 2;
     cfg.stage09.save_case_window_bank = false;
