@@ -40,6 +40,8 @@ function sub_table = stage11_compute_subspace_bound(input_dataset, weak_table, c
         end
         mu_lower = beta - E_perp_norm;
         L_sub = 0.5 * ((alpha + e) + mu_lower - sqrt((mu_lower - (alpha + e))^2 + 4 * g_norm^2));
+        sub_valid = logical(weak_table.partition_valid(i)) && isfinite(alpha) && isfinite(beta) ...
+            && isfinite(e) && isfinite(g_norm) && isfinite(E_perp_norm) && isfinite(L_sub);
 
         rows{i,1} = struct( ... %#ok<AGROW>
             'row_id', WT.row_id(i), ...
@@ -51,7 +53,7 @@ function sub_table = stage11_compute_subspace_bound(input_dataset, weak_table, c
             'E_perp_norm', E_perp_norm, ...
             'mu_lower', mu_lower, ...
             'L_sub', real(L_sub), ...
-            'sub_valid', WT.truth_lambda_min(i) + 1e-9 >= real(L_sub));
+            'sub_valid', sub_valid);
     end
 
     sub_table = struct2table(vertcat(rows{:}));

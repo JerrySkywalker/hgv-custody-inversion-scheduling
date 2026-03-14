@@ -11,12 +11,14 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
     L_sub_worst = nan(n_case, 1);
     L_blk_worst = nan(n_case, 1);
     L_new_worst = nan(n_case, 1);
+    Dg_new_worst = nan(n_case, 1);
     new_case_valid = false(n_case, 1);
 
     has_weak = ismember('L_weak', window_table.Properties.VariableNames);
     has_sub = ismember('L_sub', window_table.Properties.VariableNames);
     has_blk = ismember('L_blk', window_table.Properties.VariableNames);
     has_new = ismember('L_new', window_table.Properties.VariableNames);
+    has_dg_new = ismember('Dg_new_window', window_table.Properties.VariableNames);
 
     for i = 1:n_case
         idx = case_table.window_index_list{i};
@@ -30,8 +32,14 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
             L_blk_worst(i) = min(window_table.L_blk(idx));
         end
         if has_new
-            L_new_worst(i) = min(window_table.L_new(idx));
-            new_case_valid(i) = all(window_table.new_valid(idx));
+            valid_idx = idx(window_table.new_valid(idx));
+            if ~isempty(valid_idx)
+                L_new_worst(i) = min(window_table.L_new(valid_idx));
+                if has_dg_new
+                    Dg_new_worst(i) = min(window_table.Dg_new_window(valid_idx));
+                end
+                new_case_valid(i) = true;
+            end
         end
     end
 
@@ -39,12 +47,13 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
     case_table.L_sub_worst = L_sub_worst;
     case_table.L_blk_worst = L_blk_worst;
     case_table.L_new_worst = L_new_worst;
+    case_table.Dg_new_worst = Dg_new_worst;
     case_table.new_case_valid = new_case_valid;
     case_table.new_case_label = strings(n_case, 1);
     for i = 1:n_case
-        if ~case_table.old_zero_case_pass(i)
+        if ~case_table.new_case_valid(i)
             case_table.new_case_label(i) = "reject";
-        elseif case_table.L_new_worst(i) >= cfg.stage11.threshold_truth
+        elseif case_table.Dg_new_worst(i) >= 1
             case_table.new_case_label(i) = "safe_pass";
         else
             case_table.new_case_label(i) = "warn_pass";

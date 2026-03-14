@@ -90,13 +90,15 @@ function out = stage11_entry(cfg)
         joint_table = stage11_compute_joint_bound(out.window_table, out.weak_table, out.sub_table, out.blk_table, cfg);
         out.joint_table = joint_table;
         out.window_table.L_new = joint_table.L_new;
+        out.window_table.Dg_new_window = joint_table.Dg_new_window;
         out.window_table.best_bound_source = joint_table.best_bound_source;
+        out.window_table.new_stage_valid = joint_table.new_valid;
         out.window_table.new_valid = joint_table.new_valid;
         out.window_table.new_stage_label = strings(height(out.window_table), 1);
         for i = 1:height(out.window_table)
-            if ~out.window_table.old_zero_pass(i)
+            if ~out.window_table.new_stage_valid(i)
                 out.window_table.new_stage_label(i) = "reject";
-            elseif out.window_table.L_new(i) >= cfg.stage11.threshold_truth
+            elseif out.window_table.Dg_new_window(i) >= 1
                 out.window_table.new_stage_label(i) = "safe_pass";
             else
                 out.window_table.new_stage_label(i) = "warn_pass";
