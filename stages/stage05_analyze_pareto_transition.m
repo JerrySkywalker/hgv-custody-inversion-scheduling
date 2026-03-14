@@ -24,7 +24,7 @@ function out = stage05_analyze_pareto_transition()
         try
             [project_root, results_dir] = local_project_root();
             logs_dir   = fullfile(results_dir, 'logs');
-            figs_dir   = fullfile(results_dir, 'figures');
+            figs_dir   = fullfile(results_dir, 'figs');
             tables_dir = fullfile(results_dir, 'tables');
             cache_dir  = fullfile(results_dir, 'cache');
     

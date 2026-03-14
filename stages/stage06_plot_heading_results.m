@@ -11,8 +11,8 @@ function out = stage06_plot_heading_results(cfg)
     %   Fig4: pass-ratio envelope compare by inclination
     %
     % Saved to:
-    %   results/figures/stage06_*.png
-    %   results/figures/stage06_*.fig
+    %   results/figs/stage06_*.png
+    %   results/figs/stage06_*.fig
 
         startup();
         if nargin < 1 || isempty(cfg)
