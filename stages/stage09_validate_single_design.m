@@ -50,8 +50,9 @@ function out = stage09_validate_single_design(cfg)
 
     row = Tsearch(1,:);
     gamma_eff_scalar = 1.0;
+    eval_ctx = build_stage09_eval_context(trajs_in, cfg, gamma_eff_scalar);
 
-    result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg);
+    result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
 
     summary_table = table( ...
         row.h_km, row.i_deg, row.P, row.T, row.F, row.Ns, ...

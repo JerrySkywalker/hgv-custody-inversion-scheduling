@@ -1,4 +1,4 @@
-function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, hard_order)
+function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, eval_ctx, hard_order)
 %EVALUATE_SINGLE_LAYER_WALKER_STAGE09
 % Evaluate one Walker design against the full Stage09 case family.
 %
@@ -7,6 +7,7 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
 %   trajs_in         : trajectory family / casebank
 %   gamma_eff_scalar : scalar geometric threshold used by DG
 %   cfg              : default params (already prepared by stage09_prepare_cfg)
+%   eval_ctx         : optional shared context from build_stage09_eval_context
 %   hard_order       : optional case visiting order
 %
 % Output:
@@ -29,19 +30,18 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
 %     n_case_evaluated
 %     failed_early
 
-    if nargin < 5 || isempty(hard_order)
+    if nargin < 5
+        eval_ctx = [];
+    end
+    if nargin < 6 || isempty(hard_order)
         hard_order = (1:numel(trajs_in)).';
     end
 
-    cfg = stage09_prepare_cfg(cfg);
-
-    % ------------------------------------------------------------
-    % Build common time grid
-    % ------------------------------------------------------------
-    t_end_all = arrayfun(@(s) s.traj.t_s(end), trajs_in);
-    t_max = max(t_end_all);
-    dt = cfg.stage02.Ts_s;
-    t_s_common = (0:dt:t_max).';
+    if isempty(eval_ctx)
+        eval_ctx = build_stage09_eval_context(trajs_in, cfg, gamma_eff_scalar);
+    end
+    cfg = eval_ctx.cfg;
+    t_s_common = eval_ctx.t_s_common;
 
     % ------------------------------------------------------------
     % Build Walker by patching Stage03 config
@@ -54,7 +54,7 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
     cfg_eval.stage03.F = row.F;
 
     % Freeze Stage09 geometric threshold for the current evaluator
-    cfg_eval.stage09.gamma_eff_scalar = gamma_eff_scalar;
+    cfg_eval.stage09.gamma_eff_scalar = eval_ctx.gamma_eff_scalar;
 
     % Use Tw_star inherited/frozen by Stage09.1
     if isfield(cfg_eval.stage09, 'Tw_star_s') && ~isempty(cfg_eval.stage09.Tw_star_s)
@@ -67,13 +67,13 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
     % ------------------------------------------------------------
     % Evaluate full case family
     % ------------------------------------------------------------
-    nCase = numel(trajs_in);
+    nCase = eval_ctx.nCase;
 
-    case_id = strings(nCase,1);
-    family = strings(nCase,1);
-    subfamily = strings(nCase,1);
-    entry_id = nan(nCase,1);
-    heading_offset_deg = nan(nCase,1);
+    case_id = eval_ctx.case_id;
+    family = eval_ctx.family;
+    subfamily = eval_ctx.subfamily;
+    entry_id = eval_ctx.entry_id;
+    heading_offset_deg = eval_ctx.heading_offset_deg;
 
     DG_case = nan(nCase,1);
     DA_case = nan(nCase,1);
@@ -215,23 +215,6 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
         fail_tag_case(k) = local_case_fail_tag( ...
             DG_case(k), DA_case(k), DT_case(k), cfg.stage09);
 
-        case_id(k) = string(traj_case.case.case_id);
-
-        if isfield(traj_case.case, 'family')
-            family(k) = string(traj_case.case.family);
-        end
-        if isfield(traj_case.case, 'subfamily')
-            subfamily(k) = string(traj_case.case.subfamily);
-        end
-        if isfield(traj_case.case, 'entry_id')
-            entry_id(k) = traj_case.case.entry_id;
-        elseif isfield(traj_case.case, 'entry_point_id')
-            entry_id(k) = traj_case.case.entry_point_id;
-        end
-        if isfield(traj_case.case, 'heading_offset_deg')
-            heading_offset_deg(k) = traj_case.case.heading_offset_deg;
-        end
-
         mean_vis(k) = s_vis.mean_num_visible;
         dual_ratio(k) = s_vis.dual_coverage_ratio;
 
@@ -254,25 +237,6 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
 
     % Fill metadata for not-yet-evaluated cases after early stop
     for k = 1:nCase
-        if strlength(case_id(k)) == 0
-            case_id(k) = string(trajs_in(k).case.case_id);
-        end
-        if strlength(family(k)) == 0 && isfield(trajs_in(k).case, 'family')
-            family(k) = string(trajs_in(k).case.family);
-        end
-        if strlength(subfamily(k)) == 0 && isfield(trajs_in(k).case, 'subfamily')
-            subfamily(k) = string(trajs_in(k).case.subfamily);
-        end
-        if ~isfinite(entry_id(k))
-            if isfield(trajs_in(k).case, 'entry_id')
-                entry_id(k) = trajs_in(k).case.entry_id;
-            elseif isfield(trajs_in(k).case, 'entry_point_id')
-                entry_id(k) = trajs_in(k).case.entry_point_id;
-            end
-        end
-        if ~isfinite(heading_offset_deg(k)) && isfield(trajs_in(k).case, 'heading_offset_deg')
-            heading_offset_deg(k) = trajs_in(k).case.heading_offset_deg;
-        end
         if strlength(fail_tag_case(k)) == 0
             fail_tag_case(k) = "";
         end

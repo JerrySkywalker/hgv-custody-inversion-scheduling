@@ -69,11 +69,12 @@ function out = stage09_build_feasible_domain(cfg, opts)
     end
 
     gamma_eff_scalar = 1.0;  % placeholder; refined later in calibration stage
+    eval_ctx = build_stage09_eval_context(trajs_in, cfg, gamma_eff_scalar);
 
     % Use the first evaluated design as the struct template, so that
     % later indexed assignment is field-compatible.
     first_row = Tsearch(1,:);
-    first_result = evaluate_single_layer_walker_stage09(first_row, trajs_in, gamma_eff_scalar, cfg);
+    first_result = evaluate_single_layer_walker_stage09(first_row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
 
     result_bank = repmat(first_result, nTheta, 1);
     result_bank(1) = first_result;
@@ -84,12 +85,12 @@ function out = stage09_build_feasible_domain(cfg, opts)
     if use_parallel
         parfor it = 2:nTheta
             row = Tsearch(it,:);
-            result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg);
+            result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
         end
     else
         for it = 2:nTheta
             row = Tsearch(it,:);
-            result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg);
+            result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
 
             if ~disable_progress && (mod(it, cfg.stage09.scan_log_every) == 0 || it == 2 || it == nTheta)
                 log_msg(log_fid, 'INFO', ...
