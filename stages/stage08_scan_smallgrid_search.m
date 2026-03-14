@@ -1,4 +1,4 @@
-function out = stage08_scan_smallgrid_search(cfg)
+function out = stage08_scan_smallgrid_search(cfg, opts)
     %STAGE08_SCAN_SMALLGRID_SEARCH
     % Stage08.4:
     %   Run reduced-grid inversion sensitivity analysis over Tw grid.
@@ -21,12 +21,16 @@ function out = stage08_scan_smallgrid_search(cfg)
     
         startup();
     
-        if nargin < 1 || isempty(cfg)
-            cfg = default_params();
-        end
-        cfg = stage08_prepare_cfg(cfg);
-        cfg = local_prepare_stage08_smallgrid_cfg(cfg);
-        cfg.project_stage = 'stage08_scan_smallgrid_search';
+    if nargin < 1 || isempty(cfg)
+        cfg = default_params();
+    end
+    if nargin < 2 || isempty(opts)
+        opts = struct();
+    end
+    cfg = stage08_prepare_cfg(cfg);
+    cfg = local_prepare_stage08_smallgrid_cfg(cfg);
+    cfg = local_apply_stage08_opts(cfg, opts);
+    cfg.project_stage = 'stage08_scan_smallgrid_search';
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -61,7 +65,8 @@ function out = stage08_scan_smallgrid_search(cfg)
     
         assert(isfield(S81, 'out') && isfield(S81.out, 'scope'), ...
             'Invalid Stage08.1 cache: missing out.scope');
-        scope = S81.out.scope;
+    scope = S81.out.scope;
+    scope = local_apply_smallgrid_scope_overrides(scope, cfg, opts);
     
         log_msg(log_fid, 'INFO', 'Loaded Stage08.1 scope: %s', stage08_scope_file);
     
@@ -90,9 +95,9 @@ function out = stage08_scan_smallgrid_search(cfg)
     
         assert(isfield(scope, 'smallgrid_table') && istable(scope.smallgrid_table) && ...
             ~isempty(scope.smallgrid_table), 'Stage08.1 smallgrid_table is missing or empty.');
-        smallgrid_table = scope.smallgrid_table;
+    smallgrid_table = scope.smallgrid_table;
     
-        Tw_grid_s = scope.Tw_grid_s(:).';
+    Tw_grid_s = scope.Tw_grid_s(:).';
     
         nCase = height(casebank_table);
         nCfg = height(smallgrid_table);
@@ -131,10 +136,11 @@ function out = stage08_scan_smallgrid_search(cfg)
         nComplete = 0;
         progress_step = cfg.stage08.smallgrid.progress_step;
     
-        if use_parallel
-            q = parallel.pool.DataQueue;
-            afterEach(q, @progressCallback);
-        else
+    disable_progress = cfg.stage08.smallgrid.disable_progress;
+    if use_parallel && ~disable_progress
+        q = parallel.pool.DataQueue;
+        afterEach(q, @progressCallback);
+    else
             q = [];
         end
     
@@ -152,7 +158,9 @@ function out = stage08_scan_smallgrid_search(cfg)
             for iTask = 1:nTask
                 raw_rows{iTask} = local_run_smallgrid_task( ...
                     task_table(iTask, :), smallgrid_table, case_items, casebank_table, cfg, []);
-                progressCallback(local_make_progress_msg(raw_rows{iTask}, iTask));
+                if ~disable_progress
+                    progressCallback(local_make_progress_msg(raw_rows{iTask}, iTask));
+                end
             end
         end
     
@@ -364,6 +372,9 @@ function out = stage08_scan_smallgrid_search(cfg)
         end
         if ~isfield(cfg.stage08.smallgrid, 'progress_step') || isempty(cfg.stage08.smallgrid.progress_step)
             cfg.stage08.smallgrid.progress_step = 1;
+        end
+        if ~isfield(cfg.stage08.smallgrid, 'disable_progress') || isempty(cfg.stage08.smallgrid.disable_progress)
+            cfg.stage08.smallgrid.disable_progress = false;
         end
     end
     
@@ -1015,5 +1026,38 @@ function out = stage08_scan_smallgrid_search(cfg)
             if ~isempty(tok)
                 entry_id = str2double(tok{1});
             end
+        end
+    end
+
+    function cfg = local_apply_stage08_opts(cfg, opts)
+        if isfield(opts, 'mode') && ~isempty(opts.mode)
+            cfg.stage08.smallgrid.use_parallel = strcmpi(string(opts.mode), "parallel");
+        end
+
+        if isfield(opts, 'parallel_config') && isstruct(opts.parallel_config)
+            if isfield(opts.parallel_config, 'num_workers') && ~isempty(opts.parallel_config.num_workers)
+                cfg.stage08.smallgrid.max_workers = opts.parallel_config.num_workers;
+            end
+        end
+
+        if isfield(opts, 'disable_progress') && ~isempty(opts.disable_progress)
+            cfg.stage08.smallgrid.disable_progress = logical(opts.disable_progress);
+        end
+    end
+
+    function scope = local_apply_smallgrid_scope_overrides(scope, cfg, opts)
+        benchmark_mode = isfield(opts, 'benchmark_mode') && opts.benchmark_mode;
+        if benchmark_mode
+            cfg.stage08.smallgrid.make_plot = false;
+        end
+
+        if isfield(opts, 'benchmark_smallgrid_max_config_count') && ~isempty(opts.benchmark_smallgrid_max_config_count)
+            n_cfg = min(height(scope.smallgrid_table), opts.benchmark_smallgrid_max_config_count);
+            scope.smallgrid_table = scope.smallgrid_table(1:n_cfg, :);
+        end
+
+        if isfield(opts, 'benchmark_smallgrid_max_tw_count') && ~isempty(opts.benchmark_smallgrid_max_tw_count)
+            n_tw = min(numel(scope.Tw_grid_s), opts.benchmark_smallgrid_max_tw_count);
+            scope.Tw_grid_s = scope.Tw_grid_s(1:n_tw);
         end
     end

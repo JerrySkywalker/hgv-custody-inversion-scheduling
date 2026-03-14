@@ -64,6 +64,9 @@ function cfg = default_params()
     cfg.benchmark.stage07_entry_count = 4;
     cfg.benchmark.stage07_heading_step_deg = 15;
     cfg.benchmark.stage07_heading_max_abs_offset_deg = 45;
+    cfg.benchmark.stage08_repeat = 3;
+    cfg.benchmark.stage08_smallgrid_max_config_count = 6;
+    cfg.benchmark.stage08_smallgrid_max_tw_count = 3;
 
     % ---------------------------
     % run_stages execution policy note
@@ -797,6 +800,7 @@ function cfg = default_params()
     cfg.stage08.smallgrid.max_workers = inf;   % 或者 8 / 12
     cfg.stage08.smallgrid.pool_idle_timeout_min = 120;
     cfg.stage08.smallgrid.progress_step = 1;   % every 1 task completion feedback
+    cfg.stage08.smallgrid.disable_progress = false;
 
     % -------------------------------------------------
     % Stage08.4b feasibility profile
