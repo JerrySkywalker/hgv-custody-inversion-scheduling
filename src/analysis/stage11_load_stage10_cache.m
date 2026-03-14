@@ -9,7 +9,7 @@ function stage10_meta = stage11_load_stage10_cache(cfg)
     stage10_meta = struct();
     stage10_meta.entry = upper(char(string(cfg.stage11.source_stage10_entry)));
     stage10_meta.loaded_at = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
-    stage10_meta.cache_reuse_mode = "metadata_only";
+    stage10_meta.cache_reuse_mode = "metadata_reused_window_truth_recomputed";
 
     stage10_meta.e1 = local_load_latest_cache(cfg.paths.cache, 'stage10E1_screen_*.mat', true);
     stage10_meta.e = local_load_latest_cache(cfg.paths.cache, 'stage10E_screen_*.mat', false);
@@ -38,6 +38,9 @@ function stage10_meta = stage11_load_stage10_cache(cfg)
         'truth', cfg.stage11.threshold_truth, ...
         'zero', cfg.stage11.threshold_zero, ...
         'bcirc', cfg.stage11.threshold_bcirc);
+    stage10_meta.cache_files = struct( ...
+        'stage10E1', string(stage10_meta.e1.cache_file), ...
+        'stage10E', string(stage10_meta.e.cache_file));
 end
 
 

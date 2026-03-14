@@ -29,6 +29,9 @@ function report_file = stage11_export_report(out, cfg, timestamp)
     fprintf(fid, '- n_theta: %d\n', out.summary_table.n_theta);
     fprintf(fid, '- n_case: %d\n', out.summary_table.n_case);
     fprintf(fid, '- n_window: %d\n\n', out.summary_table.n_window);
+    fprintf(fid, '- cache_reuse_mode: `%s`\n', out.summary_table.cache_reuse_mode);
+    fprintf(fid, '- n_windows_reused: %d\n', out.summary_table.n_windows_reused);
+    fprintf(fid, '- n_windows_recomputed: %d\n\n', out.summary_table.n_windows_recomputed);
 
     fprintf(fid, '## Label Summary\n\n');
     fprintf(fid, '- old safe / warn / reject: %d / %d / %d\n', n_old_safe, n_old_warn, n_old_reject);

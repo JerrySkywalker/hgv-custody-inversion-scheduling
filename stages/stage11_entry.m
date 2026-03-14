@@ -29,6 +29,12 @@ function out = stage11_entry(cfg)
     log_msg(log_fid, 'INFO', 'Stage11 started.');
 
     input_dataset = stage11_build_input_dataset(cfg);
+    log_msg(log_fid, 'INFO', 'Stage10.E1 cache reused: %s', input_dataset.cache_files.stage10E1);
+    log_msg(log_fid, 'INFO', 'Stage10.E cache reused: %s', input_dataset.cache_files.stage10E);
+    log_msg(log_fid, 'INFO', 'Cache reuse mode: %s', input_dataset.cache_reuse_mode);
+    log_msg(log_fid, 'INFO', 'Window reuse stats: reused=%d recomputed=%d', ...
+        input_dataset.n_windows_reused, input_dataset.n_windows_recomputed);
+
     out = struct();
     out.cfg = cfg;
     out.input_dataset = input_dataset;

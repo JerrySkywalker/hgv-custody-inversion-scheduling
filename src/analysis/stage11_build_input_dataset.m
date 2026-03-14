@@ -143,6 +143,7 @@ function input_dataset = stage11_build_input_dataset(cfg)
     input_dataset.cache_reuse_mode = stage10_meta.cache_reuse_mode;
     input_dataset.n_windows_reused = 0;
     input_dataset.n_windows_recomputed = height(input_dataset.window_table);
+    input_dataset.cache_files = stage10_meta.cache_files;
 end
 
 
