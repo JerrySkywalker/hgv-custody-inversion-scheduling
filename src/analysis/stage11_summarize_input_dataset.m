@@ -44,4 +44,10 @@ function summary_table = stage11_summarize_input_dataset(input_source, cfg)
         summary_table.n_new_valid = sum(input_source.joint_table.new_valid);
         summary_table.mean_L_new = mean(input_source.joint_table.L_new);
     end
+    if isfield(input_source, 'sanity_table') && ~isempty(input_source.sanity_table)
+        summary_table.sanity_fail_reference_leakage = input_source.sanity_table.sanity_fail_reference_leakage(1);
+        summary_table.sanity_fail_sub_truth_overlap = input_source.sanity_table.sanity_fail_sub_truth_overlap(1);
+        summary_table.sanity_fail_joint_gap_collapse = input_source.sanity_table.sanity_fail_joint_gap_collapse(1);
+        summary_table.sanity_fail_best_source_sub_dominance = input_source.sanity_table.sanity_fail_best_source_sub_dominance(1);
+    end
 end

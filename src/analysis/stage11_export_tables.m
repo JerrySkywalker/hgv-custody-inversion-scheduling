@@ -13,10 +13,16 @@ function files = stage11_export_tables(out, cfg, timestamp)
         sprintf('stage11_window_table_%s_%s.csv', cfg.stage11.run_tag, timestamp));
     case_csv = fullfile(cfg.paths.tables, ...
         sprintf('stage11_case_table_%s_%s.csv', cfg.stage11.run_tag, timestamp));
+    sanity_csv = fullfile(cfg.paths.tables, ...
+        sprintf('stage11_sanity_%s_%s.csv', cfg.stage11.run_tag, timestamp));
 
     writetable(out.summary_table, summary_csv);
     writetable(stage11_make_window_export_table(out.window_table), window_csv);
     writetable(stage11_make_case_export_table(out.case_table), case_csv);
+    if isfield(out, 'sanity_table') && ~isempty(out.sanity_table)
+        writetable(out.sanity_table, sanity_csv);
+        files.sanity_csv = sanity_csv;
+    end
 
     files.summary_csv = summary_csv;
     files.window_csv = window_csv;

@@ -48,4 +48,20 @@ function report_file = stage11_export_report(out, cfg, timestamp)
     fprintf(fid, '\n## Auxiliary Bound Note\n\n');
     fprintf(fid, '- `L_partblk` is treated as a partition-local auxiliary bound in this revision.\n');
     fprintf(fid, '- It is not reported as a strict block Gershgorin theorem validation result.\n');
+
+    if isfield(out, 'sanity_table') && ~isempty(out.sanity_table)
+        S = out.sanity_table(1,:);
+        fprintf(fid, '\n## Sanity Checks\n\n');
+        fprintf(fid, '- eta_pi min / median / max: %.6g / %.6g / %.6g\n', S.eta_pi_min, S.eta_pi_median, S.eta_pi_max);
+        fprintf(fid, '- delta_sub min / median / max: %.6g / %.6g / %.6g\n', S.delta_sub_min, S.delta_sub_median, S.delta_sub_max);
+        fprintf(fid, '- delta_new min / median / max: %.6g / %.6g / %.6g\n', S.delta_new_min, S.delta_new_median, S.delta_new_max);
+        fprintf(fid, '- reference_leak_ratio: %.6g\n', S.reference_leak_ratio);
+        fprintf(fid, '- sub_overlap_ratio: %.6g\n', S.sub_overlap_ratio);
+        fprintf(fid, '- joint_gap_ratio: %.6g\n', S.joint_gap_ratio);
+        fprintf(fid, '- best_source_sub_ratio: %.6g\n', S.best_source_sub_ratio);
+        fprintf(fid, '- sanity_fail_reference_leakage: %d\n', S.sanity_fail_reference_leakage);
+        fprintf(fid, '- sanity_fail_sub_truth_overlap: %d\n', S.sanity_fail_sub_truth_overlap);
+        fprintf(fid, '- sanity_fail_joint_gap_collapse: %d\n', S.sanity_fail_joint_gap_collapse);
+        fprintf(fid, '- sanity_fail_best_source_sub_dominance: %d\n', S.sanity_fail_best_source_sub_dominance);
+    end
 end

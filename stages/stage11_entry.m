@@ -115,6 +115,10 @@ function out = stage11_entry(cfg)
         out.case_table = stage11_aggregate_cases(out.case_table, out.window_table, cfg);
     end
 
+    [sanity_table, sanity_flags] = stage11_sanity_checks(out, cfg);
+    out.sanity_table = sanity_table;
+    out.sanity_flags = sanity_flags;
+
     summary_table = stage11_summarize_input_dataset(out, cfg);
 
     out.summary_table = summary_table;
