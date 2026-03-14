@@ -51,69 +51,29 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         % ============================================================
         % Load caches
         % ============================================================
-        stage08_scope_file = local_find_latest_cache(cfg.paths.cache, ...
-            sprintf('stage08_define_window_scope_%s_*.mat', run_tag));
-        S81 = load(stage08_scope_file);
-        assert(isfield(S81, 'out') && isfield(S81.out, 'scope'), ...
-            'Invalid Stage08.1 cache: missing out.scope');
-        scope = S81.out.scope;
+        [scope_base, nominal_bank, risk_table, selection_table, stage08_scope_file, ...
+            stage02_file, stage07_risk_file, stage07_sel_file] = local_load_stage08c_inputs(cfg, run_tag);
         log_msg(log_fid, 'INFO', 'Loaded Stage08.1 scope: %s', stage08_scope_file);
-    
-        stage02_file = local_find_latest_cache(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
-        S2 = load(stage02_file);
-        assert(isfield(S2, 'out') && isfield(S2.out, 'trajbank') && isfield(S2.out.trajbank, 'nominal'), ...
-            'Invalid Stage02 cache: missing out.trajbank.nominal');
-        nominal_bank = S2.out.trajbank.nominal;
         log_msg(log_fid, 'INFO', 'Loaded Stage02 nominal cache: %s', stage02_file);
-    
-        stage07_risk_file = local_find_latest_stage07_cache( ...
-            cfg.paths.cache, 'stage07_scan_heading_risk_map', cfg);
-        S73 = load(stage07_risk_file);
-        risk_table = local_extract_first_table(S73);
-        assert(istable(risk_table) && ~isempty(risk_table), ...
-            'Failed to resolve Stage07.3 risk table.');
         log_msg(log_fid, 'INFO', 'Loaded Stage07.3 risk map: %s', stage07_risk_file);
         log_msg(log_fid, 'INFO', 'Stage07.3 risk rows = %d', height(risk_table));
-    
-        stage07_sel_file = local_find_latest_stage07_cache( ...
-            cfg.paths.cache, 'stage07_select_critical_examples', cfg);
-        S74 = load(stage07_sel_file);
-        selection_table = local_extract_selection_table(S74);
-        assert(istable(selection_table) && ~isempty(selection_table), ...
-            'Failed to resolve Stage07.4 selection table.');
         log_msg(log_fid, 'INFO', 'Loaded Stage07.4 selected examples: %s', stage07_sel_file);
         log_msg(log_fid, 'INFO', 'Stage07.4 selection rows = %d', height(selection_table));
-    
-        scope = local_apply_stage08c_scope_overrides(scope, opts);
+
+        scope = local_apply_stage08c_scope_overrides(scope_base, opts);
         Tw_grid_s = scope.Tw_grid_s(:).';
         log_msg(log_fid, 'INFO', 'Tw grid = %s', mat2str(Tw_grid_s));
-    
+
         % ============================================================
-        % Build hard-case bank
+        % Build workset
         % ============================================================
-        hardcase_table = local_build_hardcase_table(selection_table, risk_table, cfg);
+        [hardcase_table, weakside_smallgrid_table, hardcase_items, task_table] = ...
+            local_prepare_stage08c_workset(selection_table, risk_table, nominal_bank, Tw_grid_s, ...
+            cfg, stage08_scope_file, stage02_file, stage07_risk_file, stage07_sel_file);
         log_msg(log_fid, 'INFO', 'Hard-case bank rows = %d', height(hardcase_table));
-    
-        % ============================================================
-        % Build weak-side small-grid
-        % ============================================================
-        weakside_smallgrid_table = local_build_weakside_smallgrid_table(cfg);
         log_msg(log_fid, 'INFO', 'Weak-side small-grid rows = %d', height(weakside_smallgrid_table));
-    
-        % ============================================================
-        % Rebuild hard-case items from nominal bank
-        % ============================================================
-        nHard = height(hardcase_table);
-        hardcase_items = cell(nHard, 1);
-        for iHard = 1:nHard
-            hardcase_items{iHard} = local_build_case_item_from_row(hardcase_table(iHard, :), nominal_bank, cfg, 'S08C');
-        end
-        log_msg(log_fid, 'INFO', 'Prebuilt hard-case items = %d', nHard);
-    
-        % ============================================================
-        % Build tasks
-        % ============================================================
-        task_table = local_build_task_table(weakside_smallgrid_table, Tw_grid_s);
+        log_msg(log_fid, 'INFO', 'Prebuilt hard-case items = %d', numel(hardcase_items));
+
         nTask = height(task_table);
         log_msg(log_fid, 'INFO', 'Task count = %d', nTask);
     
@@ -247,14 +207,25 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         summary_csv = fullfile(cfg.paths.tables, ...
             sprintf('stage08c_summary_%s_%s.csv', run_tag, timestamp));
     
-        writetable(hardcase_table, hardcase_csv);
-        writetable(weakside_smallgrid_table, smallgrid_csv);
-        writetable(raw_boundary_scan_table, raw_task_csv);
-        writetable(raw_case_scan_table, raw_case_csv);
-        writetable(Tw_summary_table, Tw_csv);
-        writetable(best_config_table, best_csv);
-        writetable(flip_table, flip_csv);
-        writetable(dominant_hardcase_table, dominant_csv);
+        if ~cfg.stage08c.benchmark_mode
+            writetable(hardcase_table, hardcase_csv);
+            writetable(weakside_smallgrid_table, smallgrid_csv);
+            writetable(raw_boundary_scan_table, raw_task_csv);
+            writetable(raw_case_scan_table, raw_case_csv);
+            writetable(Tw_summary_table, Tw_csv);
+            writetable(best_config_table, best_csv);
+            writetable(flip_table, flip_csv);
+            writetable(dominant_hardcase_table, dominant_csv);
+        else
+            hardcase_csv = '';
+            smallgrid_csv = '';
+            raw_task_csv = '';
+            raw_case_csv = '';
+            Tw_csv = '';
+            best_csv = '';
+            flip_csv = '';
+            dominant_csv = '';
+        end
     
         summary_table = table( ...
             string(stage08_scope_file), ...
@@ -285,7 +256,11 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
                 'num_workers', ...
                 'elapsed_seconds'});
     
-        writetable(summary_table, summary_csv);
+        if ~cfg.stage08c.benchmark_mode
+            writetable(summary_table, summary_csv);
+        else
+            summary_csv = '';
+        end
     
         % ============================================================
         % Save MAT
@@ -317,12 +292,16 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         out.files.dominant_csv = dominant_csv;
         out.files.summary_csv = summary_csv;
     
-        cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage08_boundary_window_sensitivity_%s_%s.mat', run_tag, timestamp));
-        save(cache_file, 'out', '-v7.3');
-        out.files.cache_file = cache_file;
-    
-        log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
+        if ~cfg.stage08c.benchmark_mode
+            cache_file = fullfile(cfg.paths.cache, ...
+                sprintf('stage08_boundary_window_sensitivity_%s_%s.mat', run_tag, timestamp));
+            save(cache_file, 'out', '-v7.3');
+            out.files.cache_file = cache_file;
+            log_msg(log_fid, 'INFO', 'Cache saved to: %s', cache_file);
+        else
+            cache_file = '';
+            out.files.cache_file = '';
+        end
         log_msg(log_fid, 'INFO', 'Stage08.4c finished.');
     
         fprintf('\n');
@@ -387,6 +366,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         if ~isfield(f, 'progress_step') || isempty(f.progress_step), f.progress_step = 1; end
         if ~isfield(f, 'disable_progress') || isempty(f.disable_progress), f.disable_progress = false; end
         if ~isfield(f, 'prefer_thread_pool_for_batch') || isempty(f.prefer_thread_pool_for_batch), f.prefer_thread_pool_for_batch = true; end
+        if ~isfield(f, 'benchmark_mode') || isempty(f.benchmark_mode), f.benchmark_mode = false; end
 
         if ~isfield(f, 'make_plot') || isempty(f.make_plot), f.make_plot = true; end
 
@@ -413,6 +393,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         if isfield(opts, 'benchmark_mode') && logical(opts.benchmark_mode)
             cfg.stage08c.make_plot = false;
             cfg.stage08c.disable_progress = true;
+            cfg.stage08c.benchmark_mode = true;
         end
 
         if isfield(opts, 'benchmark_h_km_list') && ~isempty(opts.benchmark_h_km_list)
@@ -441,6 +422,52 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         assert(~isempty(d), 'No cache matched pattern: %s', pattern);
         [~, idx] = max([d.datenum]);
         cache_file = fullfile(d(idx).folder, d(idx).name);
+    end
+
+
+    function [scope, nominal_bank, risk_table, selection_table, stage08_scope_file, ...
+            stage02_file, stage07_risk_file, stage07_sel_file] = local_load_stage08c_inputs(cfg, run_tag)
+        persistent cache
+
+        stage08_scope_file = local_find_latest_cache(cfg.paths.cache, ...
+            sprintf('stage08_define_window_scope_%s_*.mat', run_tag));
+        stage02_file = local_find_latest_cache(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
+        stage07_risk_file = local_find_latest_stage07_cache( ...
+            cfg.paths.cache, 'stage07_scan_heading_risk_map', cfg);
+        stage07_sel_file = local_find_latest_stage07_cache( ...
+            cfg.paths.cache, 'stage07_select_critical_examples', cfg);
+
+        cache_key = sprintf('%s|%s|%s|%s', stage08_scope_file, stage02_file, stage07_risk_file, stage07_sel_file);
+        cache_hit = isstruct(cache) && isfield(cache, 'key') && strcmp(cache.key, cache_key);
+
+        if ~cache_hit
+            S81 = load(stage08_scope_file);
+            assert(isfield(S81, 'out') && isfield(S81.out, 'scope'), ...
+                'Invalid Stage08.1 cache: missing out.scope');
+            S2 = load(stage02_file);
+            assert(isfield(S2, 'out') && isfield(S2.out, 'trajbank') && isfield(S2.out.trajbank, 'nominal'), ...
+                'Invalid Stage02 cache: missing out.trajbank.nominal');
+            S73 = load(stage07_risk_file);
+            risk_table = local_extract_first_table(S73);
+            assert(istable(risk_table) && ~isempty(risk_table), ...
+                'Failed to resolve Stage07.3 risk table.');
+            S74 = load(stage07_sel_file);
+            selection_table = local_extract_selection_table(S74);
+            assert(istable(selection_table) && ~isempty(selection_table), ...
+                'Failed to resolve Stage07.4 selection table.');
+
+            cache = struct();
+            cache.key = cache_key;
+            cache.scope = S81.out.scope;
+            cache.nominal_bank = S2.out.trajbank.nominal;
+            cache.risk_table = risk_table;
+            cache.selection_table = selection_table;
+        end
+
+        scope = cache.scope;
+        nominal_bank = cache.nominal_bank;
+        risk_table = cache.risk_table;
+        selection_table = cache.selection_table;
     end
     
     
@@ -573,7 +600,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
     
     
     function H = local_pick_hardcases_family(T, fam, n_pick)
-    
+
         sub = T(T.family_name == fam, :);
         if isempty(sub)
             H = sub;
@@ -594,6 +621,42 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         sub = sub(sort(ia), :);
     
         H = sub(1:min(n_pick, height(sub)), :);
+    end
+
+
+    function [hardcase_table, weakside_smallgrid_table, hardcase_items, task_table] = ...
+            local_prepare_stage08c_workset(selection_table, risk_table, nominal_bank, Tw_grid_s, ...
+            cfg, stage08_scope_file, stage02_file, stage07_risk_file, stage07_sel_file)
+        persistent cache
+
+        key = sprintf('%s|%s|%s|%s|Tw%s|h%s|i%s|pt%s|nh%d|n1%d|n2%d', ...
+            stage08_scope_file, stage02_file, stage07_risk_file, stage07_sel_file, ...
+            mat2str(Tw_grid_s), mat2str(cfg.stage08c.h_km_list), mat2str(cfg.stage08c.i_deg_list), ...
+            mat2str(cfg.stage08c.PT_pairs), cfg.stage08c.n_hard_nominal, ...
+            cfg.stage08c.n_hard_C1, cfg.stage08c.n_hard_C2);
+        cache_hit = isstruct(cache) && isfield(cache, 'key') && strcmp(cache.key, key);
+
+        if ~cache_hit
+            hardcase_table = local_build_hardcase_table(selection_table, risk_table, cfg);
+            weakside_smallgrid_table = local_build_weakside_smallgrid_table(cfg);
+            task_table = local_build_task_table(weakside_smallgrid_table, Tw_grid_s);
+            hardcase_items = cell(height(hardcase_table), 1);
+            for iHard = 1:height(hardcase_table)
+                hardcase_items{iHard} = local_build_case_item_from_row(hardcase_table(iHard, :), nominal_bank, cfg, 'S08C');
+            end
+
+            cache = struct();
+            cache.key = key;
+            cache.hardcase_table = hardcase_table;
+            cache.weakside_smallgrid_table = weakside_smallgrid_table;
+            cache.hardcase_items = hardcase_items;
+            cache.task_table = task_table;
+        end
+
+        hardcase_table = cache.hardcase_table;
+        weakside_smallgrid_table = cache.weakside_smallgrid_table;
+        hardcase_items = cache.hardcase_items;
+        task_table = cache.task_table;
     end
     
     
