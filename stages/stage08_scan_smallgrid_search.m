@@ -61,15 +61,13 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
         % ============================================================
         % Resolve casebank / Tw / smallgrid
         % ============================================================
-        [casebank_table, case_items, smallgrid_table, Tw_grid_s] = ...
+        [casebank_table, case_items, smallgrid_table, Tw_grid_s, sample_type, config_bank, task_table] = ...
             local_prepare_smallgrid_workset(scope, nominal_bank, cfg, stage08_scope_file, stage02_file);
         assert(~isempty(casebank_table), 'Stage08.1 casebank is empty.');
-    
+
         nCase = height(casebank_table);
         nCfg = height(smallgrid_table);
         nTw = numel(Tw_grid_s);
-        sample_type = string(casebank_table.sample_type);
-        config_bank = local_build_smallgrid_config_bank(smallgrid_table, cfg);
     
         log_msg(log_fid, 'INFO', ...
             'Casebank cases = %d | small-grid configs = %d | Tw count = %d', ...
@@ -77,7 +75,6 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
     
         log_msg(log_fid, 'INFO', 'Prebuilt casebank case items: %d', nCase);
 
-        task_table = local_build_smallgrid_task_table(smallgrid_table, Tw_grid_s);
         nTask = height(task_table);
         log_msg(log_fid, 'INFO', 'Prepared task count = %d', nTask);
     
@@ -423,7 +420,8 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
         nominal_bank = cache.nominal_bank;
     end
 
-    function [casebank_table, case_items, smallgrid_table, Tw_grid_s] = local_prepare_smallgrid_workset(scope, nominal_bank, cfg, stage08_scope_file, stage02_file)
+    function [casebank_table, case_items, smallgrid_table, Tw_grid_s, sample_type, config_bank, task_table] = ...
+            local_prepare_smallgrid_workset(scope, nominal_bank, cfg, stage08_scope_file, stage02_file)
         persistent cache
 
         casebank_table = local_build_casebank_master_table(scope);
@@ -431,9 +429,21 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
             ~isempty(scope.smallgrid_table), 'Stage08.1 smallgrid_table is missing or empty.');
         smallgrid_table = scope.smallgrid_table;
         Tw_grid_s = scope.Tw_grid_s(:).';
+        sample_type = string(casebank_table.sample_type);
+        cache_profile = string(local_get_struct_value(cfg.stage08.smallgrid, 'feasibility_profile', "medium"));
+        cache_gamma_req = NaN;
+        if isfield(cfg, 'stage04')
+            cache_gamma_req = local_get_struct_value(cfg.stage04, 'gamma_req', NaN);
+        end
+        if ~isfinite(cache_gamma_req)
+            if isfield(cfg, 'stage05')
+                cache_gamma_req = local_get_struct_value(cfg.stage05, 'require_D_G_min', NaN);
+            end
+        end
 
-        workset_key = sprintf('%s|%s|ncase%d|ncfg%d|ntw%d', ...
-            stage08_scope_file, stage02_file, height(casebank_table), height(smallgrid_table), numel(Tw_grid_s));
+        workset_key = sprintf('%s|%s|ncase%d|ncfg%d|ntw%d|profile%s|gamma%.6g', ...
+            stage08_scope_file, stage02_file, height(casebank_table), height(smallgrid_table), ...
+            numel(Tw_grid_s), char(cache_profile), cache_gamma_req);
         cache_hit = isstruct(cache) && isfield(cache, 'key') && strcmp(cache.key, workset_key);
 
         if ~cache_hit
@@ -442,11 +452,20 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
                 case_items{iCase} = local_build_casebank_case_item(casebank_table(iCase, :), nominal_bank, cfg);
             end
 
+            config_bank = local_build_smallgrid_config_bank(smallgrid_table, cfg);
+            task_table = local_build_smallgrid_task_table(smallgrid_table, Tw_grid_s);
+
             cache = struct();
             cache.key = workset_key;
             cache.case_items = case_items;
+            cache.sample_type = sample_type;
+            cache.config_bank = config_bank;
+            cache.task_table = task_table;
         else
             case_items = cache.case_items;
+            sample_type = cache.sample_type;
+            config_bank = cache.config_bank;
+            task_table = cache.task_table;
         end
     end
     
