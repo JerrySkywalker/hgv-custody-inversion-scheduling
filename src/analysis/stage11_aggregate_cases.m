@@ -9,14 +9,14 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
     n_case = height(case_table);
     L_weak_worst = nan(n_case, 1);
     L_sub_worst = nan(n_case, 1);
-    L_blk_worst = nan(n_case, 1);
+    L_partblk_worst = nan(n_case, 1);
     L_new_worst = nan(n_case, 1);
     Dg_new_worst = nan(n_case, 1);
     new_case_valid = false(n_case, 1);
 
     has_weak = ismember('L_weak', window_table.Properties.VariableNames);
     has_sub = ismember('L_sub', window_table.Properties.VariableNames);
-    has_blk = ismember('L_blk', window_table.Properties.VariableNames);
+    has_partblk = ismember('L_partblk', window_table.Properties.VariableNames);
     has_new = ismember('L_new', window_table.Properties.VariableNames);
     has_dg_new = ismember('Dg_new_window', window_table.Properties.VariableNames);
 
@@ -28,8 +28,8 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
         if has_sub
             L_sub_worst(i) = min(window_table.L_sub(idx));
         end
-        if has_blk
-            L_blk_worst(i) = min(window_table.L_blk(idx));
+        if has_partblk
+            L_partblk_worst(i) = min(window_table.L_partblk(idx));
         end
         if has_new
             valid_idx = idx(window_table.new_valid(idx));
@@ -45,7 +45,7 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
 
     case_table.L_weak_worst = L_weak_worst;
     case_table.L_sub_worst = L_sub_worst;
-    case_table.L_blk_worst = L_blk_worst;
+    case_table.L_partblk_worst = L_partblk_worst;
     case_table.L_new_worst = L_new_worst;
     case_table.Dg_new_worst = Dg_new_worst;
     case_table.new_case_valid = new_case_valid;

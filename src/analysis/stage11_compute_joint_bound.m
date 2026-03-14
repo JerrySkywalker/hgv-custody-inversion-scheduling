@@ -1,5 +1,5 @@
 function joint_table = stage11_compute_joint_bound(window_table, weak_table, sub_table, blk_table, cfg)
-%STAGE11_COMPUTE_JOINT_BOUND Combine weak/sub/block bounds into L_new.
+%STAGE11_COMPUTE_JOINT_BOUND Combine weak/sub/partition-local bounds into L_new.
 
     if nargin < 5 || isempty(cfg)
         cfg = default_params();
@@ -11,7 +11,7 @@ function joint_table = stage11_compute_joint_bound(window_table, weak_table, sub
 
     for i = 1:n_window
         values = [-inf, -inf, -inf];
-        names = ["weak", "sub", "blk"];
+        names = ["weak", "sub", "partblk"];
         valid_mask = false(1, 3);
         if cfg.stage11.enable_weak && weak_table.weak_valid(i)
             values(1) = weak_table.L_weak(i);
@@ -21,8 +21,8 @@ function joint_table = stage11_compute_joint_bound(window_table, weak_table, sub
             values(2) = sub_table.L_sub(i);
             valid_mask(2) = true;
         end
-        if cfg.stage11.enable_blk && blk_table.blk_valid(i)
-            values(3) = blk_table.L_blk(i);
+        if cfg.stage11.enable_blk && blk_table.partblk_valid(i)
+            values(3) = blk_table.L_partblk(i);
             valid_mask(3) = true;
         end
 

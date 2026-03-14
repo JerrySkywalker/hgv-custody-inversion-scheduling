@@ -40,6 +40,9 @@ function report_file = stage11_export_report(out, cfg, timestamp)
     fprintf(fid, '- mean gap new: %.6g\n', mean(out.window_table.truth_lambda_min - out.window_table.L_new));
     fprintf(fid, '- mean L_weak: %.6g\n', mean(out.window_table.L_weak));
     fprintf(fid, '- mean L_sub: %.6g\n', mean(out.window_table.L_sub));
-    fprintf(fid, '- mean L_blk: %.6g\n', mean(out.window_table.L_blk));
+    fprintf(fid, '- mean L_partblk: %.6g\n', mean(out.window_table.L_partblk));
     fprintf(fid, '- mean L_new: %.6g\n', mean(out.window_table.L_new));
+    fprintf(fid, '\n## Auxiliary Bound Note\n\n');
+    fprintf(fid, '- `L_partblk` is treated as a partition-local auxiliary bound in this revision.\n');
+    fprintf(fid, '- It is not reported as a strict block Gershgorin theorem validation result.\n');
 end

@@ -74,8 +74,9 @@ function out = stage11_entry(cfg)
         end
         blk_table = stage11_compute_block_bound(out.contrib_bank, input_dataset, cfg);
         out.blk_table = blk_table;
-        out.window_table.L_blk = blk_table.L_blk;
-        out.window_table.blk_valid = blk_table.blk_valid;
+        out.window_table.L_partblk = blk_table.L_partblk;
+        out.window_table.partblk_valid = blk_table.partblk_valid;
+        out.window_table.partblk_mode = blk_table.partblk_mode;
     end
 
     if isfield(out, 'weak_table') || isfield(out, 'sub_table') || isfield(out, 'blk_table')
@@ -84,8 +85,9 @@ function out = stage11_entry(cfg)
                 'VariableNames', {'row_id', 'L_sub', 'sub_valid'});
         end
         if ~isfield(out, 'blk_table')
-            out.blk_table = table(out.window_table.row_id, nan(height(out.window_table), 1), false(height(out.window_table), 1), ...
-                'VariableNames', {'row_id', 'L_blk', 'blk_valid'});
+            out.blk_table = table(out.window_table.row_id, repmat("heuristic_partition_local", height(out.window_table), 1), ...
+                nan(height(out.window_table), 1), false(height(out.window_table), 1), ...
+                'VariableNames', {'row_id', 'partblk_mode', 'L_partblk', 'partblk_valid'});
         end
         joint_table = stage11_compute_joint_bound(out.window_table, out.weak_table, out.sub_table, out.blk_table, cfg);
         out.joint_table = joint_table;

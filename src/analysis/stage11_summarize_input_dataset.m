@@ -33,8 +33,8 @@ function summary_table = stage11_summarize_input_dataset(input_source, cfg)
         summary_table.mean_L_sub = mean(input_source.sub_table.L_sub);
     end
     if isfield(input_source, 'blk_table') && ~isempty(input_source.blk_table)
-        summary_table.n_blk_valid = sum(input_source.blk_table.blk_valid);
-        summary_table.mean_L_blk = mean(input_source.blk_table.L_blk);
+        summary_table.n_partblk_valid = sum(input_source.blk_table.partblk_valid);
+        summary_table.mean_L_partblk = mean(input_source.blk_table.L_partblk);
     end
     if isfield(input_source, 'joint_table') && ~isempty(input_source.joint_table)
         summary_table.n_new_valid = sum(input_source.joint_table.new_valid);

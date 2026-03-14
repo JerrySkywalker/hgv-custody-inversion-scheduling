@@ -28,8 +28,8 @@ function out_png = local_plot_representative(out, cfg, timestamp)
     if ismember('L_sub', T.Properties.VariableNames)
         plot(T.t0_s, T.L_sub, '-', 'LineWidth', 1.2, 'Color', [0.9 0.45 0.15]);
     end
-    if ismember('L_blk', T.Properties.VariableNames)
-        plot(T.t0_s, T.L_blk, '-', 'LineWidth', 1.2, 'Color', [0.55 0.4 0.75]);
+    if ismember('L_partblk', T.Properties.VariableNames)
+        plot(T.t0_s, T.L_partblk, '-', 'LineWidth', 1.2, 'Color', [0.55 0.4 0.75]);
     end
     if ismember('L_new', T.Properties.VariableNames)
         plot(T.t0_s, T.L_new, '--', 'LineWidth', 1.6, 'Color', [0.85 0.1 0.1]);
@@ -39,7 +39,7 @@ function out_png = local_plot_representative(out, cfg, timestamp)
     xlabel('t_0 [s]');
     ylabel('Lower-bound / truth value');
     title('Stage11 representative window bounds');
-    legend({'truth', 'old', 'weak', 'sub', 'blk', 'new', 'truth threshold'}, 'Location', 'best');
+    legend({'truth', 'old', 'weak', 'sub', 'partblk', 'new', 'truth threshold'}, 'Location', 'best');
     grid on;
 
     out_png = fullfile(cfg.paths.figs, ...
@@ -87,9 +87,9 @@ end
 
 function out_png = local_plot_best_source(out, cfg, timestamp)
     fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 980 620]);
-    labels = categorical(out.window_table.best_bound_source, {'weak', 'sub', 'blk'});
-    counts = [sum(labels == 'weak'); sum(labels == 'sub'); sum(labels == 'blk')];
-    bar(categorical({'weak', 'sub', 'blk'}), counts, 'FaceColor', [0.2 0.55 0.85]);
+    labels = categorical(out.window_table.best_bound_source, {'weak', 'sub', 'partblk'});
+    counts = [sum(labels == 'weak'); sum(labels == 'sub'); sum(labels == 'partblk')];
+    bar(categorical({'weak', 'sub', 'partblk'}), counts, 'FaceColor', [0.2 0.55 0.85]);
     xlabel('Winning bound');
     ylabel('Window count');
     title('Stage11 best-bound source ratio');

@@ -1,5 +1,11 @@
 function blk_table = stage11_compute_block_bound(contrib_bank, input_dataset, cfg)
-%STAGE11_COMPUTE_BLOCK_BOUND Compute a conservative block-style lower bound.
+%STAGE11_COMPUTE_BLOCK_BOUND
+% Compute a partition-local auxiliary bound.
+%
+% NOTE:
+%   This implementation is intentionally not presented as a strict block
+%   Gershgorin theorem realization. It is a heuristic partition-level local
+%   conservative auxiliary bound used for Stage11 exploration.
 
     if nargin < 3 || isempty(cfg)
         cfg = default_params();
@@ -16,7 +22,7 @@ function blk_table = stage11_compute_block_bound(contrib_bank, input_dataset, cf
         if isempty(J_list)
             ell_i = 0;
             r_i = 0;
-            L_blk = 0;
+            L_partblk = 0;
             block_count = 0;
         else
             keys = local_partition_keys(J_meta, cfg.stage11.partition_mode);
@@ -45,16 +51,17 @@ function blk_table = stage11_compute_block_bound(contrib_bank, input_dataset, cf
 
             ell_i = min(ell);
             r_i = max(rad);
-            L_blk = min(ell - rad);
+            L_partblk = min(ell - rad);
         end
 
         rows{i,1} = struct( ... %#ok<AGROW>
             'row_id', WT.row_id(i), ...
+            'partblk_mode', "heuristic_partition_local", ...
             'block_count', block_count, ...
             'ell_i', ell_i, ...
             'r_i', r_i, ...
-            'L_blk', L_blk, ...
-            'blk_valid', WT.truth_lambda_min(i) + 1e-9 >= L_blk);
+            'L_partblk', L_partblk, ...
+            'partblk_valid', isfinite(L_partblk));
     end
 
     blk_table = struct2table(vertcat(rows{:}));
