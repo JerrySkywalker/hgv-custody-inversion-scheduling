@@ -85,7 +85,17 @@ function out = stage11_entry(cfg)
         out.window_table.L_new = joint_table.L_new;
         out.window_table.best_bound_source = joint_table.best_bound_source;
         out.window_table.new_valid = joint_table.new_valid;
-        out.case_table = stage11_aggregate_cases(out.case_table, out.window_table);
+        out.window_table.new_stage_label = strings(height(out.window_table), 1);
+        for i = 1:height(out.window_table)
+            if ~out.window_table.old_zero_pass(i)
+                out.window_table.new_stage_label(i) = "reject";
+            elseif out.window_table.L_new(i) >= cfg.stage11.threshold_truth
+                out.window_table.new_stage_label(i) = "safe_pass";
+            else
+                out.window_table.new_stage_label(i) = "warn_pass";
+            end
+        end
+        out.case_table = stage11_aggregate_cases(out.case_table, out.window_table, cfg);
     end
 
     summary_table = stage11_summarize_input_dataset(out, cfg);
@@ -93,28 +103,33 @@ function out = stage11_entry(cfg)
     out.summary_table = summary_table;
 
     if cfg.stage11.write_csv
-        summary_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage11_input_summary_%s_%s.csv', run_tag, timestamp));
-        window_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage11_input_windows_%s_%s.csv', run_tag, timestamp));
-        case_csv = fullfile(cfg.paths.tables, ...
-            sprintf('stage11_input_cases_%s_%s.csv', run_tag, timestamp));
+        table_files = stage11_export_tables(out, cfg, timestamp);
+        out.files = local_merge_files(out.files, table_files);
+    end
 
-        writetable(summary_table, summary_csv);
-        writetable(stage11_make_window_export_table(out.window_table), window_csv);
-        writetable(stage11_make_case_export_table(out.case_table), case_csv);
+    if cfg.stage11.make_plot
+        figure_files = stage11_export_figures(out, cfg, timestamp);
+        out.files = local_merge_files(out.files, figure_files);
+    end
 
-        out.files.summary_csv = summary_csv;
-        out.files.window_csv = window_csv;
-        out.files.case_csv = case_csv;
+    if cfg.stage11.write_report
+        out.files.report_md = stage11_export_report(out, cfg, timestamp);
     end
 
     if cfg.stage11.save_mat_cache
         cache_file = fullfile(cfg.paths.cache, ...
-            sprintf('stage11_input_dataset_%s_%s.mat', run_tag, timestamp));
+            sprintf('stage11_summary_%s_%s.mat', run_tag, timestamp));
         save(cache_file, 'out', '-v7.3');
         out.files.cache_file = cache_file;
     end
 
     log_msg(log_fid, 'INFO', 'Stage11 finished.');
+end
+
+
+function files = local_merge_files(files, extra_files)
+    names = fieldnames(extra_files);
+    for i = 1:numel(names)
+        files.(names{i}) = extra_files.(names{i});
+    end
 end

@@ -1,5 +1,10 @@
-function case_table = stage11_aggregate_cases(case_table, window_table)
+function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
 %STAGE11_AGGREGATE_CASES Aggregate window-level Stage11 bounds to case-level rows.
+
+    if nargin < 3 || isempty(cfg)
+        cfg = default_params();
+    end
+    cfg = stage11_prepare_cfg(cfg);
 
     n_case = height(case_table);
     L_weak_worst = nan(n_case, 1);
@@ -35,4 +40,14 @@ function case_table = stage11_aggregate_cases(case_table, window_table)
     case_table.L_blk_worst = L_blk_worst;
     case_table.L_new_worst = L_new_worst;
     case_table.new_case_valid = new_case_valid;
+    case_table.new_case_label = strings(n_case, 1);
+    for i = 1:n_case
+        if ~case_table.old_zero_case_pass(i)
+            case_table.new_case_label(i) = "reject";
+        elseif case_table.L_new_worst(i) >= cfg.stage11.threshold_truth
+            case_table.new_case_label(i) = "safe_pass";
+        else
+            case_table.new_case_label(i) = "warn_pass";
+        end
+    end
 end
