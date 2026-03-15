@@ -130,6 +130,8 @@ Milestone 输出放在 `output/milestones/`：
 - 默认只包含轻量 milestone markdown 汇总
 - 默认不包含重缓存、图像与表格目录
 - 可通过 `include_milestone_outputs = true` 显式打包 milestone 输出
+- 工作区快照命名格式为 `yyyymmdd_HHMMSS_working.zip`
+- HEAD 基线快照命名格式为 `yyyymmdd_HHMMSS_head.zip`
 
 示例：
 
