@@ -78,7 +78,12 @@ function cfg = stage11_prepare_cfg(cfg)
 
     cfg.stage11.max_windows_per_case = max(1, round(cfg.stage11.max_windows_per_case));
     cfg.stage11.max_total_windows = max(1, round(cfg.stage11.max_total_windows));
+    cfg.stage11.max_diagnostic_rows = max(1, round(cfg.stage11.max_diagnostic_rows));
     cfg.stage11.log_every_window = logical(cfg.stage11.log_every_window);
+    cfg.stage11.enable_diagnosis = logical(cfg.stage11.enable_diagnosis);
+    cfg.stage11.export_window_diagnostics = logical(cfg.stage11.export_window_diagnostics);
+    cfg.stage11.export_case_diagnostics = logical(cfg.stage11.export_case_diagnostics);
+    cfg.stage11.diagnosis_verbose = logical(cfg.stage11.diagnosis_verbose);
     cfg.stage11.case_ids = string(cfg.stage11.case_ids(:));
     cfg.stage11.reference_case_id = string(cfg.stage11.reference_case_id);
 end

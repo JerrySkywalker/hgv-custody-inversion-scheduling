@@ -38,13 +38,72 @@ function joint_table = stage11_compute_joint_bound(window_table, weak_table, sub
             new_valid = false;
         end
 
+        has_reference_match = false;
+        match_ratio = nan;
+        weak_valid = false;
+        sub_valid = false;
+        partblk_valid = false;
+        if ismember('has_reference_match', weak_table.Properties.VariableNames)
+            has_reference_match = logical(weak_table.has_reference_match(i));
+        end
+        if ismember('match_ratio', weak_table.Properties.VariableNames)
+            match_ratio = weak_table.match_ratio(i);
+        end
+        if ismember('weak_valid', weak_table.Properties.VariableNames)
+            weak_valid = logical(weak_table.weak_valid(i));
+        end
+        if ismember('sub_valid', sub_table.Properties.VariableNames)
+            sub_valid = logical(sub_table.sub_valid(i));
+        end
+        if ismember('partblk_valid', blk_table.Properties.VariableNames)
+            partblk_valid = logical(blk_table.partblk_valid(i));
+        end
+
+        new_failure_reason = local_failure_reason(new_valid, has_reference_match, match_ratio, weak_valid, sub_valid, partblk_valid, ...
+            [L_new, Dg_new_window, values(valid_mask)]);
+
         rows{i,1} = struct( ... %#ok<AGROW>
             'row_id', window_table.row_id(i), ...
             'L_new', L_new, ...
             'Dg_new_window', Dg_new_window, ...
             'best_bound_source', best_source, ...
-            'new_valid', new_valid);
+            'new_valid', new_valid, ...
+            'new_failure_reason', new_failure_reason);
     end
 
     joint_table = struct2table(vertcat(rows{:}));
+end
+
+
+function reason = local_failure_reason(new_valid, has_reference_match, match_ratio, weak_valid, sub_valid, partblk_valid, numeric_values)
+    if new_valid
+        reason = "ok";
+        return;
+    end
+
+    if ~has_reference_match
+        reason = "no_reference_match";
+        return;
+    end
+    if isfinite(match_ratio) && match_ratio < 1
+        reason = "partial_reference_match";
+        return;
+    end
+    if ~weak_valid && ~sub_valid && ~partblk_valid
+        reason = "all_bounds_invalid";
+        return;
+    end
+    if ~sub_valid
+        reason = "sub_invalid";
+        return;
+    end
+    if ~weak_valid
+        reason = "weak_invalid";
+        return;
+    end
+    if any(~isfinite(numeric_values))
+        reason = "numerical_issue";
+        return;
+    end
+    reason = "numerical_issue";
 end

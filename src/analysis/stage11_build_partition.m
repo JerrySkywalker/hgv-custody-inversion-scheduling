@@ -25,8 +25,13 @@ function weak_table = stage11_build_partition(input_dataset, contrib_bank, ref_l
             L_weak = 0;
             group_count = 0;
             partition_keys = "";
+            matched_group_keys = "";
+            missing_group_keys = "";
             rep_source_used = "empty";
             reference_key_coverage = 0;
+            n_groups_matched = 0;
+            match_ratio = 0;
+            has_reference_match = false;
             partition_valid = false;
         else
             keys = local_partition_keys(J_meta, cfg.stage11.partition_mode);
@@ -35,6 +40,8 @@ function weak_table = stage11_build_partition(input_dataset, contrib_bank, ref_l
             W_pi = zeros(size(Wr));
             eps_pi = 0;
             used_sources = strings(group_count, 1);
+            matched_keys = strings(0,1);
+            missing_keys = strings(0,1);
             n_ref_key = 0;
             partition_valid = true;
 
@@ -47,9 +54,11 @@ function weak_table = stage11_build_partition(input_dataset, contrib_bank, ref_l
                     n_ref_key = n_ref_key + 1;
                 end
                 if isempty(J_hat)
+                    missing_keys(end+1,1) = group_values(g); %#ok<AGROW>
                     partition_valid = false;
                     continue;
                 end
+                matched_keys(end+1,1) = group_values(g); %#ok<AGROW>
                 delta_g = 0;
                 for m = 1:numel(members)
                     delta_g = max(delta_g, norm(J_list{members(m)} - J_hat, 2));
@@ -59,28 +68,48 @@ function weak_table = stage11_build_partition(input_dataset, contrib_bank, ref_l
             end
 
             W_pi = 0.5 * (W_pi + W_pi.');
+            lambda_min_Wpi = min(real(eig(W_pi)));
             if partition_valid
-                L_weak = min(real(eig(W_pi))) - eps_pi;
+                L_weak = lambda_min_Wpi - eps_pi;
             else
                 L_weak = NaN;
             end
             partition_keys = string(strjoin(cellstr(group_values), '|'));
+            matched_group_keys = string(strjoin(cellstr(matched_keys), '|'));
+            missing_group_keys = string(strjoin(cellstr(missing_keys), '|'));
             eta_pi = norm(Wr - W_pi, 'fro') / (norm(Wr, 'fro') + eps);
             reference_key_coverage = n_ref_key / max(group_count, 1);
+            n_groups_matched = numel(matched_keys);
+            match_ratio = n_groups_matched / max(group_count, 1);
+            has_reference_match = (n_groups_matched > 0);
             rep_source_used = local_reduce_sources(used_sources, partition_valid);
         end
+
+        if isempty(J_list)
+            lambda_min_Wpi = min(real(eig(0.5 * (W_pi + W_pi.'))));
+        end
+        rho_pi = eps_pi / (abs(lambda_min_Wpi) + eps);
 
         rows{i,1} = struct( ... %#ok<AGROW>
             'row_id', WT.row_id(i), ...
             'group_count', group_count, ...
+            'n_groups_total', group_count, ...
+            'n_groups_matched', n_groups_matched, ...
+            'match_ratio', match_ratio, ...
+            'has_reference_match', has_reference_match, ...
             'partition_keys', partition_keys, ...
+            'group_keys', partition_keys, ...
+            'matched_group_keys', matched_group_keys, ...
+            'missing_group_keys', missing_group_keys, ...
             'eps_pi', eps_pi, ...
             'W_pi', {W_pi}, ...
             'eta_pi', eta_pi, ...
             'rep_source_used', string(rep_source_used), ...
             'reference_key_coverage', reference_key_coverage, ...
             'partition_valid', partition_valid, ...
-            'lambda_min_W_pi', min(real(eig(0.5 * (W_pi + W_pi.')))), ...
+            'lambda_min_W_pi', lambda_min_Wpi, ...
+            'lambda_min_Wpi', lambda_min_Wpi, ...
+            'rho_pi', rho_pi, ...
             'L_weak', L_weak, ...
             'weak_valid', partition_valid && isfinite(L_weak));
     end

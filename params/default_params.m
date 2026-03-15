@@ -1285,6 +1285,11 @@ function cfg = default_params()
     cfg.stage11.write_csv = true;
     cfg.stage11.save_mat_cache = true;
     cfg.stage11.write_report = true;
+    cfg.stage11.enable_diagnosis = true;
+    cfg.stage11.export_window_diagnostics = true;
+    cfg.stage11.export_case_diagnostics = true;
+    cfg.stage11.max_diagnostic_rows = 50;
+    cfg.stage11.diagnosis_verbose = true;
     cfg.stage11.use_parallel = false;
 
 end

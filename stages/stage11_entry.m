@@ -69,10 +69,19 @@ function out = stage11_entry(cfg)
         out.window_table.W_pi = weak_table.W_pi;
         out.window_table.L_weak = weak_table.L_weak;
         out.window_table.eps_pi = weak_table.eps_pi;
+        out.window_table.rho_pi = weak_table.rho_pi;
         out.window_table.eta_pi = weak_table.eta_pi;
         out.window_table.rep_source_used = weak_table.rep_source_used;
         out.window_table.reference_key_coverage = weak_table.reference_key_coverage;
+        out.window_table.n_groups_total = weak_table.n_groups_total;
+        out.window_table.n_groups_matched = weak_table.n_groups_matched;
+        out.window_table.match_ratio = weak_table.match_ratio;
+        out.window_table.has_reference_match = weak_table.has_reference_match;
+        out.window_table.group_keys = weak_table.group_keys;
+        out.window_table.matched_group_keys = weak_table.matched_group_keys;
+        out.window_table.missing_group_keys = weak_table.missing_group_keys;
         out.window_table.partition_valid = weak_table.partition_valid;
+        out.window_table.lambda_min_Wpi = weak_table.lambda_min_Wpi;
         out.window_table.weak_valid = weak_table.weak_valid;
     end
 
@@ -85,6 +94,14 @@ function out = stage11_entry(cfg)
         out.window_table.L_sub = sub_table.L_sub;
         out.window_table.sub_valid = sub_table.sub_valid;
         out.window_table.spectral_gap = sub_table.spectral_gap;
+        out.window_table.alpha = sub_table.alpha;
+        out.window_table.beta = sub_table.beta;
+        out.window_table.eig_gap = sub_table.eig_gap;
+        out.window_table.e_scalar = sub_table.e_scalar;
+        out.window_table.g_norm = sub_table.g_norm;
+        out.window_table.Eperp_norm = sub_table.Eperp_norm;
+        out.window_table.mu_bar = sub_table.mu_bar;
+        out.window_table.rho_g = sub_table.rho_g;
     end
 
     if cfg.stage11.enable_blk
@@ -115,6 +132,7 @@ function out = stage11_entry(cfg)
         out.window_table.best_bound_source = joint_table.best_bound_source;
         out.window_table.new_stage_valid = joint_table.new_valid;
         out.window_table.new_valid = joint_table.new_valid;
+        out.window_table.new_failure_reason = joint_table.new_failure_reason;
         out.window_table.new_stage_label = strings(height(out.window_table), 1);
         for i = 1:height(out.window_table)
             if ~out.window_table.new_stage_valid(i)
