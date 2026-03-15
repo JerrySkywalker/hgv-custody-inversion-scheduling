@@ -1,10 +1,12 @@
-function zipFilePath = package_for_chatgpt_baseline(includeDeliverables)
+function zipFilePath = package_for_chatgpt_baseline(includeDeliverables, include_milestone_outputs)
 %PACKAGE_FOR_CHATGPT_BASELINE  Create a code snapshot zip from current HEAD.
 %
 % Packages the version at the latest commit (stable baseline for ChatGPT).
-% Includes params/, src/, stages/, root-level tracked files. Excludes results/
-% (outputs and logs). deliverables/ is excluded by default; set optional
-% argument to true to include it.
+% Includes params/, src/, stages/, run_stages/, milestones/, run_milestones/,
+% and root-level tracked files. Excludes results/ and generated milestone
+% outputs by default. deliverables/ is excluded by default; set optional
+% argument to true to include it. Set include_milestone_outputs=true to
+% include tracked output/ files as well.
 %
 % Filename:
 %   [StageXX.Y]_SHA7_yyyymmdd_HHMMSS_baseline.zip
@@ -15,13 +17,17 @@ function zipFilePath = package_for_chatgpt_baseline(includeDeliverables)
 %   - HHMMSS    : current time
 %
 % Usage (from MATLAB):
-%   zipPath = package_for_chatgpt_baseline();           % deliverables excluded
-%   zipPath = package_for_chatgpt_baseline(false);     % same
-%   zipPath = package_for_chatgpt_baseline(true);      % include deliverables/
+%   zipPath = package_for_chatgpt_baseline();                % deliverables excluded
+%   zipPath = package_for_chatgpt_baseline(false);           % same
+%   zipPath = package_for_chatgpt_baseline(true);            % include deliverables/
+%   zipPath = package_for_chatgpt_baseline(false, true);     % include tracked milestone outputs
 %
 
     if nargin < 1 || isempty(includeDeliverables)
         includeDeliverables = false;
+    end
+    if nargin < 2 || isempty(include_milestone_outputs)
+        include_milestone_outputs = false;
     end
 
     repo_root = fileparts(mfilename('fullpath'));
@@ -64,9 +70,12 @@ function zipFilePath = package_for_chatgpt_baseline(includeDeliverables)
     end
 
     % Only include these directories: never results/; deliverables/ only if requested
-    wantDirs = {'params', 'src', 'stages', 'run_stages'};
+    wantDirs = {'params', 'src', 'stages', 'run_stages', 'milestones', 'run_milestones'};
     if includeDeliverables && ismember('deliverables', topLevelDirs)
         wantDirs{end+1} = 'deliverables'; %#ok<AGROW>
+    end
+    if include_milestone_outputs && ismember('output', topLevelDirs)
+        wantDirs{end+1} = 'output'; %#ok<AGROW>
     end
     dirs_in_head = wantDirs(ismember(wantDirs, topLevelDirs));
 
@@ -79,6 +88,9 @@ function zipFilePath = package_for_chatgpt_baseline(includeDeliverables)
     excludeNames = {'results'};
     if ~includeDeliverables
         excludeNames{end+1} = 'deliverables'; %#ok<AGROW>
+    end
+    if ~include_milestone_outputs
+        excludeNames{end+1} = 'output'; %#ok<AGROW>
     end
     keep = cellfun(@(p) ~ismember(p, excludeNames), archivePaths);
     archivePaths = archivePaths(keep);

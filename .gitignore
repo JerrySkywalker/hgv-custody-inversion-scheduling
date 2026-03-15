@@ -71,6 +71,25 @@ results/cache/debug/**
 results/logs/debug/**
 
 ############################################
+# Milestone outputs
+############################################
+/output/milestones/**/cache/
+/output/milestones/**/figures/
+/output/milestones/**/tables/
+/output/milestones/**/reports/
+/output/milestones/*.md
+!/output/.gitkeep
+!/output/milestones/.gitkeep
+!/output/milestones/**/cache/.gitkeep
+!/output/milestones/**/figures/.gitkeep
+!/output/milestones/**/tables/.gitkeep
+!/output/milestones/**/reports/.gitkeep
+
+# Optional packaged milestone archives
+/dist/milestones/
+*.milestone.zip
+
+############################################
 # Optional: keep released paper outputs (uncomment if needed)
 ############################################
 # !paper_outputs/
