@@ -48,6 +48,30 @@ function report_file = stage11_export_report(out, cfg, timestamp)
         fprintf(fid, '- zero-valid cases: %d\n\n', sum(out.case_table.n_window_valid_new == 0));
     end
 
+    if isfield(out, 'diagnosis_summary_table') && ~isempty(out.diagnosis_summary_table)
+        D = out.diagnosis_summary_table(1,:);
+        fprintf(fid, '## Diagnosis Summary\n\n');
+        fprintf(fid, '- total windows: %d\n', D.total_windows);
+        fprintf(fid, '- valid windows: %d\n', D.valid_windows);
+        fprintf(fid, '- valid ratio: %.6g\n', D.valid_ratio);
+        fprintf(fid, '- total cases: %d\n', D.total_cases);
+        fprintf(fid, '- all-valid / partial-valid / zero-valid cases: %d / %d / %d\n', ...
+            D.all_valid_cases, D.partial_valid_cases, D.zero_valid_cases);
+        fprintf(fid, '- new safe / warn / reject: %d / %d / %d\n\n', ...
+            D.safe_cases, D.warn_cases, D.reject_cases);
+    end
+    if isfield(out, 'diagnosis_failure_table') && ~isempty(out.diagnosis_failure_table)
+        fprintf(fid, '## Failure Breakdown\n\n');
+        F = out.diagnosis_failure_table;
+        for i = 1:height(F)
+            if F.failure_reason(i) == "ok"
+                continue;
+            end
+            fprintf(fid, '- %s: %d (%.6g)\n', F.failure_reason(i), F.count(i), F.ratio(i));
+        end
+        fprintf(fid, '\n');
+    end
+
     fprintf(fid, '## Gap Summary\n\n');
     fprintf(fid, '- mean gap old: %.6g\n', local_mean_finite(out.window_table.truth_lambda_min - out.window_table.old_bound));
     fprintf(fid, '- mean gap new: %.6g\n', local_mean_finite(out.window_table.truth_lambda_min - out.window_table.L_new));
@@ -77,6 +101,11 @@ function report_file = stage11_export_report(out, cfg, timestamp)
         fprintf(fid, '- sanity_fail_sub_truth_overlap: %d\n', S.sanity_fail_sub_truth_overlap);
         fprintf(fid, '- sanity_fail_joint_gap_collapse: %d\n', S.sanity_fail_joint_gap_collapse);
         fprintf(fid, '- sanity_fail_best_source_sub_dominance: %d\n', S.sanity_fail_best_source_sub_dominance);
+        if ismember('sanity_fail_safe_case_without_all_valid', S.Properties.VariableNames)
+            fprintf(fid, '- sanity_fail_safe_case_without_all_valid: %d\n', S.sanity_fail_safe_case_without_all_valid);
+            fprintf(fid, '- sanity_fail_safe_case_threshold_violation: %d\n', S.sanity_fail_safe_case_threshold_violation);
+            fprintf(fid, '- sanity_fail_representative_case_conflict: %d\n', S.sanity_fail_representative_case_conflict);
+        end
     end
 end
 

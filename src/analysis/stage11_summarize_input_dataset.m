@@ -58,6 +58,22 @@ function summary_table = stage11_summarize_input_dataset(input_source, cfg)
         summary_table.n_case_partial_valid_new = sum(case_table.n_window_valid_new > 0 & ~case_table.all_valid_new);
         summary_table.n_case_zero_valid_new = sum(case_table.n_window_valid_new == 0);
     end
+    if isfield(input_source, 'diagnosis_summary_table') && ~isempty(input_source.diagnosis_summary_table)
+        D = input_source.diagnosis_summary_table(1,:);
+        summary_table.diagnosis_valid_ratio = D.valid_ratio;
+        summary_table.diagnosis_partial_valid_cases = D.partial_valid_cases;
+        summary_table.diagnosis_zero_valid_cases = D.zero_valid_cases;
+    end
+    if isfield(input_source, 'diagnosis_failure_table') && ~isempty(input_source.diagnosis_failure_table)
+        F = input_source.diagnosis_failure_table;
+        F = F(F.failure_reason ~= "ok", :);
+        [~, idx_max] = max(F.count);
+        if ~isempty(idx_max)
+            summary_table.dominant_failure_reason = F.failure_reason(idx_max);
+            summary_table.dominant_failure_count = F.count(idx_max);
+            summary_table.dominant_failure_ratio = F.ratio(idx_max);
+        end
+    end
     if isfield(input_source, 'sanity_table') && ~isempty(input_source.sanity_table)
         summary_table.sanity_fail_reference_leakage = input_source.sanity_table.sanity_fail_reference_leakage(1);
         summary_table.sanity_fail_sub_truth_overlap = input_source.sanity_table.sanity_fail_sub_truth_overlap(1);
