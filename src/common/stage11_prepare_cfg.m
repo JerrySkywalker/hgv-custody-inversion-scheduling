@@ -53,6 +53,18 @@ function cfg = stage11_prepare_cfg(cfg)
     if ~ismember(char(string(cfg.stage11.reference_fallback)), valid_reference_fallback)
         error('Unsupported cfg.stage11.reference_fallback: %s', string(cfg.stage11.reference_fallback));
     end
+    valid_reference_window_mode = {'multi_fixed'};
+    if ~ismember(lower(char(string(cfg.stage11.reference_window_mode))), valid_reference_window_mode)
+        error('Unsupported cfg.stage11.reference_window_mode: %s', string(cfg.stage11.reference_window_mode));
+    end
+    valid_reference_select_mode = {'nearest_fro'};
+    if ~ismember(lower(char(string(cfg.stage11.reference_select_mode))), valid_reference_select_mode)
+        error('Unsupported cfg.stage11.reference_select_mode: %s', string(cfg.stage11.reference_select_mode));
+    end
+    valid_unmatched_group_mode = {'zero_fallback', 'invalid'};
+    if ~ismember(lower(char(string(cfg.stage11.unmatched_group_mode))), valid_unmatched_group_mode)
+        error('Unsupported cfg.stage11.unmatched_group_mode: %s', string(cfg.stage11.unmatched_group_mode));
+    end
 
     valid_cache_mode = {'build_fresh_small', 'reuse_or_build'};
     if ~ismember(lower(char(string(cfg.stage11.cache_mode))), valid_cache_mode)
@@ -86,4 +98,5 @@ function cfg = stage11_prepare_cfg(cfg)
     cfg.stage11.diagnosis_verbose = logical(cfg.stage11.diagnosis_verbose);
     cfg.stage11.case_ids = string(cfg.stage11.case_ids(:));
     cfg.stage11.reference_case_id = string(cfg.stage11.reference_case_id);
+    cfg.stage11.reference_window_indices = unique(max(1, round(cfg.stage11.reference_window_indices(:)))).';
 end

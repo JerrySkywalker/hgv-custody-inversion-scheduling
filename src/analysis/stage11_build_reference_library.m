@@ -1,5 +1,5 @@
 function ref_library = stage11_build_reference_library(input_dataset, contrib_bank, cfg)
-%STAGE11_BUILD_REFERENCE_LIBRARY Build reference templates for partition cells.
+%STAGE11_BUILD_REFERENCE_LIBRARY Build multi-template reference libraries by group key.
 
     if nargin < 3 || isempty(cfg)
         cfg = default_params();
@@ -12,57 +12,107 @@ function ref_library = stage11_build_reference_library(input_dataset, contrib_ba
         theta_mask = true(height(WT), 1);
     end
 
-    reference_case_id = string(cfg.stage11.reference_case_id);
-    case_idx = min(max(1, cfg.stage11.reference_case_index), max(WT.case_index(theta_mask)));
-    win_idx = cfg.stage11.reference_window_index;
-    ref_mask = theta_mask & (WT.window_id == win_idx);
-    if strlength(reference_case_id) > 0
-        ref_mask = ref_mask & (string(WT.case_id) == reference_case_id);
-    else
-        ref_mask = ref_mask & (WT.case_index == case_idx);
-    end
-    if ~any(ref_mask)
-        if strlength(reference_case_id) > 0
-            candidate_rows = find(theta_mask & (string(WT.case_id) == reference_case_id));
-        else
-            candidate_rows = find(theta_mask & (WT.case_index == case_idx));
+    reference_rows = local_pick_reference_rows(WT, theta_mask, cfg);
+    key_map = containers.Map('KeyType', 'char', 'ValueType', 'any');
+
+    for ir = 1:numel(reference_rows)
+        row_idx = reference_rows(ir);
+        J_list = contrib_bank(row_idx).J_list;
+        J_meta = contrib_bank(row_idx).J_meta;
+        if isempty(J_list)
+            continue;
         end
-        if isempty(candidate_rows)
-            candidate_rows = find(theta_mask, 1, 'first');
-        else
-            [~, local_idx] = min(abs(WT.window_id(candidate_rows) - win_idx));
-            candidate_rows = candidate_rows(local_idx);
+
+        group_keys = local_partition_keys(J_meta, cfg.stage11.partition_mode);
+        [group_values, ~, group_idx] = unique(group_keys, 'stable');
+        for g = 1:numel(group_values)
+            members = find(group_idx == g);
+            J_hat = zeros(size(J_list{members(1)}));
+            for m = 1:numel(members)
+                J_hat = J_hat + J_list{members(m)};
+            end
+            J_hat = 0.5 * ((J_hat / numel(members)) + (J_hat / numel(members)).');
+
+            key_str = char(group_values(g));
+            template_entry = struct( ...
+                'template', J_hat, ...
+                'reference_row_id', WT.row_id(row_idx), ...
+                'reference_case_id', string(WT.case_id(row_idx)), ...
+                'reference_case_index', WT.case_index(row_idx), ...
+                'reference_window_id', WT.window_id(row_idx), ...
+                'reference_theta_id', WT.theta_id(row_idx), ...
+                'group_key', string(group_values(g)));
+
+            if isKey(key_map, key_str)
+                bucket = key_map(key_str);
+                bucket.templates{end+1,1} = template_entry.template; %#ok<AGROW>
+                bucket.meta(end+1,1) = rmfield(template_entry, 'template'); %#ok<AGROW>
+                bucket.reference_row_ids(end+1,1) = template_entry.reference_row_id; %#ok<AGROW>
+                key_map(key_str) = bucket;
+            else
+                bucket = struct();
+                bucket.group_key = string(group_values(g));
+                bucket.templates = {template_entry.template};
+                bucket.meta = rmfield(template_entry, 'template');
+                bucket.reference_row_ids = template_entry.reference_row_id;
+                key_map(key_str) = bucket;
+            end
         end
-        ref_row = candidate_rows(1);
-    else
-        ref_row = find(ref_mask, 1, 'first');
     end
 
-    J_list = contrib_bank(ref_row).J_list;
-    J_meta = contrib_bank(ref_row).J_meta;
-    keys = local_partition_keys(J_meta, cfg.stage11.partition_mode);
-    [group_values, ~, group_idx] = unique(keys, 'stable');
-
-    templates = cell(numel(group_values), 1);
-    for g = 1:numel(group_values)
-        members = find(group_idx == g);
-        J_hat = zeros(size(J_list{members(1)}));
-        for m = 1:numel(members)
-            J_hat = J_hat + J_list{members(m)};
-        end
-        J_hat = J_hat / numel(members);
-        templates{g} = 0.5 * (J_hat + J_hat.');
-    end
+    map_keys = string(key_map.keys);
+    map_values = values(key_map);
+    buckets = vertcat(map_values{:});
 
     ref_library = struct();
-    ref_library.reference_row_id = WT.row_id(ref_row);
-    ref_library.reference_case_id = string(WT.case_id(ref_row));
-    ref_library.reference_case_index = WT.case_index(ref_row);
-    ref_library.reference_window_id = WT.window_id(ref_row);
-    ref_library.reference_theta_id = WT.theta_id(ref_row);
-    ref_library.partition_keys = group_values;
-    ref_library.templates = templates;
-    ref_library.note = "reference_window_templates";
+    ref_library.reference_row_ids = reference_rows(:);
+    ref_library.reference_case_id = string(unique(WT.case_id(reference_rows)));
+    ref_library.reference_case_index = unique(WT.case_index(reference_rows));
+    ref_library.reference_window_ids = WT.window_id(reference_rows).';
+    ref_library.reference_theta_id = unique(WT.theta_id(reference_rows));
+    ref_library.partition_keys = map_keys(:);
+    ref_library.buckets = buckets;
+    ref_library.note = "multi_window_reference_templates";
+end
+
+
+function rows = local_pick_reference_rows(WT, theta_mask, cfg)
+    reference_case_id = string(cfg.stage11.reference_case_id);
+    case_idx = min(max(1, cfg.stage11.reference_case_index), max(WT.case_index(theta_mask)));
+
+    candidate_mask = theta_mask;
+    if strlength(reference_case_id) > 0
+        candidate_mask = candidate_mask & (string(WT.case_id) == reference_case_id);
+    else
+        candidate_mask = candidate_mask & (WT.case_index == case_idx);
+    end
+    candidate_rows = find(candidate_mask);
+    if isempty(candidate_rows)
+        candidate_rows = find(theta_mask);
+    end
+    if isempty(candidate_rows)
+        error('Stage11 reference library found no candidate windows.');
+    end
+
+    switch lower(char(string(cfg.stage11.reference_window_mode)))
+        case 'multi_fixed'
+            requested = cfg.stage11.reference_window_indices;
+            rows = zeros(0,1);
+            for i = 1:numel(requested)
+                row_match = candidate_rows(WT.window_id(candidate_rows) == requested(i));
+                if ~isempty(row_match)
+                    rows(end+1,1) = row_match(1); %#ok<AGROW>
+                end
+            end
+            if isempty(rows)
+                [~, order] = sort(abs(WT.window_id(candidate_rows) - cfg.stage11.reference_window_index), 'ascend');
+                rows = candidate_rows(order(1:min(numel(candidate_rows), max(1, numel(requested)))));
+            end
+        otherwise
+            error('Unsupported cfg.stage11.reference_window_mode: %s', string(cfg.stage11.reference_window_mode));
+    end
+
+    rows = unique(rows(:), 'stable');
 end
 
 
@@ -84,17 +134,17 @@ function sig = local_theta_signature(theta)
 end
 
 
-function keys = local_partition_keys(J_meta, partition_mode)
+function keys_out = local_partition_keys(J_meta, partition_mode)
     n = numel(J_meta);
-    keys = strings(n, 1);
+    keys_out = strings(n, 1);
     for i = 1:n
         switch lower(char(string(partition_mode)))
             case 'plane'
-                keys(i) = "plane_" + string(J_meta(i).plane_id);
+                keys_out(i) = "plane_" + string(J_meta(i).plane_id);
             case 'plane_phase'
-                keys(i) = "plane_" + string(J_meta(i).plane_id) + "_phase_" + string(mod(J_meta(i).sat_id, 2));
+                keys_out(i) = "plane_" + string(J_meta(i).plane_id) + "_phase_" + string(mod(J_meta(i).sat_id, 2));
             case 'geometry_tag'
-                keys(i) = string(J_meta(i).geometry_tag);
+                keys_out(i) = string(J_meta(i).geometry_tag);
             otherwise
                 error('Unsupported partition_mode: %s', string(partition_mode));
         end
