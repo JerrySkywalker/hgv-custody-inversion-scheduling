@@ -1,5 +1,5 @@
 function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
-%STAGE11_AGGREGATE_CASES Aggregate window-level Stage11 bounds to case-level rows.
+%STAGE11_AGGREGATE_CASES Aggregate Stage11 bounds with strict full-window semantics.
 
     if nargin < 3 || isempty(cfg)
         cfg = default_params();
@@ -13,15 +13,23 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
     L_new_worst = nan(n_case, 1);
     Dg_new_worst = nan(n_case, 1);
     new_case_valid = false(n_case, 1);
+    n_window_total = zeros(n_case, 1);
+    n_window_valid_new = zeros(n_case, 1);
+    valid_ratio_new = zeros(n_case, 1);
+    all_valid_new = false(n_case, 1);
 
     has_weak = ismember('L_weak', window_table.Properties.VariableNames);
     has_sub = ismember('L_sub', window_table.Properties.VariableNames);
     has_partblk = ismember('L_partblk', window_table.Properties.VariableNames);
     has_new = ismember('L_new', window_table.Properties.VariableNames);
     has_dg_new = ismember('Dg_new_window', window_table.Properties.VariableNames);
+    has_new_valid = ismember('new_valid', window_table.Properties.VariableNames);
 
     for i = 1:n_case
         idx = case_table.window_index_list{i};
+        n_total = numel(idx);
+        n_window_total(i) = n_total;
+
         if has_weak
             L_weak_worst(i) = min(window_table.L_weak(idx));
         end
@@ -31,14 +39,20 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
         if has_partblk
             L_partblk_worst(i) = min(window_table.L_partblk(idx));
         end
-        if has_new
-            valid_idx = idx(window_table.new_valid(idx));
-            if ~isempty(valid_idx)
-                L_new_worst(i) = min(window_table.L_new(valid_idx));
+
+        if has_new && has_new_valid
+            n_valid = nnz(window_table.new_valid(idx));
+            n_window_valid_new(i) = n_valid;
+            valid_ratio_new(i) = n_valid / max(n_total, 1);
+            all_valid_new(i) = (n_valid == n_total);
+            new_case_valid(i) = n_valid > 0;
+
+            % Only all-valid cases are allowed to inherit a strict worst-window new bound.
+            if all_valid_new(i)
+                L_new_worst(i) = min(window_table.L_new(idx));
                 if has_dg_new
-                    Dg_new_worst(i) = min(window_table.Dg_new_window(valid_idx));
+                    Dg_new_worst(i) = min(window_table.Dg_new_window(idx));
                 end
-                new_case_valid(i) = true;
             end
         end
     end
@@ -49,10 +63,17 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
     case_table.L_new_worst = L_new_worst;
     case_table.Dg_new_worst = Dg_new_worst;
     case_table.new_case_valid = new_case_valid;
+    case_table.n_window_total = n_window_total;
+    case_table.n_window_valid_new = n_window_valid_new;
+    case_table.valid_ratio_new = valid_ratio_new;
+    case_table.all_valid_new = all_valid_new;
     case_table.new_case_label = strings(n_case, 1);
+
     for i = 1:n_case
-        if ~case_table.new_case_valid(i)
+        if case_table.n_window_valid_new(i) == 0
             case_table.new_case_label(i) = "reject";
+        elseif ~case_table.all_valid_new(i)
+            case_table.new_case_label(i) = "warn_pass";
         elseif case_table.Dg_new_worst(i) >= 1
             case_table.new_case_label(i) = "safe_pass";
         else
