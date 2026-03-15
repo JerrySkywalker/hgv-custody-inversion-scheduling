@@ -131,6 +131,7 @@ function out = stage11_entry(cfg)
     [sanity_table, sanity_flags] = stage11_sanity_checks(out, cfg);
     out.sanity_table = sanity_table;
     out.sanity_flags = sanity_flags;
+    local_log_sanity(log_fid, sanity_table, sanity_flags);
 
     summary_table = stage11_summarize_input_dataset(out, cfg);
 
@@ -165,5 +166,26 @@ function files = local_merge_files(files, extra_files)
     names = fieldnames(extra_files);
     for i = 1:numel(names)
         files.(names{i}) = extra_files.(names{i});
+    end
+end
+
+
+function local_log_sanity(log_fid, sanity_table, sanity_flags)
+    if isempty(sanity_table)
+        return;
+    end
+
+    S = sanity_table(1,:);
+    log_msg(log_fid, 'INFO', ['Sanity summary: eta_pi=[%.3g, %.3g, %.3g], ' ...
+        'delta_new=[%.3g, %.3g, %.3g], safe_without_all_valid=%d, safe_threshold_violation=%d'], ...
+        S.eta_pi_min, S.eta_pi_median, S.eta_pi_max, ...
+        S.delta_new_min, S.delta_new_median, S.delta_new_max, ...
+        S.safe_case_without_all_valid_count, S.safe_case_threshold_violation_count);
+
+    flag_names = fieldnames(sanity_flags);
+    for i = 1:numel(flag_names)
+        if sanity_flags.(flag_names{i})
+            log_msg(log_fid, 'WARN', 'Sanity flag raised: %s', string(flag_names{i}));
+        end
     end
 end
