@@ -1,8 +1,11 @@
 function file_path = milestone_common_save_table(data, file_path)
 %MILESTONE_COMMON_SAVE_TABLE Save a milestone table-like artifact.
 
-if istable(data)
+if istable(data) && ~isempty(data.Properties.VariableNames)
     writetable(data, file_path);
+elseif istable(data)
+    T = table("placeholder", 'VariableNames', {'value'});
+    writetable(T, file_path);
 elseif isstruct(data)
     names = fieldnames(data);
     values = cell(numel(names), 1);
