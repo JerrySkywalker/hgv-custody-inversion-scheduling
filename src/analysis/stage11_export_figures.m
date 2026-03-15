@@ -12,7 +12,8 @@ function files = stage11_export_figures(out, cfg, timestamp)
     files.source_bar_png = local_plot_best_source(out, cfg, timestamp);
     files.coverage_png = local_plot_valid_ratio(out, cfg, timestamp);
     files.failure_reason_png = local_plot_failure_reason_counts(out, cfg, timestamp);
-    files.match_ratio_png = local_plot_match_ratio_box(out, cfg, timestamp);
+    files.match_ratio_png = local_plot_match_vs_support_box(out, cfg, timestamp);
+    files.template_residual_png = local_plot_template_residual_box(out, cfg, timestamp);
     files.subspace_diag_png = local_plot_subspace_diag_scatter(out, cfg, timestamp);
 end
 
@@ -150,8 +151,7 @@ end
 
 function out_png = local_plot_failure_reason_counts(out, cfg, timestamp)
     fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 1100 620]);
-    reason_order = {'no_reference_match', 'partial_reference_match', 'weak_invalid', ...
-        'sub_invalid', 'all_bounds_invalid', 'numerical_issue'};
+    reason_order = {'reference_gap', 'weak_invalid', 'sub_invalid', 'all_bounds_invalid', 'numerical_issue'};
     counts = zeros(numel(reason_order), 1);
     reasons = string(out.window_table.new_failure_reason);
     for i = 1:numel(reason_order)
@@ -160,7 +160,7 @@ function out_png = local_plot_failure_reason_counts(out, cfg, timestamp)
     bar(categorical(reason_order), counts, 'FaceColor', [0.8 0.35 0.25]);
     xlabel('Failure reason');
     ylabel('Window count');
-    title('Stage11 window failure reason counts');
+    title('Stage11 window failure reason counts (support-aware)');
     grid on;
 
     out_png = fullfile(cfg.paths.figs, ...
@@ -170,15 +170,41 @@ function out_png = local_plot_failure_reason_counts(out, cfg, timestamp)
 end
 
 
-function out_png = local_plot_match_ratio_box(out, cfg, timestamp)
-    fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 900 620]);
-    boxplot(out.window_table.match_ratio, 'Labels', {'match ratio'});
-    ylabel('Reference group match ratio');
-    title('Stage11 reference match ratio distribution');
+function out_png = local_plot_match_vs_support_box(out, cfg, timestamp)
+    fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 980 620]);
+    data = [out.window_table.reference_match_ratio, out.window_table.supported_ratio];
+    boxplot(data, 'Labels', {'reference match ratio', 'supported ratio'});
+    ylabel('Group coverage ratio');
+    title('Stage11 reference match vs supported ratio');
     grid on;
 
     out_png = fullfile(cfg.paths.figs, ...
-        sprintf('stage11_match_ratio_box_%s_%s.png', cfg.stage11.run_tag, timestamp));
+        sprintf('stage11_match_vs_support_box_%s_%s.png', cfg.stage11.run_tag, timestamp));
+    exportgraphics(fig, out_png, 'Resolution', 180);
+    close(fig);
+end
+
+
+function out_png = local_plot_template_residual_box(out, cfg, timestamp)
+    fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 980 620]);
+    residuals = [];
+    if ismember('template_residual_min_list', out.window_table.Properties.VariableNames)
+        for i = 1:height(out.window_table)
+            r = out.window_table.template_residual_min_list{i};
+            r = r(isfinite(r));
+            residuals = [residuals; r(:)]; %#ok<AGROW>
+        end
+    end
+    if isempty(residuals)
+        residuals = NaN;
+    end
+    boxplot(residuals, 'Labels', {'template residual'});
+    ylabel('||Jbar - Jhat*||_F');
+    title('Stage11 nearest-template residual distribution');
+    grid on;
+
+    out_png = fullfile(cfg.paths.figs, ...
+        sprintf('stage11_template_residual_box_%s_%s.png', cfg.stage11.run_tag, timestamp));
     exportgraphics(fig, out_png, 'Resolution', 180);
     close(fig);
 end

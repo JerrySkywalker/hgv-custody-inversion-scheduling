@@ -19,10 +19,14 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
     all_valid_new = false(n_case, 1);
     n_failure_no_reference = zeros(n_case, 1);
     n_failure_partial_reference = zeros(n_case, 1);
+    n_failure_reference_gap = zeros(n_case, 1);
     n_failure_weak_invalid = zeros(n_case, 1);
     n_failure_sub_invalid = zeros(n_case, 1);
     n_failure_all_bounds_invalid = zeros(n_case, 1);
     n_failure_numerical = zeros(n_case, 1);
+    mean_reference_match_ratio = nan(n_case, 1);
+    mean_supported_ratio = nan(n_case, 1);
+    n_groups_fallback_total = zeros(n_case, 1);
 
     has_weak = ismember('L_weak', window_table.Properties.VariableNames);
     has_sub = ismember('L_sub', window_table.Properties.VariableNames);
@@ -66,10 +70,20 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
             reasons = string(window_table.new_failure_reason(idx));
             n_failure_no_reference(i) = sum(reasons == "no_reference_match");
             n_failure_partial_reference(i) = sum(reasons == "partial_reference_match");
+            n_failure_reference_gap(i) = sum(reasons == "reference_gap");
             n_failure_weak_invalid(i) = sum(reasons == "weak_invalid");
             n_failure_sub_invalid(i) = sum(reasons == "sub_invalid");
             n_failure_all_bounds_invalid(i) = sum(reasons == "all_bounds_invalid");
             n_failure_numerical(i) = sum(reasons == "numerical_issue");
+        end
+        if ismember('reference_match_ratio', window_table.Properties.VariableNames)
+            mean_reference_match_ratio(i) = mean(window_table.reference_match_ratio(idx), 'omitnan');
+        end
+        if ismember('supported_ratio', window_table.Properties.VariableNames)
+            mean_supported_ratio(i) = mean(window_table.supported_ratio(idx), 'omitnan');
+        end
+        if ismember('n_groups_fallback', window_table.Properties.VariableNames)
+            n_groups_fallback_total(i) = sum(window_table.n_groups_fallback(idx), 'omitnan');
         end
     end
 
@@ -85,10 +99,14 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
     case_table.all_valid_new = all_valid_new;
     case_table.n_failure_no_reference = n_failure_no_reference;
     case_table.n_failure_partial_reference = n_failure_partial_reference;
+    case_table.n_failure_reference_gap = n_failure_reference_gap;
     case_table.n_failure_weak_invalid = n_failure_weak_invalid;
     case_table.n_failure_sub_invalid = n_failure_sub_invalid;
     case_table.n_failure_all_bounds_invalid = n_failure_all_bounds_invalid;
     case_table.n_failure_numerical = n_failure_numerical;
+    case_table.mean_reference_match_ratio = mean_reference_match_ratio;
+    case_table.mean_supported_ratio = mean_supported_ratio;
+    case_table.n_groups_fallback_total = n_groups_fallback_total;
     case_table.new_case_label = strings(n_case, 1);
 
     for i = 1:n_case

@@ -68,10 +68,14 @@ function summary_table = stage11_summarize_input_dataset(input_source, cfg)
         F = input_source.diagnosis_failure_table;
         F = F(F.failure_reason ~= "ok", :);
         [~, idx_max] = max(F.count);
-        if ~isempty(idx_max)
+        if ~isempty(idx_max) && F.count(idx_max) > 0
             summary_table.dominant_failure_reason = F.failure_reason(idx_max);
             summary_table.dominant_failure_count = F.count(idx_max);
             summary_table.dominant_failure_ratio = F.ratio(idx_max);
+        else
+            summary_table.dominant_failure_reason = "none";
+            summary_table.dominant_failure_count = 0;
+            summary_table.dominant_failure_ratio = 0;
         end
     end
     if isfield(input_source, 'sanity_table') && ~isempty(input_source.sanity_table)
