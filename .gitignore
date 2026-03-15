@@ -95,22 +95,3 @@ results/logs/debug/**
 # *.png
 # *.pdf
 # *.csv
-
-############################################
-# Deliverables: track milestone outputs
-############################################
-!deliverables/
-!deliverables/milestone_*/
-!deliverables/milestone_*/**
-
-############################################
-# Milestone scripts and docs: always tracked
-############################################
-!milestones/
-!milestones/**
-
-############################################
-# Optional: ignore large exported binaries (uncomment if repo too large)
-############################################
-# deliverables/**/figs/*.png
-# deliverables/**/figs/*.pdf
