@@ -151,6 +151,14 @@ function out = stage11_entry(cfg)
     out.sanity_flags = sanity_flags;
     local_log_sanity(log_fid, sanity_table, sanity_flags);
 
+    if cfg.stage11.enable_diagnosis
+        [diag_summary, diag_failure_table, diag_lines] = stage11_diagnosis_summary(out, cfg);
+        out.diagnosis_summary_table = diag_summary;
+        out.diagnosis_failure_table = diag_failure_table;
+        out.diagnosis_lines = diag_lines;
+        local_log_diagnosis(log_fid, diag_lines, cfg);
+    end
+
     summary_table = stage11_summarize_input_dataset(out, cfg);
 
     out.summary_table = summary_table;
@@ -209,5 +217,17 @@ function local_log_sanity(log_fid, sanity_table, sanity_flags)
         if sanity_flags.(flag_names{i})
             log_msg(log_fid, 'WARN', 'Sanity flag raised: %s', string(flag_names{i}));
         end
+    end
+end
+
+
+function local_log_diagnosis(log_fid, diag_lines, cfg)
+    if ~cfg.stage11.diagnosis_verbose || isempty(diag_lines)
+        return;
+    end
+
+    n_line = min(numel(diag_lines), cfg.stage11.max_diagnostic_rows);
+    for i = 1:n_line
+        log_msg(log_fid, 'INFO', '%s', diag_lines(i));
     end
 end

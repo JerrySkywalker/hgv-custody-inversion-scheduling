@@ -11,6 +11,9 @@ function files = stage11_export_figures(out, cfg, timestamp)
     files.gap_box_png = local_plot_gap_box(out, cfg, timestamp);
     files.source_bar_png = local_plot_best_source(out, cfg, timestamp);
     files.coverage_png = local_plot_valid_ratio(out, cfg, timestamp);
+    files.failure_reason_png = local_plot_failure_reason_counts(out, cfg, timestamp);
+    files.match_ratio_png = local_plot_match_ratio_box(out, cfg, timestamp);
+    files.subspace_diag_png = local_plot_subspace_diag_scatter(out, cfg, timestamp);
 end
 
 
@@ -140,6 +143,64 @@ function out_png = local_plot_valid_ratio(out, cfg, timestamp)
 
     out_png = fullfile(cfg.paths.figs, ...
         sprintf('stage11_valid_ratio_%s_%s.png', cfg.stage11.run_tag, timestamp));
+    exportgraphics(fig, out_png, 'Resolution', 180);
+    close(fig);
+end
+
+
+function out_png = local_plot_failure_reason_counts(out, cfg, timestamp)
+    fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 1100 620]);
+    reason_order = {'no_reference_match', 'partial_reference_match', 'weak_invalid', ...
+        'sub_invalid', 'all_bounds_invalid', 'numerical_issue'};
+    counts = zeros(numel(reason_order), 1);
+    reasons = string(out.window_table.new_failure_reason);
+    for i = 1:numel(reason_order)
+        counts(i) = sum(reasons == reason_order{i});
+    end
+    bar(categorical(reason_order), counts, 'FaceColor', [0.8 0.35 0.25]);
+    xlabel('Failure reason');
+    ylabel('Window count');
+    title('Stage11 window failure reason counts');
+    grid on;
+
+    out_png = fullfile(cfg.paths.figs, ...
+        sprintf('stage11_window_failure_reason_counts_%s_%s.png', cfg.stage11.run_tag, timestamp));
+    exportgraphics(fig, out_png, 'Resolution', 180);
+    close(fig);
+end
+
+
+function out_png = local_plot_match_ratio_box(out, cfg, timestamp)
+    fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 900 620]);
+    boxplot(out.window_table.match_ratio, 'Labels', {'match ratio'});
+    ylabel('Reference group match ratio');
+    title('Stage11 reference match ratio distribution');
+    grid on;
+
+    out_png = fullfile(cfg.paths.figs, ...
+        sprintf('stage11_match_ratio_box_%s_%s.png', cfg.stage11.run_tag, timestamp));
+    exportgraphics(fig, out_png, 'Resolution', 180);
+    close(fig);
+end
+
+
+function out_png = local_plot_subspace_diag_scatter(out, cfg, timestamp)
+    fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 980 680]);
+    valid_mask = logical(out.window_table.sub_valid);
+    scatter(out.window_table.eig_gap(valid_mask), out.window_table.g_norm(valid_mask), ...
+        42, [0.2 0.6 0.35], 'filled');
+    hold on;
+    scatter(out.window_table.eig_gap(~valid_mask), out.window_table.g_norm(~valid_mask), ...
+        42, [0.85 0.25 0.2], 'filled');
+    hold off;
+    xlabel('eig gap = beta - alpha');
+    ylabel('g norm');
+    title('Stage11 subspace diagnostic scatter');
+    legend({'sub valid', 'sub invalid'}, 'Location', 'best');
+    grid on;
+
+    out_png = fullfile(cfg.paths.figs, ...
+        sprintf('stage11_subspace_diag_scatter_%s_%s.png', cfg.stage11.run_tag, timestamp));
     exportgraphics(fig, out_png, 'Resolution', 180);
     close(fig);
 end
