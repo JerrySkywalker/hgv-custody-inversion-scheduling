@@ -38,6 +38,16 @@ function report_file = stage11_export_report(out, cfg, timestamp)
     fprintf(fid, '- new safe / warn / reject: %d / %d / %d\n', n_new_safe, n_new_warn, n_new_reject);
     fprintf(fid, '- false safe (new): %d\n\n', false_safe_new);
 
+    if ismember('valid_ratio_new', out.case_table.Properties.VariableNames)
+        fprintf(fid, '## Coverage Summary\n\n');
+        fprintf(fid, '- mean valid ratio (new): %.6g\n', local_mean_finite(out.case_table.valid_ratio_new));
+        fprintf(fid, '- median valid ratio (new): %.6g\n', median(out.case_table.valid_ratio_new, 'omitnan'));
+        fprintf(fid, '- min valid ratio (new): %.6g\n', min(out.case_table.valid_ratio_new, [], 'omitnan'));
+        fprintf(fid, '- all-valid cases: %d\n', sum(out.case_table.all_valid_new));
+        fprintf(fid, '- partial-valid cases: %d\n', sum(out.case_table.n_window_valid_new > 0 & ~out.case_table.all_valid_new));
+        fprintf(fid, '- zero-valid cases: %d\n\n', sum(out.case_table.n_window_valid_new == 0));
+    end
+
     fprintf(fid, '## Gap Summary\n\n');
     fprintf(fid, '- mean gap old: %.6g\n', local_mean_finite(out.window_table.truth_lambda_min - out.window_table.old_bound));
     fprintf(fid, '- mean gap new: %.6g\n', local_mean_finite(out.window_table.truth_lambda_min - out.window_table.L_new));

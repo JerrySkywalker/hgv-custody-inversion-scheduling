@@ -10,6 +10,7 @@ function files = stage11_export_figures(out, cfg, timestamp)
     files.label_bar_png = local_plot_case_labels(out, cfg, timestamp);
     files.gap_box_png = local_plot_gap_box(out, cfg, timestamp);
     files.source_bar_png = local_plot_best_source(out, cfg, timestamp);
+    files.coverage_png = local_plot_valid_ratio(out, cfg, timestamp);
 end
 
 
@@ -19,6 +20,12 @@ function out_png = local_plot_representative(out, cfg, timestamp)
     case_index = min(cfg.stage11.case_index, max(WT.case_index));
     mask = (WT.theta_id == theta_id) & (WT.case_index == case_index);
     T = sortrows(WT(mask, :), 't0_s', 'ascend');
+    case_row = out.case_table(out.case_table.theta_id == theta_id & out.case_table.case_index == case_index, :);
+    title_text = sprintf('Stage11 representative window bounds | case %s', char(string(T.case_id(1))));
+    if ~isempty(case_row) && ismember('valid_ratio_new', case_row.Properties.VariableNames)
+        title_text = sprintf('%s | valid ratio %.2f | all valid %d', ...
+            title_text, case_row.valid_ratio_new(1), case_row.all_valid_new(1));
+    end
 
     fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 1180 720]);
     legend_entries = {};
@@ -46,7 +53,7 @@ function out_png = local_plot_representative(out, cfg, timestamp)
     hold off;
     xlabel('t_0 [s]');
     ylabel('Lower-bound / truth value');
-    title('Stage11 representative window bounds');
+    title(title_text);
     legend(legend_entries, 'Location', 'best');
     grid on;
 
@@ -95,23 +102,44 @@ end
 
 function out_png = local_plot_best_source(out, cfg, timestamp)
     fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 980 620]);
+    valid_mask = true(height(out.window_table), 1);
+    if ismember('new_valid', out.window_table.Properties.VariableNames)
+        valid_mask = logical(out.window_table.new_valid);
+    end
     source_order = {'weak', 'sub'};
     if ismember('L_partblk', out.window_table.Properties.VariableNames) && any(isfinite(out.window_table.L_partblk))
         source_order{end+1} = 'partblk'; %#ok<AGROW>
     end
-    labels = categorical(out.window_table.best_bound_source, source_order);
+    labels = categorical(out.window_table.best_bound_source(valid_mask), source_order);
     counts = zeros(numel(source_order), 1);
     for i = 1:numel(source_order)
         counts(i) = sum(labels == source_order{i});
     end
     bar(categorical(source_order), counts, 'FaceColor', [0.2 0.55 0.85]);
     xlabel('Winning bound');
-    ylabel('Window count');
-    title('Stage11 best-bound source ratio');
+    ylabel('Valid window count');
+    title('Stage11 best-bound source ratio (valid windows only)');
     grid on;
 
     out_png = fullfile(cfg.paths.figs, ...
         sprintf('stage11_best_source_%s_%s.png', cfg.stage11.run_tag, timestamp));
+    exportgraphics(fig, out_png, 'Resolution', 180);
+    close(fig);
+end
+
+
+function out_png = local_plot_valid_ratio(out, cfg, timestamp)
+    fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 1080 620]);
+    case_ids = categorical(cellstr(string(out.case_table.case_id)));
+    bar(case_ids, out.case_table.valid_ratio_new, 'FaceColor', [0.2 0.6 0.4]);
+    ylim([0 1.05]);
+    xlabel('Case');
+    ylabel('valid ratio (new)');
+    title('Stage11 case-level valid-window coverage');
+    grid on;
+
+    out_png = fullfile(cfg.paths.figs, ...
+        sprintf('stage11_valid_ratio_%s_%s.png', cfg.stage11.run_tag, timestamp));
     exportgraphics(fig, out_png, 'Resolution', 180);
     close(fig);
 end
