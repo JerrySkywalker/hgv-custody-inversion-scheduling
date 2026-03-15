@@ -21,25 +21,33 @@ function out_png = local_plot_representative(out, cfg, timestamp)
     T = sortrows(WT(mask, :), 't0_s', 'ascend');
 
     fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 1180 720]);
+    legend_entries = {};
     plot(T.t0_s, T.truth_lambda_min, 'k-', 'LineWidth', 1.8);
+    legend_entries{end+1} = 'truth'; %#ok<AGROW>
     hold on;
     plot(T.t0_s, T.old_bound, '-', 'LineWidth', 1.2, 'Color', [0.3 0.45 0.85]);
+    legend_entries{end+1} = 'old'; %#ok<AGROW>
     plot(T.t0_s, T.L_weak, '-', 'LineWidth', 1.2, 'Color', [0.2 0.6 0.25]);
+    legend_entries{end+1} = 'weak'; %#ok<AGROW>
     if ismember('L_sub', T.Properties.VariableNames)
         plot(T.t0_s, T.L_sub, '-', 'LineWidth', 1.2, 'Color', [0.9 0.45 0.15]);
+        legend_entries{end+1} = 'sub'; %#ok<AGROW>
     end
-    if ismember('L_partblk', T.Properties.VariableNames)
+    if ismember('L_partblk', T.Properties.VariableNames) && any(isfinite(T.L_partblk))
         plot(T.t0_s, T.L_partblk, '-', 'LineWidth', 1.2, 'Color', [0.55 0.4 0.75]);
+        legend_entries{end+1} = 'partblk'; %#ok<AGROW>
     end
     if ismember('L_new', T.Properties.VariableNames)
         plot(T.t0_s, T.L_new, '--', 'LineWidth', 1.6, 'Color', [0.85 0.1 0.1]);
+        legend_entries{end+1} = 'new'; %#ok<AGROW>
     end
     yline(cfg.stage11.threshold_truth, ':', 'LineWidth', 1.2, 'Color', [0.35 0.35 0.35]);
+    legend_entries{end+1} = 'truth threshold'; %#ok<AGROW>
     hold off;
     xlabel('t_0 [s]');
     ylabel('Lower-bound / truth value');
     title('Stage11 representative window bounds');
-    legend({'truth', 'old', 'weak', 'sub', 'partblk', 'new', 'truth threshold'}, 'Location', 'best');
+    legend(legend_entries, 'Location', 'best');
     grid on;
 
     out_png = fullfile(cfg.paths.figs, ...
@@ -87,9 +95,16 @@ end
 
 function out_png = local_plot_best_source(out, cfg, timestamp)
     fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 980 620]);
-    labels = categorical(out.window_table.best_bound_source, {'weak', 'sub', 'partblk'});
-    counts = [sum(labels == 'weak'); sum(labels == 'sub'); sum(labels == 'partblk')];
-    bar(categorical({'weak', 'sub', 'partblk'}), counts, 'FaceColor', [0.2 0.55 0.85]);
+    source_order = {'weak', 'sub'};
+    if ismember('L_partblk', out.window_table.Properties.VariableNames) && any(isfinite(out.window_table.L_partblk))
+        source_order{end+1} = 'partblk'; %#ok<AGROW>
+    end
+    labels = categorical(out.window_table.best_bound_source, source_order);
+    counts = zeros(numel(source_order), 1);
+    for i = 1:numel(source_order)
+        counts(i) = sum(labels == source_order{i});
+    end
+    bar(categorical(source_order), counts, 'FaceColor', [0.2 0.55 0.85]);
     xlabel('Winning bound');
     ylabel('Window count');
     title('Stage11 best-bound source ratio');

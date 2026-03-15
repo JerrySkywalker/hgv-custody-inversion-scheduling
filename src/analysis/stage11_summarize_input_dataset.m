@@ -29,25 +29,35 @@ function summary_table = stage11_summarize_input_dataset(input_source, cfg)
     if isfield(input_source, 'weak_table') && ~isempty(input_source.weak_table)
         weak_table = input_source.weak_table;
         summary_table.n_weak_valid = sum(weak_table.weak_valid);
-        summary_table.mean_eps_pi = mean(weak_table.eps_pi);
-        summary_table.mean_L_weak = mean(weak_table.L_weak);
+        summary_table.mean_eps_pi = local_mean_finite(weak_table.eps_pi);
+        summary_table.mean_L_weak = local_mean_finite(weak_table.L_weak);
     end
     if isfield(input_source, 'sub_table') && ~isempty(input_source.sub_table)
         summary_table.n_sub_valid = sum(input_source.sub_table.sub_valid);
-        summary_table.mean_L_sub = mean(input_source.sub_table.L_sub);
+        summary_table.mean_L_sub = local_mean_finite(input_source.sub_table.L_sub);
     end
     if isfield(input_source, 'blk_table') && ~isempty(input_source.blk_table)
         summary_table.n_partblk_valid = sum(input_source.blk_table.partblk_valid);
-        summary_table.mean_L_partblk = mean(input_source.blk_table.L_partblk);
+        summary_table.mean_L_partblk = local_mean_finite(input_source.blk_table.L_partblk);
     end
     if isfield(input_source, 'joint_table') && ~isempty(input_source.joint_table)
         summary_table.n_new_valid = sum(input_source.joint_table.new_valid);
-        summary_table.mean_L_new = mean(input_source.joint_table.L_new);
+        summary_table.mean_L_new = local_mean_finite(input_source.joint_table.L_new);
     end
     if isfield(input_source, 'sanity_table') && ~isempty(input_source.sanity_table)
         summary_table.sanity_fail_reference_leakage = input_source.sanity_table.sanity_fail_reference_leakage(1);
         summary_table.sanity_fail_sub_truth_overlap = input_source.sanity_table.sanity_fail_sub_truth_overlap(1);
         summary_table.sanity_fail_joint_gap_collapse = input_source.sanity_table.sanity_fail_joint_gap_collapse(1);
         summary_table.sanity_fail_best_source_sub_dominance = input_source.sanity_table.sanity_fail_best_source_sub_dominance(1);
+    end
+end
+
+
+function value = local_mean_finite(x)
+    x = x(isfinite(x));
+    if isempty(x)
+        value = NaN;
+    else
+        value = mean(x);
     end
 end

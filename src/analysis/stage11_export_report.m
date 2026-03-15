@@ -39,15 +39,19 @@ function report_file = stage11_export_report(out, cfg, timestamp)
     fprintf(fid, '- false safe (new): %d\n\n', false_safe_new);
 
     fprintf(fid, '## Gap Summary\n\n');
-    fprintf(fid, '- mean gap old: %.6g\n', mean(out.window_table.truth_lambda_min - out.window_table.old_bound));
-    fprintf(fid, '- mean gap new: %.6g\n', mean(out.window_table.truth_lambda_min - out.window_table.L_new));
-    fprintf(fid, '- mean L_weak: %.6g\n', mean(out.window_table.L_weak));
-    fprintf(fid, '- mean L_sub: %.6g\n', mean(out.window_table.L_sub));
-    fprintf(fid, '- mean L_partblk: %.6g\n', mean(out.window_table.L_partblk));
-    fprintf(fid, '- mean L_new: %.6g\n', mean(out.window_table.L_new));
-    fprintf(fid, '\n## Auxiliary Bound Note\n\n');
-    fprintf(fid, '- `L_partblk` is treated as a partition-local auxiliary bound in this revision.\n');
-    fprintf(fid, '- It is not reported as a strict block Gershgorin theorem validation result.\n');
+    fprintf(fid, '- mean gap old: %.6g\n', local_mean_finite(out.window_table.truth_lambda_min - out.window_table.old_bound));
+    fprintf(fid, '- mean gap new: %.6g\n', local_mean_finite(out.window_table.truth_lambda_min - out.window_table.L_new));
+    fprintf(fid, '- mean L_weak: %.6g\n', local_mean_finite(out.window_table.L_weak));
+    fprintf(fid, '- mean L_sub: %.6g\n', local_mean_finite(out.window_table.L_sub));
+    if ismember('L_partblk', out.window_table.Properties.VariableNames) && any(isfinite(out.window_table.L_partblk))
+        fprintf(fid, '- mean L_partblk: %.6g\n', local_mean_finite(out.window_table.L_partblk));
+    end
+    fprintf(fid, '- mean L_new: %.6g\n', local_mean_finite(out.window_table.L_new));
+    if ismember('L_partblk', out.window_table.Properties.VariableNames) && any(isfinite(out.window_table.L_partblk))
+        fprintf(fid, '\n## Auxiliary Bound Note\n\n');
+        fprintf(fid, '- `L_partblk` is treated as a partition-local auxiliary bound in this revision.\n');
+        fprintf(fid, '- It is not reported as a strict block Gershgorin theorem validation result.\n');
+    end
 
     if isfield(out, 'sanity_table') && ~isempty(out.sanity_table)
         S = out.sanity_table(1,:);
@@ -63,5 +67,15 @@ function report_file = stage11_export_report(out, cfg, timestamp)
         fprintf(fid, '- sanity_fail_sub_truth_overlap: %d\n', S.sanity_fail_sub_truth_overlap);
         fprintf(fid, '- sanity_fail_joint_gap_collapse: %d\n', S.sanity_fail_joint_gap_collapse);
         fprintf(fid, '- sanity_fail_best_source_sub_dominance: %d\n', S.sanity_fail_best_source_sub_dominance);
+    end
+end
+
+
+function value = local_mean_finite(x)
+    x = x(isfinite(x));
+    if isempty(x)
+        value = NaN;
+    else
+        value = mean(x);
     end
 end
