@@ -27,13 +27,26 @@ function out = stage11_entry(cfg)
     cleanupObj = onCleanup(@() fclose(log_fid)); %#ok<NASGU>
 
     log_msg(log_fid, 'INFO', 'Stage11 started.');
+    log_msg(log_fid, 'INFO', 'Stage11 mode: cache=%s case=%s window=%s blk=%d', ...
+        string(cfg.stage11.cache_mode), string(cfg.stage11.case_mode), ...
+        string(cfg.stage11.window_mode), cfg.stage11.enable_blk);
 
     input_dataset = stage11_build_input_dataset(cfg);
-    log_msg(log_fid, 'INFO', 'Stage10.E1 cache reused: %s', input_dataset.cache_files.stage10E1);
-    log_msg(log_fid, 'INFO', 'Stage10.E cache reused: %s', input_dataset.cache_files.stage10E);
     log_msg(log_fid, 'INFO', 'Cache reuse mode: %s', input_dataset.cache_reuse_mode);
+    if isfield(input_dataset, 'cache_files')
+        if isfield(input_dataset.cache_files, 'stage10E1') && strlength(string(input_dataset.cache_files.stage10E1)) > 0
+            log_msg(log_fid, 'INFO', 'Stage10.E1 cache reused: %s', input_dataset.cache_files.stage10E1);
+        end
+        if isfield(input_dataset.cache_files, 'stage10E') && strlength(string(input_dataset.cache_files.stage10E)) > 0
+            log_msg(log_fid, 'INFO', 'Stage10.E cache reused: %s', input_dataset.cache_files.stage10E);
+        end
+    end
     log_msg(log_fid, 'INFO', 'Window reuse stats: reused=%d recomputed=%d', ...
         input_dataset.n_windows_reused, input_dataset.n_windows_recomputed);
+    if isfield(input_dataset, 'total_window_cap_hit') && input_dataset.total_window_cap_hit
+        log_msg(log_fid, 'INFO', 'Window generation stopped early due to max_total_windows=%d.', ...
+            cfg.stage11.max_total_windows);
+    end
 
     out = struct();
     out.cfg = cfg;

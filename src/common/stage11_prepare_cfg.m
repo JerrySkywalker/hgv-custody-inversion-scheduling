@@ -54,10 +54,31 @@ function cfg = stage11_prepare_cfg(cfg)
         error('Unsupported cfg.stage11.reference_fallback: %s', string(cfg.stage11.reference_fallback));
     end
 
+    valid_cache_mode = {'build_fresh_small', 'reuse_or_build'};
+    if ~ismember(lower(char(string(cfg.stage11.cache_mode))), valid_cache_mode)
+        error('Unsupported cfg.stage11.cache_mode: %s', string(cfg.stage11.cache_mode));
+    end
+
+    valid_case_mode = {'tiny_manual', 'stage09_casebank'};
+    if ~ismember(lower(char(string(cfg.stage11.case_mode))), valid_case_mode)
+        error('Unsupported cfg.stage11.case_mode: %s', string(cfg.stage11.case_mode));
+    end
+
+    valid_window_mode = {'sparse', 'full'};
+    if ~ismember(lower(char(string(cfg.stage11.window_mode))), valid_window_mode)
+        error('Unsupported cfg.stage11.window_mode: %s', string(cfg.stage11.window_mode));
+    end
+
     if ~isfield(cfg.stage11, 'gamma_G') || isempty(cfg.stage11.gamma_G)
         cfg.stage11.gamma_G = cfg.stage11.threshold_truth;
     end
     if ~isscalar(cfg.stage11.gamma_G) || ~isfinite(cfg.stage11.gamma_G) || cfg.stage11.gamma_G <= 0
         error('cfg.stage11.gamma_G must be a positive finite scalar.');
     end
+
+    cfg.stage11.max_windows_per_case = max(1, round(cfg.stage11.max_windows_per_case));
+    cfg.stage11.max_total_windows = max(1, round(cfg.stage11.max_total_windows));
+    cfg.stage11.log_every_window = logical(cfg.stage11.log_every_window);
+    cfg.stage11.case_ids = string(cfg.stage11.case_ids(:));
+    cfg.stage11.reference_case_id = string(cfg.stage11.reference_case_id);
 end
