@@ -33,12 +33,12 @@ end
 cleanup_obj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 
 fprintf(fid, '# %s %s\n\n', result.milestone_id, strrep(result.title, '_', ' '));
-fprintf(fid, '## Purpose\n\n%s\n\n', local_get_text(result, 'purpose', 'Milestone scaffold export.'));
+fprintf(fid, '## Purpose\n\n%s\n\n', local_get_text(result, 'purpose', 'Milestone report export.'));
 fprintf(fid, '## Inputs\n\n');
 fprintf(fid, '- milestone_id: `%s`\n', result.milestone_id);
 fprintf(fid, '- title: `%s`\n', result.title);
 fprintf(fid, '- config timestamp: `%s`\n\n', local_get_text(result.config, 'timestamp', datestr(now, 'yyyy-mm-dd HH:MM:SS')));
-fprintf(fid, '## Reused stage modules\n\n');
+fprintf(fid, '## Reused Computational Modules\n\n');
 local_write_list(fid, local_get_cell(result, 'reused_modules'));
 fprintf(fid, '\n## Outputs generated\n\n');
 local_write_named_paths(fid, 'Tables', result.tables);

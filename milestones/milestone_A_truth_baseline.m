@@ -65,7 +65,7 @@ result.milestone_id = meta.milestone_id;
 result.title = meta.title;
 result.config = cfg;
 result.purpose = 'Single-layer static inverse-design truth baseline.';
-result.reused_modules = meta.reuse_stages;
+result.reused_modules = {'Controlled truth-baseline evaluator', 'Single-case window truth scanner'};
 result.tables = struct();
 result.figures = struct();
 result.artifacts = struct();
@@ -74,8 +74,8 @@ result.tables.worst_window_identification = string(worst_csv);
 result.tables.window_level_truth_curve = string(curve_csv);
 result.figures.truth_window_scan = string(fig_main_path);
 result.figures.worst_window_highlight = string(fig_highlight_path);
-result.artifacts.truth_baseline_kernel = "stage12A_truth_baseline_kernel";
-result.artifacts.truth_window_scan_kernel = "stage12B_truth_case_window_scan";
+result.artifacts.baseline_evaluator = "controlled truth-baseline evaluator";
+result.artifacts.window_scan_engine = "single-case window truth scanner";
 
 result.summary = struct( ...
     'case_id', string(selection.case_id), ...
@@ -90,7 +90,7 @@ result.summary = struct( ...
     'is_feasible_truth', is_feasible_truth, ...
     'dominant_metric', dominant_metric, ...
     'key_counts', struct('num_cases', height(kernel_out.case_table), 'num_tables', numel(fieldnames(result.tables)), 'num_figures', numel(fieldnames(result.figures))), ...
-    'success_flags', struct('stage12A_truth_baseline_kernel', true, 'stage12B_truth_case_window_scan', true), ...
+    'success_flags', struct('baseline_evaluator', true, 'window_scan_engine', true), ...
     'main_conclusion', local_make_conclusion(is_feasible_truth, dominant_metric, summary_row));
 
 files = milestone_common_export_summary(result, paths);
