@@ -11,12 +11,7 @@ function zipFilePath = package_for_chatgpt(include_milestone_outputs)
 %   false -> include only lightweight milestone markdown reports if present
 %
 % Filename:
-%   [StageXX.Y]_SHA7_yyyymmdd_HHMMSS_working.zip
-%
-%   - [StageXX.Y]: latest [Stage...] marker in the current branch log
-%   - SHA7      : short SHA (7 chars) of the current HEAD commit
-%   - yyyymmdd  : current date
-%   - HHMMSS    : current time
+%   yyyymmdd_HHMMSS_working.zip
 %
 % Usage (from MATLAB):
 %   zipPath = package_for_chatgpt();
@@ -31,11 +26,9 @@ function zipFilePath = package_for_chatgpt(include_milestone_outputs)
     cleanupObj = onCleanup(@() cd(original_cwd)); %#ok<NASGU>
     cd(repo_root);
 
-    stageLabel = detect_stage_label();
-    shaShort  = detect_head_sha();
     datePart  = datestr(now, 'yyyymmdd');
     timePart  = datestr(now, 'HHMMSS');
-    zipName = sprintf('%s_%s_%s_%s_working.zip', stageLabel, shaShort, datePart, timePart);
+    zipName = sprintf('%s_%s_working.zip', datePart, timePart);
 
     % Save archive in the parent directory of the repository root
     parent_root = fileparts(repo_root);
@@ -78,7 +71,6 @@ function zipFilePath = package_for_chatgpt(include_milestone_outputs)
     fprintf('Archive created with %d top-level entries.\n', numel(include_list));
 end
 
-
 function include_list = local_collect_milestone_outputs(repo_root, include_milestone_outputs)
     include_list = {};
 
@@ -101,40 +93,3 @@ function include_list = local_collect_milestone_outputs(repo_root, include_miles
         include_list{end+1} = rel_path; %#ok<AGROW>
     end
 end
-
-
-function stageLabel = detect_stage_label()
-%DETECT_STAGE_LABEL  Get latest [StageXX.Y] label from current branch log.
-
-    [status, out] = system('git log --format=%s');
-    if status ~= 0
-        error('Failed to query git log. Ensure git is installed and this folder is a git repository.');
-    end
-
-    lines = regexp(strtrim(out), '\r?\n', 'split');
-
-    % Default fallback if no [Stage...] marker is found
-    stageLabel = '[Stage]';
-
-    for i = 1:numel(lines)
-        line = strtrim(lines{i});
-        % Look for a [Stage...] marker anywhere in the subject
-        match = regexp(line, '\[Stage[^\]]*\]', 'match', 'once');
-        if ~isempty(match)
-            stageLabel = match;
-            return;
-        end
-    end
-end
-
-
-function shaShort = detect_head_sha()
-%DETECT_HEAD_SHA  Get short SHA (7 chars) of current HEAD commit.
-
-    [status, out] = system('git rev-parse --short HEAD');
-    if status ~= 0
-        error('Failed to query git rev-parse. Ensure git is installed and this folder is a git repository.');
-    end
-    shaShort = strtrim(out);
-end
-
