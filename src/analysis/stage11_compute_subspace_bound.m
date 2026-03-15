@@ -9,6 +9,7 @@ function sub_table = stage11_compute_subspace_bound(input_dataset, weak_table, c
     WT = input_dataset.window_table;
     n_window = height(WT);
     rows = cell(n_window, 1);
+    t_start = tic;
 
     for i = 1:n_window
         Wr = WT.Wr{i};
@@ -54,6 +55,11 @@ function sub_table = stage11_compute_subspace_bound(input_dataset, weak_table, c
             'mu_lower', mu_lower, ...
             'L_sub', real(L_sub), ...
             'sub_valid', sub_valid);
+
+        if cfg.stage11.log_every_window
+            fprintf(['[stage11][sub] theta %d case %s window %d row %d/%d elapsed=%.1fs', newline], ...
+                WT.theta_id(i), char(string(WT.case_id(i))), WT.window_id(i), WT.row_id(i), n_window, toc(t_start));
+        end
     end
 
     sub_table = struct2table(vertcat(rows{:}));

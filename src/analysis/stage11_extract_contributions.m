@@ -16,6 +16,7 @@ function contrib_bank = stage11_extract_contributions(input_dataset, cfg)
         'J_meta', struct([]), ...
         'recon_error_fro', NaN, ...
         'recon_error_max_abs', NaN), n_window, 1);
+    t_start = tic;
 
     for i = 1:n_window
         detail = detail_list{WT.detail_id(i)};
@@ -80,6 +81,12 @@ function contrib_bank = stage11_extract_contributions(input_dataset, cfg)
         contrib_bank(i).J_meta = meta_struct;
         contrib_bank(i).recon_error_fro = norm(D, 'fro');
         contrib_bank(i).recon_error_max_abs = max(abs(D(:)));
+
+        if cfg.stage11.log_every_window
+            fprintf(['[stage11][contrib] theta %d case %s window %d/%d row %d/%d elapsed=%.1fs', newline], ...
+                WT.theta_id(i), char(string(WT.case_id(i))), WT.window_id(i), WT.window_count_full(i), ...
+                WT.row_id(i), n_window, toc(t_start));
+        end
     end
 end
 

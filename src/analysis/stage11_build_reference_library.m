@@ -12,11 +12,21 @@ function ref_library = stage11_build_reference_library(input_dataset, contrib_ba
         theta_mask = true(height(WT), 1);
     end
 
+    reference_case_id = string(cfg.stage11.reference_case_id);
     case_idx = min(max(1, cfg.stage11.reference_case_index), max(WT.case_index(theta_mask)));
     win_idx = cfg.stage11.reference_window_index;
-    ref_mask = theta_mask & (WT.case_index == case_idx) & (WT.window_id == win_idx);
+    ref_mask = theta_mask & (WT.window_id == win_idx);
+    if strlength(reference_case_id) > 0
+        ref_mask = ref_mask & (string(WT.case_id) == reference_case_id);
+    else
+        ref_mask = ref_mask & (WT.case_index == case_idx);
+    end
     if ~any(ref_mask)
-        candidate_rows = find(theta_mask & (WT.case_index == case_idx));
+        if strlength(reference_case_id) > 0
+            candidate_rows = find(theta_mask & (string(WT.case_id) == reference_case_id));
+        else
+            candidate_rows = find(theta_mask & (WT.case_index == case_idx));
+        end
         if isempty(candidate_rows)
             candidate_rows = find(theta_mask, 1, 'first');
         else
@@ -46,6 +56,7 @@ function ref_library = stage11_build_reference_library(input_dataset, contrib_ba
 
     ref_library = struct();
     ref_library.reference_row_id = WT.row_id(ref_row);
+    ref_library.reference_case_id = string(WT.case_id(ref_row));
     ref_library.reference_case_index = WT.case_index(ref_row);
     ref_library.reference_window_id = WT.window_id(ref_row);
     ref_library.reference_theta_id = WT.theta_id(ref_row);
