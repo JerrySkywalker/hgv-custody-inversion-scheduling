@@ -17,6 +17,12 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
     n_window_valid_new = zeros(n_case, 1);
     valid_ratio_new = zeros(n_case, 1);
     all_valid_new = false(n_case, 1);
+    n_failure_no_reference = zeros(n_case, 1);
+    n_failure_partial_reference = zeros(n_case, 1);
+    n_failure_weak_invalid = zeros(n_case, 1);
+    n_failure_sub_invalid = zeros(n_case, 1);
+    n_failure_all_bounds_invalid = zeros(n_case, 1);
+    n_failure_numerical = zeros(n_case, 1);
 
     has_weak = ismember('L_weak', window_table.Properties.VariableNames);
     has_sub = ismember('L_sub', window_table.Properties.VariableNames);
@@ -55,6 +61,16 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
                 end
             end
         end
+
+        if ismember('new_failure_reason', window_table.Properties.VariableNames)
+            reasons = string(window_table.new_failure_reason(idx));
+            n_failure_no_reference(i) = sum(reasons == "no_reference_match");
+            n_failure_partial_reference(i) = sum(reasons == "partial_reference_match");
+            n_failure_weak_invalid(i) = sum(reasons == "weak_invalid");
+            n_failure_sub_invalid(i) = sum(reasons == "sub_invalid");
+            n_failure_all_bounds_invalid(i) = sum(reasons == "all_bounds_invalid");
+            n_failure_numerical(i) = sum(reasons == "numerical_issue");
+        end
     end
 
     case_table.L_weak_worst = L_weak_worst;
@@ -67,6 +83,12 @@ function case_table = stage11_aggregate_cases(case_table, window_table, cfg)
     case_table.n_window_valid_new = n_window_valid_new;
     case_table.valid_ratio_new = valid_ratio_new;
     case_table.all_valid_new = all_valid_new;
+    case_table.n_failure_no_reference = n_failure_no_reference;
+    case_table.n_failure_partial_reference = n_failure_partial_reference;
+    case_table.n_failure_weak_invalid = n_failure_weak_invalid;
+    case_table.n_failure_sub_invalid = n_failure_sub_invalid;
+    case_table.n_failure_all_bounds_invalid = n_failure_all_bounds_invalid;
+    case_table.n_failure_numerical = n_failure_numerical;
     case_table.new_case_label = strings(n_case, 1);
 
     for i = 1:n_case

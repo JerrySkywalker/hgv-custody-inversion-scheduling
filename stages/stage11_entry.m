@@ -159,6 +159,10 @@ function out = stage11_entry(cfg)
         table_files = stage11_export_tables(out, cfg, timestamp);
         out.files = local_merge_files(out.files, table_files);
     end
+    if cfg.stage11.enable_diagnosis && (cfg.stage11.export_window_diagnostics || cfg.stage11.export_case_diagnostics)
+        diag_files = stage11_export_diagnostics(out, cfg, timestamp);
+        out.files = local_merge_files(out.files, diag_files);
+    end
 
     if cfg.stage11.make_plot
         figure_files = stage11_export_figures(out, cfg, timestamp);
