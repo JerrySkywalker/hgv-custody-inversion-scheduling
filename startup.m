@@ -9,9 +9,11 @@ function startup()
         addpath(genpath(fullfile(root_dir, 'stages')));
         addpath(genpath(fullfile(root_dir, 'benchmarks')));
         addpath(genpath(fullfile(root_dir, 'milestones')));
+        addpath(genpath(fullfile(root_dir, 'shared_scenarios')));
         addpath(genpath(fullfile(root_dir, 'paper')));
         addpath(genpath(fullfile(root_dir, 'tests')));
         addpath(genpath(fullfile(root_dir, 'run_milestones')));
+        addpath(genpath(fullfile(root_dir, 'run_shared_scenarios')));
         addpath(genpath(fullfile(root_dir, 'run_stages')));
     
         % Add deliverables / milestone scripts
@@ -30,6 +32,9 @@ function startup()
         ensure_dir(fullfile(root_dir, 'results', 'benchmarks'));
         ensure_dir(fullfile(root_dir, 'output'));
         ensure_dir(fullfile(root_dir, 'output', 'milestones'));
+        ensure_dir(fullfile(root_dir, 'output', 'shared_scenarios'));
+        ensure_dir(fullfile(root_dir, 'output', 'shared_scenarios', 'SS1'));
+        ensure_dir(fullfile(root_dir, 'output', 'shared_scenarios', 'SS2'));
     
         fprintf('[startup] Project root: %s\n', root_dir);
         fprintf('[startup] Paths initialized successfully.\n');
