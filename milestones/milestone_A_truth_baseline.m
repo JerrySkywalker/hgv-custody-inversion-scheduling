@@ -119,13 +119,24 @@ if ~isfield(meta, 'attach_shared_scenarios') || ~meta.attach_shared_scenarios
     return;
 end
 
+availability = check_walkerDelta_availability();
+if ~availability.is_available
+    shared_artifacts.shared_scenario_note = string(availability.message);
+    return;
+end
+
 ss1_fig = fullfile(cfg.paths.root, 'output', 'shared_scenarios', 'SS1', 'figures', 'SS1_defense_zone_2d_overview.png');
 ss2_fig = fullfile(cfg.paths.root, 'output', 'shared_scenarios', 'SS2', 'figures', 'SS2_earth_walker_defense_zone_3d.png');
 
 need_build = cfg.shared_scenarios.enable_auto_build && ...
     (~isfile(ss1_fig) || ~isfile(ss2_fig));
 if need_build
-    run_all_shared_scenarios(cfg);
+    try
+        run_all_shared_scenarios(cfg);
+    catch ME
+        shared_artifacts.shared_scenario_note = "共享场景自动构建失败：" + string(ME.message);
+        return;
+    end
 end
 
 if isfile(ss1_fig)
