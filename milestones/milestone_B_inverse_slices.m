@@ -81,12 +81,27 @@ result.figures.minimum_boundary_map = string(fig2_path);
 result.figures.task_family_slice_comparison = string(fig3_path);
 result.artifacts.temporal_metric_note = "时序图表展示采用有界时序连续性裕度 DT_bar，闭合判定与主导失效识别继续采用标准化时序连续性裕度 DT >= 1。";
 
+task_family_minNs = local_task_metric_map(task_summary_table, 'Ns_min_feasible');
+task_family_best_margin = local_task_metric_map(task_summary_table, 'best_joint_margin');
+minimum_support_sources = "";
+if ~isempty(minimum_design_table) && ismember('support_sources', minimum_design_table.Properties.VariableNames)
+    minimum_support_sources = strjoin(unique(string(minimum_design_table.support_sources), 'stable'), "; ");
+end
+
 result.summary = struct( ...
     'slice_axes', {{'h-i', 'P-T'}}, ...
+    'num_unique_grid_points', height(minimum_pack.full_theta_table), ...
+    'num_unique_feasible_points', height(minimum_pack.feasible_theta_table), ...
     'num_grid_points', height(minimum_pack.full_theta_table), ...
     'num_feasible_points', height(minimum_pack.feasible_theta_table), ...
+    'minimum_design_count', height(minimum_design_table), ...
+    'minimum_design_support_sources', minimum_support_sources, ...
     'minimum_design', minimum_pack.minimum_design, ...
     'near_optimal_region_size', height(near_optimal_table), ...
+    'task_family_minNs', task_family_minNs, ...
+    'task_family_best_margin', task_family_best_margin, ...
+    'slice_anchor_used_for_hi_view', local_struct_to_string(slice_hi.view_anchor), ...
+    'slice_anchor_used_for_pt_view', local_struct_to_string(slice_pt.view_anchor), ...
     'dominant_constraint_distribution', minimum_pack.dominant_constraint_distribution, ...
     'key_counts', struct('num_tables', numel(fieldnames(result.tables)), 'num_figures', numel(fieldnames(result.figures))), ...
     'success_flags', struct('constellation_slice_packager', true, 'task_slice_packager', true, 'minimum_design_extractor', true), ...
@@ -98,15 +113,18 @@ result.artifacts.summary_mat = files.summary_mat;
 end
 
 function txt = local_make_conclusion(minimum_pack, task_summary_table)
-task_text = sprintf('nominal=%.2f, heading=%.2f, critical=%.2f', ...
-    task_summary_table.feasible_ratio(1), task_summary_table.feasible_ratio(2), task_summary_table.feasible_ratio(3));
+task_text = local_task_conclusion(task_summary_table);
 if isempty(minimum_pack.minimum_design_table)
-    txt = sprintf(['真值静态可行域中未提取到可行最小布置。任务侧切片可行比例为 %s。', ...
-        '时序约束采用标准化有界时序裕度进行闭合判定，图表展示采用有界时序连续性裕度。'], task_text);
+    txt = sprintf(['当前 MB 网格中的 unique feasible design 数为 %d。', ...
+        '真值静态可行域中未提取到可行最小布置。', ...
+        '任务族切片比较结果为 %s。'], ...
+        height(minimum_pack.feasible_theta_table), task_text);
 else
-    txt = sprintf(['真值静态可行域给出的最小布置对应 N_s=%g。任务侧切片可行比例为 %s。', ...
-        '最小布置边界与主导失效识别均使用标准化时序连续性裕度 D_T。'], ...
-        minimum_pack.minimum_design_table.Ns(1), task_text);
+    txt = sprintf(['当前 MB 网格中的 unique feasible design 数为 %d。', ...
+        '最小布置对应 N_s=%g，unique minimum design 数为 %d。', ...
+        '任务族切片比较结果为 %s。'], ...
+        height(minimum_pack.feasible_theta_table), minimum_pack.minimum_design_table.Ns(1), ...
+        height(minimum_pack.minimum_design_table), task_text);
 end
 end
 
@@ -114,7 +132,7 @@ function T = local_select_feasible_domain_columns(T)
 if isempty(T)
     return;
 end
-want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'DG_worst', 'DA_worst', 'DT_bar_worst', 'DT_worst', 'feasible_flag', 'dominant_fail_tag', 'slice_source'};
+want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'DG_worst', 'DA_worst', 'DT_bar_worst', 'DT_worst', 'joint_margin', 'feasible_flag', 'dominant_fail_tag', 'slice_source', 'support_sources', 'num_support_sources'};
 keep = intersect(want, T.Properties.VariableNames, 'stable');
 T = T(:, keep);
 end
@@ -123,7 +141,55 @@ function T = local_select_minimum_design_columns(T)
 if isempty(T)
     return;
 end
-want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'objective_value', 'dominant_constraint', 'has_near_optimal_alternatives', 'DG_worst', 'DA_worst', 'DT_bar_worst', 'DT_worst', 'slice_source'};
+want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'objective_value', 'dominant_constraint', 'has_near_optimal_alternatives', 'joint_margin', 'DG_worst', 'DA_worst', 'DT_bar_worst', 'DT_worst', 'slice_source', 'support_sources', 'num_support_sources'};
 keep = intersect(want, T.Properties.VariableNames, 'stable');
 T = T(:, keep);
+end
+
+function out = local_task_metric_map(task_summary_table, metric_name)
+out = struct();
+if isempty(task_summary_table) || ~ismember(metric_name, task_summary_table.Properties.VariableNames)
+    return;
+end
+for k = 1:height(task_summary_table)
+    key = matlab.lang.makeValidName(char(string(task_summary_table.family_name(k))));
+    out.(key) = task_summary_table.(metric_name)(k);
+end
+end
+
+function txt = local_struct_to_string(S)
+if isempty(S) || ~isstruct(S)
+    txt = "";
+    return;
+end
+fields = fieldnames(S);
+parts = strings(numel(fields), 1);
+for k = 1:numel(fields)
+    value = S.(fields{k});
+    if isnumeric(value) && isscalar(value)
+        value_txt = num2str(value);
+    else
+        value_txt = char(string(value));
+    end
+    parts(k) = sprintf('%s=%s', fields{k}, value_txt);
+end
+txt = strjoin(parts, ', ');
+end
+
+function txt = local_task_conclusion(task_summary_table)
+if isempty(task_summary_table)
+    txt = '任务族切片尚无可用统计。';
+    return;
+end
+
+parts = strings(height(task_summary_table), 1);
+for k = 1:height(task_summary_table)
+    family_name = string(task_summary_table.family_name(k));
+    feasible_ratio = task_summary_table.feasible_ratio(k);
+    min_ns = task_summary_table.Ns_min_feasible(k);
+    best_margin = task_summary_table.best_joint_margin(k);
+    parts(k) = sprintf('%s: feasible_ratio=%.2f, min_Ns=%g, best_margin=%.3f', ...
+        family_name, feasible_ratio, min_ns, best_margin);
+end
+txt = strjoin(parts, '; ');
 end
