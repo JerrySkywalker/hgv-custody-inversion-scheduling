@@ -72,6 +72,7 @@ for k = 1:numel(family_names)
         out.figures.(sprintf('%s_%s_worst', family_name, char(compare_tags(j)))) = files.worst_window_compare;
     end
 end
+out.dissertation_export = stage13_export_for_dissertation(out);
 
 save(paths.summary_mat, 'out', '-v7.3');
 if cfg.stage13.save_reports
@@ -92,6 +93,8 @@ paths.signature_csv = fullfile(paths.tables, 'stage13_candidate_signatures.csv')
 paths.summary_csv = fullfile(paths.tables, 'stage13_candidate_summary.csv');
 paths.summary_mat = fullfile(paths.reports, 'stage13_summary.mat');
 paths.report_md = fullfile(paths.reports, 'stage13_summary.md');
+paths.export_mat = fullfile(paths.reports, 'stage13_dissertation_export.mat');
+paths.export_md = fullfile(paths.reports, 'stage13_dissertation_export.md');
 
 ensure_dir(cfg.paths.output);
 ensure_dir(paths.root);
@@ -116,6 +119,7 @@ fprintf(fid, '- families: `%d`\n', out.summary.num_families);
 fprintf(fid, '- candidates planned: `%d`\n', out.summary.num_candidates);
 fprintf(fid, '- candidates evaluated: `%d`\n', out.summary.num_evaluated);
 fprintf(fid, '- summary table: `%s`\n', out.paths.summary_csv);
+fprintf(fid, '- dissertation export: `%s`\n', out.paths.export_md);
 fprintf(fid, '\n## Notes\n\n');
 fprintf(fid, 'This increment evaluates each planned candidate with the MA-aligned truth window kernel and stores a unified candidate signature table.\n');
 end
