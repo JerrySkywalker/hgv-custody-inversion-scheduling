@@ -52,7 +52,26 @@ out.paths = paths;
 out.plan = plan;
 out.evaluations = evaluations;
 out.signature_table = signature_rows;
+out.figures = struct();
 out.summary = summary;
+
+baseline_tags = local_identify_baseline_tags(signature_rows);
+out.summary_table = stage13_write_summary_table(signature_rows, baseline_tags, paths.summary_csv);
+family_names = fieldnames(baseline_tags);
+for k = 1:numel(family_names)
+    family_name = family_names{k};
+    out.figures.(['family_overview_' family_name]) = stage13_plot_family_overview(signature_rows, family_name, paths);
+    reps = summary.representatives.(family_name);
+    compare_tags = unique(string(struct2cell(reps)));
+    compare_tags = compare_tags(strlength(compare_tags) > 0 & compare_tags ~= string(baseline_tags.(family_name)));
+    for j = 1:numel(compare_tags)
+        baseline_eval = local_find_eval_by_tag(evaluations, string(baseline_tags.(family_name)));
+        candidate_eval = local_find_eval_by_tag(evaluations, compare_tags(j));
+        files = stage13_plot_case_vs_baseline(baseline_eval, candidate_eval, family_name, paths);
+        out.figures.(sprintf('%s_%s_curve', family_name, char(compare_tags(j)))) = files.curve_compare;
+        out.figures.(sprintf('%s_%s_worst', family_name, char(compare_tags(j)))) = files.worst_window_compare;
+    end
+end
 
 save(paths.summary_mat, 'out', '-v7.3');
 if cfg.stage13.save_reports
@@ -70,6 +89,7 @@ paths.reports = fullfile(root_dir, 'reports');
 paths.cache = fullfile(root_dir, 'cache');
 paths.plan_csv = fullfile(paths.tables, 'stage13_search_plan.csv');
 paths.signature_csv = fullfile(paths.tables, 'stage13_candidate_signatures.csv');
+paths.summary_csv = fullfile(paths.tables, 'stage13_candidate_summary.csv');
 paths.summary_mat = fullfile(paths.reports, 'stage13_summary.mat');
 paths.report_md = fullfile(paths.reports, 'stage13_summary.md');
 
@@ -95,6 +115,32 @@ fprintf(fid, '- baseline case: `%s`\n', out.summary.baseline_case_id);
 fprintf(fid, '- families: `%d`\n', out.summary.num_families);
 fprintf(fid, '- candidates planned: `%d`\n', out.summary.num_candidates);
 fprintf(fid, '- candidates evaluated: `%d`\n', out.summary.num_evaluated);
+fprintf(fid, '- summary table: `%s`\n', out.paths.summary_csv);
 fprintf(fid, '\n## Notes\n\n');
 fprintf(fid, 'This increment evaluates each planned candidate with the MA-aligned truth window kernel and stores a unified candidate signature table.\n');
+end
+
+function baseline_tags = local_identify_baseline_tags(signature_rows)
+families = unique(string(signature_rows.family), 'stable');
+baseline_tags = struct();
+for k = 1:numel(families)
+    family_name = char(families(k));
+    rows = signature_rows(strcmp(string(signature_rows.family), families(k)), :);
+    baseline_row = rows(strcmp(string(rows.case_id), "N01"), :);
+    if isempty(baseline_row)
+        baseline_row = rows(1, :);
+    end
+    baseline_tags.(family_name) = string(baseline_row.case_tag(1));
+end
+end
+
+function out_eval = local_find_eval_by_tag(evaluations, case_tag)
+out_eval = struct();
+for k = 1:numel(evaluations)
+    if strcmp(string(evaluations(k).signature.case_tag), string(case_tag))
+        out_eval = evaluations(k);
+        return;
+    end
+end
+error('Stage13 evaluation not found for candidate tag: %s', case_tag);
 end
