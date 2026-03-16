@@ -15,9 +15,23 @@ cfg = stage13_default_config(cfg);
 
 paths = local_build_paths(cfg);
 plan = stage13_build_search_plan(cfg, cfg.stage13.mode);
+evaluations = repmat(struct('candidate', struct(), 'scan_out', struct(), 'signature', struct()), height(plan.candidate_table), 1);
+signature_rows = table('Size', [0 13], ...
+    'VariableTypes', {'string', 'string', 'string', 'double', 'double', 'double', 'double', 'double', 'double', 'double', 'logical', 'string', 'string'}, ...
+    'VariableNames', {'case_tag', 'case_id', 'family', 'D_G_worst', 'D_A_worst', 'D_T_worst', 'D_T_bar_worst', ...
+    't0G_star', 't0A_star', 't0T_star', 'feasible_truth', 'active_constraint', 'summary_tag'});
+
+for k = 1:height(plan.candidate_table)
+    evaluations(k) = stage13_evaluate_candidate(cfg, plan.candidate_table(k, :), paths);
+    sig = evaluations(k).signature;
+    signature_rows = [signature_rows; {sig.case_tag, sig.case_id, sig.family, sig.D_G_worst, sig.D_A_worst, ... %#ok<AGROW>
+        sig.D_T_worst, sig.D_T_bar_worst, sig.t0G_star, sig.t0A_star, sig.t0T_star, ...
+        sig.feasible_truth, sig.active_constraint, sig.summary_tag}];
+end
 
 if cfg.stage13.save_tables
     writetable(plan.candidate_table, paths.plan_csv);
+    writetable(signature_rows, paths.signature_csv);
 end
 
 summary = struct();
@@ -25,11 +39,14 @@ summary.mode = plan.mode;
 summary.baseline_case_id = string(cfg.stage13.baseline.case_id);
 summary.num_families = numel(plan.families);
 summary.num_candidates = height(plan.candidate_table);
+summary.num_evaluated = height(signature_rows);
 
 out = struct();
 out.cfg = cfg;
 out.paths = paths;
 out.plan = plan;
+out.evaluations = evaluations;
+out.signature_table = signature_rows;
 out.summary = summary;
 
 save(paths.summary_mat, 'out', '-v7.3');
@@ -47,6 +64,7 @@ paths.figures = fullfile(root_dir, 'figures');
 paths.reports = fullfile(root_dir, 'reports');
 paths.cache = fullfile(root_dir, 'cache');
 paths.plan_csv = fullfile(paths.tables, 'stage13_search_plan.csv');
+paths.signature_csv = fullfile(paths.tables, 'stage13_candidate_signatures.csv');
 paths.summary_mat = fullfile(paths.reports, 'stage13_summary.mat');
 paths.report_md = fullfile(paths.reports, 'stage13_summary.md');
 
@@ -71,6 +89,7 @@ fprintf(fid, '- mode: `%s`\n', out.summary.mode);
 fprintf(fid, '- baseline case: `%s`\n', out.summary.baseline_case_id);
 fprintf(fid, '- families: `%d`\n', out.summary.num_families);
 fprintf(fid, '- candidates planned: `%d`\n', out.summary.num_candidates);
+fprintf(fid, '- candidates evaluated: `%d`\n', out.summary.num_evaluated);
 fprintf(fid, '\n## Notes\n\n');
-fprintf(fid, 'This skeleton only builds the local search plan. Candidate truth evaluation will be added in the next increment.\n');
+fprintf(fid, 'This increment evaluates each planned candidate with the MA-aligned truth window kernel and stores a unified candidate signature table.\n');
 end
