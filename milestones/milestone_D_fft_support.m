@@ -78,6 +78,7 @@ fig2_path = fullfile(paths.figures, 'MD_fft_support_scale_vs_runtime.png');
 milestone_common_save_figure(fig2, fig2_path);
 close(fig2);
 result.figures.scale_vs_runtime = string(fig2_path);
+result.artifacts.temporal_metric_note = "Milestone D 不以时序裕度为主展示对象；若后续汇总接入时序字段，应统一使用 DT_bar_* 作为展示量、DT_* 作为闭合量。";
 
 note_file = fullfile(paths.reports, 'MD_fft_support_complexity_note.md');
 fid = fopen(note_file, 'w');

@@ -120,6 +120,7 @@ fig4_path = fullfile(paths.figures, 'ME_worst_window_diagnosis_template_residual
 milestone_common_save_figure(fig4, fig4_path);
 close(fig4);
 result.figures.template_residual = string(fig4_path);
+result.artifacts.temporal_metric_note = "Milestone E 若在诊断汇总中引用时序连续性，应报告 DT_bar_* 与 DT_* 的分离命名，不再使用任何 Inf 型旧时序度量。";
 
 result.summary = struct( ...
     'valid_ratio', valid_ratio, ...

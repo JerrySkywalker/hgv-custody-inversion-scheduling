@@ -146,6 +146,9 @@ package_for_chatgpt_baseline(false, true)
 - Benchmark 体系仍然服务于 Stage 级串并行优化和结果一致性校验。
 - `run_stages/rs_apply_parallel_policy.m` 仍是 Stage 默认并行策略的控制点。
 - Milestone 当前优先提供论文实验骨架和统一产物格式，不替代 benchmark。
+- 时序连续性现统一采用双指标：
+  `DT_bar = dt_req / (dt_req + dt_max)` 用于有界展示与统计，
+  `DT = 2 * DT_bar` 用于与 `DG/DA` 一致的 threshold-1 闭合判定。
 
 ## License
 
