@@ -13,6 +13,7 @@ meta = cfg.milestones.MA;
 paths = milestone_common_output_paths(cfg, meta.milestone_id, meta.title);
 style = milestone_common_plot_style();
 selection = milestone_common_case_selection(cfg, meta.milestone_id, meta);
+shared_artifacts = local_attach_shared_scenarios(cfg, meta);
 
 kernel_out = stage12A_truth_baseline_kernel(cfg, meta);
 scan_out = stage12B_truth_case_window_scan(cfg, meta);
@@ -79,6 +80,12 @@ result.figures.truth_window_scan = string(fig_main_path);
 result.figures.worst_window_highlight = string(fig_highlight_path);
 result.artifacts.baseline_evaluator = "controlled truth-baseline evaluator";
 result.artifacts.window_scan_engine = "single-case window truth scanner";
+if ~isempty(shared_artifacts)
+    artifact_names = fieldnames(shared_artifacts);
+    for k = 1:numel(artifact_names)
+        result.artifacts.(artifact_names{k}) = shared_artifacts.(artifact_names{k});
+    end
+end
 
 result.summary = struct( ...
     'case_id', string(selection.case_id), ...
@@ -104,6 +111,32 @@ result.artifacts.temporal_panel_note = "基线真值窗口扫描的第三面板�
 files = milestone_common_export_summary(result, paths);
 result.artifacts.summary_report = files.report_md;
 result.artifacts.summary_mat = files.summary_mat;
+end
+
+function shared_artifacts = local_attach_shared_scenarios(cfg, meta)
+shared_artifacts = struct();
+if ~isfield(meta, 'attach_shared_scenarios') || ~meta.attach_shared_scenarios
+    return;
+end
+
+ss1_fig = fullfile(cfg.paths.root, 'output', 'shared_scenarios', 'SS1', 'figures', 'SS1_defense_zone_2d_overview.png');
+ss2_fig = fullfile(cfg.paths.root, 'output', 'shared_scenarios', 'SS2', 'figures', 'SS2_earth_walker_defense_zone_3d.png');
+
+need_build = cfg.shared_scenarios.enable_auto_build && ...
+    (~isfile(ss1_fig) || ~isfile(ss2_fig));
+if need_build
+    run_all_shared_scenarios(cfg);
+end
+
+if isfile(ss1_fig)
+    shared_artifacts.shared_scenario_SS1 = string(ss1_fig);
+end
+if isfile(ss2_fig)
+    shared_artifacts.shared_scenario_SS2 = string(ss2_fig);
+end
+if ~isempty(fieldnames(shared_artifacts))
+    shared_artifacts.shared_scenario_note = "共享场景 SS1/SS2 用于补充第四章与第五章共用的防区与 Earth-Walker 空间关系说明。";
+end
 end
 
 function txt = local_make_conclusion(is_feasible_truth, dominant_metric, summary_row)

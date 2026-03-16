@@ -4,6 +4,7 @@
 
 - `stages/` + `run_stages/`：功能开发顺序、调试、CI/CD 递进
 - `milestones/` + `run_milestones/`：论文 Chapter 4 实验分组、复现实验与打包
+- `shared_scenarios/` + `run_shared_scenarios/`：第四章与第五章共用的说明型场景图
 
 ## 环境要求
 
@@ -23,6 +24,8 @@ cpt4_sim_dev/
 ├── run_stages/
 ├── milestones/
 ├── run_milestones/
+├── shared_scenarios/
+├── run_shared_scenarios/
 ├── benchmarks/
 ├── results/
 │   ├── cache/
@@ -32,19 +35,23 @@ cpt4_sim_dev/
 │   ├── benchmarks/
 │   └── bundles/
 └── output/
-    └── milestones/
-        ├── milestone_summary_report.md
-        ├── MA/
-        ├── MB/
-        ├── MC/
-        ├── MD/
-        └── ME/
+    ├── milestones/
+    │   ├── milestone_summary_report.md
+    │   ├── MA/
+    │   ├── MB/
+    │   ├── MC/
+    │   ├── MD/
+    │   └── ME/
+    └── shared_scenarios/
+        ├── SS1/
+        └── SS2/
 ```
 
 ## Stage vs Milestone
 
 - `Stage` = 开发顺序。关注模块演化、调试、性能验证和阶段缓存。
 - `Milestone` = 论文实验顺序。关注 Chapter 4 实验分组、稳定命名、统一导出与打包。
+- `Shared scenario` = 论文跨章节说明图。关注防区、Walker 星座与目标来袭关系的共用示意，不承载单独实验结论。
 - Milestone 可以复用 Stage 函数，但 milestone 面向用户的产物不应暴露 stage 名称。
 
 ## Chapter 4 Milestone Mapping
@@ -97,6 +104,14 @@ run_milestone_E_worst_window_diagnosis
 run_all_milestones
 ```
 
+运行共享场景说明图：
+
+```matlab
+run_shared_scenario_SS1_defense_zone_2d
+run_shared_scenario_SS2_earth_walker_zone_3d
+run_all_shared_scenarios
+```
+
 ## Output Locations
 
 Stage 输出仍放在 `results/`：
@@ -117,6 +132,10 @@ Milestone 输出放在 `output/milestones/`：
 - `output/milestones/MC/...`
 - `output/milestones/MD/...`
 - `output/milestones/ME/...`
+- `output/shared_scenarios/SS1/figures/`
+- `output/shared_scenarios/SS1/reports/`
+- `output/shared_scenarios/SS2/figures/`
+- `output/shared_scenarios/SS2/reports/`
 
 `run_all_milestones` 还会生成顶层汇总：
 
@@ -146,6 +165,7 @@ package_for_chatgpt_baseline(false, true)
 - Benchmark 体系仍然服务于 Stage 级串并行优化和结果一致性校验。
 - `run_stages/rs_apply_parallel_policy.m` 仍是 Stage 默认并行策略的控制点。
 - Milestone 当前优先提供论文实验骨架和统一产物格式，不替代 benchmark。
+- Shared scenario 包与 milestone A–E 并行存在，用于生成第四章与第五章共用的说明型图件。
 - 时序连续性现统一采用双指标：
   `DT_bar = dt_req / (dt_req + dt_max)` 用于有界展示与统计，
   `DT = 2 * DT_bar` 用于与 `DG/DA` 一致的 threshold-1 闭合判定。
