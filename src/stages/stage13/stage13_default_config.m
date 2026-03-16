@@ -1,0 +1,34 @@
+function cfg = stage13_default_config(base_cfg, overrides)
+%STAGE13_DEFAULT_CONFIG Build Stage13 baseline neighborhood-search config.
+
+if nargin < 1 || isempty(base_cfg)
+    cfg = milestone_common_defaults();
+else
+    cfg = milestone_common_defaults(base_cfg);
+end
+if nargin < 2 || isempty(overrides)
+    overrides = struct();
+end
+
+cfg.paths.stage13 = fullfile(cfg.paths.output, 'stage13');
+
+cfg.stage13 = struct();
+cfg.stage13.stage_name = 'stage13';
+cfg.stage13.mode = 'baseline_neighborhood';
+cfg.stage13.output_root = cfg.paths.stage13;
+cfg.stage13.save_tables = true;
+cfg.stage13.save_figures = true;
+cfg.stage13.save_reports = true;
+cfg.stage13.baseline = struct( ...
+    'case_mode', 'exact', ...
+    'case_id', 'N01', ...
+    'case_label', 'MA baseline nominal case', ...
+    'Tw_s', 60, ...
+    'theta', cfg.milestones.baseline_theta);
+cfg.stage13.search = struct( ...
+    'families', {{'dt_first_probe', 'dg_first_probe'}}, ...
+    'max_candidates_per_family', 7, ...
+    'max_representatives_per_family', 3);
+
+cfg = milestone_common_merge_structs(cfg, overrides);
+end
