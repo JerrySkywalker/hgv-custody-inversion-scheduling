@@ -7,21 +7,33 @@ if nargin < 2 || isempty(mode)
 end
 
 families = string(cfg.stage13.search.families);
-entries = table('Size', [0 10], ...
-    'VariableTypes', {'string', 'string', 'double', 'double', 'double', 'double', 'double', 'double', 'string', 'string'}, ...
-    'VariableNames', {'candidate_tag', 'family', 'h_km', 'i_deg', 'P', 'T', 'F', 'Tw_s', 'case_mode', 'case_id'});
+entries = local_empty_candidate_table();
 
-baseline = cfg.stage13.baseline;
 for k = 1:numel(families)
-    entries = [entries; {sprintf('%s_baseline', families(k)), families(k), ...
-        baseline.theta.h_km, baseline.theta.i_deg, baseline.theta.P, baseline.theta.T, baseline.theta.F, ...
-        baseline.Tw_s, string(baseline.case_mode), string(baseline.case_id)}]; %#ok<AGROW>
+    family_name = families(k);
+    switch family_name
+        case "dt_first_probe"
+            family_table = stage13_build_family_dt_first_probe(cfg);
+        case "dg_first_probe"
+            family_table = stage13_build_family_dg_first_probe(cfg);
+        otherwise
+            family_table = local_empty_candidate_table();
+    end
+    if ~isempty(family_table)
+        entries = [entries; family_table]; %#ok<AGROW>
+    end
 end
 
 plan = struct();
 plan.mode = string(mode);
 plan.generated_at = string(datestr(now, 'yyyy-mm-dd HH:MM:SS'));
-plan.baseline = baseline;
+plan.baseline = cfg.stage13.baseline;
 plan.families = families;
 plan.candidate_table = entries;
+end
+
+function entries = local_empty_candidate_table()
+entries = table('Size', [0 10], ...
+    'VariableTypes', {'string', 'string', 'double', 'double', 'double', 'double', 'double', 'double', 'string', 'string'}, ...
+    'VariableNames', {'candidate_tag', 'family', 'h_km', 'i_deg', 'P', 'T', 'F', 'Tw_s', 'case_mode', 'case_id'});
 end

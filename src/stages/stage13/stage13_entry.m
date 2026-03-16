@@ -16,15 +16,15 @@ cfg = stage13_default_config(cfg);
 paths = local_build_paths(cfg);
 plan = stage13_build_search_plan(cfg, cfg.stage13.mode);
 evaluations = repmat(struct('candidate', struct(), 'scan_out', struct(), 'signature', struct()), height(plan.candidate_table), 1);
-signature_rows = table('Size', [0 13], ...
-    'VariableTypes', {'string', 'string', 'string', 'double', 'double', 'double', 'double', 'double', 'double', 'double', 'logical', 'string', 'string'}, ...
-    'VariableNames', {'case_tag', 'case_id', 'family', 'D_G_worst', 'D_A_worst', 'D_T_worst', 'D_T_bar_worst', ...
+signature_rows = table('Size', [0 14], ...
+    'VariableTypes', {'string', 'string', 'string', 'string', 'double', 'double', 'double', 'double', 'double', 'double', 'double', 'logical', 'string', 'string'}, ...
+    'VariableNames', {'case_tag', 'case_id', 'family', 'case_family', 'D_G_worst', 'D_A_worst', 'D_T_worst', 'D_T_bar_worst', ...
     't0G_star', 't0A_star', 't0T_star', 'feasible_truth', 'active_constraint', 'summary_tag'});
 
 for k = 1:height(plan.candidate_table)
     evaluations(k) = stage13_evaluate_candidate(cfg, plan.candidate_table(k, :), paths);
     sig = evaluations(k).signature;
-    signature_rows = [signature_rows; {sig.case_tag, sig.case_id, sig.family, sig.D_G_worst, sig.D_A_worst, ... %#ok<AGROW>
+    signature_rows = [signature_rows; {sig.case_tag, sig.case_id, sig.family, sig.case_family, sig.D_G_worst, sig.D_A_worst, ... %#ok<AGROW>
         sig.D_T_worst, sig.D_T_bar_worst, sig.t0G_star, sig.t0A_star, sig.t0T_star, ...
         sig.feasible_truth, sig.active_constraint, sig.summary_tag}];
 end
@@ -40,6 +40,11 @@ summary.baseline_case_id = string(cfg.stage13.baseline.case_id);
 summary.num_families = numel(plan.families);
 summary.num_candidates = height(plan.candidate_table);
 summary.num_evaluated = height(signature_rows);
+summary.representatives = struct();
+for k = 1:numel(plan.families)
+    family_name = char(plan.families(k));
+    summary.representatives.(family_name) = stage13_filter_representatives(signature_rows, family_name);
+end
 
 out = struct();
 out.cfg = cfg;
