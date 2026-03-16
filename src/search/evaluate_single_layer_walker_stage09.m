@@ -77,6 +77,7 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
 
     DG_case = nan(nCase,1);
     DA_case = nan(nCase,1);
+    DT_bar_case = nan(nCase,1);
     DT_case = nan(nCase,1);
     joint_case_margin = nan(nCase,1);
     pass_flag_case = false(nCase,1);
@@ -85,8 +86,9 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
     sigma_A_proj_worst = nan(nCase,1);
     t0_worst_DG = nan(nCase,1);
     t0_worst_DA = nan(nCase,1);
+    t0_worst_DT = nan(nCase,1);
 
-    max_gap_s = nan(nCase,1);
+    dt_max_s = nan(nCase,1);
     mean_vis = nan(nCase,1);
     dual_ratio = nan(nCase,1);
     custody_ratio = nan(nCase,1);
@@ -199,9 +201,11 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
         % D_T from visibility gaps
         % --------------------------------------------------------
         gap = compute_gap_metrics_stage09(vis_case.t_s, vis_case.num_visible, cfg_eval);
-        DT_case(k) = gap.DT;
-        max_gap_s(k) = gap.max_gap_s;
+        DT_bar_case(k) = gap.DT_bar_window;
+        DT_case(k) = gap.DT_window;
+        dt_max_s(k) = gap.dt_max_window;
         custody_ratio(k) = gap.custody_ratio;
+        t0_worst_DT(k) = vis_case.t_s(1);
 
         % --------------------------------------------------------
         % Summary fields
@@ -244,22 +248,24 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
 
     case_table = table( ...
         case_id, family, subfamily, entry_id, heading_offset_deg, ...
-        DG_case, DA_case, DT_case, joint_case_margin, pass_flag_case, ...
-        lambda_worst, sigma_A_proj_worst, t0_worst_DG, t0_worst_DA, ...
-        max_gap_s, mean_vis, dual_ratio, custody_ratio, fail_tag_case, ...
+        DG_case, DA_case, DT_bar_case, DT_case, joint_case_margin, pass_flag_case, ...
+        lambda_worst, sigma_A_proj_worst, t0_worst_DG, t0_worst_DA, t0_worst_DT, ...
+        dt_max_s, mean_vis, dual_ratio, custody_ratio, fail_tag_case, ...
         'VariableNames', { ...
             'case_id', 'family', 'subfamily', 'entry_id', 'heading_offset_deg', ...
-            'DG', 'DA', 'DT', 'joint_case_margin', 'pass_flag_case', ...
-            'lambda_worst', 'sigma_A_proj_worst', 't0_worst_DG_s', 't0_worst_DA_s', ...
-            'max_gap_s', 'mean_num_visible', 'dual_coverage_ratio', 'custody_ratio', 'fail_tag_case'});
+            'DG', 'DA', 'DT_bar', 'DT', 'joint_case_margin', 'pass_flag_case', ...
+            'lambda_worst', 'sigma_A_proj_worst', 't0_worst_DG_s', 't0_worst_DA_s', 't0_worst_DT_s', ...
+            'dt_max_s', 'mean_num_visible', 'dual_coverage_ratio', 'custody_ratio', 'fail_tag_case'});
 
     DG_valid = DG_case(isfinite(DG_case));
     DA_valid = DA_case(isfinite(DA_case));
-    DT_valid = DT_case(isfinite(DT_case) | isinf(DT_case));
+    DT_bar_valid = DT_bar_case(isfinite(DT_bar_case));
+    DT_valid = DT_case(isfinite(DT_case));
     pass_valid = pass_flag_case(~cellfun(@isempty, cellstr(case_id)));
 
     if isempty(DG_valid), DG_rob = NaN; else, DG_rob = min(DG_valid); end
     if isempty(DA_valid), DA_rob = NaN; else, DA_rob = min(DA_valid); end
+    if isempty(DT_bar_valid), DT_bar_rob = NaN; else, DT_bar_rob = min(DT_bar_valid); end
     if isempty(DT_valid), DT_rob = NaN; else, DT_rob = min(DT_valid); end
 
     joint_margin = min([DG_rob, DA_rob, DT_rob]);
@@ -304,6 +310,7 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
 
     result.DG_rob = DG_rob;
     result.DA_rob = DA_rob;
+    result.DT_bar_rob = DT_bar_rob;
     result.DT_rob = DT_rob;
     result.joint_margin = joint_margin;
     result.pass_ratio = pass_ratio;
@@ -365,7 +372,7 @@ function cid = local_pick_case_id(case_table, metric_name, mode)
     end
 
     x = case_table.(metric_name);
-    valid = isfinite(x) | isinf(x);
+    valid = isfinite(x);
     if ~any(valid)
         return;
     end

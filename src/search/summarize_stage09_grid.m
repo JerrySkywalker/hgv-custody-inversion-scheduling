@@ -40,6 +40,7 @@ function out = summarize_stage09_grid(result_bank, cfg_or_stage09)
 
         row.DG_rob = r.DG_rob;
         row.DA_rob = r.DA_rob;
+        row.DT_bar_rob = r.DT_bar_rob;
         row.DT_rob = r.DT_rob;
         row.joint_margin = r.joint_margin;
         row.pass_ratio = r.pass_ratio;

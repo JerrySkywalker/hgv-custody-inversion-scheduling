@@ -5,7 +5,8 @@ function out = compute_gap_metrics_stage09(t_s, num_visible, cfg_or_stage09)
 % Formal idea:
 %   custody-active(k) := num_visible(k) >= visibility_min_for_custody
 %   max_gap_s         := longest consecutive inactive interval
-%   DT                := dt_crit_s / max_gap_s
+%   DT_bar            := dt_crit_s / (dt_crit_s + max_gap_s)
+%   DT                := 2 * DT_bar
 %
 % Inputs
 %   t_s           : time vector [Nt x 1]
@@ -17,7 +18,9 @@ function out = compute_gap_metrics_stage09(t_s, num_visible, cfg_or_stage09)
 %   out.num_gap_segments
 %   out.custody_ratio
 %   out.active_mask
-%   out.DT
+%   out.dt_req
+%   out.DT_bar_window
+%   out.DT_window
 %   out.ok
 
     if nargin < 3
@@ -69,20 +72,19 @@ function out = compute_gap_metrics_stage09(t_s, num_visible, cfg_or_stage09)
         max_gap_s = max(gap_lengths_s);
     end
 
-    if max_gap_s <= 0
-        DT = inf;
-    else
-        DT = s9.dt_crit_s / max_gap_s;
-    end
+    temporal = compute_temporal_margins(max_gap_s, s9.dt_crit_s);
 
     out = struct();
     out.max_gap_s = max_gap_s;
+    out.dt_max_window = temporal.dt_max_window;
+    out.dt_req = temporal.dt_req;
     out.num_gap_segments = num_seg;
     out.gap_lengths_s = gap_lengths_s;
     out.custody_ratio = mean(active_mask, 'omitnan');
     out.active_mask = active_mask;
-    out.DT = DT;
-    out.ok = isfinite(DT) || isinf(DT);
+    out.DT_bar_window = temporal.DT_bar_window;
+    out.DT_window = temporal.DT_window;
+    out.ok = isfinite(out.DT_bar_window) && isfinite(out.DT_window);
 end
 
 
