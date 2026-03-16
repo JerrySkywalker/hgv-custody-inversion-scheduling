@@ -12,23 +12,23 @@ end
 meta = cfg.shared_scenarios.SS2;
 paths = shared_scenario_common_output_paths(cfg, meta.scenario_id, meta.title);
 style = milestone_common_plot_style();
-geom = build_shared_scenario_geometry(cfg);
-scenario_cases = build_shared_scenario_case_trajectories(cfg);
+geom = build_walker_scenario_geometry(cfg);
 
 result = struct();
 result.scenario_id = meta.scenario_id;
 result.title = meta.title;
 result.config = cfg;
-fig = plot_earth_walker_zone_3d(geom, scenario_cases, style);
+fig = render_ss2_earth_walker_zone_3d(geom, cfg, style);
 fig_path = fullfile(paths.figures, 'SS2_earth_walker_defense_zone_3d.png');
 milestone_common_save_figure(fig, fig_path);
 close(fig);
 
 result.summary = struct( ...
-    'zone_radius_km', cfg.shared_scenarios.zone_radius_km, ...
+    'backend', geom.backend, ...
+    'zone_radius_km', cfg.shared_scenarios.zone.radius_km, ...
     'baseline_theta', cfg.shared_scenarios.baseline_theta, ...
-    'num_satellites', geom.walker.Ns, ...
-    'representative_case', local_case_id(scenario_cases.nominal));
+    'num_satellites', cfg.shared_scenarios.walker.total_satellites, ...
+    'representative_case', local_case_id(geom.target_case));
 result.figures = struct('earth_walker_defense_zone_3d', string(fig_path));
 result.artifacts = struct('scenario_output_root', string(paths.scenario_root));
 
