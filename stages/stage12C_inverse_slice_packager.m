@@ -30,8 +30,8 @@ out.cfg = cfg_stage;
 out.slice_name = string(slice_name);
 out.axis_labels = axis_labels;
 out.overrides = overrides;
-out.full_theta_table = out_scan.full_theta_table;
-out.feasible_theta_table = out_scan.feasible_theta_table;
+out.full_theta_table = local_normalize_theta_table(out_scan.full_theta_table);
+out.feasible_theta_table = local_normalize_theta_table(out_scan.feasible_theta_table);
 out.summary_table = out_scan.summary_table;
 out.fail_partition_table = out_scan.fail_partition_table;
 out.summary = summary;
@@ -77,4 +77,15 @@ if b <= 0
 else
     ratio = a / b;
 end
+end
+
+function T = local_normalize_theta_table(T)
+if isempty(T)
+    return;
+end
+T.DG_worst = T.DG_rob;
+T.DA_worst = T.DA_rob;
+T.DT_bar_worst = T.DT_bar_rob;
+T.DT_worst = T.DT_rob;
+T.feasible_flag = T.joint_feasible;
 end
