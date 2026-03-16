@@ -47,7 +47,7 @@ milestone_common_save_table(minimum_design_table, minimum_csv);
 milestone_common_save_table(near_optimal_table, near_optimal_csv);
 milestone_common_save_table(task_summary_table, task_summary_csv);
 
-fig1 = local_plot_feasible_domain(slice_hi.feasible_theta_table, slice_pt.feasible_theta_table, style);
+fig1 = plot_mb_feasible_domain_map(slice_hi.view_table, slice_pt.view_table, minimum_design_table, style);
 fig1_path = fullfile(paths.figures, 'MB_inverse_slices_feasible_domain_map.png');
 milestone_common_save_figure(fig1, fig1_path);
 close(fig1);
@@ -95,33 +95,6 @@ result.summary = struct( ...
 files = milestone_common_export_summary(result, paths);
 result.artifacts.summary_report = files.report_md;
 result.artifacts.summary_mat = files.summary_mat;
-end
-
-function fig = local_plot_feasible_domain(T_hi, T_pt, style)
-fig = figure('Visible', 'off', 'Color', 'w');
-tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
-
-ax1 = nexttile;
-if isempty(T_hi)
-    plot(ax1, 0, 0, 'o', 'Color', style.colors(1, :));
-else
-    scatter(ax1, T_hi.i_deg, T_hi.h_km, 36, T_hi.Ns, 'filled');
-end
-xlabel(ax1, 'i (deg)');
-ylabel(ax1, 'h (km)');
-title(ax1, 'Milestone B h-i feasible slice');
-grid(ax1, 'on');
-
-ax2 = nexttile;
-if isempty(T_pt)
-    plot(ax2, 0, 0, 's', 'Color', style.colors(2, :));
-else
-    scatter(ax2, T_pt.P, T_pt.T, 48, T_pt.Ns, 'filled');
-end
-xlabel(ax2, 'P');
-ylabel(ax2, 'T');
-title(ax2, 'Milestone B P-T feasible slice');
-grid(ax2, 'on');
 end
 
 function fig = local_plot_minimum_boundary(boundary_table, minimum_design_table, style)
