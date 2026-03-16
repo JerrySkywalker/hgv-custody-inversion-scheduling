@@ -13,4 +13,7 @@ plot_data.t0A_star_s = summary.t0A_star;
 plot_data.t0T_star_s = summary.t0T_star;
 plot_data.Tw_s = summary.Tw_s;
 plot_data.case_id = string(summary.case_id);
+plot_data.DG_worst = min(plot_data.DG);
+plot_data.DA_worst = min(plot_data.DA);
+plot_data.DT_bar_worst = min(plot_data.DT_bar);
 end
