@@ -12,7 +12,7 @@ end
 meta = cfg.shared_scenarios.SS2;
 paths = shared_scenario_common_output_paths(cfg, meta.scenario_id, meta.title);
 style = milestone_common_plot_style();
-geom = build_walker_scenario_geometry(cfg);
+geom = build_stk_walker_scenario_geometry(cfg);
 
 result = struct();
 result.scenario_id = meta.scenario_id;
@@ -25,12 +25,16 @@ close(fig);
 
 result.summary = struct( ...
     'backend', geom.backend, ...
+    'export_mode', geom.export_mode, ...
     'zone_radius_km', cfg.shared_scenarios.zone.radius_km, ...
     'baseline_theta', cfg.shared_scenarios.baseline_theta, ...
     'num_satellites', cfg.shared_scenarios.walker.total_satellites, ...
     'representative_case', local_case_id(geom.target_case));
 result.figures = struct('earth_walker_defense_zone_3d', string(fig_path));
-result.artifacts = struct('scenario_output_root', string(paths.scenario_root));
+result.artifacts = struct( ...
+    'scenario_output_root', string(paths.scenario_root), ...
+    'stk_export_root', geom.export_root, ...
+    'stk_export_note', local_export_note(geom.export_mode));
 
 save(paths.summary_mat, 'result', '-v7.3');
 local_write_report(paths.summary_report, result);
@@ -49,6 +53,8 @@ fprintf(fid, '## Purpose\n\n第四章与第五章共用的 Earth / Walker / 防�
 fprintf(fid, '## Outputs\n\n');
 fprintf(fid, '- figure: `%s`\n\n', result.figures.earth_walker_defense_zone_3d);
 fprintf(fid, '## Summary\n\n');
+fprintf(fid, '- backend: `%s`\n', result.summary.backend);
+fprintf(fid, '- export mode: `%s`\n', result.summary.export_mode);
 fprintf(fid, '- zone radius: `%g km`\n', result.summary.zone_radius_km);
 fprintf(fid, '- number of satellites: `%g`\n', result.summary.num_satellites);
 fprintf(fid, '- representative target case: `%s`\n', result.summary.representative_case);
@@ -59,5 +65,13 @@ if isempty(item)
     case_id = "";
 else
     case_id = string(item.case.case_id);
+end
+end
+
+function note = local_export_note(export_mode)
+if strcmp(string(export_mode), "stk_report")
+    note = "SS2 plot uses STK-created satellites and STK-exported state samples.";
+else
+    note = "STK scenario creation succeeded, but state-report export failed on this environment; SS2 plotting fell back to local propagation with the same Walker parameters.";
 end
 end

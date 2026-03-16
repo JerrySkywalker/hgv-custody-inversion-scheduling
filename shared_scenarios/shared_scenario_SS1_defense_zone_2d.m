@@ -12,21 +12,24 @@ end
 meta = cfg.shared_scenarios.SS1;
 paths = shared_scenario_common_output_paths(cfg, meta.scenario_id, meta.title);
 style = milestone_common_plot_style();
-geom = build_walker_scenario_geometry(cfg);
+stage01_out = stage01_scenario_disk(cfg);
+scenario_cases = build_shared_scenario_case_trajectories(cfg);
+zone = build_defense_zone_surface_ring(cfg);
+stage_context = struct('casebank', stage01_out.casebank, 'scenario_cases', scenario_cases, 'zone', zone);
 
-fig = render_ss1_defense_zone_2d(geom, cfg, style);
+fig = render_ss1_defense_zone_2d(stage_context, cfg, style);
 fig_path = fullfile(paths.figures, 'SS1_defense_zone_2d_overview.png');
 milestone_common_save_figure(fig, fig_path);
 close(fig);
 
-result = local_build_result(cfg, meta, fig_path, geom, paths);
+result = local_build_result(cfg, meta, fig_path, stage_context, paths);
 save(paths.summary_mat, 'result', '-v7.3');
 local_write_report(paths.summary_report, result);
 result.artifacts.summary_report = string(paths.summary_report);
 result.artifacts.summary_mat = string(paths.summary_mat);
 end
 
-function result = local_build_result(cfg, meta, fig_path, geom, paths)
+function result = local_build_result(cfg, meta, fig_path, stage_context, paths)
 result = struct();
 result.scenario_id = meta.scenario_id;
 result.title = meta.title;
@@ -34,13 +37,13 @@ result.config = cfg;
 result.figures = struct('defense_zone_2d_overview', string(fig_path));
 result.artifacts = struct('scenario_output_root', string(paths.scenario_root));
 result.summary = struct( ...
-    'backend', geom.backend, ...
+    'backend', "stage01_stage02", ...
     'zone_radius_km', cfg.shared_scenarios.zone.radius_km, ...
     'zone_center_lat_deg', cfg.shared_scenarios.zone.center_lat_deg, ...
     'zone_center_lon_deg', cfg.shared_scenarios.zone.center_lon_deg, ...
-    'nominal_case', local_case_id(geom.scenario_cases.nominal), ...
-    'heading_case', local_case_id(geom.scenario_cases.heading), ...
-    'critical_case', local_case_id(geom.scenario_cases.critical));
+    'nominal_case', local_case_id(stage_context.scenario_cases.nominal), ...
+    'heading_case', local_case_id(stage_context.scenario_cases.heading), ...
+    'critical_case', local_case_id(stage_context.scenario_cases.critical));
 end
 
 function local_write_report(file_path, result)

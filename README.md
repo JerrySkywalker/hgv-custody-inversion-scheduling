@@ -11,6 +11,7 @@
 - MATLAB R2016b 或更高版本
 - 建议 MATLAB R2020a 及以上
 - 如需运行并行版本，建议安装 Parallel Computing Toolbox
+- 如需运行 `shared_scenarios/SS2` 的 STK 驱动 Walker 星座说明图，需安装 STK 并启用 MATLAB COM 接口
 
 ## Project Structure
 
@@ -53,6 +54,9 @@ cpt4_sim_dev/
 - `Milestone` = 论文实验顺序。关注 Chapter 4 实验分组、稳定命名、统一导出与打包。
 - `Shared scenario` = 论文跨章节说明图。关注防区、Walker 星座与目标来袭关系的共用示意，不承载单独实验结论。
 - Milestone 可以复用 Stage 函数，但 milestone 面向用户的产物不应暴露 stage 名称。
+- 当前共享场景后端定义为：
+  `SS1` 复用 Stage01/Stage02 的防区与 HGV 相对关系语义，
+  `SS2` 通过 STK-MATLAB 接口生成 Walker 星座说明图，并预留后续 STK 侧轨道状态导出接口。
 
 ## Chapter 4 Milestone Mapping
 
@@ -112,6 +116,11 @@ run_shared_scenario_SS2_earth_walker_zone_3d
 run_all_shared_scenarios
 ```
 
+其中：
+
+- `SS1` 输出二维防区与 HGV 相对关系说明图，直接对应 Stage01/Stage02 的场景构型语义
+- `SS2` 输出三维 Walker 星座示意图，优先通过 STK-MATLAB 建场景，并为未来 STK 轨道传播/状态导出预留接口
+
 ## Output Locations
 
 Stage 输出仍放在 `results/`：
@@ -166,6 +175,7 @@ package_for_chatgpt_baseline(false, true)
 - `run_stages/rs_apply_parallel_policy.m` 仍是 Stage 默认并行策略的控制点。
 - Milestone 当前优先提供论文实验骨架和统一产物格式，不替代 benchmark。
 - Shared scenario 包与 milestone A–E 并行存在，用于生成第四章与第五章共用的说明型图件。
+- `SS2` 当前采用 STK-MATLAB 接口建场景；若 STK 建场景成功但状态报表导出失败，代码会保留 STK 侧接口并以同参数本地传播完成出图，避免说明图流程中断。
 - 时序连续性现统一采用双指标：
   `DT_bar = dt_req / (dt_req + dt_max)` 用于有界展示与统计，
   `DT = 2 * DT_bar` 用于与 `DG/DA` 一致的 threshold-1 闭合判定。

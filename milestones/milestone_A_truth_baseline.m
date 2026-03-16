@@ -119,20 +119,21 @@ if ~isfield(meta, 'attach_shared_scenarios') || ~meta.attach_shared_scenarios
     return;
 end
 
-availability = check_walkerDelta_availability();
+ss_cfg = shared_scenario_common_defaults(cfg);
+availability = check_stk_matlab_availability(ss_cfg);
 if ~availability.is_available
     shared_artifacts.shared_scenario_note = string(availability.message);
     return;
 end
 
-ss1_fig = fullfile(cfg.paths.root, 'output', 'shared_scenarios', 'SS1', 'figures', 'SS1_defense_zone_2d_overview.png');
-ss2_fig = fullfile(cfg.paths.root, 'output', 'shared_scenarios', 'SS2', 'figures', 'SS2_earth_walker_defense_zone_3d.png');
+ss1_fig = fullfile(ss_cfg.paths.root, 'output', 'shared_scenarios', 'SS1', 'figures', 'SS1_defense_zone_2d_overview.png');
+ss2_fig = fullfile(ss_cfg.paths.root, 'output', 'shared_scenarios', 'SS2', 'figures', 'SS2_earth_walker_defense_zone_3d.png');
 
-need_build = cfg.shared_scenarios.enable_auto_build && ...
+need_build = ss_cfg.shared_scenarios.enable_auto_build && ...
     (~isfile(ss1_fig) || ~isfile(ss2_fig));
 if need_build
     try
-        run_all_shared_scenarios(cfg);
+        run_all_shared_scenarios(ss_cfg);
     catch ME
         shared_artifacts.shared_scenario_note = "共享场景自动构建失败：" + string(ME.message);
         return;

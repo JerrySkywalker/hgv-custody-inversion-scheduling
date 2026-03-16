@@ -1,5 +1,5 @@
 function fig = render_ss2_earth_walker_zone_3d(geom, cfg, style)
-%RENDER_SS2_EARTH_WALKER_ZONE_3D Render dissertation-style SS2 figure.
+%RENDER_SS2_EARTH_WALKER_ZONE_3D Render SS2 from STK-exported states.
 
 if nargin < 3 || isempty(style)
     style = milestone_common_plot_style();
@@ -13,7 +13,7 @@ hold(ax, 'on');
 [xs, ys, zs] = sphere(96);
 earth_radius_km = geom.earth_radius_km;
 surf(ax, earth_radius_km * xs, earth_radius_km * ys, earth_radius_km * zs, ...
-    'FaceColor', [0.88, 0.92, 0.96], 'EdgeColor', 'none', 'FaceAlpha', 1.0, 'AmbientStrength', 0.55, 'SpecularStrength', 0.08);
+    'FaceColor', [0.88, 0.92, 0.96], 'EdgeColor', 'none', 'FaceAlpha', 1.0, 'AmbientStrength', 0.55, 'SpecularStrength', 0.05);
 lighting(ax, 'gouraud');
 camlight(ax, 'headlight');
 
@@ -22,8 +22,8 @@ plot3(ax, geom.zone.ring_ecef_km(:, 1), geom.zone.ring_ecef_km(:, 2), geom.zone.
 scatter3(ax, geom.zone.center_ecef_km(1), geom.zone.center_ecef_km(2), geom.zone.center_ecef_km(3), ...
     80, style.colors(2, :), 'filled', 'DisplayName', '防区中心');
 
-for k = 1:numel(geom.tracks.plane_tracks)
-    plane_track = geom.tracks.plane_tracks(k);
+for k = 1:numel(geom.plane_tracks)
+    plane_track = geom.plane_tracks(k);
     label = sprintf('代表轨道面 %d', plane_track.plane_id);
     plot3(ax, plane_track.track_ecef_km(:, 1), plane_track.track_ecef_km(:, 2), plane_track.track_ecef_km(:, 3), ...
         '-', 'Color', style.colors(1, :), 'LineWidth', 1.6, 'DisplayName', label);
