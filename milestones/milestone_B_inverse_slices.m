@@ -12,22 +12,21 @@ end
 meta = cfg.milestones.MB;
 paths = milestone_common_output_paths(cfg, meta.milestone_id, meta.title);
 style = milestone_common_plot_style();
+task_meta = meta;
+if isfield(meta, 'task_slice_settings') && isstruct(meta.task_slice_settings)
+    task_meta.slice_settings = meta.task_slice_settings;
+end
 
 slice_hi = stage12C_inverse_slice_packager(cfg, 'hi', meta);
 slice_pt = stage12C_inverse_slice_packager(cfg, 'PT', meta);
-task_nominal = stage12D_task_slice_packager(cfg, 'nominal', meta);
-task_heading = stage12D_task_slice_packager(cfg, 'heading', meta);
-task_critical = stage12D_task_slice_packager(cfg, 'critical', meta);
+task_nominal = stage12D_task_slice_packager(cfg, 'nominal', task_meta);
+task_heading = stage12D_task_slice_packager(cfg, 'heading', task_meta);
+task_critical = stage12D_task_slice_packager(cfg, 'critical', task_meta);
 minimum_pack = stage12E_minimum_design_packager( ...
     {slice_hi, slice_pt, task_nominal, task_heading, task_critical}, cfg, meta);
 
 slice_summary_table = build_milestone_B_slice_summary({slice_hi, slice_pt});
-task_summary_table = table( ...
-    ["nominal"; "heading"; "critical"], ...
-    [task_nominal.summary.num_grid_points; task_heading.summary.num_grid_points; task_critical.summary.num_grid_points], ...
-    [task_nominal.summary.num_feasible_points; task_heading.summary.num_feasible_points; task_critical.summary.num_feasible_points], ...
-    [task_nominal.summary.feasible_ratio; task_heading.summary.feasible_ratio; task_critical.summary.feasible_ratio], ...
-    'VariableNames', {'task_slice_id', 'num_grid_points', 'num_feasible_points', 'feasible_ratio'});
+task_summary_table = summarize_task_family_comparison({task_nominal, task_heading, task_critical});
 
 feasible_domain_table = minimum_pack.full_theta_table;
 minimum_design_table = minimum_pack.minimum_design_table;
@@ -57,7 +56,7 @@ fig2_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_design_map.png');
 milestone_common_save_figure(fig2, fig2_path);
 close(fig2);
 
-fig3 = plot_milestone_B_task_slice_compare(task_summary_table, style);
+fig3 = plot_mb_task_family_comparison(task_summary_table, style);
 fig3_path = fullfile(paths.figures, 'MB_inverse_slices_task_family_slice_comparison.png');
 milestone_common_save_figure(fig3, fig3_path);
 close(fig3);
