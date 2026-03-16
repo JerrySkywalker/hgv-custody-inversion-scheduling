@@ -32,6 +32,9 @@ task_summary_table = table( ...
 feasible_domain_table = minimum_pack.full_theta_table;
 minimum_design_table = minimum_pack.minimum_design_table;
 near_optimal_table = minimum_pack.near_optimal_table;
+feasible_domain_table = local_select_feasible_domain_columns(feasible_domain_table);
+minimum_design_table = local_select_minimum_design_columns(minimum_design_table);
+near_optimal_table = local_select_feasible_domain_columns(near_optimal_table);
 
 slice_summary_csv = fullfile(paths.tables, 'MB_inverse_slices_slice_grid_summary.csv');
 feasible_csv = fullfile(paths.tables, 'MB_inverse_slices_feasible_domain_table.csv');
@@ -63,7 +66,7 @@ result = struct();
 result.milestone_id = meta.milestone_id;
 result.title = meta.title;
 result.config = cfg;
-result.purpose = 'Truth-based parameter slicing, task-side comparison, and minimum configuration extraction.';
+result.purpose = '真值静态可行域、任务侧切片比较与最小布置提取。';
 result.reused_modules = {'Constellation slice packager', 'Task-side slice packager', 'Minimum-design extractor'};
 result.tables = struct();
 result.figures = struct();
@@ -76,6 +79,7 @@ result.tables.task_slice_summary = string(task_summary_csv);
 result.figures.feasible_domain_map = string(fig1_path);
 result.figures.minimum_boundary_map = string(fig2_path);
 result.figures.task_family_slice_comparison = string(fig3_path);
+result.artifacts.temporal_metric_note = "时序图表展示采用有界时序连续性裕度 DT_bar，闭合判定与主导失效识别继续采用标准化时序连续性裕度 DT >= 1。";
 
 result.summary = struct( ...
     'slice_axes', {{'h-i', 'P-T'}}, ...
@@ -155,9 +159,29 @@ function txt = local_make_conclusion(minimum_pack, task_summary_table)
 task_text = sprintf('nominal=%.2f, heading=%.2f, critical=%.2f', ...
     task_summary_table.feasible_ratio(1), task_summary_table.feasible_ratio(2), task_summary_table.feasible_ratio(3));
 if isempty(minimum_pack.minimum_design_table)
-    txt = sprintf('No feasible minimum design was extracted; task-side feasible ratios are %s.', task_text);
+    txt = sprintf(['真值静态可行域中未提取到可行最小布置。任务侧切片可行比例为 %s。', ...
+        '时序约束采用标准化有界时序裕度进行闭合判定，图表展示采用有界时序连续性裕度。'], task_text);
 else
-    txt = sprintf('Minimum design extracted at N_s=%g; task-side feasible ratios are %s.', ...
+    txt = sprintf(['真值静态可行域给出的最小布置对应 N_s=%g。任务侧切片可行比例为 %s。', ...
+        '最小布置边界与主导失效识别均使用标准化时序连续性裕度 D_T。'], ...
         minimum_pack.minimum_design_table.Ns(1), task_text);
 end
+end
+
+function T = local_select_feasible_domain_columns(T)
+if isempty(T)
+    return;
+end
+want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'DG_worst', 'DA_worst', 'DT_bar_worst', 'DT_worst', 'feasible_flag', 'dominant_fail_tag', 'slice_source'};
+keep = intersect(want, T.Properties.VariableNames, 'stable');
+T = T(:, keep);
+end
+
+function T = local_select_minimum_design_columns(T)
+if isempty(T)
+    return;
+end
+want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'objective_value', 'dominant_constraint', 'has_near_optimal_alternatives', 'DG_worst', 'DA_worst', 'DT_bar_worst', 'DT_worst', 'slice_source'};
+keep = intersect(want, T.Properties.VariableNames, 'stable');
+T = T(:, keep);
 end
