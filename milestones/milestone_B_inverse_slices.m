@@ -52,8 +52,8 @@ fig1_path = fullfile(paths.figures, 'MB_inverse_slices_feasible_domain_map.png')
 milestone_common_save_figure(fig1, fig1_path);
 close(fig1);
 
-fig2 = local_plot_minimum_boundary(minimum_pack.boundary_table, minimum_design_table, style);
-fig2_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_boundary_map.png');
+fig2 = plot_mb_minimum_design_map(minimum_pack.feasible_theta_table, minimum_design_table, near_optimal_table, style);
+fig2_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_design_map.png');
 milestone_common_save_figure(fig2, fig2_path);
 close(fig2);
 
@@ -77,6 +77,7 @@ result.tables.minimum_design_table = string(minimum_csv);
 result.tables.near_optimal_design_table = string(near_optimal_csv);
 result.tables.task_slice_summary = string(task_summary_csv);
 result.figures.feasible_domain_map = string(fig1_path);
+result.figures.minimum_design_map = string(fig2_path);
 result.figures.minimum_boundary_map = string(fig2_path);
 result.figures.task_family_slice_comparison = string(fig3_path);
 result.artifacts.temporal_metric_note = "时序图表展示采用有界时序连续性裕度 DT_bar，闭合判定与主导失效识别继续采用标准化时序连续性裕度 DT >= 1。";
@@ -95,37 +96,6 @@ result.summary = struct( ...
 files = milestone_common_export_summary(result, paths);
 result.artifacts.summary_report = files.report_md;
 result.artifacts.summary_mat = files.summary_mat;
-end
-
-function fig = local_plot_minimum_boundary(boundary_table, minimum_design_table, style)
-fig = figure('Visible', 'off', 'Color', 'w');
-ax = axes(fig);
-if isempty(minimum_design_table)
-    plot(ax, 0, 0, 'o', 'Color', style.colors(3, :));
-else
-    scatter(ax, minimum_design_table.i_deg, minimum_design_table.h_km, 60, minimum_design_table.Ns, 'filled');
-end
-hold(ax, 'on');
-if ~isempty(boundary_table) && ismember('N_min_rob', boundary_table.Properties.VariableNames)
-    y_center = local_mean_omitnan([boundary_table.h_min_km(1), boundary_table.h_max_km(1)]);
-    if ~isnan(y_center)
-        yline(ax, y_center, '--', 'Boundary center', 'Color', style.threshold_color);
-    end
-end
-hold(ax, 'off');
-xlabel(ax, 'i (deg)');
-ylabel(ax, 'h (km)');
-title(ax, 'Milestone B Minimum Design / Boundary Map');
-grid(ax, 'on');
-end
-
-function value = local_mean_omitnan(x)
-x = x(~isnan(x));
-if isempty(x)
-    value = NaN;
-else
-    value = mean(x);
-end
 end
 
 function txt = local_make_conclusion(minimum_pack, task_summary_table)
