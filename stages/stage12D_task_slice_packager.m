@@ -64,7 +64,11 @@ switch lower(char(string(task_mode)))
         cfg_stage.stage09.casebank_include_nominal = true;
     case 'heading'
         cfg_stage.stage09.casebank_include_heading = true;
-        cfg_stage.stage09.casebank_heading_subset_max = inf;
+        if isfield(slice_cfg, 'heading_subset_max') && ~isempty(slice_cfg.heading_subset_max)
+            cfg_stage.stage09.casebank_heading_subset_max = slice_cfg.heading_subset_max;
+        else
+            cfg_stage.stage09.casebank_heading_subset_max = 10;
+        end
     case 'critical'
         cfg_stage.stage09.casebank_include_critical = true;
     otherwise
