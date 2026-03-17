@@ -53,7 +53,9 @@ close(fig1);
 
 fig2 = plot_mb_minimum_design_map(minimum_pack.feasible_theta_table, minimum_design_table, near_optimal_table, style);
 fig2_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_design_map.png');
+fig2_legacy_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_boundary_map.png');
 milestone_common_save_figure(fig2, fig2_path);
+milestone_common_save_figure(fig2, fig2_legacy_path);
 close(fig2);
 
 fig3 = plot_mb_task_family_comparison(task_summary_table, style);
@@ -77,7 +79,7 @@ result.tables.near_optimal_design_table = string(near_optimal_csv);
 result.tables.task_slice_summary = string(task_summary_csv);
 result.figures.feasible_domain_map = string(fig1_path);
 result.figures.minimum_design_map = string(fig2_path);
-result.figures.minimum_boundary_map = string(fig2_path);
+result.figures.minimum_boundary_map = string(fig2_legacy_path);
 result.figures.task_family_slice_comparison = string(fig3_path);
 result.artifacts.temporal_metric_note = "时序图表展示采用有界时序连续性裕度 DT_bar，闭合判定与主导失效识别继续采用标准化时序连续性裕度 DT >= 1。";
 
