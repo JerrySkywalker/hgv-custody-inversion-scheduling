@@ -72,8 +72,8 @@ for k = 1:numel(family_names)
         out.figures.(sprintf('%s_%s_worst', family_name, char(compare_tags(j)))) = files.worst_window_compare;
     end
 end
-out.dissertation_export = stage13_export_for_dissertation(out);
 out.dg_refine = stage13_refine_dg_first_probe(cfg, out);
+out.dissertation_export = stage13_export_for_dissertation(out);
 
 save(paths.summary_mat, 'out', '-v7.3');
 if cfg.stage13.save_reports
@@ -124,8 +124,15 @@ fprintf(fid, '- candidates evaluated: `%d`\n', out.summary.num_evaluated);
 fprintf(fid, '- summary table: `%s`\n', out.paths.summary_csv);
 fprintf(fid, '- dissertation export: `%s`\n', out.paths.export_md);
 fprintf(fid, '- dg refine enabled: `%s`\n', string(out.cfg.stage13.dg_refine.enable));
+if isfield(out, 'dg_refine') && isstruct(out.dg_refine) && strlength(string(out.dg_refine.recommended_case)) > 0
+    fprintf(fid, '- dg refine recommended case: `%s`\n', out.dg_refine.recommended_case);
+    fprintf(fid, '- dg refined summary: `%s`\n', out.paths.dg_refined_summary_csv);
+end
 fprintf(fid, '\n## Notes\n\n');
 fprintf(fid, 'This increment evaluates each planned candidate with the MA-aligned truth window kernel and stores a unified candidate signature table.\n');
+if isfield(out, 'dissertation_export') && isfield(out.dissertation_export, 'dg_refined_review')
+    fprintf(fid, 'DG refined review: %s\n', out.dissertation_export.dg_refined_review);
+end
 end
 
 function baseline_tags = local_identify_baseline_tags(signature_rows)
