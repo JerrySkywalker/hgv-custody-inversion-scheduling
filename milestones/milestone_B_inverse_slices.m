@@ -17,13 +17,13 @@ if isfield(meta, 'task_slice_settings') && isstruct(meta.task_slice_settings)
     task_meta.slice_settings = meta.task_slice_settings;
 end
 
-slice_hi = stage12C_inverse_slice_packager(cfg, 'hi', meta);
-slice_pt = stage12C_inverse_slice_packager(cfg, 'PT', meta);
-task_nominal = stage12D_task_slice_packager(cfg, 'nominal', task_meta);
-task_heading = stage12D_task_slice_packager(cfg, 'heading', task_meta);
-task_critical = stage12D_task_slice_packager(cfg, 'critical', task_meta);
-minimum_pack = stage12E_minimum_design_packager( ...
-    {slice_hi, slice_pt, task_nominal, task_heading, task_critical}, cfg, meta);
+pool = stage12B_mb_design_pool(cfg, meta);
+slice_hi = stage12C_inverse_slice_packager(pool, 'hi', meta);
+slice_pt = stage12C_inverse_slice_packager(pool, 'PT', meta);
+task_nominal = stage12D_task_slice_packager(pool, 'nominal', task_meta);
+task_heading = stage12D_task_slice_packager(pool, 'heading', task_meta);
+task_critical = stage12D_task_slice_packager(pool, 'critical', task_meta);
+minimum_pack = stage12E_minimum_design_packager(pool, cfg, meta);
 
 slice_summary_table = build_milestone_B_slice_summary({slice_hi, slice_pt});
 task_summary_table = summarize_task_family_comparison({task_nominal, task_heading, task_critical});
