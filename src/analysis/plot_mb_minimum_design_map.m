@@ -6,29 +6,39 @@ if nargin < 4 || isempty(style)
 end
 
 fig = figure('Visible', 'off', 'Color', 'w');
-ax = axes(fig);
-hold(ax, 'on');
+tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
 
+ax1 = nexttile;
+local_plot_projection(ax1, feasible_theta_table, near_optimal_table, minimum_design_table, ...
+    'i_deg', 'h_km', 'i (deg)', 'h (km)', 'Feasible / Near-Optimal / Minimum in h-i', style);
+
+ax2 = nexttile;
+local_plot_projection(ax2, feasible_theta_table, near_optimal_table, minimum_design_table, ...
+    'P', 'T', 'P', 'T', 'Feasible / Near-Optimal / Minimum in P-T', style);
+
+if ~isempty(near_optimal_table)
+    cb = colorbar(ax2);
+    cb.Label.String = 'N_s';
+end
+end
+
+function local_plot_projection(ax, feasible_theta_table, near_optimal_table, minimum_design_table, xvar, yvar, xlabel_txt, ylabel_txt, title_txt, style)
+hold(ax, 'on');
 if ~isempty(feasible_theta_table)
-    scatter(ax, feasible_theta_table.i_deg, feasible_theta_table.h_km, 32, [0.82, 0.86, 0.9], ...
+    scatter(ax, feasible_theta_table.(xvar), feasible_theta_table.(yvar), 26, [0.84, 0.86, 0.9], ...
         'filled', 'MarkerEdgeColor', 'none');
 end
 if ~isempty(near_optimal_table)
-    scatter(ax, near_optimal_table.i_deg, near_optimal_table.h_km, 72, near_optimal_table.Ns, ...
+    scatter(ax, near_optimal_table.(xvar), near_optimal_table.(yvar), 78, near_optimal_table.Ns, ...
         'filled', 'MarkerEdgeColor', [0.15, 0.2, 0.25], 'LineWidth', 0.6);
 end
 if ~isempty(minimum_design_table)
-    scatter(ax, minimum_design_table.i_deg, minimum_design_table.h_km, 144, 'p', ...
+    scatter(ax, minimum_design_table.(xvar), minimum_design_table.(yvar), 144, 'p', ...
         'MarkerEdgeColor', style.threshold_color, 'MarkerFaceColor', [1.0, 0.9, 0.2], 'LineWidth', 1.3);
 end
-
 hold(ax, 'off');
-xlabel(ax, 'i (deg)');
-ylabel(ax, 'h (km)');
-title(ax, 'Milestone B Minimum Design Candidates');
+xlabel(ax, xlabel_txt);
+ylabel(ax, ylabel_txt);
+title(ax, title_txt);
 grid(ax, 'on');
-if ~isempty(near_optimal_table)
-    cb = colorbar(ax);
-    cb.Label.String = 'N_s';
-end
 end
