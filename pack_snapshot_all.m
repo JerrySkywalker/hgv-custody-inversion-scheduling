@@ -1,4 +1,4 @@
-function zipFilePath = pack_snapshot_all(include_milestone_outputs)
+function zipFilePath = pack_snapshot_all(include_milestone_outputs, include_paper_reports, archive_label)
 %PACK_SNAPSHOT_ALL  Create a code snapshot zip for ChatGPT (working tree).
 %
 % Packages the current working directory (unstable version: may contain
@@ -9,6 +9,12 @@ function zipFilePath = pack_snapshot_all(include_milestone_outputs)
 %   include_milestone_outputs = false by default
 %   true  -> include tracked paper-export outputs under outputs/
 %   false -> include only lightweight paper markdown reports if present
+%   include_paper_reports = true by default
+%   true  -> include lightweight paper markdown reports when
+%            include_milestone_outputs is false
+%   false -> package code/root files only, with no outputs/ content
+%   archive_label = 'working' by default
+%   controls the zip filename suffix
 %
 % Filename:
 %   yyyymmdd_HHMMSS_<branch>_working.zip
@@ -16,9 +22,16 @@ function zipFilePath = pack_snapshot_all(include_milestone_outputs)
 % Usage (from MATLAB):
 %   zipPath = pack_snapshot_all();
 %   zipPath = pack_snapshot_all(true);
+%   zipPath = pack_snapshot_all(false, false);
 
     if nargin < 1 || isempty(include_milestone_outputs)
         include_milestone_outputs = false;
+    end
+    if nargin < 2 || isempty(include_paper_reports)
+        include_paper_reports = true;
+    end
+    if nargin < 3 || isempty(archive_label)
+        archive_label = 'working';
     end
 
     repo_root = fileparts(mfilename('fullpath'));
@@ -29,7 +42,7 @@ function zipFilePath = pack_snapshot_all(include_milestone_outputs)
     datePart  = datestr(now, 'yyyymmdd');
     timePart  = datestr(now, 'HHMMSS');
     branchPart = local_get_branch_name();
-    zipName = sprintf('%s_%s_%s_working.zip', datePart, timePart, branchPart);
+    zipName = sprintf('%s_%s_%s_%s.zip', datePart, timePart, branchPart, archive_label);
 
     % Save archive in the parent directory of the repository root
     parent_root = fileparts(repo_root);
@@ -65,7 +78,10 @@ function zipFilePath = pack_snapshot_all(include_milestone_outputs)
         include_list{end+1} = name; %#ok<AGROW>
     end
 
-    include_list = [include_list, local_collect_paper_outputs(repo_root, include_milestone_outputs)]; %#ok<AGROW>
+    if include_milestone_outputs || include_paper_reports
+        include_list = [include_list, ...
+            local_collect_paper_outputs(repo_root, include_milestone_outputs)]; %#ok<AGROW>
+    end
     include_list = unique(include_list, 'stable');
 
     if isempty(include_list)

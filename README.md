@@ -169,9 +169,11 @@ run_stage13
 
 - `pack_snapshot_all()` 会打包当前工作区代码目录，以及轻量 paper markdown 报告
 - `pack_snapshot_all(true)` 可显式包含 `outputs/milestones|shared_scenarios|stage13`
+- `pack_snapshot_all_code()` 只打包当前工作区代码与根目录文件，不包含任何 `outputs/` 内容
+- `pack_snapshot_head_code()` 只打包 `HEAD` 上的代码与根目录跟踪文件，不包含 `deliverables/` 或 `outputs/`
 - `pack_snapshot_head(false, true)` 可从 `HEAD` 打包已跟踪的 `outputs/` 论文资产
-- 包名现在会自动包含当前 branch，例如 `20260317_153000_dev_working.zip`
-- 打包入口分别是 `pack_snapshot_all.m` 与 `pack_snapshot_head.m`
+- 包名现在会自动包含当前 branch，例如 `20260317_153000_dev_working.zip`、`20260317_153000_dev_working_code.zip`
+- 打包入口现在包括 `pack_snapshot_all.m`、`pack_snapshot_head.m`、`pack_snapshot_all_code.m`、`pack_snapshot_head_code.m`
 
 ## Notes
 

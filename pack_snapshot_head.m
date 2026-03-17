@@ -1,4 +1,4 @@
-function zipFilePath = pack_snapshot_head(includeDeliverables, include_milestone_outputs)
+function zipFilePath = pack_snapshot_head(includeDeliverables, include_milestone_outputs, archive_label)
 %PACK_SNAPSHOT_HEAD  Create a code snapshot zip from current HEAD.
 %
 % Packages the version at the latest commit (stable baseline for ChatGPT).
@@ -7,6 +7,7 @@ function zipFilePath = pack_snapshot_head(includeDeliverables, include_milestone
 % deliverables/ is excluded by default; set optional argument to true to
 % include it. Set include_milestone_outputs=true to include tracked
 % outputs/ paper-export files as well.
+% archive_label defaults to 'head' and controls the zip filename suffix.
 %
 % Filename:
 %   yyyymmdd_HHMMSS_<branch>_head.zip
@@ -24,6 +25,9 @@ function zipFilePath = pack_snapshot_head(includeDeliverables, include_milestone
     if nargin < 2 || isempty(include_milestone_outputs)
         include_milestone_outputs = false;
     end
+    if nargin < 3 || isempty(archive_label)
+        archive_label = 'head';
+    end
 
     repo_root = fileparts(mfilename('fullpath'));
     original_cwd = pwd;
@@ -33,7 +37,7 @@ function zipFilePath = pack_snapshot_head(includeDeliverables, include_milestone
     datePart  = datestr(now, 'yyyymmdd');
     timePart  = datestr(now, 'HHMMSS');
     branchPart = local_get_branch_name();
-    zipName = sprintf('%s_%s_%s_head.zip', datePart, timePart, branchPart);
+    zipName = sprintf('%s_%s_%s_%s.zip', datePart, timePart, branchPart, archive_label);
 
     % Save archive in the parent directory of the repository root
     parent_root = fileparts(repo_root);
