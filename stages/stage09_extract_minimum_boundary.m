@@ -16,6 +16,7 @@ function out = stage09_extract_minimum_boundary(stage09_4_out, cfg)
     end
     cfg = stage09_prepare_cfg(cfg);
     cfg.project_stage = 'stage09_extract_minimum_boundary';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);
@@ -114,11 +115,11 @@ function out = local_load_latest_stage09_4_cache(cache_dir, run_tag)
 % Load the latest stage09_build_feasible_domain cache
 
     pattern = sprintf('stage09_build_feasible_domain_%s_*.mat', run_tag);
-    listing = dir(fullfile(cache_dir, pattern));
+    listing = find_stage_cache_files(cache_dir, pattern);
 
     if isempty(listing)
         pattern = 'stage09_build_feasible_domain_*.mat';
-        listing = dir(fullfile(cache_dir, pattern));
+        listing = find_stage_cache_files(cache_dir, pattern);
     end
 
     if isempty(listing)

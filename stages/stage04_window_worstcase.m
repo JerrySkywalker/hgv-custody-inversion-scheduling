@@ -16,6 +16,7 @@ function out = stage04_window_worstcase(cfg, opts)
             opts = struct();
         end
         cfg.project_stage = 'stage04_window_worstcase';
+        cfg = configure_stage_output_paths(cfg);
         seed_rng(cfg.random.seed);
         cfg = local_apply_stage04_opts(cfg, opts);
     
@@ -36,7 +37,7 @@ function out = stage04_window_worstcase(cfg, opts)
         % ------------------------------------------------------------
         % Load latest Stage03 cache
         % ------------------------------------------------------------
-        d = dir(fullfile(cfg.paths.cache, 'stage03_visibility_pipeline_*.mat'));
+        d = find_stage_cache_files(cfg.paths.cache, 'stage03_visibility_pipeline_*.mat');
         assert(~isempty(d), 'No Stage03 cache found. Please run stage03_visibility_pipeline first.');
     
         [~, idx_latest] = max([d.datenum]);

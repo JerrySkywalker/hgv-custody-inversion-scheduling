@@ -19,6 +19,7 @@ function out = stage10A_truth_structure_diagnostics(cfg)
     end
     cfg = stage10A_prepare_cfg(cfg);
     cfg.project_stage = 'stage10A_truth_structure_diagnostics';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

@@ -25,6 +25,7 @@ function out = stage07_select_reference_walker(cfg)
             cfg = default_params();
         end
         cfg.project_stage = 'stage07_select_reference_walker';
+        cfg = configure_stage_output_paths(cfg);
         run_tag = char(cfg.stage07.run_tag);
     
         seed_rng(cfg.random.seed);
@@ -46,7 +47,7 @@ function out = stage07_select_reference_walker(cfg)
         % ============================================================
         % Load latest Stage04 cache: inherit gamma_req
         % ============================================================
-        d4 = dir(fullfile(cfg.paths.cache, 'stage04_window_worstcase_*.mat'));
+        d4 = find_stage_cache_files(cfg.paths.cache, 'stage04_window_worstcase_*.mat');
         assert(~isempty(d4), ...
             'No Stage04 cache found. Please run stage04_window_worstcase first.');
     
@@ -65,7 +66,7 @@ function out = stage07_select_reference_walker(cfg)
         % ============================================================
         % Load latest Stage05 cache
         % ============================================================
-        d5 = dir(fullfile(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat'));
+        d5 = find_stage_cache_files(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat');
         assert(~isempty(d5), ...
             'No Stage05 cache found. Please run stage05_nominal_walker_search first.');
     

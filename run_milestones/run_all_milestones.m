@@ -22,7 +22,7 @@ outs.MC = milestone_C_window_scale(cfg);
 outs.MD = milestone_D_fft_support(cfg);
 outs.ME = milestone_E_worst_window_diagnosis(cfg);
 
-summary_file = fullfile(cfg.paths.root, 'output', 'milestones', 'milestone_summary_report.md');
+summary_file = fullfile(cfg.paths.milestones, 'milestone_summary_report.md');
 fid = fopen(summary_file, 'w');
 if fid < 0
     error('Failed to write milestone summary report: %s', summary_file);

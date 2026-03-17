@@ -21,6 +21,7 @@ function out = stage10B_build_bcirc_reference(cfg)
     end
     cfg = stage10B_prepare_cfg(cfg);
     cfg.project_stage = 'stage10B_build_bcirc_reference';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

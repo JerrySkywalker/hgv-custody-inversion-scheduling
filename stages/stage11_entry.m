@@ -8,6 +8,7 @@ function out = stage11_entry(cfg)
     end
     cfg = stage11_prepare_cfg(cfg);
     cfg.project_stage = 'stage11_entry';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

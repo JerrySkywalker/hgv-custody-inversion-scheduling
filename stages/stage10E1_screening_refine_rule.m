@@ -15,6 +15,7 @@ function out = stage10E1_screening_refine_rule(cfg)
     end
     cfg = stage10E1_prepare_cfg(cfg);
     cfg.project_stage = 'stage10E1_screening_refine_rule';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

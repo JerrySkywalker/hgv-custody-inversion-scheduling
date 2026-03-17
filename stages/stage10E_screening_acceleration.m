@@ -14,6 +14,7 @@ function out = stage10E_screening_acceleration(cfg)
     end
     cfg = stage10E_prepare_cfg(cfg);
     cfg.project_stage = 'stage10E_screening_acceleration';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

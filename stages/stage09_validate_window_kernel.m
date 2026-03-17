@@ -14,6 +14,7 @@ function out = stage09_validate_window_kernel(cfg)
     end
     cfg = stage09_prepare_cfg(cfg);
     cfg.project_stage = 'stage09_validate_window_kernel';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

@@ -39,7 +39,7 @@ function info = load_latest_stage08_5_result(cache_dir, run_tag_hint)
     hit_file = '';
 
     for i = 1:numel(patterns)
-        listing = dir(fullfile(cache_dir, patterns{i}));
+        listing = find_stage_cache_files(cache_dir, patterns{i});
         if ~isempty(listing)
             [~, idx] = max([listing.datenum]);
             hit = listing(idx);

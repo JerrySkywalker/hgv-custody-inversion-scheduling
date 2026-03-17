@@ -3,10 +3,10 @@ function zipFilePath = package_for_chatgpt_baseline(includeDeliverables, include
 %
 % Packages the version at the latest commit (stable baseline for ChatGPT).
 % Includes params/, src/, stages/, run_stages/, milestones/, run_milestones/,
-% and root-level tracked files. Excludes results/ and generated milestone
-% outputs by default. deliverables/ is excluded by default; set optional
-% argument to true to include it. Set include_milestone_outputs=true to
-% include tracked output/ files as well.
+% and root-level tracked files. Excludes local generated outputs/ by default.
+% deliverables/ is excluded by default; set optional argument to true to
+% include it. Set include_milestone_outputs=true to include tracked
+% outputs/ paper-export files as well.
 %
 % Filename:
 %   yyyymmdd_HHMMSS_head.zip
@@ -62,13 +62,14 @@ function zipFilePath = package_for_chatgpt_baseline(includeDeliverables, include
         end
     end
 
-    % Only include these directories: never results/; deliverables/ only if requested
+    % Only include code directories by default; deliverables/ and outputs/
+    % are opt-in so local/generated assets stay out of baseline snapshots.
     wantDirs = {'params', 'src', 'stages', 'run_stages', 'milestones', 'run_milestones'};
     if includeDeliverables && ismember('deliverables', topLevelDirs)
         wantDirs{end+1} = 'deliverables'; %#ok<AGROW>
     end
-    if include_milestone_outputs && ismember('output', topLevelDirs)
-        wantDirs{end+1} = 'output'; %#ok<AGROW>
+    if include_milestone_outputs && ismember('outputs', topLevelDirs)
+        wantDirs{end+1} = 'outputs'; %#ok<AGROW>
     end
     dirs_in_head = wantDirs(ismember(wantDirs, topLevelDirs));
 
@@ -77,13 +78,13 @@ function zipFilePath = package_for_chatgpt_baseline(includeDeliverables, include
     rootFilesOnly = rootFiles(~ismember(rootFiles, topLevelDirs));
     archivePaths = [dirs_in_head, rootFilesOnly];
 
-    % Explicitly exclude results/ and (unless requested) deliverables/ from the archive
+    % Explicitly exclude legacy results/ and local outputs/ roots unless requested.
     excludeNames = {'results'};
     if ~includeDeliverables
         excludeNames{end+1} = 'deliverables'; %#ok<AGROW>
     end
     if ~include_milestone_outputs
-        excludeNames{end+1} = 'output'; %#ok<AGROW>
+        excludeNames{end+1} = 'outputs'; %#ok<AGROW>
     end
     keep = cellfun(@(p) ~ismember(p, excludeNames), archivePaths);
     archivePaths = archivePaths(keep);

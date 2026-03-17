@@ -15,6 +15,7 @@ function out = stage09_plot_inverse_design_results(out9_4, out9_5, cfg)
     end
     cfg = stage09_prepare_cfg(cfg);
     cfg.project_stage = 'stage09_plot_inverse_design_results';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);
@@ -106,9 +107,9 @@ end
 
 function out = local_load_latest_cache(cache_dir, pattern1, pattern2)
 
-    listing = dir(fullfile(cache_dir, pattern1));
+    listing = find_stage_cache_files(cache_dir, pattern1);
     if isempty(listing)
-        listing = dir(fullfile(cache_dir, pattern2));
+        listing = find_stage_cache_files(cache_dir, pattern2);
     end
     if isempty(listing)
         error('No cache matched patterns: %s / %s', pattern1, pattern2);

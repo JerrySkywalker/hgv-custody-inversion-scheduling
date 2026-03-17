@@ -28,6 +28,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
         cfg = local_prepare_stage08c_cfg(cfg);
         cfg = local_apply_stage08c_opts(cfg, opts);
         cfg.project_stage = 'stage08_boundary_window_sensitivity';
+        cfg = configure_stage_output_paths(cfg);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -418,10 +419,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
     
     
     function cache_file = local_find_latest_cache(cache_dir, pattern)
-        d = dir(fullfile(cache_dir, pattern));
-        assert(~isempty(d), 'No cache matched pattern: %s', pattern);
-        [~, idx] = max([d.datenum]);
-        cache_file = fullfile(d(idx).folder, d(idx).name);
+        cache_file = find_latest_stage_cache(cache_dir, pattern, false);
     end
 
 
@@ -1336,7 +1334,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
                 isfield(cfg.stage07, 'run_tag') && ~isempty(cfg.stage07.run_tag)
     
             pattern = sprintf('%s_%s_*.mat', prefix, char(cfg.stage07.run_tag));
-            d = dir(fullfile(cache_dir, pattern));
+            d = find_stage_cache_files(cache_dir, pattern);
             if ~isempty(d)
                 [~, idx] = max([d.datenum]);
                 cache_file = fullfile(d(idx).folder, d(idx).name);
@@ -1346,7 +1344,7 @@ function out = stage08_boundary_window_sensitivity(cfg, opts)
     
         % Priority 2: fallback to any matching prefix
         pattern = sprintf('%s_*.mat', prefix);
-        d = dir(fullfile(cache_dir, pattern));
+        d = find_stage_cache_files(cache_dir, pattern);
         assert(~isempty(d), 'No cache matched prefix: %s', prefix);
     
         [~, idx] = max([d.datenum]);

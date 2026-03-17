@@ -28,6 +28,7 @@ function out = stage01_scenario_disk(cfg, opts)
         end
         opts = local_normalize_opts(cfg, opts);
         cfg.project_stage = 'stage01_scenario_disk';
+        cfg = configure_stage_output_paths(cfg);
     
         if exist('seed_rng', 'file') == 2
             seed_rng(cfg.random.seed);

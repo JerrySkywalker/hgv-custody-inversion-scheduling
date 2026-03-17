@@ -1,5 +1,5 @@
 function startup()
-    %STARTUP Initialize project paths and results folders for Chapter 4 fresh-start project.
+    %STARTUP Initialize project paths and outputs folders for Chapter 4 fresh-start project.
     
         root_dir = fileparts(mfilename('fullpath'));
     
@@ -22,19 +22,36 @@ function startup()
             addpath(genpath(deliverables_dir));
         end
     
-        % Ensure result folders exist
-        ensure_dir(fullfile(root_dir, 'results'));
-        ensure_dir(fullfile(root_dir, 'results', 'cache'));
-        ensure_dir(fullfile(root_dir, 'results', 'figs'));
-        ensure_dir(fullfile(root_dir, 'results', 'logs'));
-        ensure_dir(fullfile(root_dir, 'results', 'tables'));
-        ensure_dir(fullfile(root_dir, 'results', 'bundles'));
-        ensure_dir(fullfile(root_dir, 'results', 'benchmarks'));
-        ensure_dir(fullfile(root_dir, 'output'));
-        ensure_dir(fullfile(root_dir, 'output', 'milestones'));
-        ensure_dir(fullfile(root_dir, 'output', 'shared_scenarios'));
-        ensure_dir(fullfile(root_dir, 'output', 'shared_scenarios', 'SS1'));
-        ensure_dir(fullfile(root_dir, 'output', 'shared_scenarios', 'SS2'));
+        % Ensure unified outputs/ folders exist.
+        outputs_root = fullfile(root_dir, 'outputs');
+        ensure_dir(outputs_root);
+        ensure_dir(fullfile(outputs_root, 'stage'));
+        ensure_dir(fullfile(outputs_root, 'benchmark'));
+        ensure_dir(fullfile(outputs_root, 'logs'));
+        ensure_dir(fullfile(outputs_root, 'bundles'));
+        ensure_dir(fullfile(outputs_root, 'milestones'));
+        ensure_dir(fullfile(outputs_root, 'shared_scenarios'));
+        ensure_dir(fullfile(outputs_root, 'stage13'));
+
+        % Create the canonical paper-export subtree eagerly.
+        ensure_dir(fullfile(outputs_root, 'milestones', 'MA'));
+        ensure_dir(fullfile(outputs_root, 'milestones', 'MB'));
+        ensure_dir(fullfile(outputs_root, 'milestones', 'MC'));
+        ensure_dir(fullfile(outputs_root, 'milestones', 'MD'));
+        ensure_dir(fullfile(outputs_root, 'milestones', 'ME'));
+        ensure_dir(fullfile(outputs_root, 'shared_scenarios', 'SS1'));
+        ensure_dir(fullfile(outputs_root, 'shared_scenarios', 'SS2'));
+
+        % Stage root placeholders keep the intended stage-oriented layout visible
+        % while stage code continues to use shared compatibility folders.
+        for k = 0:11
+            stage_name = sprintf('stage%02d', k);
+            ensure_dir(fullfile(outputs_root, 'stage', stage_name));
+            ensure_dir(fullfile(outputs_root, 'stage', stage_name, 'cache'));
+            ensure_dir(fullfile(outputs_root, 'stage', stage_name, 'figs'));
+            ensure_dir(fullfile(outputs_root, 'stage', stage_name, 'tables'));
+            ensure_dir(fullfile(outputs_root, 'logs', stage_name));
+        end
     
         fprintf('[startup] Project root: %s\n', root_dir);
         fprintf('[startup] Paths initialized successfully.\n');

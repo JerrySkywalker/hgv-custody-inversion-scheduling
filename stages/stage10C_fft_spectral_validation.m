@@ -17,6 +17,7 @@ function out = stage10C_fft_spectral_validation(cfg)
     end
     cfg = stage10C_prepare_cfg(cfg);
     cfg.project_stage = 'stage10C_fft_spectral_validation';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

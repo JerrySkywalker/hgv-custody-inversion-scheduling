@@ -19,6 +19,7 @@ function out = stage10_validate_single_window_fft(cfg)
     end
     cfg = stage10_prepare_cfg(cfg);
     cfg.project_stage = 'stage10_validate_single_window_fft';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

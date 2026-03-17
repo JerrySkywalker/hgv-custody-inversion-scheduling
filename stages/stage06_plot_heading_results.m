@@ -11,8 +11,8 @@ function out = stage06_plot_heading_results(cfg)
     %   Fig4: pass-ratio envelope compare by inclination
     %
     % Saved to:
-    %   results/figs/stage06_*.png
-    %   results/figs/stage06_*.fig
+    %   outputs/stage/figs/stage06_*.png
+    %   outputs/stage/figs/stage06_*.fig
 
         startup();
         if nargin < 1 || isempty(cfg)
@@ -20,6 +20,7 @@ function out = stage06_plot_heading_results(cfg)
         end
         cfg = stage06_prepare_cfg(cfg);
         cfg.project_stage = 'stage06_plot_heading_results';
+        cfg = configure_stage_output_paths(cfg);
         run_tag = char(cfg.stage06.run_tag);
 
         seed_rng(cfg.random.seed);
@@ -43,7 +44,7 @@ function out = stage06_plot_heading_results(cfg)
         % ============================================================
         % Load latest Stage05 cache
         % ============================================================
-        d5 = dir(fullfile(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat'));
+        d5 = find_stage_cache_files(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat');
         assert(~isempty(d5), 'No Stage05 cache found.');
         [~, idx5] = max([d5.datenum]);
         stage05_file = fullfile(d5(idx5).folder, d5(idx5).name);
@@ -53,7 +54,7 @@ function out = stage06_plot_heading_results(cfg)
         % ============================================================
         % Load latest Stage06 cache (by run_tag)
         % ============================================================
-        d6 = dir(fullfile(cfg.paths.cache, ...
+        d6 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage06_heading_walker_search_%s_*.mat', run_tag)));
         assert(~isempty(d6), 'No Stage06 cache found for run_tag: %s.', run_tag);
         [~, idx6] = max([d6.datenum]);
@@ -64,7 +65,7 @@ function out = stage06_plot_heading_results(cfg)
         % ============================================================
         % Load latest Stage06 compare cache (by run_tag)
         % ============================================================
-        dc = dir(fullfile(cfg.paths.cache, ...
+        dc = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage06_compare_with_stage05_%s_*.mat', run_tag)));
         assert(~isempty(dc), 'No Stage06 compare cache found for run_tag: %s. Please run stage06_compare_with_stage05 first.', run_tag);
         [~, idxc] = max([dc.datenum]);

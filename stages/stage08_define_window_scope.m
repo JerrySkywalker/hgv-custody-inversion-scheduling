@@ -28,6 +28,7 @@ function out = stage08_define_window_scope(cfg)
         end
         cfg = stage08_prepare_cfg(cfg);
         cfg.project_stage = 'stage08_define_window_scope';
+        cfg = configure_stage_output_paths(cfg);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -50,7 +51,7 @@ function out = stage08_define_window_scope(cfg)
         % ============================================================
         % Load Stage07.1 reference Walker
         % ============================================================
-        d71 = dir(fullfile(cfg.paths.cache, ...
+        d71 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage07_select_reference_walker_%s_*.mat', cfg.stage07.run_tag)));
         assert(~isempty(d71), ...
             'No Stage07.1 cache found for run_tag=%s.', cfg.stage07.run_tag);
@@ -68,7 +69,7 @@ function out = stage08_define_window_scope(cfg)
         % ============================================================
         % Load Stage07.4 selected examples
         % ============================================================
-        d74 = dir(fullfile(cfg.paths.cache, ...
+        d74 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage07_select_critical_examples_%s_*.mat', cfg.stage07.run_tag)));
         assert(~isempty(d74), ...
             'No Stage07.4 cache found for run_tag=%s.', cfg.stage07.run_tag);
@@ -94,7 +95,7 @@ function out = stage08_define_window_scope(cfg)
         stage07_paper_file = '';
         representative_entries = [];
     
-        d761 = dir(fullfile(cfg.paths.cache, ...
+        d761 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage07_define_paper_plot_scope_%s_*.mat', cfg.stage07.run_tag)));
         if ~isempty(d761) && cfg.stage08.rep.prefer_stage07_paper_scope
             [~, idx761] = max([d761.datenum]);
@@ -123,7 +124,7 @@ function out = stage08_define_window_scope(cfg)
         % ============================================================
         stage07_risk_file = '';
         risk_table = table();
-        d73 = dir(fullfile(cfg.paths.cache, ...
+        d73 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage07_scan_heading_risk_map_%s_*.mat', cfg.stage07.run_tag)));
         if ~isempty(d73)
             [~, idx73] = max([d73.datenum]);
@@ -144,7 +145,7 @@ function out = stage08_define_window_scope(cfg)
         stage05_file = '';
     
         if cfg.stage08.reference.include_stage05_best_feasible
-            d5 = dir(fullfile(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat'));
+            d5 = find_stage_cache_files(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat');
             if ~isempty(d5)
                 [~, idx5] = max([d5.datenum]);
                 stage05_file = fullfile(d5(idx5).folder, d5(idx5).name);

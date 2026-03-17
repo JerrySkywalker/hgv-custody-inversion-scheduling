@@ -26,6 +26,7 @@ function out = stage06_define_heading_scope(cfg)
         end
         cfg = stage06_prepare_cfg(cfg);
         cfg.project_stage = 'stage06_define_heading_scope';
+        cfg = configure_stage_output_paths(cfg);
         run_tag = char(cfg.stage06.run_tag);
 
         seed_rng(cfg.random.seed);
@@ -47,7 +48,7 @@ function out = stage06_define_heading_scope(cfg)
         % ============================================================
         % Load latest Stage04 cache: inherit gamma_req
         % ============================================================
-        d4 = dir(fullfile(cfg.paths.cache, 'stage04_window_worstcase_*.mat'));
+        d4 = find_stage_cache_files(cfg.paths.cache, 'stage04_window_worstcase_*.mat');
         assert(~isempty(d4), ...
             'No Stage04 cache found. Please run stage04_window_worstcase first.');
     
@@ -68,7 +69,7 @@ function out = stage06_define_heading_scope(cfg)
         % ============================================================
         % Load latest Stage02 cache: use nominal family as Stage06 source
         % ============================================================
-        d2 = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+        d2 = find_stage_cache_files(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
         assert(~isempty(d2), ...
             'No Stage02 cache found. Please run stage02_hgv_nominal first.');
     

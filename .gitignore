@@ -48,15 +48,16 @@ temp/
 scratch/
 
 ############################################
-# Project cache: ignore Stage/benchmark generated caches
+# Unified outputs/
 ############################################
-results/**
-
-############################################
-# Dissertation outputs are tracked
-############################################
-# Keep `output/` versioned because it stores milestone/shared-scenario/stage13
-# dissertation export artifacts that are intended to be cited and packaged.
+outputs/**
+!outputs/
+!outputs/milestones/
+!outputs/milestones/**
+!outputs/shared_scenarios/
+!outputs/shared_scenarios/**
+!outputs/stage13/
+!outputs/stage13/**
 
 # Optional packaged milestone archives
 /dist/milestones/

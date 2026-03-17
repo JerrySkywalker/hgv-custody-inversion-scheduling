@@ -7,7 +7,7 @@ function zipFilePath = package_for_chatgpt(include_milestone_outputs)
 %
 % Optional input:
 %   include_milestone_outputs = false by default
-%   true  -> include output/milestones/ generated folders
+%   true  -> include outputs/milestones/ generated folders
 %   false -> include only lightweight milestone markdown reports if present
 %
 % Filename:
@@ -75,19 +75,19 @@ function include_list = local_collect_milestone_outputs(repo_root, include_miles
     include_list = {};
 
     if include_milestone_outputs
-        milestone_dir = fullfile(repo_root, 'output', 'milestones');
+        milestone_dir = fullfile(repo_root, 'outputs', 'milestones');
         if exist(milestone_dir, 'dir')
-            include_list{end+1} = fullfile('output', 'milestones'); %#ok<AGROW>
+            include_list{end+1} = fullfile('outputs', 'milestones'); %#ok<AGROW>
         end
         return;
     end
 
-    summary_file = fullfile(repo_root, 'output', 'milestones', 'milestone_summary_report.md');
+    summary_file = fullfile(repo_root, 'outputs', 'milestones', 'milestone_summary_report.md');
     if exist(summary_file, 'file')
-        include_list{end+1} = fullfile('output', 'milestones', 'milestone_summary_report.md'); %#ok<AGROW>
+        include_list{end+1} = fullfile('outputs', 'milestones', 'milestone_summary_report.md'); %#ok<AGROW>
     end
 
-    report_files = dir(fullfile(repo_root, 'output', 'milestones', '**', 'reports', '*.md'));
+    report_files = dir(fullfile(repo_root, 'outputs', 'milestones', '**', 'reports', '*.md'));
     for k = 1:numel(report_files)
         rel_path = strrep(fullfile(report_files(k).folder, report_files(k).name), [repo_root filesep], '');
         include_list{end+1} = rel_path; %#ok<AGROW>

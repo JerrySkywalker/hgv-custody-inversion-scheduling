@@ -31,6 +31,7 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
     cfg = local_prepare_stage08_smallgrid_cfg(cfg);
     cfg = local_apply_stage08_opts(cfg, opts);
     cfg.project_stage = 'stage08_scan_smallgrid_search';
+    cfg = configure_stage_output_paths(cfg);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -385,13 +386,13 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
     function [scope, nominal_bank, stage08_scope_file, stage02_file] = local_load_smallgrid_inputs(cfg, run_tag)
         persistent cache
 
-        d81 = dir(fullfile(cfg.paths.cache, ...
+        d81 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage08_define_window_scope_%s_*.mat', run_tag)));
         assert(~isempty(d81), 'No Stage08.1 scope cache found for run_tag=%s.', run_tag);
         [~, idx81] = max([d81.datenum]);
         stage08_scope_file = fullfile(d81(idx81).folder, d81(idx81).name);
 
-        d2 = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+        d2 = find_stage_cache_files(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
         assert(~isempty(d2), 'No Stage02 nominal cache found.');
         [~, idx2] = max([d2.datenum]);
         stage02_file = fullfile(d2(idx2).folder, d2(idx2).name);

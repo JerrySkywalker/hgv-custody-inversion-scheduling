@@ -15,6 +15,7 @@ function out = stage10F_finalize_report_pack(cfg)
     end
     cfg = stage10F_prepare_cfg(cfg);
     cfg.project_stage = 'stage10F_finalize_report_pack';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

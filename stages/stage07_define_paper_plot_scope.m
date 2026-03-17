@@ -16,6 +16,7 @@ function out = stage07_define_paper_plot_scope(cfg)
             cfg = default_params();
         end
         cfg.project_stage = 'stage07_define_paper_plot_scope';
+        cfg = configure_stage_output_paths(cfg);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -39,7 +40,7 @@ function out = stage07_define_paper_plot_scope(cfg)
         % ------------------------------------------------------------
         % Load Stage07.1 reference Walker
         % ------------------------------------------------------------
-        d71 = dir(fullfile(cfg.paths.cache, ...
+        d71 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage07_select_reference_walker_%s_*.mat', run_tag)));
         assert(~isempty(d71), 'No Stage07.1 cache found.');
     
@@ -53,7 +54,7 @@ function out = stage07_define_paper_plot_scope(cfg)
         % ------------------------------------------------------------
         % Load Stage07.4 selected examples
         % ------------------------------------------------------------
-        d74 = dir(fullfile(cfg.paths.cache, ...
+        d74 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage07_select_critical_examples_%s_*.mat', run_tag)));
         assert(~isempty(d74), 'No Stage07.4 cache found.');
     

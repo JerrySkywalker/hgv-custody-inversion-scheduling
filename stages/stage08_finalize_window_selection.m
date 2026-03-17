@@ -19,6 +19,7 @@ function out = stage08_finalize_window_selection(cfg)
         end
         cfg = local_prepare_stage08_5_cfg(cfg);
         cfg.project_stage = 'stage08_finalize_window_selection';
+        cfg = configure_stage_output_paths(cfg);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -253,17 +254,7 @@ function out = stage08_finalize_window_selection(cfg)
             allow_empty = false;
         end
     
-        d = dir(fullfile(cache_dir, pattern));
-        if isempty(d)
-            if allow_empty
-                file = '';
-                return;
-            end
-            error('No cache matched pattern: %s', pattern);
-        end
-    
-        [~, idx] = max([d.datenum]);
-        file = fullfile(d(idx).folder, d(idx).name);
+        file = find_latest_stage_cache(cache_dir, pattern, allow_empty);
     end
     
     

@@ -15,14 +15,30 @@ function cfg = default_params()
     % ---------------------------
     root_dir = fileparts(fileparts(mfilename('fullpath'))); % params -> root
     cfg.paths = struct();
-    cfg.paths.root    = root_dir;
-    cfg.paths.results = fullfile(root_dir, 'results');
-    cfg.paths.cache   = fullfile(root_dir, 'results', 'cache');
-    cfg.paths.logs    = fullfile(root_dir, 'results', 'logs');
-    cfg.paths.figs    = fullfile(root_dir, 'results', 'figs');
-    cfg.paths.tables  = fullfile(root_dir, 'results', 'tables');
-    cfg.paths.bundles = fullfile(root_dir, 'results', 'bundles');
-    cfg.paths.benchmarks = fullfile(root_dir, 'results', 'benchmarks');
+    cfg.paths.root = root_dir;
+    cfg.paths.outputs = fullfile(root_dir, 'outputs');
+    cfg.paths.stage_outputs = fullfile(cfg.paths.outputs, 'stage');
+    cfg.paths.benchmark_outputs = fullfile(cfg.paths.outputs, 'benchmark');
+    cfg.paths.log_outputs = fullfile(cfg.paths.outputs, 'logs');
+    cfg.paths.bundle_outputs = fullfile(cfg.paths.outputs, 'bundles');
+    cfg.paths.milestone_outputs = fullfile(cfg.paths.outputs, 'milestones');
+    cfg.paths.shared_scenario_outputs = fullfile(cfg.paths.outputs, 'shared_scenarios');
+    cfg.paths.stage13_outputs = fullfile(cfg.paths.outputs, 'stage13');
+
+    % Deprecated compatibility fields. Keep these mapped to the unified
+    % outputs/ layout while stage code is still being migrated.
+    cfg.paths.output = cfg.paths.outputs;
+    cfg.paths.results = cfg.paths.stage_outputs;
+    cfg.paths.cache = fullfile(cfg.paths.stage_outputs, 'stage00', 'cache');
+    cfg.paths.logs = fullfile(cfg.paths.log_outputs, 'stage00');
+    cfg.paths.figs = fullfile(cfg.paths.stage_outputs, 'stage00', 'figs');
+    cfg.paths.tables = fullfile(cfg.paths.stage_outputs, 'stage00', 'tables');
+    cfg.paths.bundles = cfg.paths.bundle_outputs;
+    cfg.paths.benchmarks = cfg.paths.benchmark_outputs;
+    cfg.paths.milestones = cfg.paths.milestone_outputs;
+    cfg.paths.shared_scenarios = cfg.paths.shared_scenario_outputs;
+    cfg.paths.stage13 = cfg.paths.stage13_outputs;
+    cfg = configure_stage_output_paths(cfg, cfg.project_stage);
 
     % ---------------------------
     % Benchmark controls

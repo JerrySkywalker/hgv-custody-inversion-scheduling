@@ -25,6 +25,7 @@ function out = stage09_build_feasible_domain(cfg, opts)
     cfg = stage09_prepare_cfg(cfg);
     cfg = local_apply_stage09_opts(cfg, opts);
     cfg.project_stage = 'stage09_build_feasible_domain';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

@@ -45,7 +45,7 @@ end
 
 
 function loaded_pack = local_load_latest_cache(cache_dir, pattern, required)
-    listing = dir(fullfile(cache_dir, pattern));
+    listing = find_stage_cache_files(cache_dir, pattern);
     loaded_pack = struct('pattern', pattern, 'cache_file', '', 'out', struct());
     if isempty(listing)
         if required

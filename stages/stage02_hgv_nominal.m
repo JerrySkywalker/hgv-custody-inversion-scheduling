@@ -33,6 +33,7 @@ function out = stage02_hgv_nominal(cfg, opts)
         assert(isfield(cfg, 'stage02'), 'Missing cfg.stage02 in default_params().');
     
         cfg.project_stage = 'stage02_hgv_nominal';
+        cfg = configure_stage_output_paths(cfg);
         seed_rng(cfg.random.seed);
     
         ensure_dir(cfg.paths.logs);
@@ -344,7 +345,7 @@ function out = stage02_hgv_nominal(cfg, opts)
     function [casebank, stage01_file] = local_load_latest_stage01_casebank(cfg)
         persistent cached_stage01_file cached_casebank
 
-        d = dir(fullfile(cfg.paths.cache, 'stage01_scenario_disk_*.mat'));
+        d = find_stage_cache_files(cfg.paths.cache, 'stage01_scenario_disk_*.mat');
         assert(~isempty(d), 'No Stage01 cache found. Please run stage01_scenario_disk first.');
 
         [~, idx_latest] = max([d.datenum]);

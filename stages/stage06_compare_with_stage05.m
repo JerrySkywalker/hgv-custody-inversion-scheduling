@@ -21,6 +21,7 @@ function out = stage06_compare_with_stage05(cfg)
         end
         cfg = stage06_prepare_cfg(cfg);
         cfg.project_stage = 'stage06_compare_with_stage05';
+        cfg = configure_stage_output_paths(cfg);
         run_tag = char(cfg.stage06.run_tag);
 
         seed_rng(cfg.random.seed);
@@ -42,7 +43,7 @@ function out = stage06_compare_with_stage05(cfg)
         % ============================================================
         % Load latest Stage05 cache
         % ============================================================
-        d5 = dir(fullfile(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat'));
+        d5 = find_stage_cache_files(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat');
         assert(~isempty(d5), ...
             'No Stage05 cache found. Please run stage05_nominal_walker_search first.');
     
@@ -59,7 +60,7 @@ function out = stage06_compare_with_stage05(cfg)
         % ============================================================
         % Load latest Stage06 cache (by run_tag)
         % ============================================================
-        d6 = dir(fullfile(cfg.paths.cache, ...
+        d6 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage06_heading_walker_search_%s_*.mat', run_tag)));
         assert(~isempty(d6), ...
             'No Stage06 cache found for run_tag: %s. Please run stage06_heading_walker_search first.', run_tag);

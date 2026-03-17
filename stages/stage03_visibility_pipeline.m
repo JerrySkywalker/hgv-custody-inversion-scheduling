@@ -18,6 +18,7 @@ function out = stage03_visibility_pipeline(cfg, opts)
         opts = local_normalize_opts(cfg, opts);
         cfg = local_apply_opts_to_cfg(cfg, opts);
         cfg.project_stage = 'stage03_visibility_pipeline';
+        cfg = configure_stage_output_paths(cfg);
         seed_rng(cfg.random.seed);
     
         ensure_dir(cfg.paths.logs);
@@ -254,7 +255,7 @@ function out = stage03_visibility_pipeline(cfg, opts)
     function [trajbank, stage02_file] = local_load_latest_stage02_trajbank(cfg)
         persistent cached_stage02_file cached_trajbank
 
-        d = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+        d = find_stage_cache_files(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
         assert(~isempty(d), 'No Stage02 cache found. Please run stage02_hgv_nominal first.');
 
         [~, idx_latest] = max([d.datenum]);

@@ -19,15 +19,16 @@ function outp = stage05_plot_nominal_results(cfg)
     %   7) figure: best-D_G heatmap over (i, P)
     %
     % Saved to:
-    %   results/figs
-    %   results/tables
-    %   results/cache
+    %   outputs/stage/figs
+    %   outputs/stage/tables
+    %   outputs/stage/cache
     
         startup();
         if nargin < 1 || isempty(cfg)
             cfg = default_params();
         end
         cfg.project_stage = 'stage05_plot_nominal_results';
+        cfg = configure_stage_output_paths(cfg);
     
         ensure_dir(cfg.paths.logs);
         ensure_dir(cfg.paths.tables);
@@ -48,7 +49,7 @@ function outp = stage05_plot_nominal_results(cfg)
         % ============================================================
         % Load latest Stage05 cache
         % ============================================================
-        d5 = dir(fullfile(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat'));
+        d5 = find_stage_cache_files(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat');
         assert(~isempty(d5), ...
             'No Stage05 cache found. Please run stage05_nominal_walker_search first.');
     

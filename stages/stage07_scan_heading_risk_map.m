@@ -12,6 +12,7 @@ function out = stage07_scan_heading_risk_map(cfg, opts)
         opts = struct();
     end
     cfg.project_stage = 'stage07_scan_heading_risk_map';
+    cfg = configure_stage_output_paths(cfg);
     cfg = local_apply_stage07_opts(cfg, opts);
 
     seed_rng(cfg.random.seed);
@@ -197,19 +198,19 @@ end
 function [reference_walker, scope_spec, nominal_bank, stage07_ref_file, stage07_scope_file, stage02_file] = local_load_stage07_inputs(cfg, run_tag)
     persistent cache
 
-    d71 = dir(fullfile(cfg.paths.cache, ...
+    d71 = find_stage_cache_files(cfg.paths.cache, ...
         sprintf('stage07_select_reference_walker_%s_*.mat', run_tag)));
     assert(~isempty(d71), 'No Stage07.1 cache found for run_tag=%s.', run_tag);
     [~, idx71] = max([d71.datenum]);
     stage07_ref_file = fullfile(d71(idx71).folder, d71(idx71).name);
 
-    d72 = dir(fullfile(cfg.paths.cache, ...
+    d72 = find_stage_cache_files(cfg.paths.cache, ...
         sprintf('stage07_define_critical_scope_refwalker_%s_*.mat', run_tag)));
     assert(~isempty(d72), 'No Stage07.2 scope cache found for run_tag=%s.', run_tag);
     [~, idx72] = max([d72.datenum]);
     stage07_scope_file = fullfile(d72(idx72).folder, d72(idx72).name);
 
-    d2 = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+    d2 = find_stage_cache_files(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
     assert(~isempty(d2), 'No Stage02 nominal cache found.');
     [~, idx2] = max([d2.datenum]);
     stage02_file = fullfile(d2(idx2).folder, d2(idx2).name);

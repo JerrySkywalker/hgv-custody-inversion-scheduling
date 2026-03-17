@@ -17,6 +17,7 @@ function out = stage05_nominal_walker_search(cfg, opts)
             opts = struct();
         end
         cfg.project_stage = 'stage05_nominal_walker_search';
+        cfg = configure_stage_output_paths(cfg);
         cfg = local_apply_stage05_opts(cfg, opts);
     
         seed_rng(cfg.random.seed);
@@ -38,7 +39,7 @@ function out = stage05_nominal_walker_search(cfg, opts)
         % ------------------------------------------------------------
         % Load latest Stage04 cache: inherit gamma_req
         % ------------------------------------------------------------
-        d4 = dir(fullfile(cfg.paths.cache, 'stage04_window_worstcase_*.mat'));
+        d4 = find_stage_cache_files(cfg.paths.cache, 'stage04_window_worstcase_*.mat');
         assert(~isempty(d4), 'No Stage04 cache found. Please run stage04_window_worstcase first.');
     
         [~, idx4] = max([d4.datenum]);
@@ -57,7 +58,7 @@ function out = stage05_nominal_walker_search(cfg, opts)
         % ------------------------------------------------------------
         % Load latest Stage02 cache: use nominal trajectory family
         % ------------------------------------------------------------
-        d2 = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+        d2 = find_stage_cache_files(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
         assert(~isempty(d2), 'No Stage02 cache found. Please run stage02_hgv_nominal first.');
     
         [~, idx2] = max([d2.datenum]);

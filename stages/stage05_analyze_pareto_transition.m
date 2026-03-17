@@ -22,8 +22,7 @@ function out = stage05_analyze_pareto_transition()
     
         log_fid = [];
         try
-            [project_root, results_dir] = local_project_root();
-            logs_dir   = fullfile(results_dir, 'logs');
+            [project_root, results_dir, logs_dir] = local_project_root();
             figs_dir   = fullfile(results_dir, 'figs');
             tables_dir = fullfile(results_dir, 'tables');
             cache_dir  = fullfile(results_dir, 'cache');
@@ -271,11 +270,12 @@ function out = stage05_analyze_pareto_transition()
             'No recognized startup function found. Tried: %s', strjoin(tried, ', '));
     end
     
-    function [project_root, results_dir] = local_project_root()
+    function [project_root, results_dir, logs_dir] = local_project_root()
         this_file = mfilename('fullpath');
         stage_dir = fileparts(this_file);
         project_root = fileparts(stage_dir);
-        results_dir = fullfile(project_root, 'results');
+        results_dir = fullfile(project_root, 'outputs', 'stage', 'stage05');
+        logs_dir = fullfile(project_root, 'outputs', 'logs', 'stage05');
     end
     
     function local_mkdir_if_needed(d)

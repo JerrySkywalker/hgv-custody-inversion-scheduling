@@ -26,6 +26,7 @@ function out = stage07_define_critical_scope_refwalker(cfg)
             cfg = default_params();
         end
         cfg.project_stage = 'stage07_define_critical_scope_refwalker';
+        cfg = configure_stage_output_paths(cfg);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -48,7 +49,7 @@ function out = stage07_define_critical_scope_refwalker(cfg)
         % ============================================================
         % Load latest Stage07.1 reference Walker
         % ============================================================
-        d71 = dir(fullfile(cfg.paths.cache, ...
+        d71 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage07_select_reference_walker_%s_*.mat', run_tag)));
         assert(~isempty(d71), ...
             'No Stage07.1 reference-Walker cache found for run_tag=%s.', run_tag);

@@ -30,6 +30,7 @@ function out = stage08_scan_representative_cases(cfg)
         end
         cfg = stage08_prepare_cfg(cfg);
         cfg.project_stage = 'stage08_scan_representative_cases';
+        cfg = configure_stage_output_paths(cfg);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -53,7 +54,7 @@ function out = stage08_scan_representative_cases(cfg)
         % ============================================================
         % Load latest Stage08.1 scope
         % ============================================================
-        d81 = dir(fullfile(cfg.paths.cache, ...
+        d81 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage08_define_window_scope_%s_*.mat', run_tag)));
         assert(~isempty(d81), ...
             'No Stage08.1 scope cache found for run_tag=%s.', run_tag);
@@ -71,7 +72,7 @@ function out = stage08_scan_representative_cases(cfg)
         % ============================================================
         % Load latest Stage02 nominal bank
         % ============================================================
-        d2 = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+        d2 = find_stage_cache_files(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
         assert(~isempty(d2), 'No Stage02 nominal cache found.');
     
         [~, idx2] = max([d2.datenum]);

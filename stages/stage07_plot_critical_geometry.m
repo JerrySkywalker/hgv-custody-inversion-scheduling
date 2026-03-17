@@ -23,6 +23,7 @@ function out = stage07_plot_critical_geometry(cfg)
             cfg = default_params();
         end
         cfg.project_stage = 'stage07_plot_critical_geometry';
+        cfg = configure_stage_output_paths(cfg);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -50,7 +51,7 @@ function out = stage07_plot_critical_geometry(cfg)
         % ============================================================
         % Load Stage07.1 reference
         % ============================================================
-        d71 = dir(fullfile(cfg.paths.cache, ...
+        d71 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage07_select_reference_walker_%s_*.mat', run_tag)));
         assert(~isempty(d71), 'No Stage07.1 cache found.');
     
@@ -64,7 +65,7 @@ function out = stage07_plot_critical_geometry(cfg)
         % ============================================================
         % Load Stage07.3 risk map
         % ============================================================
-        d73 = dir(fullfile(cfg.paths.cache, ...
+        d73 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage07_scan_heading_risk_map_%s_*.mat', run_tag)));
         assert(~isempty(d73), 'No Stage07.3 cache found.');
     
@@ -79,7 +80,7 @@ function out = stage07_plot_critical_geometry(cfg)
         % ============================================================
         % Load Stage07.4 selected examples
         % ============================================================
-        d74 = dir(fullfile(cfg.paths.cache, ...
+        d74 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage07_select_critical_examples_%s_*.mat', run_tag)));
         assert(~isempty(d74), 'No Stage07.4 cache found.');
     

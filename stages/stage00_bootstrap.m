@@ -25,6 +25,7 @@ function out = stage00_bootstrap(cfg, opts)
         % Load default config
         % ---------------------------
         cfg.project_stage = 'stage00_bootstrap';
+        cfg = configure_stage_output_paths(cfg);
     
         % ---------------------------
         % Seed RNG

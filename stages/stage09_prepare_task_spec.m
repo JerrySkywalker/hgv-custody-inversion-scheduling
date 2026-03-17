@@ -23,6 +23,7 @@ function out = stage09_prepare_task_spec(cfg)
     end
     cfg = stage09_prepare_cfg(cfg);
     cfg.project_stage = 'stage09_prepare_task_spec';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

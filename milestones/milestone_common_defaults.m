@@ -24,9 +24,14 @@ end
 
 root_dir = cfg.paths.root;
 
-cfg.paths.output = fullfile(root_dir, 'output');
-cfg.paths.milestones = fullfile(root_dir, 'output', 'milestones');
-cfg.paths.shared_scenarios = fullfile(root_dir, 'output', 'shared_scenarios');
+cfg.paths.outputs = fullfile(root_dir, 'outputs');
+cfg.paths.output = cfg.paths.outputs;
+cfg.paths.milestones = fullfile(cfg.paths.outputs, 'milestones');
+cfg.paths.shared_scenarios = fullfile(cfg.paths.outputs, 'shared_scenarios');
+cfg.paths.stage13 = fullfile(cfg.paths.outputs, 'stage13');
+cfg.paths.milestone_outputs = cfg.paths.milestones;
+cfg.paths.shared_scenario_outputs = cfg.paths.shared_scenarios;
+cfg.paths.stage13_outputs = cfg.paths.stage13;
 
 cfg.milestones = struct();
 cfg.milestones.output_root = cfg.paths.milestones;

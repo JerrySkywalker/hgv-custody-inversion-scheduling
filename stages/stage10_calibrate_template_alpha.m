@@ -16,6 +16,7 @@ function out = stage10_calibrate_template_alpha(cfg)
     end
     cfg = stage10_prepare_cfg(cfg);
     cfg.project_stage = 'stage10_calibrate_template_alpha';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);

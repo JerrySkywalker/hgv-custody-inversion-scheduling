@@ -88,7 +88,8 @@ paths.root = root_dir;
 paths.tables = fullfile(root_dir, 'tables');
 paths.figures = fullfile(root_dir, 'figures');
 paths.reports = fullfile(root_dir, 'reports');
-paths.cache = fullfile(root_dir, 'cache');
+paths.data = fullfile(root_dir, 'data');
+paths.cache = paths.data;
 paths.plan_csv = fullfile(paths.tables, 'stage13_search_plan.csv');
 paths.signature_csv = fullfile(paths.tables, 'stage13_candidate_signatures.csv');
 paths.summary_csv = fullfile(paths.tables, 'stage13_candidate_summary.csv');
@@ -100,12 +101,12 @@ paths.dg_refined_plan_csv = fullfile(paths.tables, 'stage13_dg_refined_search_pl
 paths.dg_refined_summary_csv = fullfile(paths.tables, 'stage13_dg_refined_candidate_summary.csv');
 paths.dg_micro_summary_csv = fullfile(paths.tables, 'stage13_dg_micro_candidate_summary.csv');
 
-ensure_dir(cfg.paths.output);
+ensure_dir(cfg.paths.outputs);
 ensure_dir(paths.root);
 ensure_dir(paths.tables);
 ensure_dir(paths.figures);
 ensure_dir(paths.reports);
-ensure_dir(paths.cache);
+ensure_dir(paths.data);
 end
 
 function local_write_report(file_path, out)

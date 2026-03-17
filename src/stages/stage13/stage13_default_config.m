@@ -14,7 +14,7 @@ if nargin < 2 || isempty(overrides)
     overrides = struct();
 end
 
-cfg.paths.stage13 = fullfile(cfg.paths.output, 'stage13');
+cfg.paths.stage13 = cfg.paths.stage13_outputs;
 
 cfg.stage13 = struct();
 cfg.stage13.stage_name = 'stage13';

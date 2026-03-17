@@ -8,6 +8,7 @@ function out = stage06_build_heading_family_physical_demo(cfg)
         end
         cfg = stage06_prepare_cfg(cfg);
         cfg.project_stage = 'stage06_build_heading_family_physical_demo';
+        cfg = configure_stage_output_paths(cfg);
         run_tag = char(cfg.stage06.run_tag);
 
         seed_rng(cfg.random.seed);
@@ -29,7 +30,7 @@ function out = stage06_build_heading_family_physical_demo(cfg)
         % ------------------------------------------------------------
         % Load latest Stage06.1 scope (by run_tag)
         % ------------------------------------------------------------
-        d6 = dir(fullfile(cfg.paths.cache, ...
+        d6 = find_stage_cache_files(cfg.paths.cache, ...
             sprintf('stage06_define_heading_scope_%s_*.mat', run_tag)));
         assert(~isempty(d6), 'No Stage06.1 cache found for run_tag: %s', run_tag);
     
@@ -42,7 +43,7 @@ function out = stage06_build_heading_family_physical_demo(cfg)
         % ------------------------------------------------------------
         % Load latest Stage02 cache
         % ------------------------------------------------------------
-        d2 = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+        d2 = find_stage_cache_files(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
         assert(~isempty(d2), 'No Stage02 cache found.');
     
         [~, idx2] = max([d2.datenum]);

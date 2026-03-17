@@ -126,8 +126,8 @@ if ~availability.is_available
     return;
 end
 
-ss1_fig = fullfile(ss_cfg.paths.root, 'output', 'shared_scenarios', 'SS1', 'figures', 'SS1_defense_zone_2d_overview.png');
-ss2_fig = fullfile(ss_cfg.paths.root, 'output', 'shared_scenarios', 'SS2', 'figures', 'SS2_earth_walker_defense_zone_3d.png');
+ss1_fig = fullfile(ss_cfg.paths.root, 'outputs', 'shared_scenarios', 'SS1', 'figures', 'SS1_defense_zone_2d_overview.png');
+ss2_fig = fullfile(ss_cfg.paths.root, 'outputs', 'shared_scenarios', 'SS2', 'figures', 'SS2_earth_walker_defense_zone_3d.png');
 
 need_build = ss_cfg.shared_scenarios.enable_auto_build && ...
     (~isfile(ss1_fig) || ~isfile(ss2_fig));

@@ -13,6 +13,7 @@ function out = stage06_build_heading_family_demo()
         startup();
         cfg = default_params();
         cfg.project_stage = 'stage06_build_heading_family_demo';
+        cfg = configure_stage_output_paths(cfg);
     
         seed_rng(cfg.random.seed);
         ensure_dir(cfg.paths.logs);
@@ -33,7 +34,7 @@ function out = stage06_build_heading_family_demo()
         % ------------------------------------------------------------
         % Load latest Stage06.1 scope cache
         % ------------------------------------------------------------
-        d6 = dir(fullfile(cfg.paths.cache, 'stage06_define_heading_scope_*.mat'));
+        d6 = find_stage_cache_files(cfg.paths.cache, 'stage06_define_heading_scope_*.mat');
         assert(~isempty(d6), ...
             'No Stage06.1 cache found. Please run stage06_define_heading_scope first.');
     
@@ -50,7 +51,7 @@ function out = stage06_build_heading_family_demo()
         % ------------------------------------------------------------
         % Load latest Stage02 cache
         % ------------------------------------------------------------
-        d2 = dir(fullfile(cfg.paths.cache, 'stage02_hgv_nominal_*.mat'));
+        d2 = find_stage_cache_files(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
         assert(~isempty(d2), ...
             'No Stage02 cache found. Please run stage02_hgv_nominal first.');
     

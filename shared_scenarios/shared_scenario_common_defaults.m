@@ -10,7 +10,8 @@ if nargin < 2 || isempty(overrides)
     overrides = struct();
 end
 
-cfg.paths.shared_scenarios = fullfile(cfg.paths.root, 'output', 'shared_scenarios');
+cfg.paths.shared_scenarios = fullfile(cfg.paths.root, 'outputs', 'shared_scenarios');
+cfg.paths.shared_scenario_outputs = cfg.paths.shared_scenarios;
 
 cfg.shared_scenarios = struct();
 cfg.shared_scenarios.enable_auto_build = true;

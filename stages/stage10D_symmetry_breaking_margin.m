@@ -17,6 +17,7 @@ function out = stage10D_symmetry_breaking_margin(cfg)
     end
     cfg = stage10D_prepare_cfg(cfg);
     cfg.project_stage = 'stage10D_symmetry_breaking_margin';
+    cfg = configure_stage_output_paths(cfg);
 
     seed_rng(cfg.random.seed);
     ensure_dir(cfg.paths.logs);
