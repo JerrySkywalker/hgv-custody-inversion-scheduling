@@ -16,20 +16,33 @@ if isempty(view_table)
     return;
 end
 
+switch lower(char(string(slice_type)))
+    case 'hi'
+        mask = view_table.P == anchor_config.P & view_table.T == anchor_config.T & view_table.F == anchor_config.F;
+        view_table = view_table(mask, :);
+    case 'pt'
+        mask = view_table.h_km == anchor_config.h_km & view_table.i_deg == anchor_config.i_deg & view_table.F == anchor_config.F;
+        view_table = view_table(mask, :);
+    otherwise
+        error('Unsupported slice_type: %s', string(slice_type));
+end
+
+if isempty(view_table)
+    return;
+end
+
 keys = {'h_km', 'i_deg', 'P', 'T', 'F'};
 view_table.is_feasible = false(height(view_table), 1);
 view_table.view_type = repmat(string(slice_type), height(view_table), 1);
 view_table.anchor_label = repmat(local_anchor_label(anchor_config, slice_type), height(view_table), 1);
 
-if ~isempty(feasible_unique)
-    [tf, loc] = ismember(view_table(:, keys), feasible_unique(:, keys), 'rows');
+if ismember('joint_feasible', view_table.Properties.VariableNames)
+    view_table.is_feasible = logical(view_table.joint_feasible);
+elseif ismember('feasible_flag', view_table.Properties.VariableNames)
+    view_table.is_feasible = logical(view_table.feasible_flag);
+elseif ~isempty(feasible_unique)
+    [tf, ~] = ismember(view_table(:, keys), feasible_unique(:, keys), 'rows');
     view_table.is_feasible = tf;
-    copy_vars = intersect({'support_sources', 'num_support_sources'}, feasible_unique.Properties.VariableNames, 'stable');
-    for k = 1:numel(copy_vars)
-        values = view_table.(copy_vars{k});
-        values(tf) = feasible_unique.(copy_vars{k})(loc(tf));
-        view_table.(copy_vars{k}) = values;
-    end
 end
 
 if ~ismember('joint_margin', view_table.Properties.VariableNames)
@@ -37,6 +50,12 @@ if ~ismember('joint_margin', view_table.Properties.VariableNames)
 end
 if ~ismember('dominant_fail_tag', view_table.Properties.VariableNames)
     view_table.dominant_fail_tag = repmat("unknown", height(view_table), 1);
+end
+if ~ismember('Ns', view_table.Properties.VariableNames)
+    view_table.Ns = view_table.P .* view_table.T;
+end
+if ~ismember('feasible_flag', view_table.Properties.VariableNames)
+    view_table.feasible_flag = view_table.is_feasible;
 end
 
 switch lower(char(string(slice_type)))

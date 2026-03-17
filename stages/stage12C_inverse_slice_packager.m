@@ -1,10 +1,10 @@
-function out = stage12C_inverse_slice_packager(cfg, slice_type, overrides)
-%STAGE12C_INVERSE_SLICE_PACKAGER Package constellation-parameter slices for Milestone B.
+function out = stage12C_inverse_slice_packager(pool_or_cfg, slice_type, overrides)
+%STAGE12C_INVERSE_SLICE_PACKAGER Package thesis slice views from the unified Milestone B truth pool.
 
 startup();
 
-if nargin < 1 || isempty(cfg)
-    cfg = default_params();
+if nargin < 1 || isempty(pool_or_cfg)
+    pool_or_cfg = milestone_common_defaults();
 end
 if nargin < 2 || isempty(slice_type)
     slice_type = 'hi';
@@ -13,67 +13,59 @@ if nargin < 3 || isempty(overrides)
     overrides = struct();
 end
 
-cfg = milestone_common_defaults(cfg);
-cfg = stage09_prepare_cfg(cfg);
-cfg.stage09.run_tag = sprintf('stage12C_%s', char(string(slice_type)));
-
-[cfg_stage, axis_labels, slice_name] = local_configure_slice(cfg, slice_type, overrides);
-out_scan = stage09_build_feasible_domain(cfg_stage);
-
-summary = struct();
-summary.num_grid_points = height(out_scan.full_theta_table);
-summary.num_feasible_points = height(out_scan.feasible_theta_table);
-summary.feasible_ratio = local_safe_ratio(summary.num_feasible_points, summary.num_grid_points);
-
-full_theta_table = local_normalize_theta_table(out_scan.full_theta_table);
-feasible_theta_table = local_normalize_theta_table(out_scan.feasible_theta_table);
-view_anchor = local_make_view_anchor(cfg_stage, slice_type);
+[pool, meta] = local_resolve_pool(pool_or_cfg, overrides);
+[axis_labels, slice_name, view_anchor] = local_slice_config(pool, slice_type);
+full_theta_table = pool.full_theta_table_joint;
+feasible_theta_table = pool.feasible_theta_table_joint;
 view_table = build_feasible_domain_views(full_theta_table, feasible_theta_table, view_anchor, slice_type);
 
+summary = struct();
+summary.num_grid_points = height(view_table);
+summary.num_feasible_points = sum(view_table.is_feasible);
+summary.feasible_ratio = local_safe_ratio(summary.num_feasible_points, summary.num_grid_points);
+summary.anchor = view_anchor;
+
 out = struct();
-out.cfg = cfg_stage;
+out.cfg = pool.cfg;
+out.pool_summary = pool.summary;
 out.slice_name = string(slice_name);
 out.axis_labels = axis_labels;
-out.overrides = overrides;
+out.overrides = meta;
 out.full_theta_table = full_theta_table;
 out.feasible_theta_table = feasible_theta_table;
 out.view_anchor = view_anchor;
 out.view_table = view_table;
-out.summary_table = out_scan.summary_table;
-out.fail_partition_table = out_scan.fail_partition_table;
+out.summary_table = table(string(slice_name), summary.num_grid_points, summary.num_feasible_points, summary.feasible_ratio, ...
+    'VariableNames', {'slice_name', 'num_grid_points', 'num_feasible_points', 'feasible_ratio'});
+out.fail_partition_table = local_view_fail_partition(view_table);
 out.summary = summary;
-out.files = out_scan.files;
+out.files = struct();
 end
 
-function [cfg_stage, axis_labels, slice_name] = local_configure_slice(cfg, slice_type, overrides)
-cfg_stage = cfg;
-cfg_stage.stage09.scheme_type = 'custom';
-theta = cfg.milestones.baseline_theta;
-slice_cfg = cfg.milestones.slice_settings;
-if isfield(overrides, 'theta') && isstruct(overrides.theta)
-    theta = milestone_common_merge_structs(theta, overrides.theta);
+function [pool, meta] = local_resolve_pool(pool_or_cfg, overrides)
+if isstruct(pool_or_cfg) && isfield(pool_or_cfg, 'design_pool_table') && isfield(pool_or_cfg, 'full_theta_table_joint')
+    pool = pool_or_cfg;
+    meta = overrides;
+else
+    cfg = milestone_common_defaults(pool_or_cfg);
+    meta = cfg.milestones.MB;
+    if isstruct(overrides)
+        meta = milestone_common_merge_structs(meta, overrides);
+    end
+    pool = stage12B_mb_design_pool(cfg, meta);
 end
-if isfield(overrides, 'slice_settings') && isstruct(overrides.slice_settings)
-    slice_cfg = milestone_common_merge_structs(slice_cfg, overrides.slice_settings);
 end
 
+function [axis_labels, slice_name, view_anchor] = local_slice_config(pool, slice_type)
 switch lower(char(string(slice_type)))
     case 'hi'
-        cfg_stage.stage09.search_domain.h_grid_km = slice_cfg.h_km;
-        cfg_stage.stage09.search_domain.i_grid_deg = slice_cfg.i_deg;
-        cfg_stage.stage09.search_domain.P_grid = theta.P;
-        cfg_stage.stage09.search_domain.T_grid = theta.T;
-        cfg_stage.stage09.search_domain.F_fixed = theta.F;
         axis_labels = {'h_km', 'i_deg'};
         slice_name = 'hi';
+        view_anchor = pool.slice_anchor_hi;
     case 'pt'
-        cfg_stage.stage09.search_domain.h_grid_km = theta.h_km;
-        cfg_stage.stage09.search_domain.i_grid_deg = theta.i_deg;
-        cfg_stage.stage09.search_domain.P_grid = slice_cfg.P;
-        cfg_stage.stage09.search_domain.T_grid = slice_cfg.T;
-        cfg_stage.stage09.search_domain.F_fixed = theta.F;
         axis_labels = {'P', 'T'};
         slice_name = 'PT';
+        view_anchor = pool.slice_anchor_pt;
     otherwise
         error('Unsupported slice_type: %s', string(slice_type));
 end
@@ -87,25 +79,13 @@ else
 end
 end
 
-function T = local_normalize_theta_table(T)
-if isempty(T)
+function T = local_view_fail_partition(view_table)
+T = table();
+if isempty(view_table) || ~ismember('dominant_fail_tag', view_table.Properties.VariableNames)
     return;
 end
-T.DG_worst = T.DG_rob;
-T.DA_worst = T.DA_rob;
-T.DT_bar_worst = T.DT_bar_rob;
-T.DT_worst = T.DT_rob;
-T.feasible_flag = T.joint_feasible;
-end
-
-function anchor = local_make_view_anchor(cfg_stage, slice_type)
-sd = cfg_stage.stage09.search_domain;
-switch lower(char(string(slice_type)))
-    case 'hi'
-        anchor = struct('P', sd.P_grid(1), 'T', sd.T_grid(1), 'F', sd.F_fixed);
-    case 'pt'
-        anchor = struct('h_km', sd.h_grid_km(1), 'i_deg', sd.i_grid_deg(1), 'F', sd.F_fixed);
-    otherwise
-        error('Unsupported slice_type: %s', string(slice_type));
-end
+[tags, ~, ic] = unique(string(view_table.dominant_fail_tag));
+counts = accumarray(ic, 1);
+T = table(tags, counts, 'VariableNames', {'dominant_fail_tag', 'count'});
+T = sortrows(T, 'count', 'descend');
 end
