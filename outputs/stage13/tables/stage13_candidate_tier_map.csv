@@ -11,3 +11,4 @@ dg_first_probe_3,dg_first_probe,development_only,Legacy DG probe reference kept 
 dg_first_probe_4,dg_first_probe,development_only,Development-only DG candidate
 dg_first_probe_5,dg_first_probe,development_only,Development-only DG candidate
 dg_first_probe_6,dg_first_probe,development_only,Development-only DG candidate
+dg_micro_07,dg_refined_micro,backup_for_MB_or_defense,DG-refined backup only; not for MA export

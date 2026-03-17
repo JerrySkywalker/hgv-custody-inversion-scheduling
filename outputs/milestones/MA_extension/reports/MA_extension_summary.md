@@ -8,7 +8,7 @@ Formal MA extension export for the fixed baseline-neighborhood control case.
 
 - milestone_id: `MA_extension`
 - title: `baseline_neighbor`
-- config timestamp: `2026-03-17 15:16:37`
+- config timestamp: `2026-03-17 15:25:18`
 
 ## Reused Computational Modules
 
