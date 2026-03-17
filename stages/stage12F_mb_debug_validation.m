@@ -24,14 +24,16 @@ if isfield(overrides, 'task_meta') && isstruct(overrides.task_meta)
     task_meta = milestone_common_merge_structs(task_meta, overrides.task_meta);
 end
 
-slice_hi = stage12C_inverse_slice_packager(cfg, 'hi', meta);
-slice_pt = stage12C_inverse_slice_packager(cfg, 'PT', meta);
-task_nominal = stage12D_task_slice_packager(cfg, 'nominal', task_meta);
-task_heading = stage12D_task_slice_packager(cfg, 'heading', task_meta);
-task_critical = stage12D_task_slice_packager(cfg, 'critical', task_meta);
+pool = stage12B_mb_design_pool(cfg, meta);
+slice_hi = stage12C_inverse_slice_packager(pool, 'hi', meta);
+slice_pt = stage12C_inverse_slice_packager(pool, 'PT', meta);
+task_nominal = stage12D_task_slice_packager(pool, 'nominal', task_meta);
+task_heading = stage12D_task_slice_packager(pool, 'heading', task_meta);
+task_critical = stage12D_task_slice_packager(pool, 'critical', task_meta);
 
 source_count_table = local_source_count_table({slice_hi, slice_pt, task_nominal, task_heading, task_critical});
 family_config_table = local_family_config_table({task_nominal, task_heading, task_critical});
+pool_summary_table = local_pool_summary_table(pool, {task_nominal, task_heading, task_critical});
 
 debug_theta = cfg.milestones.baseline_theta;
 if isfield(overrides, 'debug_theta') && isstruct(overrides.debug_theta)
@@ -40,18 +42,21 @@ end
 family_design_table = local_family_design_table(cfg, debug_theta, task_meta);
 
 paths = milestone_common_output_paths(cfg, 'MB', meta.title);
+pool_csv = fullfile(paths.tables, 'MB_debug_pool_summary.csv');
 source_csv = fullfile(paths.tables, 'MB_debug_source_counts.csv');
 family_csv = fullfile(paths.tables, 'MB_debug_family_config.csv');
 design_csv = fullfile(paths.tables, 'MB_debug_family_design_eval.csv');
+writetable(pool_summary_table, pool_csv);
 writetable(source_count_table, source_csv);
 writetable(family_config_table, family_csv);
 writetable(family_design_table, design_csv);
 
 out = struct();
+out.pool_summary_table = pool_summary_table;
 out.source_count_table = source_count_table;
 out.family_config_table = family_config_table;
 out.family_design_table = family_design_table;
-out.files = struct('source_csv', string(source_csv), 'family_csv', string(family_csv), 'design_csv', string(design_csv));
+out.files = struct('pool_csv', string(pool_csv), 'source_csv', string(source_csv), 'family_csv', string(family_csv), 'design_csv', string(design_csv));
 end
 
 function T = local_source_count_table(results)
@@ -79,6 +84,28 @@ for k = 1:numel(results)
         'VariableNames', {'family_name', 'casebank_size', 'nominal_cases', 'heading_cases', 'critical_cases', 'config_signature'});
 end
 T = vertcat(rows{:});
+end
+
+function T = local_pool_summary_table(pool, task_results)
+minimum_pack = stage12E_minimum_design_packager(pool, pool.cfg, pool.meta);
+rows = {
+    "design_pool_total", height(pool.design_pool_table)
+    "joint_feasible_total", height(pool.feasible_theta_table_joint)
+    "minimum_design_count", height(minimum_pack.minimum_design_table)
+    "near_optimal_region_size", height(minimum_pack.near_optimal_table)
+    "slice_anchor_hi_P", pool.slice_anchor_hi.P
+    "slice_anchor_hi_T", pool.slice_anchor_hi.T
+    "slice_anchor_hi_F", pool.slice_anchor_hi.F
+    "slice_anchor_pt_h_km", pool.slice_anchor_pt.h_km
+    "slice_anchor_pt_i_deg", pool.slice_anchor_pt.i_deg
+    "slice_anchor_pt_F", pool.slice_anchor_pt.F};
+
+for k = 1:numel(task_results)
+    r = task_results{k};
+    rows(end + 1, :) = {sprintf('%s_feasible_total', char(string(r.task_slice_id))), r.summary.num_feasible}; %#ok<AGROW>
+end
+
+T = cell2table(rows, 'VariableNames', {'metric_name', 'metric_value'});
 end
 
 function T = local_family_design_table(cfg, debug_theta, task_meta)
