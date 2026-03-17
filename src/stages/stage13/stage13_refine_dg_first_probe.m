@@ -55,4 +55,37 @@ refine_out.status = "ranked";
 if isfield(stage13_out, 'paths') && isfield(stage13_out.paths, 'dg_refined_summary_csv')
     writetable(ranked_summary, stage13_out.paths.dg_refined_summary_csv);
 end
+
+if strlength(refine_out.recommended_case) > 0
+    baseline_eval = local_find_baseline_eval(stage13_out.evaluations);
+    recommended_eval = local_find_eval_by_tag(refine_evals, refine_out.recommended_case);
+    plot_files = stage13_plot_case_vs_baseline( ...
+        baseline_eval, recommended_eval, 'dg_refined_probe', stage13_out.paths, 'dg_refined_recommended');
+    refine_out.figures.curve_compare = plot_files.curve_compare;
+    refine_out.figures.worst_window_compare = plot_files.worst_window_compare;
+end
+
+refine_out.figures.family_overview = stage13_plot_dg_refined_overview(ranked_summary, stage13_out.paths);
+end
+
+function eval_out = local_find_eval_by_tag(evaluations, case_tag)
+eval_out = struct();
+for k = 1:numel(evaluations)
+    if strcmp(string(evaluations(k).signature.case_tag), string(case_tag))
+        eval_out = evaluations(k);
+        return;
+    end
+end
+error('Stage13 refined evaluation not found for tag: %s', case_tag);
+end
+
+function baseline_eval = local_find_baseline_eval(evaluations)
+baseline_eval = struct();
+for k = 1:numel(evaluations)
+    if strcmp(string(evaluations(k).signature.case_id), "N01")
+        baseline_eval = evaluations(k);
+        return;
+    end
+end
+error('Stage13 refined search cannot find baseline evaluation with case_id N01.');
 end

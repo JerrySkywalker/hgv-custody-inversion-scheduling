@@ -1,10 +1,15 @@
-function files = stage13_plot_case_vs_baseline(baseline_eval, candidate_eval, family_name, paths)
+function files = stage13_plot_case_vs_baseline(baseline_eval, candidate_eval, family_name, paths, output_tag)
 %STAGE13_PLOT_CASE_VS_BASELINE Plot Stage13 baseline-vs-candidate comparisons.
+
+if nargin < 5 || strlength(string(output_tag)) == 0
+    output_tag = candidate_eval.signature.case_tag;
+end
 
 style = milestone_common_plot_style();
 base_curve = baseline_eval.scan_out.window_table;
 cand_curve = candidate_eval.scan_out.window_table;
 case_tag = char(candidate_eval.signature.case_tag);
+file_tag = char(string(output_tag));
 
 curve_fig = figure('Visible', 'off', 'Color', 'w', 'Position', [120 80 980 860]);
 tl = tiledlayout(curve_fig, 3, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
@@ -30,7 +35,7 @@ for i = 1:size(metrics, 1)
 end
 apply_dissertation_plot_style(curve_fig, style);
 
-curve_path = fullfile(paths.figures, sprintf('stage13_case_%s_vs_baseline.png', case_tag));
+curve_path = fullfile(paths.figures, sprintf('stage13_case_%s_vs_baseline.png', file_tag));
 milestone_common_save_figure(curve_fig, curve_path);
 close(curve_fig);
 
@@ -52,7 +57,7 @@ grid(ax, 'on');
 legend(ax, 'Location', 'best', 'Interpreter', 'tex');
 apply_dissertation_plot_style(worst_fig, style);
 
-worst_path = fullfile(paths.figures, sprintf('stage13_case_%s_worst_windows.png', case_tag));
+worst_path = fullfile(paths.figures, sprintf('stage13_case_%s_worst_windows.png', file_tag));
 milestone_common_save_figure(worst_fig, worst_path);
 close(worst_fig);
 
