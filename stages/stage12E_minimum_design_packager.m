@@ -14,9 +14,7 @@ if nargin < 3 || isempty(overrides)
 end
 
 cfg = milestone_common_defaults(cfg);
-
-results = local_normalize_inputs(inputs);
-[full_theta_table, feasible_theta_table, fail_partition_table] = local_collect_tables(results);
+[full_theta_table, feasible_theta_table, fail_partition_table, pool, results] = local_collect_inputs(inputs, cfg, overrides);
 boundary_struct = extract_stage09_minimum_boundary(feasible_theta_table);
 
 minimum_design_table = boundary_struct.theta_min_table;
@@ -42,25 +40,34 @@ out.overrides = overrides;
 out.minimum_design = minimum_design;
 out.minimum_design_table = minimum_design_table;
 out.near_optimal_table = near_optimal_table;
+out.near_optimal_design_table = near_optimal_table;
 out.boundary_table = boundary_struct.boundary_table;
 out.dominant_constraint_distribution = local_fail_distribution(fail_partition_table);
 out.full_theta_table = full_theta_table;
 out.feasible_theta_table = feasible_theta_table;
 out.fail_partition_table = fail_partition_table;
+out.pool = pool;
+out.summary = struct( ...
+    'num_unique_grid_points', height(full_theta_table), ...
+    'num_unique_feasible_points', height(feasible_theta_table), ...
+    'minimum_design_count', height(minimum_design_table), ...
+    'minimum_design_Ns', local_minimum_ns(minimum_design_table), ...
+    'near_optimal_region_size', height(near_optimal_table));
 out.files = struct();
 end
 
-function results = local_normalize_inputs(inputs)
-if iscell(inputs)
-    results = inputs;
-elseif isstruct(inputs)
-    results = num2cell(inputs);
-else
-    results = {inputs};
-end
+function [full_theta_table, feasible_theta_table, fail_partition_table, pool, results] = local_collect_inputs(inputs, cfg, overrides)
+pool = struct();
+if isstruct(inputs) && isfield(inputs, 'design_pool_table') && isfield(inputs, 'feasible_theta_table_joint')
+    pool = inputs;
+    results = {struct('full_theta_table', inputs.full_theta_table_joint, 'feasible_theta_table', inputs.feasible_theta_table_joint)};
+    full_theta_table = unique_design_rows(inputs.full_theta_table_joint);
+    feasible_theta_table = unique_design_rows(inputs.feasible_theta_table_joint);
+    fail_partition_table = local_build_fail_partition(full_theta_table);
+    return;
 end
 
-function [full_theta_table, feasible_theta_table, fail_partition_table] = local_collect_tables(results)
+results = local_normalize_inputs(inputs);
 full_rows = {};
 feasible_rows = {};
 for k = 1:numel(results)
@@ -104,6 +111,21 @@ if ~isempty(feasible_rows)
     feasible_theta_table = vertcat(feasible_rows{:});
     feasible_theta_table = unique_design_rows(feasible_theta_table);
 end
+fail_partition_table = local_build_fail_partition(full_theta_table);
+end
+
+function results = local_normalize_inputs(inputs)
+if iscell(inputs)
+    results = inputs;
+elseif isstruct(inputs)
+    results = num2cell(inputs);
+else
+    results = {inputs};
+end
+end
+
+function fail_partition_table = local_build_fail_partition(full_theta_table)
+fail_partition_table = table();
 if ~isempty(full_theta_table) && ismember('dominant_fail_tag', full_theta_table.Properties.VariableNames)
     tags = string(full_theta_table.dominant_fail_tag);
     [uTags, ~, ic] = unique(tags);
@@ -129,5 +151,12 @@ function tag = local_pick_top_fail(fail_partition_table)
 tag = "OK";
 if ~isempty(fail_partition_table)
     tag = string(fail_partition_table.dominant_fail_tag(1));
+end
+end
+
+function value = local_minimum_ns(minimum_design_table)
+value = NaN;
+if ~isempty(minimum_design_table) && ismember('Ns', minimum_design_table.Properties.VariableNames)
+    value = minimum_design_table.Ns(1);
 end
 end
