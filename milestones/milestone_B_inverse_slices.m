@@ -12,22 +12,21 @@ end
 meta = cfg.milestones.MB;
 paths = milestone_common_output_paths(cfg, meta.milestone_id, meta.title);
 style = milestone_common_plot_style();
+task_meta = meta;
+if isfield(meta, 'task_slice_settings') && isstruct(meta.task_slice_settings)
+    task_meta.slice_settings = meta.task_slice_settings;
+end
 
 slice_hi = stage12C_inverse_slice_packager(cfg, 'hi', meta);
 slice_pt = stage12C_inverse_slice_packager(cfg, 'PT', meta);
-task_nominal = stage12D_task_slice_packager(cfg, 'nominal', meta);
-task_heading = stage12D_task_slice_packager(cfg, 'heading', meta);
-task_critical = stage12D_task_slice_packager(cfg, 'critical', meta);
+task_nominal = stage12D_task_slice_packager(cfg, 'nominal', task_meta);
+task_heading = stage12D_task_slice_packager(cfg, 'heading', task_meta);
+task_critical = stage12D_task_slice_packager(cfg, 'critical', task_meta);
 minimum_pack = stage12E_minimum_design_packager( ...
     {slice_hi, slice_pt, task_nominal, task_heading, task_critical}, cfg, meta);
 
 slice_summary_table = build_milestone_B_slice_summary({slice_hi, slice_pt});
-task_summary_table = table( ...
-    ["nominal"; "heading"; "critical"], ...
-    [task_nominal.summary.num_grid_points; task_heading.summary.num_grid_points; task_critical.summary.num_grid_points], ...
-    [task_nominal.summary.num_feasible_points; task_heading.summary.num_feasible_points; task_critical.summary.num_feasible_points], ...
-    [task_nominal.summary.feasible_ratio; task_heading.summary.feasible_ratio; task_critical.summary.feasible_ratio], ...
-    'VariableNames', {'task_slice_id', 'num_grid_points', 'num_feasible_points', 'feasible_ratio'});
+task_summary_table = summarize_task_family_comparison({task_nominal, task_heading, task_critical});
 
 feasible_domain_table = minimum_pack.full_theta_table;
 minimum_design_table = minimum_pack.minimum_design_table;
@@ -47,17 +46,19 @@ milestone_common_save_table(minimum_design_table, minimum_csv);
 milestone_common_save_table(near_optimal_table, near_optimal_csv);
 milestone_common_save_table(task_summary_table, task_summary_csv);
 
-fig1 = local_plot_feasible_domain(slice_hi.feasible_theta_table, slice_pt.feasible_theta_table, style);
+fig1 = plot_mb_feasible_domain_map(slice_hi.view_table, slice_pt.view_table, minimum_design_table, style);
 fig1_path = fullfile(paths.figures, 'MB_inverse_slices_feasible_domain_map.png');
 milestone_common_save_figure(fig1, fig1_path);
 close(fig1);
 
-fig2 = local_plot_minimum_boundary(minimum_pack.boundary_table, minimum_design_table, style);
-fig2_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_boundary_map.png');
+fig2 = plot_mb_minimum_design_map(minimum_pack.feasible_theta_table, minimum_design_table, near_optimal_table, style);
+fig2_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_design_map.png');
+fig2_legacy_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_boundary_map.png');
 milestone_common_save_figure(fig2, fig2_path);
+milestone_common_save_figure(fig2, fig2_legacy_path);
 close(fig2);
 
-fig3 = plot_milestone_B_task_slice_compare(task_summary_table, style);
+fig3 = plot_mb_task_family_comparison(task_summary_table, style);
 fig3_path = fullfile(paths.figures, 'MB_inverse_slices_task_family_slice_comparison.png');
 milestone_common_save_figure(fig3, fig3_path);
 close(fig3);
@@ -77,16 +78,32 @@ result.tables.minimum_design_table = string(minimum_csv);
 result.tables.near_optimal_design_table = string(near_optimal_csv);
 result.tables.task_slice_summary = string(task_summary_csv);
 result.figures.feasible_domain_map = string(fig1_path);
-result.figures.minimum_boundary_map = string(fig2_path);
+result.figures.minimum_design_map = string(fig2_path);
+result.figures.minimum_boundary_map = string(fig2_legacy_path);
 result.figures.task_family_slice_comparison = string(fig3_path);
 result.artifacts.temporal_metric_note = "时序图表展示采用有界时序连续性裕度 DT_bar，闭合判定与主导失效识别继续采用标准化时序连续性裕度 DT >= 1。";
 
+task_family_minNs = local_task_metric_map(task_summary_table, 'Ns_min_feasible');
+task_family_best_margin = local_task_metric_map(task_summary_table, 'best_joint_margin');
+minimum_support_sources = "";
+if ~isempty(minimum_design_table) && ismember('support_sources', minimum_design_table.Properties.VariableNames)
+    minimum_support_sources = strjoin(unique(string(minimum_design_table.support_sources), 'stable'), "; ");
+end
+
 result.summary = struct( ...
     'slice_axes', {{'h-i', 'P-T'}}, ...
+    'num_unique_grid_points', height(minimum_pack.full_theta_table), ...
+    'num_unique_feasible_points', height(minimum_pack.feasible_theta_table), ...
     'num_grid_points', height(minimum_pack.full_theta_table), ...
     'num_feasible_points', height(minimum_pack.feasible_theta_table), ...
+    'minimum_design_count', height(minimum_design_table), ...
+    'minimum_design_support_sources', minimum_support_sources, ...
     'minimum_design', minimum_pack.minimum_design, ...
     'near_optimal_region_size', height(near_optimal_table), ...
+    'task_family_minNs', task_family_minNs, ...
+    'task_family_best_margin', task_family_best_margin, ...
+    'slice_anchor_used_for_hi_view', local_struct_to_string(slice_hi.view_anchor), ...
+    'slice_anchor_used_for_pt_view', local_struct_to_string(slice_pt.view_anchor), ...
     'dominant_constraint_distribution', minimum_pack.dominant_constraint_distribution, ...
     'key_counts', struct('num_tables', numel(fieldnames(result.tables)), 'num_figures', numel(fieldnames(result.figures))), ...
     'success_flags', struct('constellation_slice_packager', true, 'task_slice_packager', true, 'minimum_design_extractor', true), ...
@@ -97,74 +114,19 @@ result.artifacts.summary_report = files.report_md;
 result.artifacts.summary_mat = files.summary_mat;
 end
 
-function fig = local_plot_feasible_domain(T_hi, T_pt, style)
-fig = figure('Visible', 'off', 'Color', 'w');
-tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
-
-ax1 = nexttile;
-if isempty(T_hi)
-    plot(ax1, 0, 0, 'o', 'Color', style.colors(1, :));
-else
-    scatter(ax1, T_hi.i_deg, T_hi.h_km, 36, T_hi.Ns, 'filled');
-end
-xlabel(ax1, 'i (deg)');
-ylabel(ax1, 'h (km)');
-title(ax1, 'Milestone B h-i feasible slice');
-grid(ax1, 'on');
-
-ax2 = nexttile;
-if isempty(T_pt)
-    plot(ax2, 0, 0, 's', 'Color', style.colors(2, :));
-else
-    scatter(ax2, T_pt.P, T_pt.T, 48, T_pt.Ns, 'filled');
-end
-xlabel(ax2, 'P');
-ylabel(ax2, 'T');
-title(ax2, 'Milestone B P-T feasible slice');
-grid(ax2, 'on');
-end
-
-function fig = local_plot_minimum_boundary(boundary_table, minimum_design_table, style)
-fig = figure('Visible', 'off', 'Color', 'w');
-ax = axes(fig);
-if isempty(minimum_design_table)
-    plot(ax, 0, 0, 'o', 'Color', style.colors(3, :));
-else
-    scatter(ax, minimum_design_table.i_deg, minimum_design_table.h_km, 60, minimum_design_table.Ns, 'filled');
-end
-hold(ax, 'on');
-if ~isempty(boundary_table) && ismember('N_min_rob', boundary_table.Properties.VariableNames)
-    y_center = local_mean_omitnan([boundary_table.h_min_km(1), boundary_table.h_max_km(1)]);
-    if ~isnan(y_center)
-        yline(ax, y_center, '--', 'Boundary center', 'Color', style.threshold_color);
-    end
-end
-hold(ax, 'off');
-xlabel(ax, 'i (deg)');
-ylabel(ax, 'h (km)');
-title(ax, 'Milestone B Minimum Design / Boundary Map');
-grid(ax, 'on');
-end
-
-function value = local_mean_omitnan(x)
-x = x(~isnan(x));
-if isempty(x)
-    value = NaN;
-else
-    value = mean(x);
-end
-end
-
 function txt = local_make_conclusion(minimum_pack, task_summary_table)
-task_text = sprintf('nominal=%.2f, heading=%.2f, critical=%.2f', ...
-    task_summary_table.feasible_ratio(1), task_summary_table.feasible_ratio(2), task_summary_table.feasible_ratio(3));
+task_text = local_task_conclusion(task_summary_table);
 if isempty(minimum_pack.minimum_design_table)
-    txt = sprintf(['真值静态可行域中未提取到可行最小布置。任务侧切片可行比例为 %s。', ...
-        '时序约束采用标准化有界时序裕度进行闭合判定，图表展示采用有界时序连续性裕度。'], task_text);
+    txt = sprintf(['当前 MB 网格中的 unique feasible design 数为 %d。', ...
+        '真值静态可行域中未提取到可行最小布置。', ...
+        '任务族切片比较结果为 %s。'], ...
+        height(minimum_pack.feasible_theta_table), task_text);
 else
-    txt = sprintf(['真值静态可行域给出的最小布置对应 N_s=%g。任务侧切片可行比例为 %s。', ...
-        '最小布置边界与主导失效识别均使用标准化时序连续性裕度 D_T。'], ...
-        minimum_pack.minimum_design_table.Ns(1), task_text);
+    txt = sprintf(['当前 MB 网格中的 unique feasible design 数为 %d。', ...
+        '最小布置对应 N_s=%g，unique minimum design 数为 %d。', ...
+        '任务族切片比较结果为 %s。'], ...
+        height(minimum_pack.feasible_theta_table), minimum_pack.minimum_design_table.Ns(1), ...
+        height(minimum_pack.minimum_design_table), task_text);
 end
 end
 
@@ -172,7 +134,7 @@ function T = local_select_feasible_domain_columns(T)
 if isempty(T)
     return;
 end
-want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'DG_worst', 'DA_worst', 'DT_bar_worst', 'DT_worst', 'feasible_flag', 'dominant_fail_tag', 'slice_source'};
+want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'DG_worst', 'DA_worst', 'DT_bar_worst', 'DT_worst', 'joint_margin', 'feasible_flag', 'dominant_fail_tag', 'slice_source', 'support_sources', 'num_support_sources'};
 keep = intersect(want, T.Properties.VariableNames, 'stable');
 T = T(:, keep);
 end
@@ -181,7 +143,55 @@ function T = local_select_minimum_design_columns(T)
 if isempty(T)
     return;
 end
-want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'objective_value', 'dominant_constraint', 'has_near_optimal_alternatives', 'DG_worst', 'DA_worst', 'DT_bar_worst', 'DT_worst', 'slice_source'};
+want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'objective_value', 'dominant_constraint', 'has_near_optimal_alternatives', 'joint_margin', 'DG_worst', 'DA_worst', 'DT_bar_worst', 'DT_worst', 'slice_source', 'support_sources', 'num_support_sources'};
 keep = intersect(want, T.Properties.VariableNames, 'stable');
 T = T(:, keep);
+end
+
+function out = local_task_metric_map(task_summary_table, metric_name)
+out = struct();
+if isempty(task_summary_table) || ~ismember(metric_name, task_summary_table.Properties.VariableNames)
+    return;
+end
+for k = 1:height(task_summary_table)
+    key = matlab.lang.makeValidName(char(string(task_summary_table.family_name(k))));
+    out.(key) = task_summary_table.(metric_name)(k);
+end
+end
+
+function txt = local_struct_to_string(S)
+if isempty(S) || ~isstruct(S)
+    txt = "";
+    return;
+end
+fields = fieldnames(S);
+parts = strings(numel(fields), 1);
+for k = 1:numel(fields)
+    value = S.(fields{k});
+    if isnumeric(value) && isscalar(value)
+        value_txt = num2str(value);
+    else
+        value_txt = char(string(value));
+    end
+    parts(k) = sprintf('%s=%s', fields{k}, value_txt);
+end
+txt = strjoin(parts, ', ');
+end
+
+function txt = local_task_conclusion(task_summary_table)
+if isempty(task_summary_table)
+    txt = '任务族切片尚无可用统计。';
+    return;
+end
+
+parts = strings(height(task_summary_table), 1);
+for k = 1:height(task_summary_table)
+    family_name = string(task_summary_table.family_name(k));
+    feasible_ratio = task_summary_table.feasible_ratio(k);
+    min_ns = task_summary_table.Ns_min_feasible(k);
+    best_margin = task_summary_table.best_joint_margin(k);
+    parts(k) = sprintf('%s: feasible_ratio=%.2f, min_Ns=%g, best_margin=%.3f', ...
+        family_name, feasible_ratio, min_ns, best_margin);
+end
+txt = strjoin(parts, '; ');
 end

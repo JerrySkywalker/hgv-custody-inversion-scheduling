@@ -18,12 +18,16 @@ cfg = stage09_prepare_cfg(cfg);
 cfg.stage09.run_tag = sprintf('stage12D_%s', char(string(task_mode)));
 
 cfg_stage = local_configure_task_slice(cfg, task_mode, overrides);
+casebank = build_stage09_casebank(cfg_stage);
 out_scan = stage09_build_feasible_domain(cfg_stage);
 
 summary = struct();
 summary.num_grid_points = height(out_scan.full_theta_table);
 summary.num_feasible_points = height(out_scan.feasible_theta_table);
 summary.feasible_ratio = local_safe_ratio(summary.num_feasible_points, summary.num_grid_points);
+summary.casebank_size = numel(casebank);
+summary.casebank_breakdown = local_casebank_breakdown(casebank);
+summary.config_signature = local_task_signature(cfg_stage, task_mode);
 
 out = struct();
 out.cfg = cfg_stage;
@@ -40,6 +44,7 @@ end
 
 function cfg_stage = local_configure_task_slice(cfg, task_mode, overrides)
 cfg_stage = cfg;
+cfg_stage.stage09.scheme_type = 'custom';
 slice_cfg = cfg.milestones.slice_settings;
 theta = cfg.milestones.baseline_theta;
 if isfield(overrides, 'slice_settings') && isstruct(overrides.slice_settings)
@@ -93,4 +98,29 @@ T.DA_worst = T.DA_rob;
 T.DT_bar_worst = T.DT_bar_rob;
 T.DT_worst = T.DT_rob;
 T.feasible_flag = T.joint_feasible;
+end
+
+function breakdown = local_casebank_breakdown(casebank)
+breakdown = struct('nominal', 0, 'heading', 0, 'critical', 0);
+if isempty(casebank)
+    return;
+end
+for k = 1:numel(casebank)
+    if isfield(casebank(k).case, 'family')
+        family_name = lower(string(casebank(k).case.family));
+        if isfield(breakdown, char(family_name))
+            breakdown.(char(family_name)) = breakdown.(char(family_name)) + 1;
+        end
+    end
+end
+end
+
+function signature = local_task_signature(cfg_stage, task_mode)
+signature = sprintf('family=%s|heading_subset_max=%g|grid=%dx%dx%dx%d', ...
+    char(string(task_mode)), ...
+    cfg_stage.stage09.casebank_heading_subset_max, ...
+    numel(cfg_stage.stage09.search_domain.h_grid_km), ...
+    numel(cfg_stage.stage09.search_domain.i_grid_deg), ...
+    numel(cfg_stage.stage09.search_domain.P_grid), ...
+    numel(cfg_stage.stage09.search_domain.T_grid));
 end

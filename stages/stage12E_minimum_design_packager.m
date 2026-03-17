@@ -63,7 +63,6 @@ end
 function [full_theta_table, feasible_theta_table, fail_partition_table] = local_collect_tables(results)
 full_rows = {};
 feasible_rows = {};
-fail_rows = {};
 for k = 1:numel(results)
     r = results{k};
     if isfield(r, 'full_theta_table') && ~isempty(r.full_theta_table)
@@ -92,9 +91,6 @@ for k = 1:numel(results)
         end
         feasible_rows{end+1, 1} = Tfeas; %#ok<AGROW>
     end
-    if isfield(r, 'fail_partition_table') && ~isempty(r.fail_partition_table)
-        fail_rows{end+1, 1} = r.fail_partition_table; %#ok<AGROW>
-    end
 end
 
 full_theta_table = table();
@@ -102,14 +98,16 @@ feasible_theta_table = table();
 fail_partition_table = table();
 if ~isempty(full_rows)
     full_theta_table = vertcat(full_rows{:});
+    full_theta_table = unique_design_rows(full_theta_table);
 end
 if ~isempty(feasible_rows)
     feasible_theta_table = vertcat(feasible_rows{:});
+    feasible_theta_table = unique_design_rows(feasible_theta_table);
 end
-if ~isempty(fail_rows)
-    Tall = vertcat(fail_rows{:});
-    [uTags, ~, ic] = unique(string(Tall.dominant_fail_tag));
-    counts = accumarray(ic, Tall.count);
+if ~isempty(full_theta_table) && ismember('dominant_fail_tag', full_theta_table.Properties.VariableNames)
+    tags = string(full_theta_table.dominant_fail_tag);
+    [uTags, ~, ic] = unique(tags);
+    counts = accumarray(ic, 1);
     fail_partition_table = table(uTags, counts, 'VariableNames', {'dominant_fail_tag', 'count'});
     fail_partition_table = sortrows(fail_partition_table, 'count', 'descend');
 end

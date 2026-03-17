@@ -25,13 +25,20 @@ summary.num_grid_points = height(out_scan.full_theta_table);
 summary.num_feasible_points = height(out_scan.feasible_theta_table);
 summary.feasible_ratio = local_safe_ratio(summary.num_feasible_points, summary.num_grid_points);
 
+full_theta_table = local_normalize_theta_table(out_scan.full_theta_table);
+feasible_theta_table = local_normalize_theta_table(out_scan.feasible_theta_table);
+view_anchor = local_make_view_anchor(cfg_stage, slice_type);
+view_table = build_feasible_domain_views(full_theta_table, feasible_theta_table, view_anchor, slice_type);
+
 out = struct();
 out.cfg = cfg_stage;
 out.slice_name = string(slice_name);
 out.axis_labels = axis_labels;
 out.overrides = overrides;
-out.full_theta_table = local_normalize_theta_table(out_scan.full_theta_table);
-out.feasible_theta_table = local_normalize_theta_table(out_scan.feasible_theta_table);
+out.full_theta_table = full_theta_table;
+out.feasible_theta_table = feasible_theta_table;
+out.view_anchor = view_anchor;
+out.view_table = view_table;
 out.summary_table = out_scan.summary_table;
 out.fail_partition_table = out_scan.fail_partition_table;
 out.summary = summary;
@@ -40,6 +47,7 @@ end
 
 function [cfg_stage, axis_labels, slice_name] = local_configure_slice(cfg, slice_type, overrides)
 cfg_stage = cfg;
+cfg_stage.stage09.scheme_type = 'custom';
 theta = cfg.milestones.baseline_theta;
 slice_cfg = cfg.milestones.slice_settings;
 if isfield(overrides, 'theta') && isstruct(overrides.theta)
@@ -88,4 +96,16 @@ T.DA_worst = T.DA_rob;
 T.DT_bar_worst = T.DT_bar_rob;
 T.DT_worst = T.DT_rob;
 T.feasible_flag = T.joint_feasible;
+end
+
+function anchor = local_make_view_anchor(cfg_stage, slice_type)
+sd = cfg_stage.stage09.search_domain;
+switch lower(char(string(slice_type)))
+    case 'hi'
+        anchor = struct('P', sd.P_grid(1), 'T', sd.T_grid(1), 'F', sd.F_fixed);
+    case 'pt'
+        anchor = struct('h_km', sd.h_grid_km(1), 'i_deg', sd.i_grid_deg(1), 'F', sd.F_fixed);
+    otherwise
+        error('Unsupported slice_type: %s', string(slice_type));
+end
 end
