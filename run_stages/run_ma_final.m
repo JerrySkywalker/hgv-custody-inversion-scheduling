@@ -9,7 +9,7 @@ if ~isempty(proj_root)
 end
 startup();
 
-if nargin < 1 || isempty(cfg)
+if nargin < 1 || isempty(cfg) || ~isstruct(cfg) || ~isfield(cfg, 'paths')
     cfg = milestone_common_defaults();
 else
     cfg = milestone_common_defaults(cfg);

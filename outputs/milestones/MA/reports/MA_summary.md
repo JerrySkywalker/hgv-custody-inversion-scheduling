@@ -8,7 +8,7 @@ Single-layer static inverse-design truth baseline.
 
 - milestone_id: `MA`
 - title: `truth_baseline`
-- config timestamp: `2026-03-16 21:20:03`
+- config timestamp: `2026-03-17 15:16:37`
 
 ## Reused Computational Modules
 
@@ -19,21 +19,21 @@ Single-layer static inverse-design truth baseline.
 
 ### Tables
 
-- `baseline_configuration_summary`: `C:\Users\jerry\OneDrive\HIT-ASSL\202407-硕士毕业设计\20260112-结题\cpt4_sim_dev\output\milestones\MA\tables\MA_truth_baseline_configuration_summary.csv`
-- `worst_window_identification`: `C:\Users\jerry\OneDrive\HIT-ASSL\202407-硕士毕业设计\20260112-结题\cpt4_sim_dev\output\milestones\MA\tables\MA_truth_baseline_worst_window_identification.csv`
-- `window_level_truth_curve`: `C:\Users\jerry\OneDrive\HIT-ASSL\202407-硕士毕业设计\20260112-结题\cpt4_sim_dev\output\milestones\MA\tables\MA_truth_baseline_window_level_truth_curve.csv`
+- `baseline_configuration_summary`: `C:\src\hgv-cis-MA\outputs\milestones\MA\tables\MA_truth_baseline_configuration_summary.csv`
+- `worst_window_identification`: `C:\src\hgv-cis-MA\outputs\milestones\MA\tables\MA_truth_baseline_worst_window_identification.csv`
+- `window_level_truth_curve`: `C:\src\hgv-cis-MA\outputs\milestones\MA\tables\MA_truth_baseline_window_level_truth_curve.csv`
 
 ### Figures
 
-- `truth_window_scan`: `C:\Users\jerry\OneDrive\HIT-ASSL\202407-硕士毕业设计\20260112-结题\cpt4_sim_dev\output\milestones\MA\figures\MA_truth_baseline_truth_window_scan.png`
-- `worst_window_highlight`: `C:\Users\jerry\OneDrive\HIT-ASSL\202407-硕士毕业设计\20260112-结题\cpt4_sim_dev\output\milestones\MA\figures\MA_truth_baseline_worst_window_highlight.png`
+- `truth_window_scan`: `C:\src\hgv-cis-MA\outputs\milestones\MA\figures\MA_truth_baseline_truth_window_scan.png`
+- `worst_window_highlight`: `C:\src\hgv-cis-MA\outputs\milestones\MA\figures\MA_truth_baseline_worst_window_highlight.png`
 
 ### Artifacts
 
 - `baseline_evaluator`: `controlled truth-baseline evaluator`
 - `window_scan_engine`: `single-case window truth scanner`
-- `shared_scenario_SS1`: `C:\Users\jerry\OneDrive\HIT-ASSL\202407-硕士毕业设计\20260112-结题\cpt4_sim_dev\output\shared_scenarios\SS1\figures\SS1_defense_zone_2d_overview.png`
-- `shared_scenario_SS2`: `C:\Users\jerry\OneDrive\HIT-ASSL\202407-硕士毕业设计\20260112-结题\cpt4_sim_dev\output\shared_scenarios\SS2\figures\SS2_earth_walker_defense_zone_3d.png`
+- `shared_scenario_SS1`: `C:\src\hgv-cis-MA\outputs\shared_scenarios\SS1\figures\SS1_defense_zone_2d_overview.png`
+- `shared_scenario_SS2`: `C:\src\hgv-cis-MA\outputs\shared_scenarios\SS2\figures\SS2_earth_walker_defense_zone_3d.png`
 - `shared_scenario_note`: `共享场景 SS1/SS2 用于补充第四章与第五章共用的防区与 Earth-Walker 空间关系说明。`
 - `temporal_display_note`: `图形展示采用有界时序连续性裕度 DT_bar；闭合判定采用标准化时序连续性裕度 DT >= 1。`
 - `temporal_panel_note`: `基线真值窗口扫描的第三面板展示 \\bar{D}_T，显示阈值为 0.5；真值可行性仍按 D_T^{worst} >= 1 判定。`
