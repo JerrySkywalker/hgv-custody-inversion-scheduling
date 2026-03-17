@@ -10,15 +10,15 @@ tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
 
 ax1 = nexttile;
 local_plot_slice(ax1, hi_view_table, minimum_design_table, 'i_deg', 'h_km', ...
-    'i (deg)', 'h (km)', 'Milestone B h-i feasible slice');
+    'i (deg)', 'h (km)', 'h-i Slice at Baseline (P,T,F)');
 
 ax2 = nexttile;
 local_plot_slice(ax2, pt_view_table, minimum_design_table, 'P', 'T', ...
-    'P', 'T', 'Milestone B P-T feasible slice');
+    'P', 'T', 'P-T Slice at Baseline (h,i,F)');
 
-colormap(fig, parula);
+colormap(fig, turbo);
 cb = colorbar(ax2);
-cb.Label.String = 'N_s';
+cb.Label.String = 'Joint margin';
 
     function local_plot_slice(ax, view_table, min_table, xvar, yvar, xlabel_txt, ylabel_txt, title_txt)
         hold(ax, 'on');
@@ -34,7 +34,7 @@ cb.Label.String = 'N_s';
             end
             if any(feasible_mask)
                 scatter(ax, view_table.(xvar)(feasible_mask), view_table.(yvar)(feasible_mask), ...
-                    68, view_table.Ns(feasible_mask), 'filled', 'MarkerEdgeColor', [0.2, 0.2, 0.2], 'LineWidth', 0.6);
+                    68, view_table.joint_margin(feasible_mask), 'filled', 'MarkerEdgeColor', [0.2, 0.2, 0.2], 'LineWidth', 0.6);
             end
 
             min_view = local_filter_minimum_for_view(min_table, view_table, xvar, yvar);
@@ -46,7 +46,11 @@ cb.Label.String = 'N_s';
         hold(ax, 'off');
         xlabel(ax, xlabel_txt);
         ylabel(ax, ylabel_txt);
-        title(ax, title_txt);
+        anchor_text = "";
+        if ~isempty(view_table) && ismember('anchor_label', view_table.Properties.VariableNames)
+            anchor_text = string(view_table.anchor_label(1));
+        end
+        title(ax, sprintf('%s\n%s', title_txt, char(anchor_text)));
         grid(ax, 'on');
     end
 end
