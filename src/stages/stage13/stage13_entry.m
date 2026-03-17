@@ -73,6 +73,7 @@ for k = 1:numel(family_names)
     end
 end
 out.dissertation_export = stage13_export_for_dissertation(out);
+out.dg_refine = stage13_refine_dg_first_probe(cfg, out);
 
 save(paths.summary_mat, 'out', '-v7.3');
 if cfg.stage13.save_reports
@@ -120,6 +121,7 @@ fprintf(fid, '- candidates planned: `%d`\n', out.summary.num_candidates);
 fprintf(fid, '- candidates evaluated: `%d`\n', out.summary.num_evaluated);
 fprintf(fid, '- summary table: `%s`\n', out.paths.summary_csv);
 fprintf(fid, '- dissertation export: `%s`\n', out.paths.export_md);
+fprintf(fid, '- dg refine enabled: `%s`\n', string(out.cfg.stage13.dg_refine.enable));
 fprintf(fid, '\n## Notes\n\n');
 fprintf(fid, 'This increment evaluates each planned candidate with the MA-aligned truth window kernel and stores a unified candidate signature table.\n');
 end
