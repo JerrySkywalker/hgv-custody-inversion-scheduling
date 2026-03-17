@@ -28,19 +28,23 @@ minimum_pack = stage12E_minimum_design_packager(pool, cfg, meta);
 slice_summary_table = build_milestone_B_slice_summary({slice_hi, slice_pt});
 task_summary_table = summarize_task_family_comparison({task_nominal, task_heading, task_critical});
 
+design_pool_table = pool.design_pool_table;
 feasible_domain_table = minimum_pack.full_theta_table;
 minimum_design_table = minimum_pack.minimum_design_table;
 near_optimal_table = minimum_pack.near_optimal_table;
+design_pool_table = local_select_design_pool_columns(design_pool_table);
 feasible_domain_table = local_select_feasible_domain_columns(feasible_domain_table);
 minimum_design_table = local_select_minimum_design_columns(minimum_design_table);
 near_optimal_table = local_select_feasible_domain_columns(near_optimal_table);
 
 slice_summary_csv = fullfile(paths.tables, 'MB_inverse_slices_slice_grid_summary.csv');
+design_pool_csv = fullfile(paths.tables, 'MB_inverse_slices_design_pool_table.csv');
 feasible_csv = fullfile(paths.tables, 'MB_inverse_slices_feasible_domain_table.csv');
 minimum_csv = fullfile(paths.tables, 'MB_inverse_slices_minimum_design_table.csv');
 near_optimal_csv = fullfile(paths.tables, 'MB_inverse_slices_near_optimal_design_table.csv');
 task_summary_csv = fullfile(paths.tables, 'MB_inverse_slices_task_slice_summary.csv');
 milestone_common_save_table(slice_summary_table, slice_summary_csv);
+milestone_common_save_table(design_pool_table, design_pool_csv);
 milestone_common_save_table(feasible_domain_table, feasible_csv);
 milestone_common_save_table(minimum_design_table, minimum_csv);
 milestone_common_save_table(near_optimal_table, near_optimal_csv);
@@ -68,11 +72,12 @@ result.milestone_id = meta.milestone_id;
 result.title = meta.title;
 result.config = cfg;
 result.purpose = '真值静态可行域、任务侧切片比较与最小布置提取。';
-result.reused_modules = {'Constellation slice packager', 'Task-side slice packager', 'Minimum-design extractor'};
+result.reused_modules = {'Unified design-pool builder', 'Constellation slice packager', 'Task-side slice packager', 'Minimum-design extractor'};
 result.tables = struct();
 result.figures = struct();
 result.artifacts = struct();
 result.tables.slice_grid_summary = string(slice_summary_csv);
+result.tables.design_pool_table = string(design_pool_csv);
 result.tables.feasible_domain_table = string(feasible_csv);
 result.tables.minimum_design_table = string(minimum_csv);
 result.tables.near_optimal_design_table = string(near_optimal_csv);
@@ -92,42 +97,54 @@ end
 
 result.summary = struct( ...
     'slice_axes', {{'h-i', 'P-T'}}, ...
-    'num_unique_grid_points', height(minimum_pack.full_theta_table), ...
-    'num_unique_feasible_points', height(minimum_pack.feasible_theta_table), ...
+    'num_unique_grid_points', height(pool.design_pool_table), ...
+    'num_unique_feasible_points', height(pool.feasible_theta_table_joint), ...
     'num_grid_points', height(minimum_pack.full_theta_table), ...
     'num_feasible_points', height(minimum_pack.feasible_theta_table), ...
     'minimum_design_count', height(minimum_design_table), ...
+    'minimum_design_Ns', local_first_value(minimum_design_table, 'Ns'), ...
     'minimum_design_support_sources', minimum_support_sources, ...
     'minimum_design', minimum_pack.minimum_design, ...
     'near_optimal_region_size', height(near_optimal_table), ...
     'task_family_minNs', task_family_minNs, ...
     'task_family_best_margin', task_family_best_margin, ...
+    'slice_anchor_hi', local_struct_to_string(slice_hi.view_anchor), ...
+    'slice_anchor_pt', local_struct_to_string(slice_pt.view_anchor), ...
     'slice_anchor_used_for_hi_view', local_struct_to_string(slice_hi.view_anchor), ...
     'slice_anchor_used_for_pt_view', local_struct_to_string(slice_pt.view_anchor), ...
     'dominant_constraint_distribution', minimum_pack.dominant_constraint_distribution, ...
     'key_counts', struct('num_tables', numel(fieldnames(result.tables)), 'num_figures', numel(fieldnames(result.figures))), ...
     'success_flags', struct('constellation_slice_packager', true, 'task_slice_packager', true, 'minimum_design_extractor', true), ...
-    'main_conclusion', local_make_conclusion(minimum_pack, task_summary_table));
+    'main_conclusion', local_make_conclusion(pool, minimum_pack, task_summary_table));
 
 files = milestone_common_export_summary(result, paths);
 result.artifacts.summary_report = files.report_md;
 result.artifacts.summary_mat = files.summary_mat;
 end
 
-function txt = local_make_conclusion(minimum_pack, task_summary_table)
+function txt = local_make_conclusion(pool, minimum_pack, task_summary_table)
 task_text = local_task_conclusion(task_summary_table);
 if isempty(minimum_pack.minimum_design_table)
-    txt = sprintf(['当前 MB 网格中的 unique feasible design 数为 %d。', ...
-        '真值静态可行域中未提取到可行最小布置。', ...
+    txt = sprintf(['当前 MB 统一 design pool 含 %d 个 unique design，其中 %d 个满足 joint truth feasible。', ...
+        '当前统一 feasible domain 中未提取到可行最小布置。', ...
         '任务族切片比较结果为 %s。'], ...
-        height(minimum_pack.feasible_theta_table), task_text);
+        height(pool.design_pool_table), height(minimum_pack.feasible_theta_table), task_text);
 else
-    txt = sprintf(['当前 MB 网格中的 unique feasible design 数为 %d。', ...
+    txt = sprintf(['当前 MB 统一 design pool 含 %d 个 unique design，其中 %d 个满足 joint truth feasible。', ...
         '最小布置对应 N_s=%g，unique minimum design 数为 %d。', ...
         '任务族切片比较结果为 %s。'], ...
-        height(minimum_pack.feasible_theta_table), minimum_pack.minimum_design_table.Ns(1), ...
+        height(pool.design_pool_table), height(minimum_pack.feasible_theta_table), minimum_pack.minimum_design_table.Ns(1), ...
         height(minimum_pack.minimum_design_table), task_text);
 end
+end
+
+function T = local_select_design_pool_columns(T)
+if isempty(T)
+    return;
+end
+want = {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'slice_source', 'support_sources', 'num_support_sources'};
+keep = intersect(want, T.Properties.VariableNames, 'stable');
+T = T(:, keep);
 end
 
 function T = local_select_feasible_domain_columns(T)
@@ -194,4 +211,12 @@ for k = 1:height(task_summary_table)
         family_name, feasible_ratio, min_ns, best_margin);
 end
 txt = strjoin(parts, '; ');
+end
+
+function value = local_first_value(T, field_name)
+value = NaN;
+if isempty(T) || ~ismember(field_name, T.Properties.VariableNames)
+    return;
+end
+value = T.(field_name)(1);
 end
