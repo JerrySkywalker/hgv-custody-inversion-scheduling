@@ -47,6 +47,7 @@ end
 
 function [cfg_stage, axis_labels, slice_name] = local_configure_slice(cfg, slice_type, overrides)
 cfg_stage = cfg;
+cfg_stage.stage09.scheme_type = 'custom';
 theta = cfg.milestones.baseline_theta;
 slice_cfg = cfg.milestones.slice_settings;
 if isfield(overrides, 'theta') && isstruct(overrides.theta)

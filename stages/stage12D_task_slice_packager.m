@@ -26,7 +26,7 @@ summary.num_grid_points = height(out_scan.full_theta_table);
 summary.num_feasible_points = height(out_scan.feasible_theta_table);
 summary.feasible_ratio = local_safe_ratio(summary.num_feasible_points, summary.num_grid_points);
 summary.casebank_size = numel(casebank);
-summary.casebank_breakdown = local_casebank_breakdown(cfg_stage);
+summary.casebank_breakdown = local_casebank_breakdown(casebank);
 summary.config_signature = local_task_signature(cfg_stage, task_mode);
 
 out = struct();
@@ -44,6 +44,7 @@ end
 
 function cfg_stage = local_configure_task_slice(cfg, task_mode, overrides)
 cfg_stage = cfg;
+cfg_stage.stage09.scheme_type = 'custom';
 slice_cfg = cfg.milestones.slice_settings;
 theta = cfg.milestones.baseline_theta;
 if isfield(overrides, 'slice_settings') && isstruct(overrides.slice_settings)
@@ -99,11 +100,19 @@ T.DT_worst = T.DT_rob;
 T.feasible_flag = T.joint_feasible;
 end
 
-function breakdown = local_casebank_breakdown(cfg_stage)
-breakdown = struct( ...
-    'nominal', double(logical(cfg_stage.stage09.casebank_include_nominal)), ...
-    'heading', double(logical(cfg_stage.stage09.casebank_include_heading)), ...
-    'critical', double(logical(cfg_stage.stage09.casebank_include_critical)));
+function breakdown = local_casebank_breakdown(casebank)
+breakdown = struct('nominal', 0, 'heading', 0, 'critical', 0);
+if isempty(casebank)
+    return;
+end
+for k = 1:numel(casebank)
+    if isfield(casebank(k).case, 'family')
+        family_name = lower(string(casebank(k).case.family));
+        if isfield(breakdown, char(family_name))
+            breakdown.(char(family_name)) = breakdown.(char(family_name)) + 1;
+        end
+    end
+end
 end
 
 function signature = local_task_signature(cfg_stage, task_mode)

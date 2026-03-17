@@ -3,8 +3,20 @@ function cfg = milestone_common_defaults(base_cfg, overrides)
 
 if nargin < 1 || isempty(base_cfg)
     cfg = default_params();
+    incoming_milestones = struct();
+    incoming_shared_scenarios = struct();
 else
     cfg = base_cfg;
+    if isfield(base_cfg, 'milestones') && isstruct(base_cfg.milestones)
+        incoming_milestones = base_cfg.milestones;
+    else
+        incoming_milestones = struct();
+    end
+    if isfield(base_cfg, 'shared_scenarios') && isstruct(base_cfg.shared_scenarios)
+        incoming_shared_scenarios = base_cfg.shared_scenarios;
+    else
+        incoming_shared_scenarios = struct();
+    end
 end
 if nargin < 2 || isempty(overrides)
     overrides = struct();
@@ -105,5 +117,7 @@ cfg.milestones.ME = struct( ...
     'case_label', cfg.milestones.diagnosis_case_label, ...
     'theta', cfg.milestones.diagnosis_theta);
 
+cfg.milestones = milestone_common_merge_structs(cfg.milestones, incoming_milestones);
+cfg.shared_scenarios = milestone_common_merge_structs(cfg.shared_scenarios, incoming_shared_scenarios);
 cfg = milestone_common_merge_structs(cfg, overrides);
 end
