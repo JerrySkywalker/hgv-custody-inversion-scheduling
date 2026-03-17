@@ -167,11 +167,11 @@ run_stage13
 
 根目录 pack 脚本已切换到 `outputs/` 语义：
 
-- `package_for_chatgpt()` 会打包当前工作区代码目录，以及轻量 paper markdown 报告
-- `package_for_chatgpt(true)` 可显式包含 `outputs/milestones|shared_scenarios|stage13`
-- `package_for_chatgpt_baseline(false, true)` 可从 `HEAD` 打包已跟踪的 `outputs/` 论文资产
+- `pack_snapshot_all()` 会打包当前工作区代码目录，以及轻量 paper markdown 报告
+- `pack_snapshot_all(true)` 可显式包含 `outputs/milestones|shared_scenarios|stage13`
+- `pack_snapshot_head(false, true)` 可从 `HEAD` 打包已跟踪的 `outputs/` 论文资产
 - 包名现在会自动包含当前 branch，例如 `20260317_153000_dev_working.zip`
-- 底层实现文件分别是 `pack_snapshot_all.m` 与 `pack_snapshot_head.m`，同时保留 `package_for_chatgpt*` 兼容入口
+- 打包入口分别是 `pack_snapshot_all.m` 与 `pack_snapshot_head.m`
 
 ## Notes
 
