@@ -96,6 +96,7 @@ paths.summary_mat = fullfile(paths.reports, 'stage13_summary.mat');
 paths.report_md = fullfile(paths.reports, 'stage13_summary.md');
 paths.export_mat = fullfile(paths.reports, 'stage13_dissertation_export.mat');
 paths.export_md = fullfile(paths.reports, 'stage13_dissertation_export.md');
+paths.dg_refined_plan_csv = fullfile(paths.tables, 'stage13_dg_refined_search_plan.csv');
 
 ensure_dir(cfg.paths.output);
 ensure_dir(paths.root);

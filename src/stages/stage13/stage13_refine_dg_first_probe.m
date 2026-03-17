@@ -20,4 +20,14 @@ refine_out.status = "pending";
 if nargin >= 2 && isstruct(stage13_out)
     refine_out.source_summary = stage13_out.summary;
 end
+
+refine_plan = stage13_build_family_dg_first_refine(cfg, stage13_out, cfg.stage13.dg_refine.seed_case);
+refine_out.plan = refine_plan.candidate_table;
+refine_out.candidates = refine_plan.candidates;
+refine_out.seed_case_id = refine_plan.seed_case_id;
+refine_out.status = "plan_ready";
+
+if isfield(stage13_out, 'paths') && isfield(stage13_out.paths, 'dg_refined_plan_csv')
+    writetable(refine_out.plan, stage13_out.paths.dg_refined_plan_csv);
+end
 end
