@@ -51,15 +51,20 @@ end
 function review_text = local_build_refined_review(stage13_out)
 old_case = string(local_pick_case(stage13_out.summary.representatives.dg_first_probe));
 new_case = string(stage13_out.dg_refine.recommended_case);
-rows = stage13_out.dg_refine.summary;
-row = rows(strcmp(string(rows.case_tag), new_case), :);
+row = local_find_refined_row(stage13_out, new_case);
 
 if isempty(row)
     review_text = "DG refined candidate summary 缺失，建议仅保留原始 dg_first_probe 输出。";
     return;
 end
 
-is_clean_enough = logical(row.is_dg_min(1)) && row.D_G_worst(1) < row.D_A_worst(1) && ...
+if ismember('is_dg_min', row.Properties.VariableNames)
+    is_dg_min = logical(row.is_dg_min(1));
+else
+    is_dg_min = row.D_G_worst(1) <= (row.D_A_worst(1) + 0.02) && row.D_G_worst(1) <= (row.D_T_worst(1) + 0.02);
+end
+
+is_clean_enough = is_dg_min && row.D_G_worst(1) < row.D_A_worst(1) && ...
     row.D_T_worst(1) > 1.0 && row.D_A_worst(1) >= 0.6;
 
 if is_clean_enough
@@ -72,5 +77,22 @@ else
         '%s 相比 %s 已从 joint collapse 改善为 DG 主导退化，当前 D_G^{worst}=%.3f, D_A^{worst}=%.3f, D_T^{worst}=%.3f；' ...
         '其中 DT 保持在门槛，但 DA 仍同步明显下降，因此更适合作为备选/答辩材料，不建议立即正文 cherry-pick。'], ...
         new_case, old_case, row.D_G_worst(1), row.D_A_worst(1), row.D_T_worst(1));
+end
+
+function row = local_find_refined_row(stage13_out, case_tag)
+row = table();
+if isfield(stage13_out, 'dg_refine') && isfield(stage13_out.dg_refine, 'summary')
+    rows = stage13_out.dg_refine.summary;
+    row = rows(strcmp(string(rows.case_tag), string(case_tag)), :);
+    if ~isempty(row)
+        return;
+    end
+end
+
+if isfield(stage13_out, 'dg_refine') && isfield(stage13_out.dg_refine, 'micro') && ...
+        isfield(stage13_out.dg_refine.micro, 'summary')
+    rows = stage13_out.dg_refine.micro.summary;
+    row = rows(strcmp(string(rows.case_tag), string(case_tag)), :);
+end
 end
 end

@@ -98,6 +98,7 @@ paths.export_mat = fullfile(paths.reports, 'stage13_dissertation_export.mat');
 paths.export_md = fullfile(paths.reports, 'stage13_dissertation_export.md');
 paths.dg_refined_plan_csv = fullfile(paths.tables, 'stage13_dg_refined_search_plan.csv');
 paths.dg_refined_summary_csv = fullfile(paths.tables, 'stage13_dg_refined_candidate_summary.csv');
+paths.dg_micro_summary_csv = fullfile(paths.tables, 'stage13_dg_micro_candidate_summary.csv');
 
 ensure_dir(cfg.paths.output);
 ensure_dir(paths.root);
@@ -127,6 +128,9 @@ fprintf(fid, '- dg refine enabled: `%s`\n', string(out.cfg.stage13.dg_refine.ena
 if isfield(out, 'dg_refine') && isstruct(out.dg_refine) && strlength(string(out.dg_refine.recommended_case)) > 0
     fprintf(fid, '- dg refine recommended case: `%s`\n', out.dg_refine.recommended_case);
     fprintf(fid, '- dg refined summary: `%s`\n', out.paths.dg_refined_summary_csv);
+    if isfield(out.dg_refine, 'micro') && isfield(out.dg_refine.micro, 'summary')
+        fprintf(fid, '- dg micro summary: `%s`\n', out.paths.dg_micro_summary_csv);
+    end
 end
 fprintf(fid, '\n## Notes\n\n');
 fprintf(fid, 'This increment evaluates each planned candidate with the MA-aligned truth window kernel and stores a unified candidate signature table.\n');
