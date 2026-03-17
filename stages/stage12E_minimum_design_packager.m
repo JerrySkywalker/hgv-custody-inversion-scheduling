@@ -56,7 +56,7 @@ out.summary = struct( ...
 out.files = struct();
 end
 
-function [full_theta_table, feasible_theta_table, fail_partition_table, pool, results] = local_collect_inputs(inputs, cfg, overrides)
+function [full_theta_table, feasible_theta_table, fail_partition_table, pool, results] = local_collect_inputs(inputs, ~, ~)
 pool = struct();
 if isstruct(inputs) && isfield(inputs, 'design_pool_table') && isfield(inputs, 'feasible_theta_table_joint')
     pool = inputs;
@@ -102,7 +102,6 @@ end
 
 full_theta_table = table();
 feasible_theta_table = table();
-fail_partition_table = table();
 if ~isempty(full_rows)
     full_theta_table = vertcat(full_rows{:});
     full_theta_table = unique_design_rows(full_theta_table);

@@ -80,6 +80,6 @@ for k = 1:numel(casebank)
         if isfield(breakdown, char(family_name))
             breakdown.(char(family_name)) = breakdown.(char(family_name)) + 1;
         end
-        end
     end
+end
 end
