@@ -1,0 +1,13 @@
+candidate_tag,family,h_km,i_deg,P,T,F,Tw_s,case_mode,case_id
+dt_first_probe_baseline,dt_first_probe,1000,60,8,4,0,60,exact,N01
+dt_first_probe_T3F0,dt_first_probe,1000,60,8,3,0,60,exact,N01
+dt_first_probe_T3F1,dt_first_probe,1000,60,8,3,1,60,exact,N01
+dt_first_probe_T2F0,dt_first_probe,1000,60,8,2,0,60,exact,N01
+dt_first_probe_P6T4F0,dt_first_probe,1000,60,6,4,0,60,exact,N01
+dt_first_probe_P6T4F1,dt_first_probe,1000,60,6,4,1,60,exact,N01
+dg_first_probe_1,dg_first_probe,1000,60,8,4,0,60,exact,N01
+dg_first_probe_2,dg_first_probe,1000,60,8,4,0,60,exact,H01_+00
+dg_first_probe_3,dg_first_probe,1000,60,8,4,0,60,exact,H01_+30
+dg_first_probe_4,dg_first_probe,1000,60,8,4,0,60,exact,H01_-30
+dg_first_probe_5,dg_first_probe,1000,60,8,4,0,60,exact,C1_track_plane_aligned
+dg_first_probe_6,dg_first_probe,1000,60,8,4,0,60,exact,C2_small_crossing_angle

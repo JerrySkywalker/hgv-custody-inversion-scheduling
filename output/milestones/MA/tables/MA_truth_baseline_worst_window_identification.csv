@@ -1,0 +1,2 @@
+case_id,DG_worst_truth,DA_worst_truth,DT_bar_worst,DT_worst,t0G_star_s,t0A_star_s,t0T_star_s,dt_max_at_t0T_star_s,dominant_metric,is_feasible_truth
+N01,1.37393886264635,1.17215138213768,0.5,1,0,0,0,60,DT,1

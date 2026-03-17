@@ -6,6 +6,11 @@
 - `milestones/` + `run_milestones/`：论文 Chapter 4 实验分组、复现实验与打包
 - `shared_scenarios/` + `run_shared_scenarios/`：第四章与第五章共用的说明型场景图
 
+仓库输出策略：
+
+- `output/` 保存论文图、表、报告和 Stage13 对照实验产物，属于应跟踪目录
+- `results/` 保存 Stage/benchmark 缓存、日志和临时图表，默认视为缓存，不纳入版本控制
+
 ## 环境要求
 
 - MATLAB R2016b 或更高版本
@@ -43,6 +48,7 @@ cpt4_sim_dev/
     │   ├── MC/
     │   ├── MD/
     │   └── ME/
+    ├── stage13/
     └── shared_scenarios/
         ├── SS1/
         └── SS2/
@@ -53,6 +59,7 @@ cpt4_sim_dev/
 - `Stage` = 开发顺序。关注模块演化、调试、性能验证和阶段缓存。
 - `Milestone` = 论文实验顺序。关注 Chapter 4 实验分组、稳定命名、统一导出与打包。
 - `Shared scenario` = 论文跨章节说明图。关注防区、Walker 星座与目标来袭关系的共用示意，不承载单独实验结论。
+- `output/` 下的 milestone/shared_scenarios/Stage13 图表报告是论文资产；`results/` 下的 `cache/logs/figs/tables` 主要服务于 Stage 调试与复算。
 - Milestone 可以复用 Stage 函数，但 milestone 面向用户的产物不应暴露 stage 名称。
 - 当前共享场景后端定义为：
   `SS1` 复用 Stage01/Stage02 的防区与 HGV 相对关系语义，
@@ -123,7 +130,7 @@ run_all_shared_scenarios
 
 ## Output Locations
 
-Stage 输出仍放在 `results/`：
+Stage 输出仍放在 `results/`，这些目录默认作为缓存处理：
 
 - `results/cache/`
 - `results/figs/`
@@ -131,7 +138,7 @@ Stage 输出仍放在 `results/`：
 - `results/tables/`
 - `results/bundles/`
 
-Milestone 输出放在 `output/milestones/`：
+论文正式导出结果放在 `output/`，这些目录应保持版本可追踪：
 
 - `output/milestones/MA/cache/`
 - `output/milestones/MA/figures/`
@@ -141,6 +148,9 @@ Milestone 输出放在 `output/milestones/`：
 - `output/milestones/MC/...`
 - `output/milestones/MD/...`
 - `output/milestones/ME/...`
+- `output/stage13/figures/`
+- `output/stage13/tables/`
+- `output/stage13/reports/`
 - `output/shared_scenarios/SS1/figures/`
 - `output/shared_scenarios/SS1/reports/`
 - `output/shared_scenarios/SS2/figures/`

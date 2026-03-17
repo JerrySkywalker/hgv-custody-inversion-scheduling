@@ -48,46 +48,22 @@ temp/
 scratch/
 
 ############################################
-# Project results: ignore generated outputs
+# Project cache: ignore Stage/benchmark generated caches
 ############################################
 results/**
 
-# Keep directory skeleton
-!results/.gitkeep
-!results/cache/
-!results/figs/
-!results/logs/
-!results/tables/
-!results/bundles/
-!results/cache/.gitkeep
-!results/figs/.gitkeep
-!results/logs/.gitkeep
-!results/tables/.gitkeep
-!results/bundles/.gitkeep
-
-# Optional: ignore debug subfolders
-results/figs/debug/**
-results/cache/debug/**
-results/logs/debug/**
-
 ############################################
-# Milestone outputs
+# Dissertation outputs are tracked
 ############################################
-/output/milestones/**/cache/
-/output/milestones/**/figures/
-/output/milestones/**/tables/
-/output/milestones/**/reports/
-/output/milestones/*.md
-!/output/.gitkeep
-!/output/milestones/.gitkeep
-!/output/milestones/**/cache/.gitkeep
-!/output/milestones/**/figures/.gitkeep
-!/output/milestones/**/tables/.gitkeep
-!/output/milestones/**/reports/.gitkeep
+# Keep `output/` versioned because it stores milestone/shared-scenario/stage13
+# dissertation export artifacts that are intended to be cited and packaged.
 
 # Optional packaged milestone archives
 /dist/milestones/
 *.milestone.zip
+
+# Local throwaway images
+satellite_view.png
 
 ############################################
 # Optional: keep released paper outputs (uncomment if needed)
