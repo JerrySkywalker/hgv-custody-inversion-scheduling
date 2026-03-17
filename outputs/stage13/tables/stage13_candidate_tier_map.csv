@@ -1,0 +1,13 @@
+case_tag,family,tier,export_role
+dt_first_probe_baseline,dt_first_probe,development_only,Search-layer record only
+dt_first_probe_T3F0,dt_first_probe,development_only,Search-layer record only
+dt_first_probe_T3F1,dt_first_probe,development_only,Search-layer record only
+dt_first_probe_T2F0,dt_first_probe,development_only,Search-layer record only
+dt_first_probe_P6T4F0,dt_first_probe,recommended_for_MA,MA extension baseline-neighborhood control
+dt_first_probe_P6T4F1,dt_first_probe,development_only,Search-layer record only
+dg_first_probe_1,dg_first_probe,development_only,Development-only DG candidate
+dg_first_probe_2,dg_first_probe,development_only,Development-only DG candidate
+dg_first_probe_3,dg_first_probe,development_only,Legacy DG probe reference kept for development trace
+dg_first_probe_4,dg_first_probe,development_only,Development-only DG candidate
+dg_first_probe_5,dg_first_probe,development_only,Development-only DG candidate
+dg_first_probe_6,dg_first_probe,development_only,Development-only DG candidate

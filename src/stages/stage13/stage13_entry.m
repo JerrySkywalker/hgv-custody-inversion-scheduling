@@ -136,6 +136,13 @@ if isfield(out, 'dg_refine') && isstruct(out.dg_refine) && strlength(string(out.
         fprintf(fid, '- dg micro summary: `%s`\n', out.paths.dg_micro_summary_csv);
     end
 end
+fprintf(fid, '\n## Notes\n\n');
+fprintf(fid, 'Stage13 remains a search and candidate-management layer. It evaluates planned candidates with the MA-aligned truth window kernel, but it does not directly act as the MA export layer.\n');
+fprintf(fid, 'Current fixed mapping: `dt_first_probe_P6T4F0` is reserved for MA extension, `dg_micro_07` is backup for MB/defense, and `dg_first_probe_3` is kept only as a development trace.\n');
+if isfield(out, 'dissertation_export') && isfield(out.dissertation_export, 'dg_refined_review')
+    fprintf(fid, 'DG refined review: %s\n', out.dissertation_export.dg_refined_review);
+end
+end
 
 function local_write_tier_map(summary_table, out_csv)
 if isempty(summary_table) || nargin < 2 || strlength(string(out_csv)) == 0
@@ -144,13 +151,6 @@ end
 
 tier_table = unique(summary_table(:, {'case_tag', 'family', 'tier', 'export_role'}), 'rows', 'stable');
 writetable(tier_table, out_csv);
-end
-fprintf(fid, '\n## Notes\n\n');
-fprintf(fid, 'Stage13 remains a search and candidate-management layer. It evaluates planned candidates with the MA-aligned truth window kernel, but it does not directly act as the MA正文导出层.\n');
-fprintf(fid, 'Current fixed mapping: `dt_first_probe_P6T4F0` is reserved for MA extension, `dg_micro_07` is backup for MB/defense, and `dg_first_probe_3` is kept only as a development trace.\n');
-if isfield(out, 'dissertation_export') && isfield(out.dissertation_export, 'dg_refined_review')
-    fprintf(fid, 'DG refined review: %s\n', out.dissertation_export.dg_refined_review);
-end
 end
 
 function baseline_tags = local_identify_baseline_tags(signature_rows)
