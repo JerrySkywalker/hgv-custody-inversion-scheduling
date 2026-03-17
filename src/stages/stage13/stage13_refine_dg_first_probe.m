@@ -11,6 +11,7 @@ refine_out.plan = table();
 refine_out.summary = table();
 refine_out.recommended_case = "";
 refine_out.figures = struct();
+refine_out.evaluations = struct([]);
 
 if ~refine_out.enabled
     return;
@@ -29,5 +30,29 @@ refine_out.status = "plan_ready";
 
 if isfield(stage13_out, 'paths') && isfield(stage13_out.paths, 'dg_refined_plan_csv')
     writetable(refine_out.plan, stage13_out.paths.dg_refined_plan_csv);
+end
+
+signature_rows = table('Size', [0 14], ...
+    'VariableTypes', {'string', 'string', 'string', 'string', 'double', 'double', 'double', 'double', 'double', 'double', 'double', 'logical', 'string', 'string'}, ...
+    'VariableNames', {'case_tag', 'case_id', 'family', 'case_family', 'D_G_worst', 'D_A_worst', 'D_T_worst', 'D_T_bar_worst', ...
+    't0G_star', 't0A_star', 't0T_star', 'feasible_truth', 'active_constraint', 'summary_tag'});
+refine_evals = repmat(struct('candidate', struct(), 'scan_out', struct(), 'signature', struct()), numel(refine_plan.candidates), 1);
+
+for k = 1:numel(refine_plan.candidates)
+    refine_evals(k) = stage13_evaluate_candidate(cfg, refine_plan.candidates(k), stage13_out.paths);
+    sig = refine_evals(k).signature;
+    signature_rows = [signature_rows; {sig.case_tag, sig.case_id, sig.family, sig.case_family, sig.D_G_worst, sig.D_A_worst, ... %#ok<AGROW>
+        sig.D_T_worst, sig.D_T_bar_worst, sig.t0G_star, sig.t0A_star, sig.t0T_star, ...
+        sig.feasible_truth, sig.active_constraint, sig.summary_tag}];
+end
+
+[ranked_summary, recommended_case] = stage13_rank_dg_refined_candidates(signature_rows);
+refine_out.evaluations = refine_evals;
+refine_out.summary = ranked_summary;
+refine_out.recommended_case = string(recommended_case);
+refine_out.status = "ranked";
+
+if isfield(stage13_out, 'paths') && isfield(stage13_out.paths, 'dg_refined_summary_csv')
+    writetable(ranked_summary, stage13_out.paths.dg_refined_summary_csv);
 end
 end
