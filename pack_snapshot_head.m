@@ -1,21 +1,21 @@
-function zipFilePath = package_for_chatgpt_baseline(includeDeliverables, include_milestone_outputs)
-%PACKAGE_FOR_CHATGPT_BASELINE  Create a code snapshot zip from current HEAD.
+function zipFilePath = pack_snapshot_head(includeDeliverables, include_milestone_outputs)
+%PACK_SNAPSHOT_HEAD  Create a code snapshot zip from current HEAD.
 %
 % Packages the version at the latest commit (stable baseline for ChatGPT).
-% Includes params/, src/, stages/, run_stages/, milestones/, run_milestones/,
-% and root-level tracked files. Excludes local generated outputs/ by default.
+% Includes code, runners, benchmark/shared-scenario folders, and tracked
+% root-level files. Excludes local generated outputs/ by default.
 % deliverables/ is excluded by default; set optional argument to true to
 % include it. Set include_milestone_outputs=true to include tracked
 % outputs/ paper-export files as well.
 %
 % Filename:
-%   yyyymmdd_HHMMSS_head.zip
+%   yyyymmdd_HHMMSS_<branch>_head.zip
 %
 % Usage (from MATLAB):
-%   zipPath = package_for_chatgpt_baseline();                % deliverables excluded
-%   zipPath = package_for_chatgpt_baseline(false);           % same
-%   zipPath = package_for_chatgpt_baseline(true);            % include deliverables/
-%   zipPath = package_for_chatgpt_baseline(false, true);     % include tracked milestone outputs
+%   zipPath = pack_snapshot_head();                % deliverables excluded
+%   zipPath = pack_snapshot_head(false);           % same
+%   zipPath = pack_snapshot_head(true);            % include deliverables/
+%   zipPath = pack_snapshot_head(false, true);     % include tracked milestone outputs
 %
 
     if nargin < 1 || isempty(includeDeliverables)
@@ -32,7 +32,8 @@ function zipFilePath = package_for_chatgpt_baseline(includeDeliverables, include
 
     datePart  = datestr(now, 'yyyymmdd');
     timePart  = datestr(now, 'HHMMSS');
-    zipName = sprintf('%s_%s_head.zip', datePart, timePart);
+    branchPart = local_get_branch_name();
+    zipName = sprintf('%s_%s_%s_head.zip', datePart, timePart, branchPart);
 
     % Save archive in the parent directory of the repository root
     parent_root = fileparts(repo_root);
@@ -64,7 +65,11 @@ function zipFilePath = package_for_chatgpt_baseline(includeDeliverables, include
 
     % Only include code directories by default; deliverables/ and outputs/
     % are opt-in so local/generated assets stay out of baseline snapshots.
-    wantDirs = {'params', 'src', 'stages', 'run_stages', 'milestones', 'run_milestones'};
+    wantDirs = { ...
+        'params', 'src', 'stages', 'run_stages', ...
+        'milestones', 'run_milestones', ...
+        'shared_scenarios', 'run_shared_scenarios', ...
+        'benchmarks'};
     if includeDeliverables && ismember('deliverables', topLevelDirs)
         wantDirs{end+1} = 'deliverables'; %#ok<AGROW>
     end
@@ -110,4 +115,24 @@ function zipFilePath = package_for_chatgpt_baseline(includeDeliverables, include
 
     fprintf('Baseline archive created: %s\n', zipFilePath);
     fprintf('Included %d paths from HEAD.\n', numel(archivePaths));
+end
+
+function branchPart = local_get_branch_name()
+    [status, branchOut] = system('git branch --show-current');
+    if status ~= 0
+        branchPart = 'unknown-branch';
+        return;
+    end
+
+    branchPart = strtrim(branchOut);
+    if isempty(branchPart)
+        branchPart = 'detached-head';
+    end
+
+    branchPart = regexprep(branchPart, '[^A-Za-z0-9._-]+', '-');
+    branchPart = regexprep(branchPart, '-+', '-');
+    branchPart = regexprep(branchPart, '^-|-$', '');
+    if isempty(branchPart)
+        branchPart = 'detached-head';
+    end
 end

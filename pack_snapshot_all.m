@@ -1,21 +1,21 @@
-function zipFilePath = package_for_chatgpt(include_milestone_outputs)
-%PACKAGE_FOR_CHATGPT  Create a code snapshot zip for ChatGPT (working tree).
+function zipFilePath = pack_snapshot_all(include_milestone_outputs)
+%PACK_SNAPSHOT_ALL  Create a code snapshot zip for ChatGPT (working tree).
 %
 % Packages the current working directory (unstable version: may contain
-% uncommitted changes). Includes params/, src/, stages/, run_stages/,
-% milestones/, run_milestones/, and root files.
+% uncommitted changes). Includes code, runners, benchmark/shared-scenario
+% folders, and root files.
 %
 % Optional input:
 %   include_milestone_outputs = false by default
-%   true  -> include outputs/milestones/ generated folders
-%   false -> include only lightweight milestone markdown reports if present
+%   true  -> include tracked paper-export outputs under outputs/
+%   false -> include only lightweight paper markdown reports if present
 %
 % Filename:
-%   yyyymmdd_HHMMSS_working.zip
+%   yyyymmdd_HHMMSS_<branch>_working.zip
 %
 % Usage (from MATLAB):
-%   zipPath = package_for_chatgpt();
-%   zipPath = package_for_chatgpt(true);
+%   zipPath = pack_snapshot_all();
+%   zipPath = pack_snapshot_all(true);
 
     if nargin < 1 || isempty(include_milestone_outputs)
         include_milestone_outputs = false;
@@ -28,14 +28,19 @@ function zipFilePath = package_for_chatgpt(include_milestone_outputs)
 
     datePart  = datestr(now, 'yyyymmdd');
     timePart  = datestr(now, 'HHMMSS');
-    zipName = sprintf('%s_%s_working.zip', datePart, timePart);
+    branchPart = local_get_branch_name();
+    zipName = sprintf('%s_%s_%s_working.zip', datePart, timePart, branchPart);
 
     % Save archive in the parent directory of the repository root
     parent_root = fileparts(repo_root);
     zipFilePath = fullfile(parent_root, zipName);
 
     % Collect directories to include
-    dirs_to_include = {'params', 'src', 'stages', 'run_stages', 'milestones', 'run_milestones'};
+    dirs_to_include = { ...
+        'params', 'src', 'stages', 'run_stages', ...
+        'milestones', 'run_milestones', ...
+        'shared_scenarios', 'run_shared_scenarios', ...
+        'benchmarks'};
     include_list = {};
 
     for i = 1:numel(dirs_to_include)
@@ -60,7 +65,8 @@ function zipFilePath = package_for_chatgpt(include_milestone_outputs)
         include_list{end+1} = name; %#ok<AGROW>
     end
 
-    include_list = [include_list, local_collect_milestone_outputs(repo_root, include_milestone_outputs)]; %#ok<AGROW>
+    include_list = [include_list, local_collect_paper_outputs(repo_root, include_milestone_outputs)]; %#ok<AGROW>
+    include_list = unique(include_list, 'stable');
 
     if isempty(include_list)
         error('No files or directories found to include in the archive.');
@@ -71,25 +77,59 @@ function zipFilePath = package_for_chatgpt(include_milestone_outputs)
     fprintf('Archive created with %d top-level entries.\n', numel(include_list));
 end
 
-function include_list = local_collect_milestone_outputs(repo_root, include_milestone_outputs)
+function include_list = local_collect_paper_outputs(repo_root, include_milestone_outputs)
     include_list = {};
+    outputs_dir = fullfile(repo_root, 'outputs');
+    if ~exist(outputs_dir, 'dir')
+        return;
+    end
 
     if include_milestone_outputs
-        milestone_dir = fullfile(repo_root, 'outputs', 'milestones');
-        if exist(milestone_dir, 'dir')
-            include_list{end+1} = fullfile('outputs', 'milestones'); %#ok<AGROW>
+        paper_dirs = {'milestones', 'shared_scenarios', 'stage13'};
+        for k = 1:numel(paper_dirs)
+            paper_dir = fullfile(outputs_dir, paper_dirs{k});
+            if exist(paper_dir, 'dir')
+                include_list{end+1} = fullfile('outputs', paper_dirs{k}); %#ok<AGROW>
+            end
         end
         return;
     end
 
-    summary_file = fullfile(repo_root, 'outputs', 'milestones', 'milestone_summary_report.md');
+    summary_file = fullfile(outputs_dir, 'milestones', 'milestone_summary_report.md');
     if exist(summary_file, 'file')
         include_list{end+1} = fullfile('outputs', 'milestones', 'milestone_summary_report.md'); %#ok<AGROW>
     end
 
-    report_files = dir(fullfile(repo_root, 'outputs', 'milestones', '**', 'reports', '*.md'));
-    for k = 1:numel(report_files)
-        rel_path = strrep(fullfile(report_files(k).folder, report_files(k).name), [repo_root filesep], '');
-        include_list{end+1} = rel_path; %#ok<AGROW>
+    markdown_patterns = { ...
+        fullfile(outputs_dir, 'milestones', '**', 'reports', '*.md'), ...
+        fullfile(outputs_dir, 'shared_scenarios', '**', 'reports', '*.md'), ...
+        fullfile(outputs_dir, 'stage13', 'reports', '*.md')};
+
+    for i = 1:numel(markdown_patterns)
+        report_files = dir(markdown_patterns{i});
+        for k = 1:numel(report_files)
+            rel_path = strrep(fullfile(report_files(k).folder, report_files(k).name), [repo_root filesep], '');
+            include_list{end+1} = rel_path; %#ok<AGROW>
+        end
+    end
+end
+
+function branchPart = local_get_branch_name()
+    [status, branchOut] = system('git branch --show-current');
+    if status ~= 0
+        branchPart = 'unknown-branch';
+        return;
+    end
+
+    branchPart = strtrim(branchOut);
+    if isempty(branchPart)
+        branchPart = 'detached-head';
+    end
+
+    branchPart = regexprep(branchPart, '[^A-Za-z0-9._-]+', '-');
+    branchPart = regexprep(branchPart, '-+', '-');
+    branchPart = regexprep(branchPart, '^-|-$', '');
+    if isempty(branchPart)
+        branchPart = 'detached-head';
     end
 end
