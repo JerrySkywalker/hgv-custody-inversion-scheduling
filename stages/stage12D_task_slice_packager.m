@@ -1,10 +1,10 @@
-function out = stage12D_task_slice_packager(cfg, task_mode, overrides)
-%STAGE12D_TASK_SLICE_PACKAGER Package task-side slices for Milestone B.
+function out = stage12D_task_slice_packager(pool_or_cfg, task_mode, overrides)
+%STAGE12D_TASK_SLICE_PACKAGER Package shared-pool task-family views for Milestone B.
 
 startup();
 
-if nargin < 1 || isempty(cfg)
-    cfg = default_params();
+if nargin < 1 || isempty(pool_or_cfg)
+    pool_or_cfg = milestone_common_defaults();
 end
 if nargin < 2 || isempty(task_mode)
     task_mode = 'nominal';
@@ -13,91 +13,60 @@ if nargin < 3 || isempty(overrides)
     overrides = struct();
 end
 
-cfg = milestone_common_defaults(cfg);
-cfg = stage09_prepare_cfg(cfg);
-cfg.stage09.run_tag = sprintf('stage12D_%s', char(string(task_mode)));
+[pool, meta] = local_resolve_pool(pool_or_cfg, overrides);
+family_key = lower(char(string(task_mode)));
+[full_theta_table, feasible_theta_table, family_eval] = local_pick_family_tables(pool, family_key);
 
-cfg_stage = local_configure_task_slice(cfg, task_mode, overrides);
-casebank = build_stage09_casebank(cfg_stage);
-out_scan = stage09_build_feasible_domain(cfg_stage);
-
-summary = struct();
-summary.num_grid_points = height(out_scan.full_theta_table);
-summary.num_feasible_points = height(out_scan.feasible_theta_table);
-summary.feasible_ratio = local_safe_ratio(summary.num_feasible_points, summary.num_grid_points);
-summary.casebank_size = numel(casebank);
-summary.casebank_breakdown = local_casebank_breakdown(casebank);
-summary.config_signature = local_task_signature(cfg_stage, task_mode);
+summary = family_eval.summary;
+summary.num_grid_points = height(full_theta_table);
+summary.num_feasible_points = height(feasible_theta_table);
+summary.casebank_breakdown = local_casebank_breakdown(family_eval.casebank);
 
 out = struct();
-out.cfg = cfg_stage;
+out.cfg = family_eval.cfg;
 out.task_slice_id = string(task_mode);
-out.overrides = overrides;
-out.full_theta_table = local_normalize_theta_table(out_scan.full_theta_table);
-out.feasible_theta_table = local_normalize_theta_table(out_scan.feasible_theta_table);
-out.summary_table = out_scan.summary_table;
-out.fail_partition_table = out_scan.fail_partition_table;
+out.overrides = meta;
+out.design_pool_table = pool.design_pool_table;
+out.full_theta_table = full_theta_table;
+out.feasible_theta_table = feasible_theta_table;
+out.summary_table = table(string(task_mode), summary.num_total, summary.num_feasible, summary.feasible_ratio, ...
+    summary.Ns_min_feasible, summary.best_joint_margin, summary.casebank_size, string(summary.config_signature), ...
+    'VariableNames', {'family_name', 'num_total', 'num_feasible', 'feasible_ratio', 'Ns_min_feasible', 'best_joint_margin', 'casebank_size', 'config_signature'});
+out.fail_partition_table = family_eval.fail_partition_table;
 out.summary = summary;
-out.metadata = struct('sensor_condition', string(cfg.milestones.slice_settings.sensor_condition));
-out.files = out_scan.files;
+out.metadata = struct('sensor_condition', string(pool.cfg.milestones.slice_settings.sensor_condition));
+out.files = struct();
 end
 
-function cfg_stage = local_configure_task_slice(cfg, task_mode, overrides)
-cfg_stage = cfg;
-cfg_stage.stage09.scheme_type = 'custom';
-slice_cfg = cfg.milestones.slice_settings;
-theta = cfg.milestones.baseline_theta;
-if isfield(overrides, 'slice_settings') && isstruct(overrides.slice_settings)
-    slice_cfg = milestone_common_merge_structs(slice_cfg, overrides.slice_settings);
-end
-if isfield(overrides, 'theta') && isstruct(overrides.theta)
-    theta = milestone_common_merge_structs(theta, overrides.theta);
-end
-
-cfg_stage.stage09.casebank_mode = 'custom';
-cfg_stage.stage09.casebank_include_nominal = false;
-cfg_stage.stage09.casebank_include_heading = false;
-cfg_stage.stage09.casebank_include_critical = false;
-cfg_stage.stage09.search_domain.h_grid_km = slice_cfg.h_km;
-cfg_stage.stage09.search_domain.i_grid_deg = slice_cfg.i_deg;
-cfg_stage.stage09.search_domain.P_grid = slice_cfg.P;
-cfg_stage.stage09.search_domain.T_grid = slice_cfg.T;
-cfg_stage.stage09.search_domain.F_fixed = theta.F;
-
-switch lower(char(string(task_mode)))
-    case 'nominal'
-        cfg_stage.stage09.casebank_include_nominal = true;
-    case 'heading'
-        cfg_stage.stage09.casebank_include_heading = true;
-        if isfield(slice_cfg, 'heading_subset_max') && ~isempty(slice_cfg.heading_subset_max)
-            cfg_stage.stage09.casebank_heading_subset_max = slice_cfg.heading_subset_max;
-        else
-            cfg_stage.stage09.casebank_heading_subset_max = 10;
-        end
-    case 'critical'
-        cfg_stage.stage09.casebank_include_critical = true;
-    otherwise
-        error('Unsupported task_mode: %s', string(task_mode));
-end
-end
-
-function ratio = local_safe_ratio(a, b)
-if b <= 0
-    ratio = 0;
+function [pool, meta] = local_resolve_pool(pool_or_cfg, overrides)
+if isstruct(pool_or_cfg) && isfield(pool_or_cfg, 'design_pool_table') && isfield(pool_or_cfg, 'family_eval')
+    pool = pool_or_cfg;
+    meta = overrides;
 else
-    ratio = a / b;
+    cfg = milestone_common_defaults(pool_or_cfg);
+    meta = cfg.milestones.MB;
+    if isstruct(overrides)
+        meta = milestone_common_merge_structs(meta, overrides);
+    end
+    pool = stage12B_mb_design_pool(cfg, meta);
 end
 end
 
-function T = local_normalize_theta_table(T)
-if isempty(T)
-    return;
+function [full_theta_table, feasible_theta_table, family_eval] = local_pick_family_tables(pool, family_key)
+switch family_key
+    case 'nominal'
+        full_theta_table = pool.full_theta_table_nominal;
+        feasible_theta_table = pool.feasible_theta_table_nominal;
+    case 'heading'
+        full_theta_table = pool.full_theta_table_heading;
+        feasible_theta_table = pool.feasible_theta_table_heading;
+    case 'critical'
+        full_theta_table = pool.full_theta_table_critical;
+        feasible_theta_table = pool.feasible_theta_table_critical;
+    otherwise
+        error('Unsupported task_mode: %s', string(family_key));
 end
-T.DG_worst = T.DG_rob;
-T.DA_worst = T.DA_rob;
-T.DT_bar_worst = T.DT_bar_rob;
-T.DT_worst = T.DT_rob;
-T.feasible_flag = T.joint_feasible;
+family_eval = pool.family_eval.(family_key);
 end
 
 function breakdown = local_casebank_breakdown(casebank)
@@ -111,16 +80,6 @@ for k = 1:numel(casebank)
         if isfield(breakdown, char(family_name))
             breakdown.(char(family_name)) = breakdown.(char(family_name)) + 1;
         end
+        end
     end
-end
-end
-
-function signature = local_task_signature(cfg_stage, task_mode)
-signature = sprintf('family=%s|heading_subset_max=%g|grid=%dx%dx%dx%d', ...
-    char(string(task_mode)), ...
-    cfg_stage.stage09.casebank_heading_subset_max, ...
-    numel(cfg_stage.stage09.search_domain.h_grid_km), ...
-    numel(cfg_stage.stage09.search_domain.i_grid_deg), ...
-    numel(cfg_stage.stage09.search_domain.P_grid), ...
-    numel(cfg_stage.stage09.search_domain.T_grid));
 end

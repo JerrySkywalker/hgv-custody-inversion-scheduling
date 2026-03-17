@@ -15,6 +15,25 @@ for k = 1:numel(task_results)
     num_total = height(full_unique);
     num_feasible = height(feasible_unique);
     feasible_ratio = local_safe_ratio(num_feasible, num_total);
+    casebank_size = 0;
+    config_signature = "";
+    if isfield(r, 'summary')
+        if isfield(r.summary, 'num_total')
+            num_total = r.summary.num_total;
+        end
+        if isfield(r.summary, 'num_feasible')
+            num_feasible = r.summary.num_feasible;
+        end
+        if isfield(r.summary, 'feasible_ratio')
+            feasible_ratio = r.summary.feasible_ratio;
+        end
+        if isfield(r.summary, 'casebank_size')
+            casebank_size = r.summary.casebank_size;
+        end
+        if isfield(r.summary, 'config_signature')
+            config_signature = string(r.summary.config_signature);
+        end
+    end
 
     Ns_min_feasible = NaN;
     num_minimum_designs = 0;
@@ -33,7 +52,7 @@ for k = 1:numel(task_results)
         string(r.task_slice_id), num_total, num_feasible, feasible_ratio, ...
         Ns_min_feasible, num_minimum_designs, best_joint_margin, ...
         dg_ratio, da_ratio, dt_ratio, ...
-        r.summary.casebank_size, string(r.summary.config_signature), ...
+        casebank_size, config_signature, ...
         'VariableNames', { ...
             'family_name', 'num_total', 'num_feasible', 'feasible_ratio', ...
             'Ns_min_feasible', 'num_minimum_designs', 'best_joint_margin', ...
