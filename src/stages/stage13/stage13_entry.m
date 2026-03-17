@@ -57,6 +57,7 @@ out.summary = summary;
 
 baseline_tags = local_identify_baseline_tags(signature_rows);
 out.summary_table = stage13_write_summary_table(signature_rows, baseline_tags, paths.summary_csv);
+local_write_tier_map(out.summary_table, paths.tier_map_csv);
 family_names = fieldnames(baseline_tags);
 for k = 1:numel(family_names)
     family_name = family_names{k};
@@ -93,6 +94,7 @@ paths.cache = paths.data;
 paths.plan_csv = fullfile(paths.tables, 'stage13_search_plan.csv');
 paths.signature_csv = fullfile(paths.tables, 'stage13_candidate_signatures.csv');
 paths.summary_csv = fullfile(paths.tables, 'stage13_candidate_summary.csv');
+paths.tier_map_csv = fullfile(paths.tables, 'stage13_candidate_tier_map.csv');
 paths.summary_mat = fullfile(paths.reports, 'stage13_summary.mat');
 paths.report_md = fullfile(paths.reports, 'stage13_summary.md');
 paths.export_mat = fullfile(paths.reports, 'stage13_dissertation_export.mat');
@@ -124,17 +126,28 @@ fprintf(fid, '- families: `%d`\n', out.summary.num_families);
 fprintf(fid, '- candidates planned: `%d`\n', out.summary.num_candidates);
 fprintf(fid, '- candidates evaluated: `%d`\n', out.summary.num_evaluated);
 fprintf(fid, '- summary table: `%s`\n', out.paths.summary_csv);
+fprintf(fid, '- tier map: `%s`\n', out.paths.tier_map_csv);
 fprintf(fid, '- dissertation export: `%s`\n', out.paths.export_md);
 fprintf(fid, '- dg refine enabled: `%s`\n', string(out.cfg.stage13.dg_refine.enable));
 if isfield(out, 'dg_refine') && isstruct(out.dg_refine) && strlength(string(out.dg_refine.recommended_case)) > 0
-    fprintf(fid, '- dg refine recommended case: `%s`\n', out.dg_refine.recommended_case);
+    fprintf(fid, '- dg refine backup case: `%s`\n', out.dg_refine.recommended_case);
     fprintf(fid, '- dg refined summary: `%s`\n', out.paths.dg_refined_summary_csv);
     if isfield(out.dg_refine, 'micro') && isfield(out.dg_refine.micro, 'summary')
         fprintf(fid, '- dg micro summary: `%s`\n', out.paths.dg_micro_summary_csv);
     end
 end
+
+function local_write_tier_map(summary_table, out_csv)
+if isempty(summary_table) || nargin < 2 || strlength(string(out_csv)) == 0
+    return;
+end
+
+tier_table = unique(summary_table(:, {'case_tag', 'family', 'tier', 'export_role'}), 'rows', 'stable');
+writetable(tier_table, out_csv);
+end
 fprintf(fid, '\n## Notes\n\n');
-fprintf(fid, 'This increment evaluates each planned candidate with the MA-aligned truth window kernel and stores a unified candidate signature table.\n');
+fprintf(fid, 'Stage13 remains a search and candidate-management layer. It evaluates planned candidates with the MA-aligned truth window kernel, but it does not directly act as the MA正文导出层.\n');
+fprintf(fid, 'Current fixed mapping: `dt_first_probe_P6T4F0` is reserved for MA extension, `dg_micro_07` is backup for MB/defense, and `dg_first_probe_3` is kept only as a development trace.\n');
 if isfield(out, 'dissertation_export') && isfield(out.dissertation_export, 'dg_refined_review')
     fprintf(fid, 'DG refined review: %s\n', out.dissertation_export.dg_refined_review);
 end

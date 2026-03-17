@@ -1,10 +1,11 @@
 function summary_table = stage13_write_summary_table(signature_table, baseline_tags, out_csv)
 %STAGE13_WRITE_SUMMARY_TABLE Build Stage13 candidate summary table and save it.
 
-summary_table = table('Size', [0 11], ...
-    'VariableTypes', {'string', 'string', 'logical', 'string', 'double', 'double', 'double', 'double', 'double', 'double', 'string'}, ...
+summary_table = table('Size', [0 13], ...
+    'VariableTypes', {'string', 'string', 'logical', 'string', 'double', 'double', 'double', 'double', 'double', 'double', 'string', 'string', 'string'}, ...
     'VariableNames', {'case_tag', 'family', 'feasible_truth', 'active_constraint', ...
-    'D_G_worst', 'D_A_worst', 'D_T_worst', 'delta_vs_baseline_DG', 'delta_vs_baseline_DA', 'delta_vs_baseline_DT', 't0_star_summary'});
+    'D_G_worst', 'D_A_worst', 'D_T_worst', 'delta_vs_baseline_DG', 'delta_vs_baseline_DA', 'delta_vs_baseline_DT', ...
+    't0_star_summary', 'tier', 'export_role'});
 
 families = unique(string(signature_table.family), 'stable');
 for i = 1:numel(families)
@@ -21,17 +22,42 @@ for i = 1:numel(families)
 
     for k = 1:height(family_rows)
         row = family_rows(k, :);
+        [tier_label, export_role] = local_classify_case_tier(string(row.case_tag));
         summary_table = [summary_table; { ...
             string(row.case_tag), string(row.family), row.feasible_truth, string(row.active_constraint), ...
             row.D_G_worst, row.D_A_worst, row.D_T_worst, ...
             row.D_G_worst - baseline_row.D_G_worst, ...
             row.D_A_worst - baseline_row.D_A_worst, ...
             row.D_T_worst - baseline_row.D_T_worst, ...
-            sprintf('(%g, %g, %g)', row.t0G_star, row.t0A_star, row.t0T_star)}]; %#ok<AGROW>
+            sprintf('(%g, %g, %g)', row.t0G_star, row.t0A_star, row.t0T_star), ...
+            tier_label, export_role}]; %#ok<AGROW>
     end
 end
 
 if nargin >= 3 && ~isempty(out_csv)
     writetable(summary_table, out_csv);
+end
+end
+
+function [tier_label, export_role] = local_classify_case_tier(case_tag)
+case_tag = string(case_tag);
+if case_tag == "dt_first_probe_P6T4F0"
+    tier_label = "recommended_for_MA";
+    export_role = "MA extension baseline-neighborhood control";
+elseif case_tag == "dg_micro_07"
+    tier_label = "backup_for_MB_or_defense";
+    export_role = "DG-refined backup only; not for MA正文导出";
+elseif case_tag == "dg_first_probe_3"
+    tier_label = "development_only";
+    export_role = "Legacy DG probe reference kept for development trace";
+elseif startsWith(case_tag, "dg_micro_")
+    tier_label = "backup_for_MB_or_defense";
+    export_role = "DG backup pool; not for MA正文导出";
+elseif startsWith(case_tag, "dg_refined_") || startsWith(case_tag, "dg_first_probe_")
+    tier_label = "development_only";
+    export_role = "Development-only DG candidate";
+else
+    tier_label = "development_only";
+    export_role = "Search-layer record only";
 end
 end
