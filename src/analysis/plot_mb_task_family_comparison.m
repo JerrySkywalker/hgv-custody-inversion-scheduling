@@ -6,7 +6,7 @@ if nargin < 2 || isempty(style)
 end
 
 fig = figure('Visible', 'off', 'Color', 'w');
-tiledlayout(fig, 1, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
+tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
 
 families = categorical("no_data");
 if ~isempty(task_summary_table)
@@ -35,16 +35,5 @@ ylabel(ax2, 'Minimum feasible N_s');
 title(ax2, 'Task-Family Minimum Design Size');
 grid(ax2, 'on');
 
-ax3 = nexttile;
-if isempty(task_summary_table)
-    bar(ax3, families, 0, 'FaceColor', style.threshold_color);
-else
-    values = task_summary_table.best_joint_margin;
-    values(~isfinite(values)) = 0;
-    bar(ax3, families, values, 'FaceColor', style.threshold_color);
-end
-ylabel(ax3, 'Best joint margin');
-title(ax3, 'Task-Family Best Margin');
 grid(ax2, 'on');
-grid(ax3, 'on');
 end

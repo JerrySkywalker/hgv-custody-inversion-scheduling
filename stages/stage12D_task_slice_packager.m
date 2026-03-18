@@ -18,6 +18,7 @@ family_key = lower(char(string(task_mode)));
 [full_theta_table, feasible_theta_table, family_eval] = local_pick_family_tables(pool, family_key);
 
 summary = family_eval.summary;
+summary.family_name = string(task_mode);
 summary.num_grid_points = height(full_theta_table);
 summary.num_feasible_points = height(feasible_theta_table);
 summary.casebank_breakdown = local_casebank_breakdown(family_eval.casebank);
