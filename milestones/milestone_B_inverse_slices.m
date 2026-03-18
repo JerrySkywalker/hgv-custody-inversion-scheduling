@@ -216,7 +216,9 @@ layer_outputs = local_export_local_zoom_layer(cfg, meta, paths, style, pool, min
 end
 
 function layer_outputs = local_export_formal_layer(cfg, meta, paths, style, pool, minimum_pack, write_figures, layer_outputs)
-shell_check = stage12H_mb_near_optimal_shell_check(cfg, pool, minimum_pack.minimum_design_table, minimum_pack.near_optimal_table, meta);
+meta_with_paths = meta;
+meta_with_paths.output_paths = paths;
+shell_check = stage12H_mb_near_optimal_shell_check(cfg, pool, minimum_pack.minimum_design_table, minimum_pack.near_optimal_table, meta_with_paths);
 shell_summary_csv = fullfile(paths.tables, 'MB_near_optimal_shell_check_summary.csv');
 shell_candidates_csv = fullfile(paths.tables, 'MB_near_optimal_shell_candidates.csv');
 milestone_common_save_table(shell_check.summary_table, shell_summary_csv);
@@ -343,6 +345,7 @@ for idx = 1:numel(fixed_h.height_runs)
 
     req_csv = fullfile(paths.tables, sprintf('MB_fixedH_%s_requirement_heatmap_iP.csv', h_label));
     phase_csv = fullfile(paths.tables, sprintf('MB_fixedH_%s_passratio_phasecurve.csv', h_label));
+    phase_replica_csv = fullfile(paths.tables, sprintf('MB_fixedH_%s_passratio_profile_stage05replica.csv', h_label));
     frontier_csv = fullfile(paths.tables, sprintf('MB_fixedH_%s_frontier_vs_i.csv', h_label));
     milestone_common_save_table(run.requirement_surface_iP.surface_table, req_csv);
     milestone_common_save_table(run.passratio_phasecurve, phase_csv);
@@ -351,6 +354,10 @@ for idx = 1:numel(fixed_h.height_runs)
     layer_outputs.tables.(matlab.lang.makeValidName(sprintf('fixedH_%s_requirement_heatmap_iP', h_label))) = string(req_csv);
     layer_outputs.tables.(matlab.lang.makeValidName(sprintf('fixedH_%s_passratio_phasecurve', h_label))) = string(phase_csv);
     layer_outputs.tables.(matlab.lang.makeValidName(sprintf('fixedH_%s_frontier_vs_i', h_label))) = string(frontier_csv);
+    if local_getfield_or(meta, 'enable_stage05_passratio_replica', true)
+        milestone_common_save_table(run.stage05_passratio_replica, phase_replica_csv);
+        layer_outputs.tables.(matlab.lang.makeValidName(sprintf('fixedH_%s_passratio_profile_stage05replica', h_label))) = string(phase_replica_csv);
+    end
 
     if write_figures
         fig_req = plot_mb_fixed_h_requirement_heatmap_iP(run.requirement_surface_iP, style);
@@ -363,6 +370,14 @@ for idx = 1:numel(fixed_h.height_runs)
         phase_png = fullfile(paths.figures, sprintf('MB_fixedH_%s_passratio_phasecurve.png', h_label));
         milestone_common_save_figure(fig_phase, phase_png);
         close(fig_phase);
+
+        if local_getfield_or(meta, 'enable_stage05_passratio_replica', true)
+            fig_phase_replica = plot_mb_fixed_h_passratio_profile_stage05replica(run.eval.nominal.full_theta_table, run.h_km, unique(run.eval.nominal.full_theta_table.i_deg, 'sorted'));
+            phase_replica_png = fullfile(paths.figures, sprintf('MB_fixedH_%s_passratio_profile_stage05replica.png', h_label));
+            milestone_common_save_figure(fig_phase_replica, phase_replica_png);
+            close(fig_phase_replica);
+            layer_outputs.figures.(matlab.lang.makeValidName(sprintf('fixedH_%s_passratio_profile_stage05replica', h_label))) = string(phase_replica_png);
+        end
 
         fig_frontier = plot_mb_fixed_h_frontier_vs_i(run.frontier_vs_i, run.h_km, style);
         frontier_png = fullfile(paths.figures, sprintf('MB_fixedH_%s_frontier_vs_i.png', h_label));
@@ -692,6 +707,7 @@ fprintf(fid, '- `i_grid_deg`: %s\n', local_stringify_summary_value(local_getfiel
 fprintf(fid, '- `P_grid`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'P_grid', [])));
 fprintf(fid, '- `T_grid`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'T_grid', [])));
 fprintf(fid, '- `F_fixed`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'F_fixed', NaN)));
+fprintf(fid, '- `stage05_passratio_replica_enabled`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.cfg, 'enable_stage05_passratio_replica', true)));
 fprintf(fid, '\n## Height Runs\n\n');
 for idx = 1:numel(fixed_h.height_runs)
     run = fixed_h.height_runs(idx);

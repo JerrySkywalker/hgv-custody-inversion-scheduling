@@ -51,6 +51,7 @@ for idx = 1:numel(fixed_cfg.h_fixed_list)
     feasible_nominal = eval_out.nominal.feasible_theta_table;
     requirement_surface = build_mb_fixed_h_requirement_surface_iP(nominal_table, h_km, fixed_cfg.family_name);
     phasecurve_table = build_mb_fixed_h_passratio_phasecurve(nominal_table, h_km, fixed_cfg.i_grid_deg, fixed_cfg.family_name);
+    stage05_passratio_replica = build_mb_fixed_h_passratio_profile_stage05replica(nominal_table, h_km, fixed_cfg.i_grid_deg, fixed_cfg.family_name);
     frontier_table = build_mb_fixed_h_frontier_vs_i(nominal_table, h_km, fixed_cfg.family_name);
 
     height_runs(idx).h_km = h_km;
@@ -58,6 +59,7 @@ for idx = 1:numel(fixed_cfg.h_fixed_list)
     height_runs(idx).eval = eval_out;
     height_runs(idx).requirement_surface_iP = requirement_surface;
     height_runs(idx).passratio_phasecurve = phasecurve_table;
+    height_runs(idx).stage05_passratio_replica = stage05_passratio_replica;
     height_runs(idx).frontier_vs_i = frontier_table;
     height_runs(idx).summary = struct( ...
         'design_count', height(design_table), ...
@@ -94,6 +96,7 @@ fixed_cfg.P_grid = reshape(unique(meta.fixed_h_exploration_P(:), 'stable'), 1, [
 fixed_cfg.T_grid = reshape(unique(meta.fixed_h_exploration_T(:), 'stable'), 1, []);
 fixed_cfg.heading_subset_max = meta.slice_settings.heading_subset_max;
 fixed_cfg.family_name = "nominal";
+fixed_cfg.enable_stage05_passratio_replica = local_getfield_or(meta, 'enable_stage05_passratio_replica', true);
 fixed_cfg.F_fixed = meta.fixed_h_exploration_F;
 if ~isfinite(fixed_cfg.F_fixed)
     fixed_cfg.F_fixed = pool.baseline_theta.F;
@@ -115,6 +118,15 @@ run = struct( ...
     'eval', struct(), ...
     'requirement_surface_iP', struct(), ...
     'passratio_phasecurve', table(), ...
+    'stage05_passratio_replica', table(), ...
     'frontier_vs_i', table(), ...
     'summary', struct());
+end
+
+function value = local_getfield_or(S, field_name, fallback)
+if isstruct(S) && isfield(S, field_name)
+    value = S.(field_name);
+else
+    value = fallback;
+end
 end
