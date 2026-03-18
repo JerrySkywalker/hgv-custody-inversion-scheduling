@@ -22,15 +22,18 @@ if isempty(gap_matrix)
 else
     imagesc(ax, x_values, y_values, gap_matrix);
     set(ax, 'YDir', 'normal');
-    alpha_data = ~isnan(gap_matrix);
-    set(get(ax, 'Children'), 'AlphaData', alpha_data);
     colormap(ax, turbo);
+    gap_abs = max(abs(gap_matrix(:)), [], 'omitnan');
+    if isfinite(gap_abs) && gap_abs > 0
+        clim(ax, [-gap_abs, gap_abs]);
+    end
     cb = colorbar(ax);
     cb.Label.String = sprintf('Minimum N_s gap (%s - %s)', char(string(label_a)), char(string(label_b)));
+    local_overlay_gap_labels(ax, x_values, y_values, gap_matrix);
 end
 xlabel(ax, local_axis_label(surface_a.xvar));
 ylabel(ax, local_axis_label(surface_a.yvar));
-title(ax, sprintf('Requirement Gap Heatmap: %s - %s', char(string(label_a)), char(string(label_b))));
+title(ax, sprintf('Incremental Constellation Requirement Gap: %s - %s', char(string(label_a)), char(string(label_b))));
 grid(ax, 'on');
 hold(ax, 'off');
 end
@@ -104,5 +107,26 @@ switch char(string(name))
         txt = 'h (km)';
     otherwise
         txt = char(string(name));
+end
+end
+
+function local_overlay_gap_labels(ax, x_values, y_values, gap_matrix)
+for iy = 1:numel(y_values)
+    for ix = 1:numel(x_values)
+        value = gap_matrix(iy, ix);
+        if isfinite(value)
+            txt = sprintf('%d', round(value));
+            color = [0.05, 0.05, 0.05];
+        else
+            txt = char(215);
+            color = [0.45, 0.45, 0.45];
+        end
+        text(ax, x_values(ix), y_values(iy), txt, ...
+            'HorizontalAlignment', 'center', ...
+            'VerticalAlignment', 'middle', ...
+            'FontWeight', 'bold', ...
+            'FontSize', 10, ...
+            'Color', color);
+    end
 end
 end
