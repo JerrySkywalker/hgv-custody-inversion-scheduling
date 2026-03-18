@@ -13,6 +13,7 @@ meta = cfg.milestones.MB;
 paths = milestone_common_output_paths(cfg, meta.milestone_id, meta.title);
 style = milestone_common_plot_style();
 write_figures = cfg.milestones.save_figures && ~(isfield(meta, 'preflight_mode') && logical(meta.preflight_mode));
+write_supplementary = local_write_supplementary(meta);
 task_meta = meta;
 if isfield(meta, 'task_slice_settings') && isstruct(meta.task_slice_settings)
     task_meta.slice_settings = meta.task_slice_settings;
@@ -74,6 +75,8 @@ if write_figures
     close(fig3);
 end
 
+supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, write_figures, write_supplementary);
+
 result = struct();
 result.milestone_id = meta.milestone_id;
 result.title = meta.title;
@@ -93,12 +96,18 @@ result.figures.feasible_domain_map = string(fig1_path);
 result.figures.minimum_design_map = string(fig2_path);
 result.figures.minimum_boundary_map = string(fig2_legacy_path);
 result.figures.task_family_slice_comparison = string(fig3_path);
+result.tables = local_merge_struct_fields(result.tables, supplementary.tables);
+result.figures = local_merge_struct_fields(result.figures, supplementary.figures);
 result.artifacts.temporal_metric_note = "时序图表展示采用有界时序连续性裕度 DT_bar，闭合判定与主导失效识别继续采用标准化时序连续性裕度 DT >= 1。";
 result.artifacts.execution_mode = string(local_execution_mode(meta));
 if isfield(meta, 'preflight_mode') && logical(meta.preflight_mode)
     result.artifacts.preflight_note = "Preflight mode enabled: figures were intentionally skipped while truth tables and summary artifacts were preserved.";
 end
 result.artifacts.timing_note = local_timing_note(pool.summary.timing, pool.summary.joint_eval_timing);
+result.artifacts.supplementary_enabled = write_supplementary;
+if isfield(supplementary.summary, 'near_optimal_shell_check')
+    result.artifacts.near_optimal_shell_conclusion = supplementary.summary.near_optimal_shell_check.conclusion;
+end
 
 task_family_minNs = local_task_metric_map(task_summary_table, 'Ns_min_feasible');
 task_family_best_margin = local_task_metric_map(task_summary_table, 'best_joint_margin');
@@ -132,6 +141,8 @@ result.summary = struct( ...
     'timing_digest', local_timing_note(pool.summary.timing, pool.summary.joint_eval_timing), ...
     'joint_eval_timing', pool.summary.joint_eval_timing, ...
     'checkpoint', local_checkpoint_summary(pool.summary.joint_eval_timing), ...
+    'supplementary_enabled', write_supplementary, ...
+    'near_optimal_shell_check', supplementary.summary.near_optimal_shell_check, ...
     'slice_anchor_hi', local_struct_to_string(slice_hi.view_anchor), ...
     'slice_anchor_pt', local_struct_to_string(slice_pt.view_anchor), ...
     'slice_anchor_used_for_hi_view', local_struct_to_string(slice_hi.view_anchor), ...
@@ -176,6 +187,126 @@ if isstruct(joint_timing) && isfield(joint_timing, 'checkpoint_save_count') && j
         joint_timing.checkpoint_save_count, joint_timing.checkpoint_save_total_s);
 end
 txt = strjoin(cellstr(parts), ' ');
+end
+
+function tf = local_write_supplementary(meta)
+tf = isfield(meta, 'export_supplementary_figures') && logical(meta.export_supplementary_figures) && ...
+    ~(isfield(meta, 'preflight_mode') && logical(meta.preflight_mode));
+end
+
+function supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, write_figures, write_supplementary)
+supplementary = struct('tables', struct(), 'figures', struct(), 'summary', struct('near_optimal_shell_check', struct()));
+if ~write_supplementary
+    return;
+end
+
+shell_check = stage12H_mb_near_optimal_shell_check(cfg, pool, minimum_pack.minimum_design_table, minimum_pack.near_optimal_table, meta);
+shell_summary_csv = fullfile(paths.tables, 'MB_near_optimal_shell_check_summary.csv');
+shell_candidates_csv = fullfile(paths.tables, 'MB_near_optimal_shell_candidates.csv');
+milestone_common_save_table(shell_check.summary_table, shell_summary_csv);
+milestone_common_save_table(shell_check.candidate_table, shell_candidates_csv);
+supplementary.tables.near_optimal_shell_check_summary = string(shell_summary_csv);
+supplementary.tables.near_optimal_shell_candidates = string(shell_candidates_csv);
+supplementary.figures.near_optimal_shell_phasecurve = string(shell_check.figure_path);
+supplementary.summary.near_optimal_shell_check = shell_check.summary;
+
+surface_hi = build_mb_requirement_surface(pool.full_theta_table_joint, 'i_deg', 'h_km');
+surface_ip_joint = build_mb_requirement_surface(pool.full_theta_table_joint, 'P', 'i_deg');
+surface_ip_nominal = build_mb_requirement_surface(pool.full_theta_table_nominal, 'P', 'i_deg');
+surface_ip_heading = build_mb_requirement_surface(pool.full_theta_table_heading, 'P', 'i_deg');
+surface_hi_csv = fullfile(paths.tables, 'MB_requirement_heatmap_hi.csv');
+surface_ip_csv = fullfile(paths.tables, 'MB_requirement_heatmap_iP.csv');
+milestone_common_save_table(surface_hi.surface_table, surface_hi_csv);
+milestone_common_save_table(surface_ip_joint.surface_table, surface_ip_csv);
+supplementary.tables.requirement_heatmap_hi = string(surface_hi_csv);
+supplementary.tables.requirement_heatmap_iP = string(surface_ip_csv);
+
+if write_figures
+    fig_hi = plot_mb_requirement_heatmap_hi(surface_hi, minimum_pack.minimum_design_table, style);
+    fig_hi_path = fullfile(paths.figures, 'MB_requirement_heatmap_hi.png');
+    milestone_common_save_figure(fig_hi, fig_hi_path);
+    close(fig_hi);
+    supplementary.figures.requirement_heatmap_hi = string(fig_hi_path);
+
+    fig_ip = plot_mb_requirement_heatmap_iP(surface_ip_joint, minimum_pack.minimum_design_table, style);
+    fig_ip_path = fullfile(paths.figures, 'MB_requirement_heatmap_iP.png');
+    milestone_common_save_figure(fig_ip, fig_ip_path);
+    close(fig_ip);
+    supplementary.figures.requirement_heatmap_iP = string(fig_ip_path);
+end
+
+[fig_joint_pass, joint_pass_table] = plot_mb_passratio_phasecurve_by_i(pool.full_theta_table_joint, 'joint', [], style);
+[fig_heading_pass, heading_pass_table] = plot_mb_passratio_phasecurve_by_i(pool.full_theta_table_heading, 'heading', [], style);
+joint_pass_csv = fullfile(paths.tables, 'MB_passratio_phasecurve_joint.csv');
+heading_pass_csv = fullfile(paths.tables, 'MB_passratio_phasecurve_heading.csv');
+milestone_common_save_table(joint_pass_table, joint_pass_csv);
+milestone_common_save_table(heading_pass_table, heading_pass_csv);
+supplementary.tables.passratio_phasecurve_joint = string(joint_pass_csv);
+supplementary.tables.passratio_phasecurve_heading = string(heading_pass_csv);
+if write_figures
+    fig_joint_pass_path = fullfile(paths.figures, 'MB_passratio_phasecurve_joint.png');
+    fig_heading_pass_path = fullfile(paths.figures, 'MB_passratio_phasecurve_heading.png');
+    milestone_common_save_figure(fig_joint_pass, fig_joint_pass_path);
+    milestone_common_save_figure(fig_heading_pass, fig_heading_pass_path);
+    supplementary.figures.passratio_phasecurve_joint = string(fig_joint_pass_path);
+    supplementary.figures.passratio_phasecurve_heading = string(fig_heading_pass_path);
+end
+close(fig_joint_pass);
+close(fig_heading_pass);
+
+family_phasecurve_table = build_family_phasecurve_table(struct( ...
+    'nominal', pool.full_theta_table_nominal, ...
+    'heading', pool.full_theta_table_heading, ...
+    'critical', pool.full_theta_table_critical));
+family_phasecurve_csv = fullfile(paths.tables, 'MB_family_phasecurve_table.csv');
+milestone_common_save_table(family_phasecurve_table, family_phasecurve_csv);
+supplementary.tables.family_phasecurve = string(family_phasecurve_csv);
+if write_figures
+    fig_margin = plot_mb_phasecurve_by_family(family_phasecurve_table, 'best_joint_margin_feasible', style);
+    fig_margin_path = fullfile(paths.figures, 'MB_phasecurve_best_jointmargin_by_family.png');
+    milestone_common_save_figure(fig_margin, fig_margin_path);
+    close(fig_margin);
+    supplementary.figures.phasecurve_best_jointmargin_by_family = string(fig_margin_path);
+
+    fig_ratio = plot_mb_phasecurve_by_family(family_phasecurve_table, 'feasible_ratio', style);
+    fig_ratio_path = fullfile(paths.figures, 'MB_phasecurve_feasibleratio_by_family.png');
+    milestone_common_save_figure(fig_ratio, fig_ratio_path);
+    close(fig_ratio);
+    supplementary.figures.phasecurve_feasibleratio_by_family = string(fig_ratio_path);
+end
+
+frontier_table = build_frontier_table_vs_i(pool.full_theta_table_joint, 'joint');
+frontier_csv = fullfile(paths.tables, 'MB_frontier_vs_i.csv');
+milestone_common_save_table(frontier_table, frontier_csv);
+supplementary.tables.frontier_vs_i = string(frontier_csv);
+if write_figures
+    fig_frontier = plot_mb_frontier_vs_i(frontier_table, style);
+    fig_frontier_path = fullfile(paths.figures, 'MB_frontier_vs_i.png');
+    milestone_common_save_figure(fig_frontier, fig_frontier_path);
+    close(fig_frontier);
+    supplementary.figures.frontier_vs_i = string(fig_frontier_path);
+end
+
+[fig_gap, gap_table] = plot_mb_family_gap_heatmap(surface_ip_heading, surface_ip_nominal, 'heading', 'nominal', style);
+gap_csv = fullfile(paths.tables, 'MB_family_gap_heatmap_heading_minus_nominal.csv');
+milestone_common_save_table(gap_table, gap_csv);
+supplementary.tables.family_gap_heatmap_heading_minus_nominal = string(gap_csv);
+if write_figures
+    fig_gap_path = fullfile(paths.figures, 'MB_family_gap_heatmap_heading_minus_nominal.png');
+    milestone_common_save_figure(fig_gap, fig_gap_path);
+    supplementary.figures.family_gap_heatmap_heading_minus_nominal = string(fig_gap_path);
+end
+close(fig_gap);
+end
+
+function out = local_merge_struct_fields(out, add)
+if isempty(add) || ~isstruct(add)
+    return;
+end
+fields = fieldnames(add);
+for k = 1:numel(fields)
+    out.(fields{k}) = add.(fields{k});
+end
 end
 
 function txt = local_make_conclusion(pool, minimum_pack, task_summary_table)
