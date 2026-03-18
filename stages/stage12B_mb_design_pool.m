@@ -28,10 +28,10 @@ pt_design_table = local_build_pt_design_table(theta, slice_cfg);
 local_block_table = local_build_minimum_neighborhood_table(theta, slice_cfg);
 design_pool_table = unique_design_rows(vertcat(hi_design_table, pt_design_table, local_block_table));
 
-joint_eval = evaluate_design_pool_with_stage09(cfg, design_pool_table, 'joint', local_eval_overrides(slice_cfg));
-nominal_eval = evaluate_design_pool_with_stage09(cfg, design_pool_table, 'nominal', local_eval_overrides(slice_cfg));
-heading_eval = evaluate_design_pool_with_stage09(cfg, design_pool_table, 'heading', local_eval_overrides(slice_cfg));
-critical_eval = evaluate_design_pool_with_stage09(cfg, design_pool_table, 'critical', local_eval_overrides(slice_cfg));
+joint_eval = evaluate_design_pool_with_stage09(cfg, design_pool_table, 'joint', local_eval_overrides(meta, slice_cfg));
+nominal_eval = derive_family_eval_from_joint(joint_eval, 'nominal', cfg);
+heading_eval = derive_family_eval_from_joint(joint_eval, 'heading', cfg);
+critical_eval = derive_family_eval_from_joint(joint_eval, 'critical', cfg);
 
 pool = struct();
 pool.cfg = cfg;
@@ -81,8 +81,12 @@ T = table(repmat(theta.h_km, n, 1), repmat(theta.i_deg, n, 1), P(:), TT(:), repm
 T = sortrows(T, {'Ns', 'P', 'T'}, {'ascend', 'ascend', 'ascend'});
 end
 
-function overrides = local_eval_overrides(slice_cfg)
-overrides = struct('heading_subset_max', slice_cfg.heading_subset_max);
+function overrides = local_eval_overrides(meta, slice_cfg)
+overrides = struct();
+overrides.heading_subset_max = slice_cfg.heading_subset_max;
+if isfield(meta, 'fast_mode')
+    overrides.fast_mode = logical(meta.fast_mode);
+end
 end
 
 function T = local_build_minimum_neighborhood_table(theta, ~)
