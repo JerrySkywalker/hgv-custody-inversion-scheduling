@@ -79,7 +79,7 @@ if write_figures
     close(fig3);
 end
 
-supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, write_figures, write_supplementary);
+supplementary = local_build_supplementary_exports(cfg, meta, paths, export_paths, style, pool, minimum_pack, write_figures, write_supplementary);
 
 result = struct();
 result.milestone_id = meta.milestone_id;
@@ -226,7 +226,7 @@ for idx = 1:numel(dirs)
 end
 end
 
-function supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, write_figures, write_supplementary)
+function supplementary = local_build_supplementary_exports(cfg, meta, paths, export_paths, style, pool, minimum_pack, write_figures, write_supplementary)
 supplementary = struct('tables', struct(), 'figures', struct(), 'summary', struct('near_optimal_shell_check', struct()));
 if ~write_supplementary
     return;
@@ -265,6 +265,22 @@ if write_figures
     milestone_common_save_figure(fig_ip, fig_ip_path);
     close(fig_ip);
     supplementary.figures.requirement_heatmap_iP = string(fig_ip_path);
+end
+
+if write_figures
+    fig_cloud_joint = plot_mb_resource_performance_cloud(pool.feasible_theta_table_joint, minimum_pack.minimum_design_table, shell_check.candidate_table, 'joint_margin', style);
+    fig_cloud_joint_path = fullfile(paths.figures, 'MB_resource_performance_cloud_jointmargin.png');
+    milestone_common_save_figure(fig_cloud_joint, fig_cloud_joint_path);
+    milestone_common_save_figure(fig_cloud_joint, fullfile(export_paths.supplementary.figures, 'MB_resource_performance_cloud_jointmargin.png'));
+    close(fig_cloud_joint);
+    supplementary.figures.resource_performance_cloud_jointmargin = string(fig_cloud_joint_path);
+
+    fig_cloud_dt = plot_mb_resource_performance_cloud(pool.feasible_theta_table_joint, minimum_pack.minimum_design_table, shell_check.candidate_table, 'DT_worst', style);
+    fig_cloud_dt_path = fullfile(paths.figures, 'MB_resource_performance_cloud_DT.png');
+    milestone_common_save_figure(fig_cloud_dt, fig_cloud_dt_path);
+    milestone_common_save_figure(fig_cloud_dt, fullfile(export_paths.supplementary.figures, 'MB_resource_performance_cloud_DT.png'));
+    close(fig_cloud_dt);
+    supplementary.figures.resource_performance_cloud_DT = string(fig_cloud_dt_path);
 end
 
 [fig_joint_pass, joint_pass_table] = plot_mb_passratio_phasecurve_by_i(pool.full_theta_table_joint, 'joint', [], style);
