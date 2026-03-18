@@ -1,5 +1,5 @@
 function [fig, gap_table] = plot_mb_dense_gap_heatmap_heading_minus_nominal(gap_surface, style)
-%PLOT_MB_DENSE_GAP_HEATMAP_HEADING_MINUS_NOMINAL Plot refined dense heading-nominal requirement gap.
+%PLOT_MB_DENSE_GAP_HEATMAP_HEADING_MINUS_NOMINAL Plot local zoom heading-nominal requirement gap.
 
 if nargin < 2 || isempty(style)
     style = milestone_common_plot_style();
@@ -25,7 +25,7 @@ else
 end
 xlabel(ax, 'P');
 ylabel(ax, 'i (deg)');
-title(ax, 'Dense Incremental Requirement Gap: heading - nominal');
+title(ax, 'Local Zoom Incremental Requirement Gap: heading - nominal');
 grid(ax, 'on');
 hold(ax, 'off');
 end

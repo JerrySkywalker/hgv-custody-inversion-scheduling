@@ -10,14 +10,12 @@ else
 end
 
 meta = cfg.milestones.MB;
-paths = milestone_common_output_paths(cfg, meta.milestone_id, meta.title);
+paths = local_mb_output_paths(cfg, meta.milestone_id, meta.title);
 paths.summary_report = fullfile(paths.tables, 'MB_summary.md');
 paths.summary_mat = fullfile(paths.tables, 'MB_inverse_slices_summary.mat');
-paths.debug = fullfile(paths.milestone_root, 'debug');
-ensure_dir(paths.debug);
 style = milestone_common_plot_style();
 write_figures = cfg.milestones.save_figures && ~(isfield(meta, 'preflight_mode') && logical(meta.preflight_mode));
-write_supplementary = local_write_supplementary(meta);
+write_layer_exports = local_write_layer_exports(meta);
 task_meta = meta;
 if isfield(meta, 'task_slice_settings') && isstruct(meta.task_slice_settings)
     task_meta.slice_settings = meta.task_slice_settings;
@@ -79,7 +77,7 @@ if write_figures
     close(fig3);
 end
 
-supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, task_summary_table, write_figures, write_supplementary);
+layer_outputs = local_build_layer_exports(cfg, meta, paths, style, pool, minimum_pack, task_summary_table, write_figures, write_layer_exports);
 
 result = struct();
 result.milestone_id = meta.milestone_id;
@@ -100,19 +98,19 @@ result.figures.feasible_domain_map = string(fig1_path);
 result.figures.minimum_design_map = string(fig2_path);
 result.figures.minimum_boundary_map = string(fig2_legacy_path);
 result.figures.task_family_slice_comparison = string(fig3_path);
-result.tables = local_merge_struct_fields(result.tables, supplementary.tables);
-result.figures = local_merge_struct_fields(result.figures, supplementary.figures);
+result.tables = local_merge_struct_fields(result.tables, layer_outputs.tables);
+result.figures = local_merge_struct_fields(result.figures, layer_outputs.figures);
 result.artifacts.temporal_metric_note = "时序图表展示采用有界时序连续性裕度 DT_bar，闭合判定与主导失效识别继续采用标准化时序连续性裕度 DT >= 1。";
 result.artifacts.execution_mode = string(local_execution_mode(meta));
 if isfield(meta, 'preflight_mode') && logical(meta.preflight_mode)
     result.artifacts.preflight_note = "Preflight mode enabled: figures were intentionally skipped while truth tables and summary artifacts were preserved.";
 end
 result.artifacts.timing_note = local_timing_note(pool.summary.timing, pool.summary.joint_eval_timing);
-result.artifacts.supplementary_enabled = write_supplementary;
+result.artifacts.layer_exports_enabled = write_layer_exports;
 result.artifacts.debug_dir = string(paths.debug);
-if isfield(supplementary.summary, 'near_optimal_shell_check')
-    result.artifacts.near_optimal_shell_conclusion = supplementary.summary.near_optimal_shell_check.conclusion;
-end
+result.artifacts.near_optimal_shell_conclusion = local_getfield_or(local_getfield_or(layer_outputs.summary.formal, 'near_optimal_shell_check', struct()), 'conclusion', "");
+result.artifacts.fixed_h_exploration_note = local_getfield_or(layer_outputs.summary.fixed_h_exploration, 'interpretation_note', "");
+result.artifacts.local_dense_zoom_note = local_getfield_or(layer_outputs.summary.local_dense_zoom, 'note', "");
 
 task_family_minNs = local_task_metric_map(task_summary_table, 'Ns_min_feasible');
 task_family_best_margin = local_task_metric_map(task_summary_table, 'best_joint_margin');
@@ -146,8 +144,11 @@ result.summary = struct( ...
     'timing_digest', local_timing_note(pool.summary.timing, pool.summary.joint_eval_timing), ...
     'joint_eval_timing', pool.summary.joint_eval_timing, ...
     'checkpoint', local_checkpoint_summary(pool.summary.joint_eval_timing), ...
-    'supplementary_enabled', write_supplementary, ...
-    'near_optimal_shell_check', supplementary.summary.near_optimal_shell_check, ...
+    'layer_exports_enabled', write_layer_exports, ...
+    'near_optimal_shell_check', layer_outputs.summary.formal.near_optimal_shell_check, ...
+    'formal_layer', local_build_formal_layer_summary(minimum_pack, task_summary_table, layer_outputs.summary.formal), ...
+    'fixed_h_exploration', layer_outputs.summary.fixed_h_exploration, ...
+    'local_dense_zoom', layer_outputs.summary.local_dense_zoom, ...
     'slice_anchor_hi', local_struct_to_string(slice_hi.view_anchor), ...
     'slice_anchor_pt', local_struct_to_string(slice_pt.view_anchor), ...
     'slice_anchor_used_for_hi_view', local_struct_to_string(slice_hi.view_anchor), ...
@@ -158,6 +159,7 @@ result.summary = struct( ...
     'main_conclusion', local_make_conclusion(pool, minimum_pack, task_summary_table));
 
 files = milestone_common_export_summary(result, paths);
+local_write_mb_layered_summary(paths.summary_report, result, layer_outputs);
 result.artifacts.summary_report = files.report_md;
 result.artifacts.summary_mat = files.summary_mat;
 end
@@ -194,26 +196,35 @@ end
 txt = strjoin(cellstr(parts), ' ');
 end
 
-function tf = local_write_supplementary(meta)
-tf = isfield(meta, 'export_supplementary_figures') && logical(meta.export_supplementary_figures) && ...
+function tf = local_write_layer_exports(meta)
+tf = local_getfield_or(meta, 'export_extended_outputs', local_getfield_or(meta, 'export_supplementary_figures', true)) && ...
     ~(isfield(meta, 'preflight_mode') && logical(meta.preflight_mode));
 end
 
-function supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, task_summary_table, write_figures, write_supplementary)
-supplementary = struct('tables', struct(), 'figures', struct(), 'summary', struct('near_optimal_shell_check', struct()));
-if ~write_supplementary
+function layer_outputs = local_build_layer_exports(cfg, meta, paths, style, pool, minimum_pack, task_summary_table, write_figures, write_layer_exports)
+layer_outputs = struct( ...
+    'tables', struct(), ...
+    'figures', struct(), ...
+    'summary', struct('formal', struct('near_optimal_shell_check', struct()), 'fixed_h_exploration', struct(), 'local_dense_zoom', struct()));
+if ~write_layer_exports
     return;
 end
 
+layer_outputs = local_export_formal_layer(cfg, meta, paths, style, pool, minimum_pack, write_figures, layer_outputs);
+layer_outputs = local_export_fixed_h_layer(cfg, meta, paths, style, pool, minimum_pack, write_figures, layer_outputs);
+layer_outputs = local_export_local_zoom_layer(cfg, meta, paths, style, pool, minimum_pack, task_summary_table, write_figures, layer_outputs);
+end
+
+function layer_outputs = local_export_formal_layer(cfg, meta, paths, style, pool, minimum_pack, write_figures, layer_outputs)
 shell_check = stage12H_mb_near_optimal_shell_check(cfg, pool, minimum_pack.minimum_design_table, minimum_pack.near_optimal_table, meta);
 shell_summary_csv = fullfile(paths.tables, 'MB_near_optimal_shell_check_summary.csv');
 shell_candidates_csv = fullfile(paths.tables, 'MB_near_optimal_shell_candidates.csv');
 milestone_common_save_table(shell_check.summary_table, shell_summary_csv);
 milestone_common_save_table(shell_check.candidate_table, shell_candidates_csv);
-supplementary.tables.near_optimal_shell_check_summary = string(shell_summary_csv);
-supplementary.tables.near_optimal_shell_candidates = string(shell_candidates_csv);
-supplementary.figures.near_optimal_shell_phasecurve = string(shell_check.figure_path);
-supplementary.summary.near_optimal_shell_check = shell_check.summary;
+layer_outputs.tables.near_optimal_shell_check_summary = string(shell_summary_csv);
+layer_outputs.tables.near_optimal_shell_candidates = string(shell_candidates_csv);
+layer_outputs.figures.near_optimal_shell_phasecurve = string(shell_check.figure_path);
+layer_outputs.summary.formal.near_optimal_shell_check = shell_check.summary;
 
 surface_hi = build_mb_requirement_surface(pool.full_theta_table_joint, 'i_deg', 'h_km');
 surface_ip_joint = build_mb_requirement_surface(pool.full_theta_table_joint, 'P', 'i_deg');
@@ -223,21 +234,21 @@ surface_hi_csv = fullfile(paths.tables, 'MB_requirement_heatmap_hi.csv');
 surface_ip_csv = fullfile(paths.tables, 'MB_requirement_heatmap_iP.csv');
 milestone_common_save_table(surface_hi.surface_table, surface_hi_csv);
 milestone_common_save_table(surface_ip_joint.surface_table, surface_ip_csv);
-supplementary.tables.requirement_heatmap_hi = string(surface_hi_csv);
-supplementary.tables.requirement_heatmap_iP = string(surface_ip_csv);
+layer_outputs.tables.requirement_heatmap_hi = string(surface_hi_csv);
+layer_outputs.tables.requirement_heatmap_iP = string(surface_ip_csv);
 
 if write_figures
     fig_hi = plot_mb_requirement_heatmap_hi(surface_hi, minimum_pack.minimum_design_table, style);
     fig_hi_path = fullfile(paths.figures, 'MB_requirement_heatmap_hi.png');
     milestone_common_save_figure(fig_hi, fig_hi_path);
     close(fig_hi);
-    supplementary.figures.requirement_heatmap_hi = string(fig_hi_path);
+    layer_outputs.figures.requirement_heatmap_hi = string(fig_hi_path);
 
     fig_ip = plot_mb_requirement_heatmap_iP(surface_ip_joint, minimum_pack.minimum_design_table, style);
     fig_ip_path = fullfile(paths.figures, 'MB_requirement_heatmap_iP.png');
     milestone_common_save_figure(fig_ip, fig_ip_path);
     close(fig_ip);
-    supplementary.figures.requirement_heatmap_iP = string(fig_ip_path);
+    layer_outputs.figures.requirement_heatmap_iP = string(fig_ip_path);
 end
 
 if write_figures
@@ -245,13 +256,13 @@ if write_figures
     fig_cloud_joint_path = fullfile(paths.figures, 'MB_resource_performance_cloud_jointmargin.png');
     milestone_common_save_figure(fig_cloud_joint, fig_cloud_joint_path);
     close(fig_cloud_joint);
-    supplementary.figures.resource_performance_cloud_jointmargin = string(fig_cloud_joint_path);
+    layer_outputs.figures.resource_performance_cloud_jointmargin = string(fig_cloud_joint_path);
 
     fig_cloud_dt = plot_mb_resource_performance_cloud(pool.feasible_theta_table_joint, minimum_pack.minimum_design_table, shell_check.candidate_table, 'DT_worst', style);
     fig_cloud_dt_path = fullfile(paths.figures, 'MB_resource_performance_cloud_DT.png');
     milestone_common_save_figure(fig_cloud_dt, fig_cloud_dt_path);
     close(fig_cloud_dt);
-    supplementary.figures.resource_performance_cloud_DT = string(fig_cloud_dt_path);
+    layer_outputs.figures.resource_performance_cloud_DT = string(fig_cloud_dt_path);
 end
 
 phasecurve_options = local_phasecurve_options(cfg, minimum_pack);
@@ -261,15 +272,15 @@ joint_pass_csv = fullfile(paths.tables, 'MB_passratio_phasecurve_joint.csv');
 heading_pass_csv = fullfile(paths.tables, 'MB_passratio_phasecurve_heading.csv');
 milestone_common_save_table(joint_pass_table, joint_pass_csv);
 milestone_common_save_table(heading_pass_table, heading_pass_csv);
-supplementary.tables.passratio_phasecurve_joint = string(joint_pass_csv);
-supplementary.tables.passratio_phasecurve_heading = string(heading_pass_csv);
+layer_outputs.tables.passratio_phasecurve_joint = string(joint_pass_csv);
+layer_outputs.tables.passratio_phasecurve_heading = string(heading_pass_csv);
 if write_figures
     fig_joint_pass_path = fullfile(paths.figures, 'MB_passratio_phasecurve_joint.png');
     fig_heading_pass_path = fullfile(paths.figures, 'MB_passratio_phasecurve_heading.png');
     milestone_common_save_figure(fig_joint_pass, fig_joint_pass_path);
     milestone_common_save_figure(fig_heading_pass, fig_heading_pass_path);
-    supplementary.figures.passratio_phasecurve_joint = string(fig_joint_pass_path);
-    supplementary.figures.passratio_phasecurve_heading = string(fig_heading_pass_path);
+    layer_outputs.figures.passratio_phasecurve_joint = string(fig_joint_pass_path);
+    layer_outputs.figures.passratio_phasecurve_heading = string(fig_heading_pass_path);
 end
 close(fig_joint_pass);
 close(fig_heading_pass);
@@ -280,108 +291,163 @@ family_phasecurve_table = build_family_phasecurve_table(struct( ...
     'critical', pool.full_theta_table_critical));
 family_phasecurve_csv = fullfile(paths.tables, 'MB_family_phasecurve_table.csv');
 milestone_common_save_table(family_phasecurve_table, family_phasecurve_csv);
-supplementary.tables.family_phasecurve = string(family_phasecurve_csv);
+layer_outputs.tables.family_phasecurve = string(family_phasecurve_csv);
 if write_figures
     fig_margin = plot_mb_phasecurve_by_family(family_phasecurve_table, 'best_joint_margin_feasible', style);
     fig_margin_path = fullfile(paths.figures, 'MB_phasecurve_best_jointmargin_by_family.png');
     milestone_common_save_figure(fig_margin, fig_margin_path);
     close(fig_margin);
-    supplementary.figures.phasecurve_best_jointmargin_by_family = string(fig_margin_path);
+    layer_outputs.figures.phasecurve_best_jointmargin_by_family = string(fig_margin_path);
 
     fig_ratio = plot_mb_phasecurve_by_family(family_phasecurve_table, 'feasible_ratio', style);
     fig_ratio_path = fullfile(paths.figures, 'MB_phasecurve_feasibleratio_by_family.png');
     milestone_common_save_figure(fig_ratio, fig_ratio_path);
     close(fig_ratio);
-    supplementary.figures.phasecurve_feasibleratio_by_family = string(fig_ratio_path);
+    layer_outputs.figures.phasecurve_feasibleratio_by_family = string(fig_ratio_path);
 end
 
 frontier_table = build_frontier_table_vs_i(pool.full_theta_table_joint, 'joint');
 frontier_csv = fullfile(paths.tables, 'MB_frontier_vs_i.csv');
 milestone_common_save_table(frontier_table, frontier_csv);
-supplementary.tables.frontier_vs_i = string(frontier_csv);
+layer_outputs.tables.frontier_vs_i = string(frontier_csv);
 if write_figures
     fig_frontier = plot_mb_frontier_vs_i(frontier_table, style);
     fig_frontier_path = fullfile(paths.figures, 'MB_frontier_vs_i.png');
     milestone_common_save_figure(fig_frontier, fig_frontier_path);
     close(fig_frontier);
-    supplementary.figures.frontier_vs_i = string(fig_frontier_path);
+    layer_outputs.figures.frontier_vs_i = string(fig_frontier_path);
 end
 
 [fig_gap, gap_table] = plot_mb_family_gap_heatmap(surface_ip_heading, surface_ip_nominal, 'heading', 'nominal', style);
 gap_csv = fullfile(paths.tables, 'MB_family_gap_heatmap_heading_minus_nominal.csv');
 milestone_common_save_table(gap_table, gap_csv);
-supplementary.tables.family_gap_heatmap_heading_minus_nominal = string(gap_csv);
+layer_outputs.tables.family_gap_heatmap_heading_minus_nominal = string(gap_csv);
 if write_figures
     fig_gap_path = fullfile(paths.figures, 'MB_family_gap_heatmap_heading_minus_nominal.png');
     milestone_common_save_figure(fig_gap, fig_gap_path);
-    supplementary.figures.family_gap_heatmap_heading_minus_nominal = string(fig_gap_path);
+    layer_outputs.figures.family_gap_heatmap_heading_minus_nominal = string(fig_gap_path);
 end
 close(fig_gap);
+end
 
-dense_refinement = stage12I_mb_dense_refinement(cfg, pool, minimum_pack.minimum_design_table, task_summary_table, meta);
-if isfield(dense_refinement, 'summary') && isstruct(dense_refinement.summary) && ...
-        isfield(dense_refinement.summary, 'enabled') && logical(dense_refinement.summary.enabled)
-    dense_req_ip_csv = fullfile(paths.tables, 'MB_dense_requirement_heatmap_iP.csv');
-    milestone_common_save_table(dense_refinement.requirement_surface_iP.surface_table, dense_req_ip_csv);
-    supplementary.tables.dense_requirement_heatmap_iP = string(dense_req_ip_csv);
+function layer_outputs = local_export_fixed_h_layer(cfg, meta, paths, style, pool, minimum_pack, write_figures, layer_outputs)
+fixed_h = stage12J_mb_fixed_h_exploration(cfg, pool, meta);
+layer_outputs.summary.fixed_h_exploration = fixed_h.summary;
+if ~local_getfield_or(fixed_h.summary, 'enabled', false)
+    return;
+end
 
-    dense_gap_csv = fullfile(paths.tables, 'MB_dense_gap_heatmap_heading_minus_nominal.csv');
-    milestone_common_save_table(dense_refinement.gap_surface_heading_minus_nominal.gap_table, dense_gap_csv);
-    supplementary.tables.dense_gap_heatmap_heading_minus_nominal = string(dense_gap_csv);
+for idx = 1:numel(fixed_h.height_runs)
+    run = fixed_h.height_runs(idx);
+    h_label = sprintf('%d', round(run.h_km));
 
-    dense_pass_joint_csv = fullfile(paths.tables, 'MB_dense_passratio_phasecurve_joint.csv');
-    dense_pass_heading_csv = fullfile(paths.tables, 'MB_dense_passratio_phasecurve_heading.csv');
-    milestone_common_save_table(dense_refinement.phasecurve_joint, dense_pass_joint_csv);
-    milestone_common_save_table(dense_refinement.phasecurve_heading, dense_pass_heading_csv);
-    supplementary.tables.dense_passratio_phasecurve_joint = string(dense_pass_joint_csv);
-    supplementary.tables.dense_passratio_phasecurve_heading = string(dense_pass_heading_csv);
+    req_csv = fullfile(paths.tables, sprintf('MB_fixedH_%s_requirement_heatmap_iP.csv', h_label));
+    phase_csv = fullfile(paths.tables, sprintf('MB_fixedH_%s_passratio_phasecurve.csv', h_label));
+    frontier_csv = fullfile(paths.tables, sprintf('MB_fixedH_%s_frontier_vs_i.csv', h_label));
+    milestone_common_save_table(run.requirement_surface_iP.surface_table, req_csv);
+    milestone_common_save_table(run.passratio_phasecurve, phase_csv);
+    milestone_common_save_table(run.frontier_vs_i, frontier_csv);
 
-    if isfield(dense_refinement, 'requirement_surface_hi') && isstruct(dense_refinement.requirement_surface_hi) && ...
-            isfield(dense_refinement.requirement_surface_hi, 'surface_table') && ~isempty(dense_refinement.requirement_surface_hi.surface_table)
-        dense_req_hi_csv = fullfile(paths.tables, 'MB_dense_requirement_heatmap_hi.csv');
-        milestone_common_save_table(dense_refinement.requirement_surface_hi.surface_table, dense_req_hi_csv);
-        supplementary.tables.dense_requirement_heatmap_hi = string(dense_req_hi_csv);
-    end
-
-    dense_summary_md = fullfile(paths.tables, 'MB_dense_refinement_summary.md');
-    local_write_dense_refinement_summary(dense_summary_md, dense_refinement.summary);
-    supplementary.tables.dense_refinement_summary = string(dense_summary_md);
-    supplementary.summary.dense_refinement = dense_refinement.summary;
+    layer_outputs.tables.(matlab.lang.makeValidName(sprintf('fixedH_%s_requirement_heatmap_iP', h_label))) = string(req_csv);
+    layer_outputs.tables.(matlab.lang.makeValidName(sprintf('fixedH_%s_passratio_phasecurve', h_label))) = string(phase_csv);
+    layer_outputs.tables.(matlab.lang.makeValidName(sprintf('fixedH_%s_frontier_vs_i', h_label))) = string(frontier_csv);
 
     if write_figures
-        fig_dense_ip = plot_mb_dense_requirement_heatmap_iP(dense_refinement.requirement_surface_iP, minimum_pack.minimum_design_table, style);
-        fig_dense_ip_path = fullfile(paths.figures, 'MB_dense_requirement_heatmap_iP.png');
-        milestone_common_save_figure(fig_dense_ip, fig_dense_ip_path);
-        close(fig_dense_ip);
-        supplementary.figures.dense_requirement_heatmap_iP = string(fig_dense_ip_path);
+        fig_req = plot_mb_fixed_h_requirement_heatmap_iP(run.requirement_surface_iP, style);
+        req_png = fullfile(paths.figures, sprintf('MB_fixedH_%s_requirement_heatmap_iP.png', h_label));
+        milestone_common_save_figure(fig_req, req_png);
+        close(fig_req);
 
-        [fig_dense_gap, ~] = plot_mb_dense_gap_heatmap_heading_minus_nominal(dense_refinement.gap_surface_heading_minus_nominal, style);
-        fig_dense_gap_path = fullfile(paths.figures, 'MB_dense_gap_heatmap_heading_minus_nominal.png');
-        milestone_common_save_figure(fig_dense_gap, fig_dense_gap_path);
-        close(fig_dense_gap);
-        supplementary.figures.dense_gap_heatmap_heading_minus_nominal = string(fig_dense_gap_path);
+        fig_phase = plot_mb_fixed_h_passratio_phasecurve(run.passratio_phasecurve, run.h_km, style, struct( ...
+            'required_pass_ratio', local_get_required_pass_ratio(cfg)));
+        phase_png = fullfile(paths.figures, sprintf('MB_fixedH_%s_passratio_phasecurve.png', h_label));
+        milestone_common_save_figure(fig_phase, phase_png);
+        close(fig_phase);
 
-        dense_phasecurve_options = local_phasecurve_options(cfg, minimum_pack);
-        fig_dense_joint = plot_mb_dense_passratio_phasecurve(dense_refinement.phasecurve_joint, 'joint', style, dense_phasecurve_options);
-        fig_dense_joint_path = fullfile(paths.figures, 'MB_dense_passratio_phasecurve_joint.png');
-        milestone_common_save_figure(fig_dense_joint, fig_dense_joint_path);
-        close(fig_dense_joint);
-        supplementary.figures.dense_passratio_phasecurve_joint = string(fig_dense_joint_path);
+        fig_frontier = plot_mb_fixed_h_frontier_vs_i(run.frontier_vs_i, run.h_km, style);
+        frontier_png = fullfile(paths.figures, sprintf('MB_fixedH_%s_frontier_vs_i.png', h_label));
+        milestone_common_save_figure(fig_frontier, frontier_png);
+        close(fig_frontier);
 
-        fig_dense_heading = plot_mb_dense_passratio_phasecurve(dense_refinement.phasecurve_heading, 'heading', style, dense_phasecurve_options);
-        fig_dense_heading_path = fullfile(paths.figures, 'MB_dense_passratio_phasecurve_heading.png');
-        milestone_common_save_figure(fig_dense_heading, fig_dense_heading_path);
-        close(fig_dense_heading);
-        supplementary.figures.dense_passratio_phasecurve_heading = string(fig_dense_heading_path);
+        layer_outputs.figures.(matlab.lang.makeValidName(sprintf('fixedH_%s_requirement_heatmap_iP', h_label))) = string(req_png);
+        layer_outputs.figures.(matlab.lang.makeValidName(sprintf('fixedH_%s_passratio_phasecurve', h_label))) = string(phase_png);
+        layer_outputs.figures.(matlab.lang.makeValidName(sprintf('fixedH_%s_frontier_vs_i', h_label))) = string(frontier_png);
+    end
+end
 
-        if isfield(dense_refinement, 'requirement_surface_hi') && isstruct(dense_refinement.requirement_surface_hi) && ...
-                isfield(dense_refinement.requirement_surface_hi, 'surface_table') && ~isempty(dense_refinement.requirement_surface_hi.surface_table)
-            fig_dense_hi = plot_mb_dense_requirement_heatmap_hi(dense_refinement.requirement_surface_hi, minimum_pack.minimum_design_table, style);
-            fig_dense_hi_path = fullfile(paths.figures, 'MB_dense_requirement_heatmap_hi.png');
-            milestone_common_save_figure(fig_dense_hi, fig_dense_hi_path);
-            close(fig_dense_hi);
-            supplementary.figures.dense_requirement_heatmap_hi = string(fig_dense_hi_path);
-        end
+fixed_summary_md = fullfile(paths.tables, 'MB_fixed_h_exploration_summary.md');
+local_write_fixed_h_exploration_summary(fixed_summary_md, fixed_h);
+layer_outputs.tables.fixed_h_exploration_summary = string(fixed_summary_md);
+
+if ~isempty(minimum_pack.minimum_design_table)
+    layer_outputs.summary.fixed_h_exploration.formal_reference_minimum_shell_Ns = minimum_pack.minimum_design_table.Ns(1);
+end
+end
+
+function layer_outputs = local_export_local_zoom_layer(cfg, meta, paths, style, pool, minimum_pack, task_summary_table, write_figures, layer_outputs)
+zoom = stage12I_mb_dense_refinement(cfg, pool, minimum_pack.minimum_design_table, task_summary_table, meta);
+layer_outputs.summary.local_dense_zoom = zoom.summary;
+if ~local_getfield_or(zoom.summary, 'enabled', false)
+    return;
+end
+
+zoom_req_ip_csv = fullfile(paths.tables, 'MB_zoom_requirement_heatmap_iP.csv');
+zoom_gap_csv = fullfile(paths.tables, 'MB_zoom_gap_heatmap_heading_minus_nominal.csv');
+zoom_pass_joint_csv = fullfile(paths.tables, 'MB_zoom_passratio_phasecurve_joint.csv');
+zoom_pass_heading_csv = fullfile(paths.tables, 'MB_zoom_passratio_phasecurve_heading.csv');
+milestone_common_save_table(zoom.requirement_surface_iP.surface_table, zoom_req_ip_csv);
+milestone_common_save_table(zoom.gap_surface_heading_minus_nominal.gap_table, zoom_gap_csv);
+milestone_common_save_table(zoom.phasecurve_joint, zoom_pass_joint_csv);
+milestone_common_save_table(zoom.phasecurve_heading, zoom_pass_heading_csv);
+layer_outputs.tables.zoom_requirement_heatmap_iP = string(zoom_req_ip_csv);
+layer_outputs.tables.zoom_gap_heatmap_heading_minus_nominal = string(zoom_gap_csv);
+layer_outputs.tables.zoom_passratio_phasecurve_joint = string(zoom_pass_joint_csv);
+layer_outputs.tables.zoom_passratio_phasecurve_heading = string(zoom_pass_heading_csv);
+
+if isfield(zoom, 'requirement_surface_hi') && isstruct(zoom.requirement_surface_hi) && ...
+        isfield(zoom.requirement_surface_hi, 'surface_table') && ~isempty(zoom.requirement_surface_hi.surface_table)
+    zoom_req_hi_csv = fullfile(paths.tables, 'MB_zoom_requirement_heatmap_hi.csv');
+    milestone_common_save_table(zoom.requirement_surface_hi.surface_table, zoom_req_hi_csv);
+    layer_outputs.tables.zoom_requirement_heatmap_hi = string(zoom_req_hi_csv);
+end
+
+zoom_summary_md = fullfile(paths.tables, 'MB_local_dense_zoom_summary.md');
+local_write_dense_refinement_summary(zoom_summary_md, zoom.summary);
+layer_outputs.tables.local_dense_zoom_summary = string(zoom_summary_md);
+
+if write_figures
+    fig_zoom_ip = plot_mb_dense_requirement_heatmap_iP(zoom.requirement_surface_iP, minimum_pack.minimum_design_table, style);
+    fig_zoom_ip_path = fullfile(paths.figures, 'MB_zoom_requirement_heatmap_iP.png');
+    milestone_common_save_figure(fig_zoom_ip, fig_zoom_ip_path);
+    close(fig_zoom_ip);
+    layer_outputs.figures.zoom_requirement_heatmap_iP = string(fig_zoom_ip_path);
+
+    [fig_zoom_gap, ~] = plot_mb_dense_gap_heatmap_heading_minus_nominal(zoom.gap_surface_heading_minus_nominal, style);
+    fig_zoom_gap_path = fullfile(paths.figures, 'MB_zoom_gap_heatmap_heading_minus_nominal.png');
+    milestone_common_save_figure(fig_zoom_gap, fig_zoom_gap_path);
+    close(fig_zoom_gap);
+    layer_outputs.figures.zoom_gap_heatmap_heading_minus_nominal = string(fig_zoom_gap_path);
+
+    dense_phasecurve_options = local_phasecurve_options(cfg, minimum_pack);
+    fig_zoom_joint = plot_mb_dense_passratio_phasecurve(zoom.phasecurve_joint, 'joint', style, dense_phasecurve_options);
+    fig_zoom_joint_path = fullfile(paths.figures, 'MB_zoom_passratio_phasecurve_joint.png');
+    milestone_common_save_figure(fig_zoom_joint, fig_zoom_joint_path);
+    close(fig_zoom_joint);
+    layer_outputs.figures.zoom_passratio_phasecurve_joint = string(fig_zoom_joint_path);
+
+    fig_zoom_heading = plot_mb_dense_passratio_phasecurve(zoom.phasecurve_heading, 'heading', style, dense_phasecurve_options);
+    fig_zoom_heading_path = fullfile(paths.figures, 'MB_zoom_passratio_phasecurve_heading.png');
+    milestone_common_save_figure(fig_zoom_heading, fig_zoom_heading_path);
+    close(fig_zoom_heading);
+    layer_outputs.figures.zoom_passratio_phasecurve_heading = string(fig_zoom_heading_path);
+
+    if isfield(zoom, 'requirement_surface_hi') && isstruct(zoom.requirement_surface_hi) && ...
+            isfield(zoom.requirement_surface_hi, 'surface_table') && ~isempty(zoom.requirement_surface_hi.surface_table)
+        fig_zoom_hi = plot_mb_dense_requirement_heatmap_hi(zoom.requirement_surface_hi, minimum_pack.minimum_design_table, style);
+        fig_zoom_hi_path = fullfile(paths.figures, 'MB_zoom_requirement_heatmap_hi.png');
+        milestone_common_save_figure(fig_zoom_hi, fig_zoom_hi_path);
+        close(fig_zoom_hi);
+        layer_outputs.figures.zoom_requirement_heatmap_hi = string(fig_zoom_hi_path);
     end
 end
 end
@@ -475,6 +541,17 @@ for k = 1:height(task_summary_table)
 end
 end
 
+function out = local_family_gap_map(task_summary_table, formal_minimum_Ns)
+out = struct();
+if isempty(task_summary_table) || ~isfinite(formal_minimum_Ns) || ~ismember('Ns_min_feasible', task_summary_table.Properties.VariableNames)
+    return;
+end
+for k = 1:height(task_summary_table)
+    key = matlab.lang.makeValidName(char(string(task_summary_table.family_name(k))));
+    out.(key) = task_summary_table.Ns_min_feasible(k) - formal_minimum_Ns;
+end
+end
+
 function txt = local_struct_to_string(S)
 if isempty(S) || ~isstruct(S)
     txt = "";
@@ -557,6 +634,106 @@ end
 tf = ratio_span < 0.05 && min_ns_span <= 2;
 end
 
+function paths = local_mb_output_paths(cfg, milestone_id, milestone_title)
+if nargin < 1 || isempty(cfg)
+    cfg = milestone_common_defaults();
+end
+
+root_dir = cfg.paths.root;
+output_root = fullfile(root_dir, 'outputs', 'milestones');
+paths = struct();
+paths.root = output_root;
+paths.milestone_root = fullfile(output_root, milestone_id);
+paths.figures = fullfile(paths.milestone_root, 'figures');
+paths.tables = fullfile(paths.milestone_root, 'tables');
+paths.debug = fullfile(paths.milestone_root, 'debug');
+paths.summary_report = fullfile(paths.tables, sprintf('%s_summary.md', milestone_id));
+paths.summary_mat = fullfile(paths.tables, sprintf('%s_%s_summary.mat', milestone_id, milestone_title));
+
+ensure_dir(cfg.paths.outputs);
+ensure_dir(paths.root);
+ensure_dir(paths.milestone_root);
+ensure_dir(paths.figures);
+ensure_dir(paths.tables);
+ensure_dir(paths.debug);
+end
+
+function value = local_get_required_pass_ratio(cfg)
+value = NaN;
+if isfield(cfg, 'stage09') && isfield(cfg.stage09, 'require_pass_ratio')
+    value = cfg.stage09.require_pass_ratio;
+end
+end
+
+function formal = local_build_formal_layer_summary(minimum_pack, task_summary_table, formal_layer)
+formal = struct();
+formal.minimum_shell_Ns = local_first_value(minimum_pack.minimum_design_table, 'Ns');
+formal.minimum_shell_count = height(minimum_pack.minimum_design_table);
+formal.near_optimal_region_size = height(minimum_pack.near_optimal_table);
+formal.family_feasible_ratio = local_task_metric_map(task_summary_table, 'feasible_ratio');
+formal.family_minimum = local_task_metric_map(task_summary_table, 'Ns_min_feasible');
+formal.family_gap = local_family_gap_map(task_summary_table, formal.minimum_shell_Ns);
+formal.near_optimal_shell_check = local_getfield_or(formal_layer, 'near_optimal_shell_check', struct());
+end
+
+function local_write_fixed_h_exploration_summary(file_path, fixed_h)
+fid = fopen(file_path, 'w');
+if fid < 0
+    error('Failed to open fixed-h exploration summary for writing: %s', file_path);
+end
+cleanup_obj = onCleanup(@() fclose(fid)); %#ok<NASGU>
+
+fprintf(fid, '# MB Fixed-h Exploratory Summary\n\n');
+fprintf(fid, '%s\n\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'interpretation_note', "")));
+fprintf(fid, '- `enabled`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'enabled', false)));
+fprintf(fid, '- `family_name`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'family_name', "")));
+fprintf(fid, '- `h_fixed_list`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'h_fixed_list', [])));
+fprintf(fid, '- `i_grid_deg`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'i_grid_deg', [])));
+fprintf(fid, '- `P_grid`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'P_grid', [])));
+fprintf(fid, '- `T_grid`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'T_grid', [])));
+fprintf(fid, '- `F_fixed`: %s\n', local_stringify_summary_value(local_getfield_or(fixed_h.summary, 'F_fixed', NaN)));
+fprintf(fid, '\n## Height Runs\n\n');
+for idx = 1:numel(fixed_h.height_runs)
+    run = fixed_h.height_runs(idx);
+    fprintf(fid, '### h = %.0f km\n\n', run.h_km);
+    fprintf(fid, '- `design_count`: %s\n', local_stringify_summary_value(local_getfield_or(run.summary, 'design_count', 0)));
+    fprintf(fid, '- `feasible_count`: %s\n', local_stringify_summary_value(local_getfield_or(run.summary, 'feasible_count', 0)));
+    fprintf(fid, '- `minimum_feasible_Ns`: %s\n', local_stringify_summary_value(local_getfield_or(run.summary, 'minimum_feasible_Ns', NaN)));
+    fprintf(fid, '- `eval_s`: %s\n\n', local_stringify_summary_value(local_getfield_or(run.summary, 'eval_s', NaN)));
+end
+end
+
+function local_write_mb_layered_summary(file_path, result, layer_outputs)
+fid = fopen(file_path, 'w');
+if fid < 0
+    error('Failed to open MB summary for writing: %s', file_path);
+end
+cleanup_obj = onCleanup(@() fclose(fid)); %#ok<NASGU>
+
+fprintf(fid, '# MB Summary\n\n');
+fprintf(fid, '## Formal MB\n\n');
+fprintf(fid, '- Formal MB remains the only layer that defines the thesis-facing full MB minimum shell, family ratios, family gaps, and near-optimal shell conclusions.\n');
+fprintf(fid, '- `formal_minimum_shell_Ns`: %s\n', local_stringify_summary_value(local_getfield_or(result.summary.formal_layer, 'minimum_shell_Ns', NaN)));
+fprintf(fid, '- `formal_family_feasible_ratio`: %s\n', local_stringify_summary_value(local_getfield_or(result.summary.formal_layer, 'family_feasible_ratio', struct())));
+fprintf(fid, '- `formal_family_minimum`: %s\n', local_stringify_summary_value(local_getfield_or(result.summary.formal_layer, 'family_minimum', struct())));
+fprintf(fid, '- `formal_family_gap`: %s\n', local_stringify_summary_value(local_getfield_or(result.summary.formal_layer, 'family_gap', struct())));
+fprintf(fid, '- `near_optimal_shell_check`: %s\n\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.formal, 'near_optimal_shell_check', struct())));
+
+fprintf(fid, '## Fixed-h Exploratory MB\n\n');
+fprintf(fid, '%s\n\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.fixed_h_exploration, 'interpretation_note', "")));
+fprintf(fid, '- This layer reuses Stage05-style coarse scans at fixed height to explain threshold and phase-transition behavior from an engineering-design perspective.\n');
+fprintf(fid, '- `h_fixed_list`: %s\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.fixed_h_exploration, 'h_fixed_list', [])));
+fprintf(fid, '- `family_name`: %s\n\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.fixed_h_exploration, 'family_name', "")));
+
+fprintf(fid, '## Local Dense Zoom\n\n');
+fprintf(fid, '- Local Dense Zoom is a shell-neighborhood observation layer. It can reveal finer-grained feasible candidates inside the zoomed local domain, but it does not replace the formal full-MB minimum-shell definition.\n');
+fprintf(fid, '- `formal_minimum_shell_Ns`: %s\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.local_dense_zoom, 'formal_minimum_shell_Ns', NaN)));
+fprintf(fid, '- `zoom_candidate_minimum_Ns_joint`: %s\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.local_dense_zoom, 'zoom_candidate_minimum_Ns_joint', NaN)));
+fprintf(fid, '- `zoom_requirement_h_km`: %s\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.local_dense_zoom, 'zoom_requirement_h_km', [])));
+fprintf(fid, '- `zoom_requirement_i_deg`: %s\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.local_dense_zoom, 'zoom_requirement_i_deg', [])));
+fprintf(fid, '\n%s\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.local_dense_zoom, 'note', "")));
+end
+
 function local_write_dense_refinement_summary(file_path, summary)
 fid = fopen(file_path, 'w');
 if fid < 0
@@ -564,21 +741,23 @@ if fid < 0
 end
 cleanup_obj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 
-fprintf(fid, '# MB Dense Refinement Summary\n\n');
+fprintf(fid, '# MB Local Dense Zoom Summary\n\n');
+fprintf(fid, 'These figures come from a local shell-neighborhood zoom rather than a new formal global MB scan.\n\n');
 fprintf(fid, '- `enabled`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'enabled', false)));
-fprintf(fid, '- `minimum_shell_Ns`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'minimum_shell_Ns', NaN)));
+fprintf(fid, '- `formal_minimum_shell_Ns`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'formal_minimum_shell_Ns', NaN)));
+fprintf(fid, '- `zoom_candidate_minimum_Ns_joint`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'zoom_candidate_minimum_Ns_joint', NaN)));
 fprintf(fid, '- `baseline_F`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'baseline_F', NaN)));
 fprintf(fid, '- `requirement_design_count`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'requirement_design_count', 0)));
 fprintf(fid, '- `phasecurve_design_count`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'phasecurve_design_count', 0)));
 fprintf(fid, '- `requirement_eval_s`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'requirement_eval_s', NaN)));
 fprintf(fid, '- `phasecurve_eval_s`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'phasecurve_eval_s', NaN)));
-fprintf(fid, '- `dense_requirement_i_deg`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_requirement_i_deg', [])));
-fprintf(fid, '- `dense_requirement_P`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_requirement_P', [])));
-fprintf(fid, '- `dense_requirement_h_km`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_requirement_h_km', [])));
-fprintf(fid, '- `dense_requirement_T`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_requirement_T', [])));
-fprintf(fid, '- `dense_phasecurve_i_deg`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_phasecurve_i_deg', [])));
-fprintf(fid, '- `dense_phasecurve_P`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_phasecurve_P', [])));
-fprintf(fid, '- `dense_phasecurve_T`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_phasecurve_T', [])));
+fprintf(fid, '- `zoom_requirement_i_deg`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'zoom_requirement_i_deg', [])));
+fprintf(fid, '- `zoom_requirement_P`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'zoom_requirement_P', [])));
+fprintf(fid, '- `zoom_requirement_h_km`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'zoom_requirement_h_km', [])));
+fprintf(fid, '- `zoom_requirement_T`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'zoom_requirement_T', [])));
+fprintf(fid, '- `zoom_phasecurve_i_deg`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'zoom_phasecurve_i_deg', [])));
+fprintf(fid, '- `zoom_phasecurve_P`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'zoom_phasecurve_P', [])));
+fprintf(fid, '- `zoom_phasecurve_T`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'zoom_phasecurve_T', [])));
 fprintf(fid, '\n%s\n', local_stringify_summary_value(local_getfield_or(summary, 'note', "")));
 end
 

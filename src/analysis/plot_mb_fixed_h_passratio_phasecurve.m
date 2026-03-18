@@ -1,9 +1,6 @@
-function fig = plot_mb_dense_passratio_phasecurve(phasecurve_table, family_name, style, options)
-%PLOT_MB_DENSE_PASSRATIO_PHASECURVE Plot local zoom pass-ratio envelopes versus constellation size.
+function fig = plot_mb_fixed_h_passratio_phasecurve(phasecurve_table, h_km, style, options)
+%PLOT_MB_FIXED_H_PASSRATIO_PHASECURVE Plot fixed-height pass-ratio profiles versus N_s.
 
-if nargin < 2 || isempty(family_name)
-    family_name = "joint";
-end
 if nargin < 3 || isempty(style)
     style = milestone_common_plot_style();
 end
@@ -30,12 +27,6 @@ else
     end
 end
 
-if isfield(options, 'minimum_shell_Ns') && isfinite(options.minimum_shell_Ns)
-    xline(ax, options.minimum_shell_Ns, '--', ...
-        'Color', style.threshold_color, ...
-        'LineWidth', style.threshold_line_width, ...
-        'DisplayName', sprintf('Joint minimum shell N_s = %d', round(options.minimum_shell_Ns)));
-end
 if isfield(options, 'required_pass_ratio') && isfinite(options.required_pass_ratio)
     yline(ax, options.required_pass_ratio, ':', ...
         'Color', style.colors(2, :), ...
@@ -44,8 +35,8 @@ if isfield(options, 'required_pass_ratio') && isfinite(options.required_pass_rat
 end
 
 xlabel(ax, 'N_s');
-ylabel(ax, 'Max pass ratio');
-title(ax, sprintf('Local Zoom Pass-Ratio Phase Curve (%s)', upper(char(string(family_name)))));
+ylabel(ax, 'Max pass ratio under fixed i');
+title(ax, sprintf('Pass-Ratio Profile versus N_s at h = %.0f km', h_km));
 ylim(ax, [0, 1.05]);
 grid(ax, 'on');
 legend(ax, 'Location', 'best', 'Box', style.legend_box);
