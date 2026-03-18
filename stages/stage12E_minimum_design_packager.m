@@ -25,12 +25,13 @@ else
     minimum_design_table = sortrows(minimum_design_table, {'joint_margin', 'h_km', 'i_deg', 'P', 'T'}, ...
         {'descend', 'ascend', 'ascend', 'ascend', 'ascend'});
     minimum_design_table.objective_value = minimum_design_table.Ns;
-    minimum_design_table.dominant_constraint = repmat(string(local_pick_top_fail(fail_partition_table)), height(minimum_design_table), 1);
+    minimum_design_table.dominant_constraint = local_pick_active_constraints(minimum_design_table);
     minimum_design_table.has_near_optimal_alternatives = repmat(height(minimum_design_table) > 1, height(minimum_design_table), 1);
     minimum_design = table2struct(minimum_design_table(1, :));
 
     near_optimal_mask = feasible_theta_table.Ns <= (boundary_struct.N_min_rob + 2);
     near_optimal_table = feasible_theta_table(near_optimal_mask, :);
+    near_optimal_table.active_constraint = local_pick_active_constraints(near_optimal_table);
 end
 
 out = struct();
@@ -150,10 +151,10 @@ for k = 1:height(fail_partition_table)
 end
 end
 
-function tag = local_pick_top_fail(fail_partition_table)
-tag = "OK";
-if ~isempty(fail_partition_table)
-    tag = string(fail_partition_table.dominant_fail_tag(1));
+function tags = local_pick_active_constraints(T)
+tags = repmat("unknown", height(T), 1);
+for k = 1:height(T)
+    tags(k) = local_pick_active_constraint_for_design(T(k, :));
 end
 end
 
@@ -162,4 +163,28 @@ value = NaN;
 if ~isempty(minimum_design_table) && ismember('Ns', minimum_design_table.Properties.VariableNames)
     value = minimum_design_table.Ns(1);
 end
+end
+
+function tag = local_pick_active_constraint_for_design(Trow)
+metric_names = {'DG_worst', 'DA_worst', 'DT_worst'};
+fallback_names = {'DG_rob', 'DA_rob', 'DT_rob'};
+labels = ["G", "A", "T"];
+values = nan(1, 3);
+
+for idx = 1:numel(metric_names)
+    if ismember(metric_names{idx}, Trow.Properties.VariableNames)
+        values(idx) = Trow.(metric_names{idx})(1);
+    elseif ismember(fallback_names{idx}, Trow.Properties.VariableNames)
+        values(idx) = Trow.(fallback_names{idx})(1);
+    end
+end
+
+if all(~isfinite(values))
+    tag = "unknown";
+    return;
+end
+
+values(~isfinite(values)) = inf;
+[~, best_idx] = min(values);
+tag = labels(best_idx);
 end
