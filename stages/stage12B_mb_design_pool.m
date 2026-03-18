@@ -25,7 +25,7 @@ slice_cfg = meta.slice_settings;
 
 hi_design_table = local_build_hi_design_table(theta, slice_cfg);
 pt_design_table = local_build_pt_design_table(theta, slice_cfg);
-local_block_table = local_build_minimum_neighborhood_table(theta, slice_cfg);
+local_block_table = local_build_minimum_neighborhood_table(theta, slice_cfg, meta);
 design_pool_table = unique_design_rows(vertcat(hi_design_table, pt_design_table, local_block_table));
 
 joint_eval = evaluate_design_pool_with_stage09(cfg, design_pool_table, 'joint', local_eval_overrides(meta, slice_cfg));
@@ -55,6 +55,7 @@ pool.family_eval = struct('joint', joint_eval, 'nominal', nominal_eval, 'heading
 pool.summary = struct( ...
     'num_unique_grid_points', height(design_pool_table), ...
     'num_unique_feasible_points', height(joint_eval.feasible_theta_table), ...
+    'fast_mode', isfield(meta, 'fast_mode') && logical(meta.fast_mode), ...
     'slice_anchor_hi', pool.slice_anchor_hi, ...
     'slice_anchor_pt', pool.slice_anchor_pt, ...
     'casebank_size_joint', joint_eval.summary.casebank_size, ...
@@ -87,11 +88,24 @@ overrides.heading_subset_max = slice_cfg.heading_subset_max;
 overrides.save_case_window_bank = false;
 if isfield(meta, 'fast_mode')
     overrides.fast_mode = logical(meta.fast_mode);
+    if overrides.fast_mode && isfield(meta, 'fast_heading_subset_max') && ~isempty(meta.fast_heading_subset_max)
+        overrides.heading_subset_max = meta.fast_heading_subset_max;
+    end
 end
 end
 
-function T = local_build_minimum_neighborhood_table(theta, ~)
-[H, I, P, TT] = ndgrid([800, 900, 1000], [50, 60, 70], [6, 8, 10], [6, 8, 10]);
+function T = local_build_minimum_neighborhood_table(theta, ~, meta)
+h_grid = [800, 900, 1000];
+i_grid = [50, 60, 70];
+P_grid = [6, 8, 10];
+T_grid = [6, 8, 10];
+if isfield(meta, 'fast_mode') && logical(meta.fast_mode) && isfield(meta, 'fast_local_block') && logical(meta.fast_local_block)
+    h_grid = meta.fast_local_block_h_km;
+    i_grid = meta.fast_local_block_i_deg;
+    P_grid = meta.fast_local_block_P;
+    T_grid = meta.fast_local_block_T;
+end
+[H, I, P, TT] = ndgrid(h_grid, i_grid, P_grid, T_grid);
 n = numel(H);
 T = table(H(:), I(:), P(:), TT(:), repmat(theta.F, n, 1), P(:) .* TT(:), repmat("local_block", n, 1), ...
     'VariableNames', {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns', 'slice_source'});
