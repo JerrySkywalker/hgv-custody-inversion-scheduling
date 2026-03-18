@@ -11,6 +11,7 @@ end
 
 meta = cfg.milestones.MB;
 paths = milestone_common_output_paths(cfg, meta.milestone_id, meta.title);
+export_paths = local_mb_export_paths(paths);
 style = milestone_common_plot_style();
 write_figures = cfg.milestones.save_figures && ~(isfield(meta, 'preflight_mode') && logical(meta.preflight_mode));
 write_supplementary = local_write_supplementary(meta);
@@ -60,6 +61,7 @@ if write_figures
     fig1 = plot_mb_feasible_domain_map(slice_hi.view_table, slice_pt.view_table, minimum_design_table, style);
     fig1_path = fullfile(paths.figures, 'MB_inverse_slices_feasible_domain_map.png');
     milestone_common_save_figure(fig1, fig1_path);
+    milestone_common_save_figure(fig1, fullfile(export_paths.supplementary.figures, 'MB_feasible_domain_map.png'));
     close(fig1);
 
     fig2 = plot_mb_minimum_design_map(minimum_pack.feasible_theta_table, minimum_design_table, near_optimal_table, style, pool.baseline_theta);
@@ -67,11 +69,13 @@ if write_figures
     fig2_legacy_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_boundary_map.png');
     milestone_common_save_figure(fig2, fig2_path);
     milestone_common_save_figure(fig2, fig2_legacy_path);
+    milestone_common_save_figure(fig2, fullfile(export_paths.core.figures, 'MB_minimum_design_and_near_optimal_region.png'));
     close(fig2);
 
     fig3 = plot_mb_task_family_comparison(task_summary_table, style);
     fig3_path = fullfile(paths.figures, 'MB_inverse_slices_task_family_slice_comparison.png');
     milestone_common_save_figure(fig3, fig3_path);
+    milestone_common_save_figure(fig3, fullfile(export_paths.supplementary.figures, 'MB_task_family_slice_comparison.png'));
     close(fig3);
 end
 
@@ -105,6 +109,9 @@ if isfield(meta, 'preflight_mode') && logical(meta.preflight_mode)
 end
 result.artifacts.timing_note = local_timing_note(pool.summary.timing, pool.summary.joint_eval_timing);
 result.artifacts.supplementary_enabled = write_supplementary;
+result.artifacts.thesis_core_dir = string(export_paths.core.root);
+result.artifacts.supplementary_dir = string(export_paths.supplementary.root);
+result.artifacts.debug_dir = string(export_paths.debug.root);
 if isfield(supplementary.summary, 'near_optimal_shell_check')
     result.artifacts.near_optimal_shell_conclusion = supplementary.summary.near_optimal_shell_check.conclusion;
 end
@@ -192,6 +199,31 @@ end
 function tf = local_write_supplementary(meta)
 tf = isfield(meta, 'export_supplementary_figures') && logical(meta.export_supplementary_figures) && ...
     ~(isfield(meta, 'preflight_mode') && logical(meta.preflight_mode));
+end
+
+function export_paths = local_mb_export_paths(paths)
+export_paths = struct();
+export_paths.core = struct();
+export_paths.supplementary = struct();
+export_paths.debug = struct();
+
+export_paths.core.root = fullfile(paths.milestone_root, 'core');
+export_paths.core.figures = fullfile(export_paths.core.root, 'figures');
+export_paths.core.tables = fullfile(export_paths.core.root, 'tables');
+export_paths.supplementary.root = fullfile(paths.milestone_root, 'supplementary');
+export_paths.supplementary.figures = fullfile(export_paths.supplementary.root, 'figures');
+export_paths.supplementary.tables = fullfile(export_paths.supplementary.root, 'tables');
+export_paths.debug.root = fullfile(paths.milestone_root, 'debug');
+export_paths.debug.figures = fullfile(export_paths.debug.root, 'figures');
+export_paths.debug.tables = fullfile(export_paths.debug.root, 'tables');
+
+dirs = { ...
+    export_paths.core.root, export_paths.core.figures, export_paths.core.tables, ...
+    export_paths.supplementary.root, export_paths.supplementary.figures, export_paths.supplementary.tables, ...
+    export_paths.debug.root, export_paths.debug.figures, export_paths.debug.tables};
+for idx = 1:numel(dirs)
+    ensure_dir(dirs{idx});
+end
 end
 
 function supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, write_figures, write_supplementary)
