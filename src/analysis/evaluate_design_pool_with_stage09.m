@@ -105,9 +105,9 @@ t_design_eval_s = toc(t_design_eval);
 result_bank = vertcat(result_cell{:});
 
 S = summarize_stage09_grid(result_bank, cfg_stage);
-full_theta_table = local_normalize_theta_table(S.full_theta_table);
-feasible_theta_table = local_normalize_theta_table(S.feasible_theta_table);
-infeasible_theta_table = local_normalize_theta_table(S.infeasible_theta_table);
+full_theta_table = local_attach_design_pool_metadata(local_normalize_theta_table(S.full_theta_table), design_pool_table);
+feasible_theta_table = local_attach_design_pool_metadata(local_normalize_theta_table(S.feasible_theta_table), design_pool_table);
+infeasible_theta_table = local_attach_design_pool_metadata(local_normalize_theta_table(S.infeasible_theta_table), design_pool_table);
 
 out = struct();
 out.cfg = cfg_stage;
@@ -201,6 +201,31 @@ if b == 0
     value = 0;
 else
     value = a / b;
+end
+end
+
+function T = local_attach_design_pool_metadata(T, design_pool_table)
+if isempty(T) || isempty(design_pool_table)
+    return;
+end
+
+meta_vars = intersect({'slice_source', 'support_sources', 'num_support_sources'}, design_pool_table.Properties.VariableNames, 'stable');
+if isempty(meta_vars)
+    return;
+end
+
+keys = {'h_km', 'i_deg', 'P', 'T', 'F'};
+[tf, loc] = ismember(T(:, keys), design_pool_table(:, keys), 'rows');
+for idx = 1:numel(meta_vars)
+    if isstring(design_pool_table.(meta_vars{idx}))
+        values = strings(height(T), 1);
+    elseif isnumeric(design_pool_table.(meta_vars{idx}))
+        values = nan(height(T), 1);
+    else
+        values = repmat(missing, height(T), 1);
+    end
+    values(tf) = design_pool_table.(meta_vars{idx})(loc(tf));
+    T.(meta_vars{idx}) = values;
 end
 end
 

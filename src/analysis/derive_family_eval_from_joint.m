@@ -27,9 +27,9 @@ end
 result_bank = vertcat(result_cell{:});
 
 S = summarize_stage09_grid(result_bank, joint_cfg);
-full_theta_table = local_normalize_theta_table(S.full_theta_table);
-feasible_theta_table = local_normalize_theta_table(S.feasible_theta_table);
-infeasible_theta_table = local_normalize_theta_table(S.infeasible_theta_table);
+full_theta_table = local_attach_design_pool_metadata(local_normalize_theta_table(S.full_theta_table), joint_eval.design_pool_table);
+feasible_theta_table = local_attach_design_pool_metadata(local_normalize_theta_table(S.feasible_theta_table), joint_eval.design_pool_table);
+infeasible_theta_table = local_attach_design_pool_metadata(local_normalize_theta_table(S.infeasible_theta_table), joint_eval.design_pool_table);
 
 casebank = local_filter_casebank(joint_eval.casebank, family_name);
 
@@ -142,4 +142,29 @@ summary.best_joint_margin = best_joint_margin;
 summary.casebank_size = numel(trajs_in);
 summary.config_signature = sprintf('family=%s|derived_from_joint=true|heading_subset_max=%g', ...
     char(family_name), cfg_stage.stage09.casebank_heading_subset_max);
+end
+
+function T = local_attach_design_pool_metadata(T, design_pool_table)
+if isempty(T) || isempty(design_pool_table)
+    return;
+end
+
+meta_vars = intersect({'slice_source', 'support_sources', 'num_support_sources'}, design_pool_table.Properties.VariableNames, 'stable');
+if isempty(meta_vars)
+    return;
+end
+
+keys = {'h_km', 'i_deg', 'P', 'T', 'F'};
+[tf, loc] = ismember(T(:, keys), design_pool_table(:, keys), 'rows');
+for idx = 1:numel(meta_vars)
+    if isstring(design_pool_table.(meta_vars{idx}))
+        values = strings(height(T), 1);
+    elseif isnumeric(design_pool_table.(meta_vars{idx}))
+        values = nan(height(T), 1);
+    else
+        values = repmat(missing, height(T), 1);
+    end
+    values(tf) = design_pool_table.(meta_vars{idx})(loc(tf));
+    T.(meta_vars{idx}) = values;
+end
 end
