@@ -21,7 +21,8 @@ cfg_stage.stage09.scheme_type = 'custom';
 cfg_stage.stage09.write_csv = false;
 cfg_stage.stage09.save_cache_file = false;
 cfg_stage.stage09.disable_progress = true;
-cfg_stage.stage09.use_parallel = false;
+cfg_stage.stage09.use_parallel = true;
+cfg_stage.stage09.save_case_window_bank = false;
 cfg_stage.stage09.casebank_mode = 'custom';
 cfg_stage.stage09.casebank_include_nominal = false;
 cfg_stage.stage09.casebank_include_heading = false;
@@ -33,6 +34,12 @@ if isfield(overrides, 'heading_subset_max') && ~isempty(overrides.heading_subset
 end
 cfg_stage.stage09.casebank_heading_subset_max = heading_subset_max;
 cfg_stage.stage09.run_tag = sprintf('stage09_pool_%s', char(string(family_mode)));
+if isfield(overrides, 'use_parallel') && ~isempty(overrides.use_parallel)
+    cfg_stage.stage09.use_parallel = logical(overrides.use_parallel);
+end
+if isfield(overrides, 'save_case_window_bank') && ~isempty(overrides.save_case_window_bank)
+    cfg_stage.stage09.save_case_window_bank = logical(overrides.save_case_window_bank);
+end
 
 switch lower(char(string(family_mode)))
     case 'joint'
@@ -75,12 +82,18 @@ eval_ctx = build_stage09_eval_context(trajs_in, cfg_stage, gamma_eff_scalar);
 row_bank = table2struct(design_pool_table(:, {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns'}));
 
 n_theta = numel(row_bank);
-first_result = evaluate_single_layer_walker_stage09(row_bank(1), trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx);
-result_bank = repmat(first_result, n_theta, 1);
-result_bank(1) = first_result;
-for idx = 2:n_theta
-    result_bank(idx) = evaluate_single_layer_walker_stage09(row_bank(idx), trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx);
+result_cell = cell(n_theta, 1);
+use_parallel = local_enable_parallel(cfg_stage);
+if use_parallel
+    parfor idx = 1:n_theta
+        result_cell{idx} = evaluate_single_layer_walker_stage09(row_bank(idx), trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx);
+    end
+else
+    for idx = 1:n_theta
+        result_cell{idx} = evaluate_single_layer_walker_stage09(row_bank(idx), trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx);
+    end
 end
+result_bank = vertcat(result_cell{:});
 
 S = summarize_stage09_grid(result_bank, cfg_stage);
 full_theta_table = local_normalize_theta_table(S.full_theta_table);
@@ -165,4 +178,26 @@ signature = sprintf('family=%s|heading_subset_max=%g|pool_size=%s', ...
     char(family_name), ...
     cfg_stage.stage09.casebank_heading_subset_max, ...
     char(string(cfg_stage.stage09.casebank_mode)));
+end
+
+function use_parallel = local_enable_parallel(cfg_stage)
+use_parallel = false;
+if ~isfield(cfg_stage.stage09, 'use_parallel') || ~cfg_stage.stage09.use_parallel
+    return;
+end
+
+requested_profile = string(cfg_stage.stage09.parallel_pool_profile);
+if requested_profile == ""
+    requested_profile = "threads";
+end
+
+try
+    pool = gcp('nocreate');
+    if isempty(pool)
+        pool = ensure_parallel_pool(char(requested_profile), cfg_stage.stage09.parallel_num_workers);
+    end
+    use_parallel = ~isempty(pool);
+catch
+    use_parallel = false;
+end
 end
