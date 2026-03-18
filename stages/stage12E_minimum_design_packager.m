@@ -14,7 +14,7 @@ if nargin < 3 || isempty(overrides)
 end
 
 cfg = milestone_common_defaults(cfg);
-[full_theta_table, feasible_theta_table, fail_partition_table, pool, results] = local_collect_inputs(inputs, cfg, overrides);
+[full_theta_table, feasible_theta_table, fail_partition_table, full_group_info, feasible_group_info, pool, results] = local_collect_inputs(inputs, cfg, overrides);
 boundary_struct = extract_stage09_minimum_boundary(feasible_theta_table);
 
 minimum_design_table = boundary_struct.theta_min_table;
@@ -46,6 +46,8 @@ out.dominant_constraint_distribution = local_fail_distribution(fail_partition_ta
 out.full_theta_table = full_theta_table;
 out.feasible_theta_table = feasible_theta_table;
 out.fail_partition_table = fail_partition_table;
+out.full_group_info = full_group_info;
+out.feasible_group_info = feasible_group_info;
 out.pool = pool;
 out.summary = struct( ...
     'num_unique_grid_points', height(full_theta_table), ...
@@ -56,13 +58,13 @@ out.summary = struct( ...
 out.files = struct();
 end
 
-function [full_theta_table, feasible_theta_table, fail_partition_table, pool, results] = local_collect_inputs(inputs, ~, ~)
+function [full_theta_table, feasible_theta_table, fail_partition_table, full_group_info, feasible_group_info, pool, results] = local_collect_inputs(inputs, ~, ~)
 pool = struct();
 if isstruct(inputs) && isfield(inputs, 'design_pool_table') && isfield(inputs, 'feasible_theta_table_joint')
     pool = inputs;
     results = {struct('full_theta_table', inputs.full_theta_table_joint, 'feasible_theta_table', inputs.feasible_theta_table_joint)};
-    full_theta_table = unique_design_rows(inputs.full_theta_table_joint);
-    feasible_theta_table = unique_design_rows(inputs.feasible_theta_table_joint);
+    [full_theta_table, full_group_info] = unique_design_rows(inputs.full_theta_table_joint);
+    [feasible_theta_table, feasible_group_info] = unique_design_rows(inputs.feasible_theta_table_joint);
     fail_partition_table = local_build_fail_partition(full_theta_table);
     return;
 end
@@ -102,13 +104,15 @@ end
 
 full_theta_table = table();
 feasible_theta_table = table();
+full_group_info = table();
+feasible_group_info = table();
 if ~isempty(full_rows)
     full_theta_table = vertcat(full_rows{:});
-    full_theta_table = unique_design_rows(full_theta_table);
+    [full_theta_table, full_group_info] = unique_design_rows(full_theta_table);
 end
 if ~isempty(feasible_rows)
     feasible_theta_table = vertcat(feasible_rows{:});
-    feasible_theta_table = unique_design_rows(feasible_theta_table);
+    [feasible_theta_table, feasible_group_info] = unique_design_rows(feasible_theta_table);
 end
 fail_partition_table = local_build_fail_partition(full_theta_table);
 end

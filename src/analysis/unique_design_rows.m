@@ -50,6 +50,7 @@ end
 
 group_info = tbl_unique(:, key_vars);
 group_info.group_rows = group_rows;
+group_info.group_size = cellfun(@numel, group_rows);
 group_info.support_sources = support_sources;
 group_info.num_support_sources = num_support_sources;
 end
