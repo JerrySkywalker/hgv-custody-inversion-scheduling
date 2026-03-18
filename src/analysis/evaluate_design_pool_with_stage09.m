@@ -79,14 +79,19 @@ if isempty(design_pool_table)
 end
 
 design_pool_table = local_prepare_design_pool_table(design_pool_table);
+t_casebank = tic;
 trajs_in = build_stage09_casebank(cfg_stage);
+t_casebank_s = toc(t_casebank);
 gamma_eff_scalar = 1.0;
+t_eval_ctx = tic;
 eval_ctx = build_stage09_eval_context(trajs_in, cfg_stage, gamma_eff_scalar);
+t_eval_ctx_s = toc(t_eval_ctx);
 row_bank = table2struct(design_pool_table(:, {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns'}));
 
 n_theta = numel(row_bank);
 result_cell = cell(n_theta, 1);
 use_parallel = local_enable_parallel(cfg_stage);
+t_design_eval = tic;
 if use_parallel
     parfor idx = 1:n_theta
         result_cell{idx} = evaluate_single_layer_walker_stage09(row_bank(idx), trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx);
@@ -96,6 +101,7 @@ else
         result_cell{idx} = evaluate_single_layer_walker_stage09(row_bank(idx), trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx);
     end
 end
+t_design_eval_s = toc(t_design_eval);
 result_bank = vertcat(result_cell{:});
 
 S = summarize_stage09_grid(result_bank, cfg_stage);
@@ -113,6 +119,13 @@ out.infeasible_theta_table = infeasible_theta_table;
 out.fail_partition_table = S.fail_partition_table;
 out.summary_table = S.summary_table;
 out.summary = local_build_summary(string(family_mode), full_theta_table, feasible_theta_table, trajs_in, cfg_stage);
+out.timing = struct( ...
+    'casebank_build_s', t_casebank_s, ...
+    'eval_context_build_s', t_eval_ctx_s, ...
+    'design_eval_total_s', t_design_eval_s, ...
+    'design_eval_mean_s', local_safe_divide(t_design_eval_s, n_theta), ...
+    'use_parallel', use_parallel);
+out.summary.timing = out.timing;
 out.casebank = trajs_in;
 out.result_bank = result_bank;
 end
@@ -181,6 +194,14 @@ signature = sprintf('family=%s|heading_subset_max=%g|pool_size=%s', ...
     char(family_name), ...
     cfg_stage.stage09.casebank_heading_subset_max, ...
     char(string(cfg_stage.stage09.casebank_mode)));
+end
+
+function value = local_safe_divide(a, b)
+if b == 0
+    value = 0;
+else
+    value = a / b;
+end
 end
 
 function use_parallel = local_enable_parallel(cfg_stage)
