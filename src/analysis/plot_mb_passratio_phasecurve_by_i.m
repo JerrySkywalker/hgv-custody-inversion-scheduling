@@ -1,4 +1,4 @@
-function [fig, phasecurve_table] = plot_mb_passratio_phasecurve_by_i(full_theta_table, family_name, i_list, style)
+function [fig, phasecurve_table] = plot_mb_passratio_phasecurve_by_i(full_theta_table, family_name, i_list, style, options)
 %PLOT_MB_PASSRATIO_PHASECURVE_BY_I Plot pass-ratio envelopes versus constellation size for fixed inclinations.
 
 if nargin < 2 || isempty(family_name)
@@ -13,6 +13,9 @@ if nargin < 3 || isempty(i_list)
 end
 if nargin < 4 || isempty(style)
     style = milestone_common_plot_style();
+end
+if nargin < 5 || isempty(options)
+    options = struct();
 end
 
 phasecurve_table = local_build_phasecurve_table(full_theta_table, i_list);
@@ -35,9 +38,22 @@ else
     end
 end
 
+if isfield(options, 'minimum_shell_Ns') && isfinite(options.minimum_shell_Ns)
+    xline(ax, options.minimum_shell_Ns, '--', ...
+        'Color', style.threshold_color, ...
+        'LineWidth', style.threshold_line_width, ...
+        'DisplayName', sprintf('Joint minimum shell N_s = %d', round(options.minimum_shell_Ns)));
+end
+if isfield(options, 'required_pass_ratio') && isfinite(options.required_pass_ratio)
+    yline(ax, options.required_pass_ratio, ':', ...
+        'Color', style.colors(2, :), ...
+        'LineWidth', style.threshold_line_width, ...
+        'DisplayName', sprintf('Required pass ratio = %.2f', options.required_pass_ratio));
+end
+
 xlabel(ax, 'N_s');
 ylabel(ax, 'Max pass ratio');
-title(ax, sprintf('Pass-Ratio Phase Curves (%s)', char(string(family_name))));
+title(ax, sprintf('Pass-Ratio Phase Curve (%s)', upper(char(string(family_name)))));
 ylim(ax, [0, 1.05]);
 grid(ax, 'on');
 legend(ax, 'Location', 'best', 'Box', style.legend_box);

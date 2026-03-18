@@ -283,8 +283,9 @@ if write_figures
     supplementary.figures.resource_performance_cloud_DT = string(fig_cloud_dt_path);
 end
 
-[fig_joint_pass, joint_pass_table] = plot_mb_passratio_phasecurve_by_i(pool.full_theta_table_joint, 'joint', [], style);
-[fig_heading_pass, heading_pass_table] = plot_mb_passratio_phasecurve_by_i(pool.full_theta_table_heading, 'heading', [], style);
+phasecurve_options = local_phasecurve_options(cfg, minimum_pack);
+[fig_joint_pass, joint_pass_table] = plot_mb_passratio_phasecurve_by_i(pool.full_theta_table_joint, 'joint', [], style, phasecurve_options);
+[fig_heading_pass, heading_pass_table] = plot_mb_passratio_phasecurve_by_i(pool.full_theta_table_heading, 'heading', [], style, phasecurve_options);
 joint_pass_csv = fullfile(paths.tables, 'MB_passratio_phasecurve_joint.csv');
 heading_pass_csv = fullfile(paths.tables, 'MB_passratio_phasecurve_heading.csv');
 milestone_common_save_table(joint_pass_table, joint_pass_csv);
@@ -345,6 +346,18 @@ if write_figures
     supplementary.figures.family_gap_heatmap_heading_minus_nominal = string(fig_gap_path);
 end
 close(fig_gap);
+end
+
+function options = local_phasecurve_options(cfg, minimum_pack)
+options = struct();
+options.minimum_shell_Ns = NaN;
+options.required_pass_ratio = NaN;
+if ~isempty(minimum_pack.minimum_design_table) && ismember('Ns', minimum_pack.minimum_design_table.Properties.VariableNames)
+    options.minimum_shell_Ns = minimum_pack.minimum_design_table.Ns(1);
+end
+if isfield(cfg, 'stage09') && isfield(cfg.stage09, 'require_pass_ratio')
+    options.required_pass_ratio = cfg.stage09.require_pass_ratio;
+end
 end
 
 function out = local_merge_struct_fields(out, add)
