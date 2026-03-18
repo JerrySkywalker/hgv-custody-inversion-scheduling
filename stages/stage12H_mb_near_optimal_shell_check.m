@@ -59,7 +59,7 @@ summary_table = build_ns_shell_summary(candidate_table, minimum_unique, near_opt
 summary = local_build_summary(summary_table, candidate_table, minimum_unique, near_optimal_unique, Ns_min, shell_ns_values);
 
 if ~(isfield(meta, 'preflight_mode') && logical(meta.preflight_mode))
-    fig = local_plot_shell_phasecurve(summary_table, style);
+    fig = local_plot_shell_phasecurve(summary_table, candidate_table, minimum_unique, style);
     figure_path = fullfile(paths.figures, 'MB_near_optimal_shell_phasecurve.png');
     milestone_common_save_figure(fig, figure_path);
     close(fig);
@@ -264,7 +264,7 @@ summary.shells_with_size_near_optimal = local_collect_shells(summary_table, 'nea
 if isempty(summary.shells_with_margin_near_optimal) && isempty(summary.shells_with_size_near_optimal)
     summary.conclusion = "In the current shell-neighborhood check, the near-optimal region still collapses to the minimum shell.";
 else
-    summary.conclusion = "Near-optimal extensions beyond the minimum shell were detected in the shell-neighborhood check.";
+    summary.conclusion = "Current stage12E near-optimal extraction still stops at the minimum shell, but shell-neighborhood diagnostics detect feasible and margin-near-optimal extensions beyond Ns_min.";
 end
 end
 
@@ -277,7 +277,7 @@ mask = summary_table.(field_name) > 0 & ~summary_table.is_minimum_shell;
 shells = summary_table.Ns(mask).';
 end
 
-function fig = local_plot_shell_phasecurve(summary_table, style)
+function fig = local_plot_shell_phasecurve(summary_table, candidate_table, minimum_unique, style)
 fig = figure('Visible', 'off', 'Color', 'w');
 tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
 
@@ -297,16 +297,17 @@ hold(ax1, 'off');
 
 ax2 = nexttile;
 hold(ax2, 'on');
-if isempty(summary_table)
+distribution_table = local_build_margin_distribution_table(candidate_table, minimum_unique);
+if isempty(distribution_table)
     plot(ax2, 0, 0, 'o', 'Color', style.colors(2, :));
 else
-    plot(ax2, summary_table.Ns, summary_table.best_joint_margin, '-o', ...
-        'Color', style.colors(2, :), 'LineWidth', style.line_width, 'MarkerSize', style.marker_size);
-    xline(ax2, summary_table.Ns(summary_table.is_minimum_shell), '--', 'Color', style.threshold_color, 'LineWidth', 1.1);
+    boxchart(ax2, categorical(string(distribution_table.Ns)), distribution_table.joint_margin, ...
+        'BoxFaceColor', style.colors(2, :), ...
+        'WhiskerLineColor', style.threshold_color);
 end
 xlabel(ax2, 'N_s');
-ylabel(ax2, 'Best joint margin');
-title(ax2, 'Shell Margin Envelope');
+ylabel(ax2, 'Joint margin');
+title(ax2, 'Shell Margin Distribution');
 grid(ax2, 'on');
 hold(ax2, 'off');
 end
@@ -362,5 +363,22 @@ values = T.(field_name);
 values = values(isfinite(values));
 if ~isempty(values)
     value = max(values);
+end
+end
+
+function T = local_build_margin_distribution_table(candidate_table, minimum_unique)
+T = table();
+rows = {};
+if ~isempty(minimum_unique) && ismember('joint_margin', minimum_unique.Properties.VariableNames)
+    rows{end + 1, 1} = minimum_unique(:, {'Ns', 'joint_margin'});
+end
+if ~isempty(candidate_table) && ismember('joint_feasible', candidate_table.Properties.VariableNames) && ismember('joint_margin', candidate_table.Properties.VariableNames)
+    sub = candidate_table(logical(candidate_table.joint_feasible), {'Ns', 'joint_margin'});
+    if ~isempty(sub)
+        rows{end + 1, 1} = sub;
+    end
+end
+if ~isempty(rows)
+    T = vertcat(rows{:});
 end
 end
