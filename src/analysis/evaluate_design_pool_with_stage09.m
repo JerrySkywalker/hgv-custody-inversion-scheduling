@@ -36,7 +36,7 @@ if isfield(overrides, 'heading_subset_max') && ~isempty(overrides.heading_subset
     heading_subset_max = overrides.heading_subset_max;
 end
 cfg_stage.stage09.casebank_heading_subset_max = heading_subset_max;
-cfg_stage.stage09.run_tag = sprintf('stage09_pool_%s', char(string(family_mode)));
+cfg_stage.stage09.run_tag = sprintf('stage09_pool_%s_%s', char(string(family_mode)), local_mode_token(overrides));
 if isfield(overrides, 'use_parallel') && ~isempty(overrides.use_parallel)
     cfg_stage.stage09.use_parallel = logical(overrides.use_parallel);
 end
@@ -235,6 +235,13 @@ if b == 0
     value = 0;
 else
     value = a / b;
+end
+end
+
+function token = local_mode_token(overrides)
+token = 'full';
+if isfield(overrides, 'fast_mode') && logical(overrides.fast_mode)
+    token = 'fast';
 end
 end
 
