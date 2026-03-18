@@ -84,6 +84,7 @@ end
 function overrides = local_eval_overrides(meta, slice_cfg)
 overrides = struct();
 overrides.heading_subset_max = slice_cfg.heading_subset_max;
+overrides.save_case_window_bank = false;
 if isfield(meta, 'fast_mode')
     overrides.fast_mode = logical(meta.fast_mode);
 end
