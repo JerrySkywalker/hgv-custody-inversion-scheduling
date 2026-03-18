@@ -19,7 +19,7 @@ if ~any(family_name == allowed)
     error('Unsupported family_name: %s', family_name);
 end
 
-joint_cfg = joint_eval.cfg;
+joint_cfg = stage09_prepare_cfg(cfg);
 result_cell = cell(numel(joint_eval.result_bank), 1);
 for idx = 1:numel(joint_eval.result_bank)
     result_cell{idx} = local_derive_single_result(joint_eval.result_bank(idx), family_name, joint_cfg);

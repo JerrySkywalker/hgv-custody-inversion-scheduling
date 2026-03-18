@@ -117,9 +117,9 @@ if ~(g || a || t)
 end
 
 pieces = strings(0, 1);
-if g, pieces(end + 1, 1) = "G"; end %#ok<AGROW>
-if a, pieces(end + 1, 1) = "A"; end %#ok<AGROW>
-if t, pieces(end + 1, 1) = "T"; end %#ok<AGROW>
+if g, pieces(end + 1, 1) = "G"; end
+if a, pieces(end + 1, 1) = "A"; end
+if t, pieces(end + 1, 1) = "T"; end
 tag = join(pieces, "");
 tag = string(tag);
 end

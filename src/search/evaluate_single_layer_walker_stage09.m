@@ -297,16 +297,6 @@ function tag = local_case_fail_tag(DG, DA, DT, s9)
 end
 
 
-function tag = local_theta_fail_tag(DG, DA, DT, s9)
-
-    g = DG < s9.require_DG_min;
-    a = DA < s9.require_DA_min;
-    t = DT < s9.require_DT_min;
-
-    tag = local_join_fail_tag(g, a, t);
-end
-
-
 function tag = local_join_fail_tag(g, a, t)
 
     if ~(g || a || t)
@@ -315,40 +305,10 @@ function tag = local_join_fail_tag(g, a, t)
     end
 
     pieces = strings(0,1);
-    if g, pieces(end+1,1) = "G"; end %#ok<AGROW>
-    if a, pieces(end+1,1) = "A"; end %#ok<AGROW>
-    if t, pieces(end+1,1) = "T"; end %#ok<AGROW>
+    if g, pieces(end+1,1) = "G"; end
+    if a, pieces(end+1,1) = "A"; end
+    if t, pieces(end+1,1) = "T"; end
 
     tag = join(pieces, "");
     tag = string(tag);
-end
-
-
-function cid = local_pick_case_id(case_table, metric_name, mode)
-
-    cid = "";
-    if ~istable(case_table) || height(case_table) < 1
-        return;
-    end
-
-    x = case_table.(metric_name);
-    valid = isfinite(x);
-    if ~any(valid)
-        return;
-    end
-
-    switch lower(string(mode))
-        case "min"
-            xv = x;
-            xv(~valid) = inf;
-            [~, idx] = min(xv);
-        case "max"
-            xv = x;
-            xv(~valid) = -inf;
-            [~, idx] = max(xv);
-        otherwise
-            error('Unknown mode: %s', string(mode));
-    end
-
-    cid = case_table.case_id(idx);
 end
