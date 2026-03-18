@@ -104,6 +104,7 @@ result.summary = struct( ...
     'num_feasible_points', height(minimum_pack.feasible_theta_table), ...
     'minimum_design_count', height(minimum_design_table), ...
     'minimum_design_Ns', local_first_value(minimum_design_table, 'Ns'), ...
+    'minimum_design_active_constraint_mode', local_mode_text(minimum_design_table, 'dominant_constraint'), ...
     'minimum_design_support_sources', minimum_support_sources, ...
     'minimum_design', minimum_pack.minimum_design, ...
     'near_optimal_region_size', height(near_optimal_table), ...
@@ -125,19 +126,18 @@ result.artifacts.summary_mat = files.summary_mat;
 end
 
 function txt = local_make_conclusion(pool, minimum_pack, task_summary_table)
-task_text = local_task_conclusion(task_summary_table);
+domain_text = sprintf('当前 MB 统一 design pool 含 %d 个 unique design，其中 %d 个属于 joint truth feasible domain。', ...
+    height(pool.design_pool_table), height(minimum_pack.feasible_theta_table));
 if isempty(minimum_pack.minimum_design_table)
-    txt = sprintf(['当前 MB 统一 design pool 含 %d 个 unique design，其中 %d 个满足 joint truth feasible。', ...
-        '当前统一 feasible domain 中未提取到可行最小布置。', ...
-        '任务族切片比较结果为 %s。'], ...
-        height(pool.design_pool_table), height(minimum_pack.feasible_theta_table), task_text);
+    minimum_text = sprintf('当前统一 feasible domain 中未提取到 minimum design；near-optimal region 大小为 %d。', ...
+        height(minimum_pack.near_optimal_table));
 else
-    txt = sprintf(['当前 MB 统一 design pool 含 %d 个 unique design，其中 %d 个满足 joint truth feasible。', ...
-        '最小布置对应 N_s=%g，unique minimum design 数为 %d。', ...
-        '任务族切片比较结果为 %s。'], ...
-        height(pool.design_pool_table), height(minimum_pack.feasible_theta_table), minimum_pack.minimum_design_table.Ns(1), ...
-        height(minimum_pack.minimum_design_table), task_text);
+    minimum_text = sprintf('minimum design 对应 N_s=%g，unique minimum design 数为 %d，near-optimal region 大小为 %d，最常见 active constraint 为 %s。', ...
+        minimum_pack.minimum_design_table.Ns(1), height(minimum_pack.minimum_design_table), ...
+        height(minimum_pack.near_optimal_table), local_mode_text(minimum_pack.minimum_design_table, 'dominant_constraint'));
 end
+task_text = local_task_conclusion(task_summary_table);
+txt = strjoin([domain_text, minimum_text, task_text], newline + newline);
 end
 
 function T = local_select_design_pool_columns(T)
@@ -212,7 +212,12 @@ for k = 1:height(task_summary_table)
     parts(k) = sprintf('%s: feasible_ratio=%.2f, min_Ns=%g, best_margin=%.3f', ...
         family_name, feasible_ratio, min_ns, best_margin);
 end
-txt = strjoin(parts, '; ');
+if local_task_differences_are_weak(task_summary_table)
+    prefix = '共享 design pool 上三类任务族的差异较弱，但仍可从 minimum resource scale 与最佳裕度中读取细微差别。';
+else
+    prefix = '共享 design pool 上三类任务族的差异已在 feasible ratio 与 minimum resource scale 上显性出现。';
+end
+txt = prefix + " " + strjoin(parts, '; ');
 end
 
 function value = local_first_value(T, field_name)
@@ -221,4 +226,36 @@ if isempty(T) || ~ismember(field_name, T.Properties.VariableNames)
     return;
 end
 value = T.(field_name)(1);
+end
+
+function txt = local_mode_text(T, field_name)
+txt = "unknown";
+if isempty(T) || ~ismember(field_name, T.Properties.VariableNames)
+    return;
+end
+values = string(T.(field_name));
+values = values(values ~= "");
+if isempty(values)
+    return;
+end
+[uvals, ~, ic] = unique(values);
+counts = accumarray(ic, 1);
+[~, idx] = max(counts);
+txt = uvals(idx);
+end
+
+function tf = local_task_differences_are_weak(task_summary_table)
+tf = true;
+if isempty(task_summary_table)
+    return;
+end
+ratio_span = max(task_summary_table.feasible_ratio) - min(task_summary_table.feasible_ratio);
+min_ns_values = task_summary_table.Ns_min_feasible;
+min_ns_values = min_ns_values(isfinite(min_ns_values));
+if isempty(min_ns_values)
+    min_ns_span = 0;
+else
+    min_ns_span = max(min_ns_values) - min(min_ns_values);
+end
+tf = ratio_span < 0.05 && min_ns_span <= 2;
 end
