@@ -34,6 +34,7 @@ task_critical = stage12D_task_slice_packager(pool, 'critical', task_meta);
 source_count_table = local_source_count_table({slice_hi, slice_pt, task_nominal, task_heading, task_critical});
 family_config_table = local_family_config_table({task_nominal, task_heading, task_critical});
 pool_summary_table = local_pool_summary_table(pool, {task_nominal, task_heading, task_critical});
+pool_sparsity_diagnostic_table = local_pool_sparsity_diagnostic_table(pool);
 
 debug_theta = cfg.milestones.baseline_theta;
 if isfield(overrides, 'debug_theta') && isstruct(overrides.debug_theta)
@@ -43,20 +44,23 @@ family_design_table = local_family_design_table(cfg, debug_theta, task_meta);
 
 paths = milestone_common_output_paths(cfg, 'MB', meta.title);
 pool_csv = fullfile(paths.tables, 'MB_debug_pool_summary.csv');
+pool_diag_csv = fullfile(paths.tables, 'MB_debug_pool_sparsity_diagnostic.csv');
 source_csv = fullfile(paths.tables, 'MB_debug_source_counts.csv');
 family_csv = fullfile(paths.tables, 'MB_debug_family_config.csv');
 design_csv = fullfile(paths.tables, 'MB_debug_family_design_eval.csv');
 writetable(pool_summary_table, pool_csv);
+writetable(pool_sparsity_diagnostic_table, pool_diag_csv);
 writetable(source_count_table, source_csv);
 writetable(family_config_table, family_csv);
 writetable(family_design_table, design_csv);
 
 out = struct();
 out.pool_summary_table = pool_summary_table;
+out.pool_sparsity_diagnostic_table = pool_sparsity_diagnostic_table;
 out.source_count_table = source_count_table;
 out.family_config_table = family_config_table;
 out.family_design_table = family_design_table;
-out.files = struct('pool_csv', string(pool_csv), 'source_csv', string(source_csv), 'family_csv', string(family_csv), 'design_csv', string(design_csv));
+out.files = struct('pool_csv', string(pool_csv), 'pool_diag_csv', string(pool_diag_csv), 'source_csv', string(source_csv), 'family_csv', string(family_csv), 'design_csv', string(design_csv));
 end
 
 function T = local_source_count_table(results)
@@ -105,6 +109,24 @@ for k = 1:numel(task_results)
     rows(end + 1, :) = {sprintf('%s_feasible_total', char(string(r.task_slice_id))), r.summary.num_feasible}; %#ok<AGROW>
 end
 
+T = cell2table(rows, 'VariableNames', {'metric_name', 'metric_value'});
+end
+
+function T = local_pool_sparsity_diagnostic_table(pool)
+minimum_pack = stage12E_minimum_design_packager(pool, pool.cfg, pool.meta);
+[pool_by_source, feasible_by_source] = local_source_breakdown(pool.design_pool_table, pool.feasible_theta_table_joint);
+minimum_support = local_table_has_support_source(minimum_pack.minimum_design_table, "local_block");
+near_optimal_support_count = local_count_rows_with_support(minimum_pack.near_optimal_table, "local_block");
+rows = {
+    "design_pool_hi_count", local_lookup_source_count(pool_by_source, "hi")
+    "design_pool_pt_count", local_lookup_source_count(pool_by_source, "pt")
+    "design_pool_local_block_count", local_lookup_source_count(pool_by_source, "local_block")
+    "feasible_hi_count", local_lookup_source_count(feasible_by_source, "hi")
+    "feasible_pt_count", local_lookup_source_count(feasible_by_source, "pt")
+    "feasible_local_block_count", local_lookup_source_count(feasible_by_source, "local_block")
+    "feasible_without_local_block", height(pool.feasible_theta_table_joint) - local_lookup_source_count(feasible_by_source, "local_block")
+    "minimum_design_from_local_block", double(minimum_support)
+    "near_optimal_local_block_count", near_optimal_support_count};
 T = cell2table(rows, 'VariableNames', {'metric_name', 'metric_value'});
 end
 
@@ -176,6 +198,75 @@ for k = 1:numel(trajs_in)
         if isfield(counts, char(family_name))
             counts.(char(family_name)) = counts.(char(family_name)) + 1;
         end
+    end
+end
+end
+
+function [pool_by_source, feasible_by_source] = local_source_breakdown(design_pool_table, feasible_theta_table)
+pool_by_source = local_make_source_breakdown_table(design_pool_table);
+feasible_by_source = local_make_source_breakdown_table(feasible_theta_table);
+end
+
+function T = local_make_source_breakdown_table(Tin)
+T = table(strings(0, 1), zeros(0, 1), 'VariableNames', {'slice_source', 'count'});
+if isempty(Tin) || ~ismember('support_sources', Tin.Properties.VariableNames)
+    return;
+end
+
+tokens = strings(0, 1);
+for k = 1:height(Tin)
+    parts = split(string(Tin.support_sources(k)), ",");
+    parts = strtrim(parts);
+    parts = parts(parts ~= "");
+    tokens = [tokens; parts(:)]; %#ok<AGROW>
+end
+
+if isempty(tokens)
+    return;
+end
+
+[uvals, ~, ic] = unique(tokens);
+counts = accumarray(ic, 1);
+T = table(uvals, counts, 'VariableNames', {'slice_source', 'count'});
+T = sortrows(T, 'slice_source', 'ascend');
+end
+
+function count = local_lookup_source_count(T, source_name)
+count = 0;
+if isempty(T)
+    return;
+end
+mask = string(T.slice_source) == string(source_name);
+if any(mask)
+    count = sum(T.count(mask));
+end
+end
+
+function tf = local_table_has_support_source(T, source_name)
+tf = false;
+if isempty(T) || ~ismember('support_sources', T.Properties.VariableNames)
+    return;
+end
+for k = 1:height(T)
+    parts = split(string(T.support_sources(k)), ",");
+    parts = strtrim(parts);
+    if any(parts == string(source_name))
+        tf = true;
+        return;
+    end
+end
+end
+
+function count = local_count_rows_with_support(T, source_name)
+count = 0;
+if isempty(T) || ~ismember('support_sources', T.Properties.VariableNames)
+    return;
+end
+for k = 1:height(T)
+    parts = split(string(T.support_sources(k)), ",");
+    parts = strtrim(parts);
+    if any(parts == string(source_name))
+        count = count + 1;
     end
 end
 end
