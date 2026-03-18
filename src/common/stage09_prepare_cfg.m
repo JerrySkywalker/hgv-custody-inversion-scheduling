@@ -256,7 +256,7 @@ function cfg = stage09_prepare_cfg(cfg)
         cfg.stage09.enable_checkpoint = false;
     end
     if ~isfield(cfg.stage09, 'checkpoint_every_n') || isempty(cfg.stage09.checkpoint_every_n)
-        cfg.stage09.checkpoint_every_n = 5;
+        cfg.stage09.checkpoint_every_n = 20;
     end
     if ~isfield(cfg.stage09, 'checkpoint_dir') || isempty(cfg.stage09.checkpoint_dir)
         if isfield(cfg, 'paths') && isfield(cfg.paths, 'root') && ~isempty(cfg.paths.root)

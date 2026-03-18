@@ -126,7 +126,9 @@ if checkpoint_state.enabled
     checkpoint_state.completed_mask = completed_mask;
     checkpoint_state.result_cell = result_cell;
     checkpoint_state.completed = true;
-    checkpoint_state = local_save_checkpoint(checkpoint_state);
+    if checkpoint_state.last_saved_completed_count < sum(completed_mask)
+        checkpoint_state = local_save_checkpoint(checkpoint_state);
+    end
 end
 
 S = summarize_stage09_grid(result_bank, cfg_stage);
@@ -282,8 +284,11 @@ checkpoint_state.save_count = 0;
 checkpoint_state.completed = false;
 checkpoint_state.timing = struct('checkpoint_save_total_s', 0, 'total_design_eval_completed_s', 0);
 checkpoint_state.design_keys = design_pool_table(:, {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns'});
+checkpoint_state.design_pool_hash = local_design_pool_hash(checkpoint_state.design_keys);
 checkpoint_state.family_name = string(family_mode);
 checkpoint_state.run_tag = string(cfg_stage.stage09.run_tag);
+checkpoint_state.cfg_signature = local_checkpoint_cfg_signature(cfg_stage);
+checkpoint_state.last_saved_completed_count = 0;
 
 if ~checkpoint_state.enabled
     return;
@@ -300,12 +305,15 @@ if isfield(cfg_stage.stage09, 'resume_from_checkpoint') && cfg_stage.stage09.res
         exist(checkpoint_state.checkpoint_file, 'file') == 2
     data = load(checkpoint_state.checkpoint_file, 'checkpoint_payload');
     if isfield(data, 'checkpoint_payload') && local_checkpoint_matches(data.checkpoint_payload, checkpoint_state)
-        checkpoint_state.result_cell = data.checkpoint_payload.result_cell;
-        checkpoint_state.completed_mask = logical(data.checkpoint_payload.completed_mask);
+        checkpoint_state.completed_mask = false(n_theta, 1);
+        checkpoint_state.result_cell = cell(n_theta, 1);
+        checkpoint_state.completed_mask(data.checkpoint_payload.completed_idx) = true;
+        checkpoint_state.result_cell(data.checkpoint_payload.completed_idx) = data.checkpoint_payload.result_cell_partial;
         checkpoint_state.save_count = data.checkpoint_payload.save_count;
         checkpoint_state.timing = data.checkpoint_payload.timing;
         checkpoint_state.resume_used = true;
         checkpoint_state.completed = isfield(data.checkpoint_payload, 'completed') && logical(data.checkpoint_payload.completed);
+        checkpoint_state.last_saved_completed_count = sum(checkpoint_state.completed_mask);
     end
 end
 end
@@ -346,10 +354,13 @@ for start_idx = 1:chunk_size:numel(pending_idx)
         char(string(family_mode)), completed_count, numel(row_bank), 100 * completed_count / numel(row_bank), elapsed_s, eta_s);
 
     if checkpoint_state.enabled
-        checkpoint_state.result_cell = result_cell;
-        checkpoint_state.completed_mask = completed_mask;
-        checkpoint_state.completed = all(completed_mask);
-        checkpoint_state = local_save_checkpoint(checkpoint_state);
+        completed_count = sum(completed_mask);
+        if completed_count > checkpoint_state.last_saved_completed_count
+            checkpoint_state.result_cell = result_cell;
+            checkpoint_state.completed_mask = completed_mask;
+            checkpoint_state.completed = all(completed_mask);
+            checkpoint_state = local_save_checkpoint(checkpoint_state);
+        end
     end
 end
 end
@@ -360,12 +371,15 @@ if ~checkpoint_state.enabled
 end
 t_save = tic;
 checkpoint_payload = struct();
-checkpoint_payload.version = 1;
+completed_idx = find(checkpoint_state.completed_mask);
+checkpoint_payload.version = 2;
 checkpoint_payload.family_name = checkpoint_state.family_name;
 checkpoint_payload.run_tag = checkpoint_state.run_tag;
+checkpoint_payload.cfg_signature = checkpoint_state.cfg_signature;
+checkpoint_payload.design_pool_hash = checkpoint_state.design_pool_hash;
 checkpoint_payload.design_keys = checkpoint_state.design_keys;
-checkpoint_payload.result_cell = checkpoint_state.result_cell;
-checkpoint_payload.completed_mask = checkpoint_state.completed_mask;
+checkpoint_payload.completed_idx = completed_idx;
+checkpoint_payload.result_cell_partial = checkpoint_state.result_cell(completed_idx);
 checkpoint_payload.save_count = checkpoint_state.save_count + 1;
 checkpoint_payload.completed = checkpoint_state.completed;
 checkpoint_payload.timing = checkpoint_state.timing;
@@ -374,24 +388,52 @@ save(checkpoint_state.checkpoint_file, 'checkpoint_payload', '-v7.3');
 save_time_s = toc(t_save);
 checkpoint_state.save_count = checkpoint_payload.save_count;
 checkpoint_state.timing.checkpoint_save_total_s = checkpoint_state.timing.checkpoint_save_total_s + save_time_s;
+checkpoint_state.last_saved_completed_count = numel(completed_idx);
 fprintf('[MB][joint] checkpoint saved (%d) in %.2fs -> %s\n', checkpoint_state.save_count, save_time_s, checkpoint_state.checkpoint_file);
 end
 
 function tf = local_checkpoint_matches(payload, checkpoint_state)
 tf = false;
-required = {'family_name', 'run_tag', 'design_keys', 'result_cell', 'completed_mask'};
+required = {'family_name', 'run_tag', 'cfg_signature', 'design_pool_hash', 'design_keys', 'completed_idx', 'result_cell_partial'};
 if ~all(isfield(payload, required))
     return;
 end
 tf = string(payload.family_name) == checkpoint_state.family_name && ...
     string(payload.run_tag) == checkpoint_state.run_tag && ...
+    string(payload.cfg_signature) == checkpoint_state.cfg_signature && ...
+    string(payload.design_pool_hash) == checkpoint_state.design_pool_hash && ...
     isequal(payload.design_keys, checkpoint_state.design_keys) && ...
-    numel(payload.result_cell) == numel(checkpoint_state.result_cell) && ...
-    numel(payload.completed_mask) == numel(checkpoint_state.completed_mask);
+    all(payload.completed_idx >= 1) && all(payload.completed_idx <= numel(checkpoint_state.result_cell)) && ...
+    numel(payload.result_cell_partial) == numel(payload.completed_idx);
 end
 
 function token = local_make_safe_token(value)
 token = regexprep(char(string(value)), '[^A-Za-z0-9_-]', '_');
+end
+
+function signature = local_checkpoint_cfg_signature(cfg_stage)
+signature = sprintf('run_tag=%s|heading_subset_max=%g|parallel=%d', ...
+    char(string(cfg_stage.stage09.run_tag)), ...
+    cfg_stage.stage09.casebank_heading_subset_max, ...
+    logical(cfg_stage.stage09.use_parallel));
+end
+
+function token = local_design_pool_hash(design_keys)
+if isempty(design_keys)
+    token = "empty";
+    return;
+end
+values = [design_keys.h_km, design_keys.i_deg, design_keys.P, design_keys.T, design_keys.F, design_keys.Ns];
+lines = compose('%.6f,%.6f,%d,%d,%d,%d', values(:, 1), values(:, 2), values(:, 3), values(:, 4), values(:, 5), values(:, 6));
+payload = strjoin(cellstr(lines), ';');
+try
+    md = java.security.MessageDigest.getInstance('MD5');
+    md.update(uint8(payload));
+    hash_bytes = typecast(md.digest(), 'uint8');
+    token = string(lower(reshape(dec2hex(hash_bytes, 2).', 1, [])));
+catch
+    token = string(sprintf('fallback_%d_%0.6f', height(design_keys), sum(values(:))));
+end
 end
 
 function use_parallel = local_enable_parallel(cfg_stage)

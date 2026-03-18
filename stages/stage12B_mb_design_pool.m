@@ -126,6 +126,10 @@ if isfield(meta, 'fast_mode')
     if overrides.fast_mode && isfield(meta, 'fast_heading_subset_max') && ~isempty(meta.fast_heading_subset_max)
         overrides.heading_subset_max = meta.fast_heading_subset_max;
     end
+    if overrides.fast_mode && isfield(meta, 'fast_mode_disable_checkpoint') && logical(meta.fast_mode_disable_checkpoint)
+        overrides.enable_checkpoint = false;
+        overrides.resume_from_checkpoint = false;
+    end
 end
 if isfield(cfg.stage09, 'enable_checkpoint')
     overrides.enable_checkpoint = cfg.stage09.enable_checkpoint;
@@ -138,6 +142,10 @@ if isfield(cfg.stage09, 'checkpoint_dir')
 end
 if isfield(cfg.stage09, 'resume_from_checkpoint')
     overrides.resume_from_checkpoint = cfg.stage09.resume_from_checkpoint;
+end
+if isfield(meta, 'fast_mode') && logical(meta.fast_mode) && isfield(meta, 'fast_mode_disable_checkpoint') && logical(meta.fast_mode_disable_checkpoint)
+    overrides.enable_checkpoint = false;
+    overrides.resume_from_checkpoint = false;
 end
 end
 
