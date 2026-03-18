@@ -252,6 +252,24 @@ function cfg = stage09_prepare_cfg(cfg)
     if ~isfield(cfg.stage09, 'write_csv') || isempty(cfg.stage09.write_csv)
         cfg.stage09.write_csv = true;
     end
+    if ~isfield(cfg.stage09, 'enable_checkpoint') || isempty(cfg.stage09.enable_checkpoint)
+        cfg.stage09.enable_checkpoint = false;
+    end
+    if ~isfield(cfg.stage09, 'checkpoint_every_n') || isempty(cfg.stage09.checkpoint_every_n)
+        cfg.stage09.checkpoint_every_n = 5;
+    end
+    if ~isfield(cfg.stage09, 'checkpoint_dir') || isempty(cfg.stage09.checkpoint_dir)
+        if isfield(cfg, 'paths') && isfield(cfg.paths, 'root') && ~isempty(cfg.paths.root)
+            cfg.stage09.checkpoint_dir = fullfile(cfg.paths.root, 'cache', 'mb_stage09');
+        elseif isfield(cfg, 'paths') && isfield(cfg.paths, 'cache') && ~isempty(cfg.paths.cache)
+            cfg.stage09.checkpoint_dir = fullfile(cfg.paths.cache, 'mb_stage09');
+        else
+            cfg.stage09.checkpoint_dir = fullfile(pwd, 'cache', 'mb_stage09');
+        end
+    end
+    if ~isfield(cfg.stage09, 'resume_from_checkpoint') || isempty(cfg.stage09.resume_from_checkpoint)
+        cfg.stage09.resume_from_checkpoint = false;
+    end
 
     if cfg.stage09.scan_log_every < 1
         cfg.stage09.scan_log_every = 10;

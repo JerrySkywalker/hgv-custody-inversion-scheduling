@@ -12,6 +12,7 @@ end
 meta = cfg.milestones.MB;
 paths = milestone_common_output_paths(cfg, meta.milestone_id, meta.title);
 style = milestone_common_plot_style();
+write_figures = cfg.milestones.save_figures && ~(isfield(meta, 'preflight_mode') && logical(meta.preflight_mode));
 task_meta = meta;
 if isfield(meta, 'task_slice_settings') && isstruct(meta.task_slice_settings)
     task_meta.slice_settings = meta.task_slice_settings;
@@ -50,22 +51,28 @@ milestone_common_save_table(minimum_design_table, minimum_csv);
 milestone_common_save_table(near_optimal_table, near_optimal_csv);
 milestone_common_save_table(task_summary_table, task_summary_csv);
 
-fig1 = plot_mb_feasible_domain_map(slice_hi.view_table, slice_pt.view_table, minimum_design_table, style);
-fig1_path = fullfile(paths.figures, 'MB_inverse_slices_feasible_domain_map.png');
-milestone_common_save_figure(fig1, fig1_path);
-close(fig1);
+fig1_path = "";
+fig2_path = "";
+fig2_legacy_path = "";
+fig3_path = "";
+if write_figures
+    fig1 = plot_mb_feasible_domain_map(slice_hi.view_table, slice_pt.view_table, minimum_design_table, style);
+    fig1_path = fullfile(paths.figures, 'MB_inverse_slices_feasible_domain_map.png');
+    milestone_common_save_figure(fig1, fig1_path);
+    close(fig1);
 
-fig2 = plot_mb_minimum_design_map(minimum_pack.feasible_theta_table, minimum_design_table, near_optimal_table, style, pool.baseline_theta);
-fig2_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_design_map.png');
-fig2_legacy_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_boundary_map.png');
-milestone_common_save_figure(fig2, fig2_path);
-milestone_common_save_figure(fig2, fig2_legacy_path);
-close(fig2);
+    fig2 = plot_mb_minimum_design_map(minimum_pack.feasible_theta_table, minimum_design_table, near_optimal_table, style, pool.baseline_theta);
+    fig2_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_design_map.png');
+    fig2_legacy_path = fullfile(paths.figures, 'MB_inverse_slices_minimum_boundary_map.png');
+    milestone_common_save_figure(fig2, fig2_path);
+    milestone_common_save_figure(fig2, fig2_legacy_path);
+    close(fig2);
 
-fig3 = plot_mb_task_family_comparison(task_summary_table, style);
-fig3_path = fullfile(paths.figures, 'MB_inverse_slices_task_family_slice_comparison.png');
-milestone_common_save_figure(fig3, fig3_path);
-close(fig3);
+    fig3 = plot_mb_task_family_comparison(task_summary_table, style);
+    fig3_path = fullfile(paths.figures, 'MB_inverse_slices_task_family_slice_comparison.png');
+    milestone_common_save_figure(fig3, fig3_path);
+    close(fig3);
+end
 
 result = struct();
 result.milestone_id = meta.milestone_id;
@@ -87,6 +94,7 @@ result.figures.minimum_design_map = string(fig2_path);
 result.figures.minimum_boundary_map = string(fig2_legacy_path);
 result.figures.task_family_slice_comparison = string(fig3_path);
 result.artifacts.temporal_metric_note = "时序图表展示采用有界时序连续性裕度 DT_bar，闭合判定与主导失效识别继续采用标准化时序连续性裕度 DT >= 1。";
+result.artifacts.execution_mode = string(local_execution_mode(meta));
 
 task_family_minNs = local_task_metric_map(task_summary_table, 'Ns_min_feasible');
 task_family_best_margin = local_task_metric_map(task_summary_table, 'best_joint_margin');
@@ -98,6 +106,9 @@ end
 
 result.summary = struct( ...
     'slice_axes', {{'h-i', 'P-T'}}, ...
+    'fast_mode', isfield(meta, 'fast_mode') && logical(meta.fast_mode), ...
+    'preflight_mode', isfield(meta, 'preflight_mode') && logical(meta.preflight_mode), ...
+    'write_figures', write_figures, ...
     'num_unique_grid_points', height(pool.design_pool_table), ...
     'num_unique_feasible_points', height(pool.feasible_theta_table_joint), ...
     'num_grid_points', height(minimum_pack.full_theta_table), ...
@@ -113,6 +124,7 @@ result.summary = struct( ...
     'task_family_best_margin', task_family_best_margin, ...
     'timing', pool.summary.timing, ...
     'joint_eval_timing', pool.summary.joint_eval_timing, ...
+    'checkpoint', local_checkpoint_summary(pool.summary.joint_eval_timing), ...
     'slice_anchor_hi', local_struct_to_string(slice_hi.view_anchor), ...
     'slice_anchor_pt', local_struct_to_string(slice_pt.view_anchor), ...
     'slice_anchor_used_for_hi_view', local_struct_to_string(slice_hi.view_anchor), ...
@@ -125,6 +137,14 @@ result.summary = struct( ...
 files = milestone_common_export_summary(result, paths);
 result.artifacts.summary_report = files.report_md;
 result.artifacts.summary_mat = files.summary_mat;
+end
+
+function mode_txt = local_execution_mode(meta)
+if isfield(meta, 'preflight_mode') && logical(meta.preflight_mode)
+    mode_txt = "preflight";
+else
+    mode_txt = "full";
+end
 end
 
 function txt = local_make_conclusion(pool, minimum_pack, task_summary_table)
@@ -141,6 +161,19 @@ end
 task_text = local_task_conclusion(task_summary_table);
 txt = join([string(domain_text); string(minimum_text); string(task_text)], sprintf('\n\n'));
 txt = txt(1);
+end
+
+function out = local_checkpoint_summary(joint_eval_timing)
+out = struct();
+if isempty(joint_eval_timing) || ~isstruct(joint_eval_timing)
+    return;
+end
+fields = {'enable_checkpoint', 'resume_used', 'checkpoint_file', 'checkpoint_save_count', 'checkpoint_save_total_s'};
+for k = 1:numel(fields)
+    if isfield(joint_eval_timing, fields{k})
+        out.(fields{k}) = joint_eval_timing.(fields{k});
+    end
+end
 end
 
 function T = local_select_design_pool_columns(T)

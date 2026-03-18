@@ -43,6 +43,18 @@ end
 if isfield(overrides, 'save_case_window_bank') && ~isempty(overrides.save_case_window_bank)
     cfg_stage.stage09.save_case_window_bank = logical(overrides.save_case_window_bank);
 end
+if isfield(overrides, 'enable_checkpoint') && ~isempty(overrides.enable_checkpoint)
+    cfg_stage.stage09.enable_checkpoint = logical(overrides.enable_checkpoint);
+end
+if isfield(overrides, 'checkpoint_every_n') && ~isempty(overrides.checkpoint_every_n)
+    cfg_stage.stage09.checkpoint_every_n = overrides.checkpoint_every_n;
+end
+if isfield(overrides, 'checkpoint_dir') && ~isempty(overrides.checkpoint_dir)
+    cfg_stage.stage09.checkpoint_dir = overrides.checkpoint_dir;
+end
+if isfield(overrides, 'resume_from_checkpoint') && ~isempty(overrides.resume_from_checkpoint)
+    cfg_stage.stage09.resume_from_checkpoint = logical(overrides.resume_from_checkpoint);
+end
 
 switch lower(char(string(family_mode)))
     case 'joint'
@@ -91,18 +103,31 @@ row_bank = table2struct(design_pool_table(:, {'h_km', 'i_deg', 'P', 'T', 'F', 'N
 n_theta = numel(row_bank);
 result_cell = cell(n_theta, 1);
 use_parallel = local_enable_parallel(cfg_stage);
+checkpoint_state = local_prepare_checkpoint_state(cfg_stage, family_mode, design_pool_table, n_theta);
+if checkpoint_state.enabled && checkpoint_state.resume_used
+    result_cell = checkpoint_state.result_cell;
+end
+completed_mask = checkpoint_state.completed_mask;
+pending_idx = find(~completed_mask);
+if checkpoint_state.enabled
+    fprintf('[MB][%s] checkpoint %s | completed %d/%d designs.\n', ...
+        char(string(family_mode)), char(checkpoint_state.checkpoint_file), sum(completed_mask), n_theta);
+end
 t_design_eval = tic;
-if use_parallel
-    parfor idx = 1:n_theta
-        result_cell{idx} = evaluate_single_layer_walker_stage09(row_bank(idx), trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx);
-    end
-else
-    for idx = 1:n_theta
-        result_cell{idx} = evaluate_single_layer_walker_stage09(row_bank(idx), trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx);
-    end
+[result_cell, completed_mask, checkpoint_state] = local_evaluate_design_chunks( ...
+    row_bank, result_cell, completed_mask, pending_idx, trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx, use_parallel, checkpoint_state, family_mode);
+if ~all(completed_mask)
+    error('evaluate_design_pool_with_stage09 did not complete all designs.');
 end
 t_design_eval_s = toc(t_design_eval);
 result_bank = vertcat(result_cell{:});
+if checkpoint_state.enabled
+    checkpoint_state.timing.total_design_eval_completed_s = checkpoint_state.timing.total_design_eval_completed_s + t_design_eval_s;
+    checkpoint_state.completed_mask = completed_mask;
+    checkpoint_state.result_cell = result_cell;
+    checkpoint_state.completed = true;
+    checkpoint_state = local_save_checkpoint(checkpoint_state);
+end
 
 S = summarize_stage09_grid(result_bank, cfg_stage);
 full_theta_table = local_attach_design_pool_metadata(local_normalize_theta_table(S.full_theta_table), design_pool_table);
@@ -124,7 +149,13 @@ out.timing = struct( ...
     'eval_context_build_s', t_eval_ctx_s, ...
     'design_eval_total_s', t_design_eval_s, ...
     'design_eval_mean_s', local_safe_divide(t_design_eval_s, n_theta), ...
-    'use_parallel', use_parallel);
+    'use_parallel', use_parallel, ...
+    'enable_checkpoint', checkpoint_state.enabled, ...
+    'resume_used', checkpoint_state.resume_used, ...
+    'checkpoint_file', string(checkpoint_state.checkpoint_file), ...
+    'checkpoint_save_count', checkpoint_state.save_count, ...
+    'checkpoint_save_total_s', checkpoint_state.timing.checkpoint_save_total_s, ...
+    'completed_design_count', sum(completed_mask));
 out.summary.timing = out.timing;
 out.casebank = trajs_in;
 out.result_bank = result_bank;
@@ -227,6 +258,130 @@ for idx = 1:numel(meta_vars)
     values(tf) = design_pool_table.(meta_vars{idx})(loc(tf));
     T.(meta_vars{idx}) = values;
 end
+end
+
+function checkpoint_state = local_prepare_checkpoint_state(cfg_stage, family_mode, design_pool_table, n_theta)
+checkpoint_state = struct();
+checkpoint_state.enabled = strcmpi(char(string(family_mode)), 'joint') && ...
+    isfield(cfg_stage.stage09, 'enable_checkpoint') && logical(cfg_stage.stage09.enable_checkpoint);
+checkpoint_state.resume_used = false;
+checkpoint_state.result_cell = cell(n_theta, 1);
+checkpoint_state.completed_mask = false(n_theta, 1);
+checkpoint_state.checkpoint_file = "";
+checkpoint_state.save_count = 0;
+checkpoint_state.completed = false;
+checkpoint_state.timing = struct('checkpoint_save_total_s', 0, 'total_design_eval_completed_s', 0);
+checkpoint_state.design_keys = design_pool_table(:, {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns'});
+checkpoint_state.family_name = string(family_mode);
+checkpoint_state.run_tag = string(cfg_stage.stage09.run_tag);
+
+if ~checkpoint_state.enabled
+    return;
+end
+
+checkpoint_dir = char(string(cfg_stage.stage09.checkpoint_dir));
+if ~exist(checkpoint_dir, 'dir')
+    mkdir(checkpoint_dir);
+end
+checkpoint_state.checkpoint_file = fullfile(checkpoint_dir, ...
+    sprintf('%s_%s_checkpoint.mat', local_make_safe_token(cfg_stage.stage09.run_tag), local_make_safe_token(family_mode)));
+
+if isfield(cfg_stage.stage09, 'resume_from_checkpoint') && cfg_stage.stage09.resume_from_checkpoint && ...
+        exist(checkpoint_state.checkpoint_file, 'file') == 2
+    data = load(checkpoint_state.checkpoint_file, 'checkpoint_payload');
+    if isfield(data, 'checkpoint_payload') && local_checkpoint_matches(data.checkpoint_payload, checkpoint_state)
+        checkpoint_state.result_cell = data.checkpoint_payload.result_cell;
+        checkpoint_state.completed_mask = logical(data.checkpoint_payload.completed_mask);
+        checkpoint_state.save_count = data.checkpoint_payload.save_count;
+        checkpoint_state.timing = data.checkpoint_payload.timing;
+        checkpoint_state.resume_used = true;
+        checkpoint_state.completed = isfield(data.checkpoint_payload, 'completed') && logical(data.checkpoint_payload.completed);
+    end
+end
+end
+
+function [result_cell, completed_mask, checkpoint_state] = local_evaluate_design_chunks(row_bank, result_cell, completed_mask, pending_idx, trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx, use_parallel, checkpoint_state, family_mode)
+if isempty(pending_idx)
+    return;
+end
+
+chunk_size = max(1, round(cfg_stage.stage09.checkpoint_every_n));
+t_progress = tic;
+for start_idx = 1:chunk_size:numel(pending_idx)
+    chunk = pending_idx(start_idx:min(start_idx + chunk_size - 1, numel(pending_idx)));
+    chunk_rows = row_bank(chunk);
+    chunk_result = cell(numel(chunk), 1);
+    if use_parallel && numel(chunk) > 1
+        parfor local_idx = 1:numel(chunk)
+            chunk_result{local_idx} = evaluate_single_layer_walker_stage09(chunk_rows(local_idx), trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx);
+        end
+    else
+        for local_idx = 1:numel(chunk)
+            chunk_result{local_idx} = evaluate_single_layer_walker_stage09(chunk_rows(local_idx), trajs_in, gamma_eff_scalar, cfg_stage, eval_ctx);
+        end
+    end
+
+    for local_idx = 1:numel(chunk)
+        design_idx = chunk(local_idx);
+        result_cell{design_idx} = chunk_result{local_idx};
+        completed_mask(design_idx) = true;
+    end
+
+    elapsed_s = toc(t_progress);
+    completed_count = sum(completed_mask);
+    remaining_count = numel(row_bank) - completed_count;
+    mean_s = local_safe_divide(elapsed_s, max(1, completed_count - (sum(checkpoint_state.completed_mask))));
+    eta_s = remaining_count * mean_s;
+    fprintf('[MB][%s] completed %d/%d designs (%.1f%%), elapsed %.1fs, ETA %.1fs.\n', ...
+        char(string(family_mode)), completed_count, numel(row_bank), 100 * completed_count / numel(row_bank), elapsed_s, eta_s);
+
+    if checkpoint_state.enabled
+        checkpoint_state.result_cell = result_cell;
+        checkpoint_state.completed_mask = completed_mask;
+        checkpoint_state.completed = all(completed_mask);
+        checkpoint_state = local_save_checkpoint(checkpoint_state);
+    end
+end
+end
+
+function checkpoint_state = local_save_checkpoint(checkpoint_state)
+if ~checkpoint_state.enabled
+    return;
+end
+t_save = tic;
+checkpoint_payload = struct();
+checkpoint_payload.version = 1;
+checkpoint_payload.family_name = checkpoint_state.family_name;
+checkpoint_payload.run_tag = checkpoint_state.run_tag;
+checkpoint_payload.design_keys = checkpoint_state.design_keys;
+checkpoint_payload.result_cell = checkpoint_state.result_cell;
+checkpoint_payload.completed_mask = checkpoint_state.completed_mask;
+checkpoint_payload.save_count = checkpoint_state.save_count + 1;
+checkpoint_payload.completed = checkpoint_state.completed;
+checkpoint_payload.timing = checkpoint_state.timing;
+checkpoint_payload.saved_at = string(datetime('now'));
+save(checkpoint_state.checkpoint_file, 'checkpoint_payload', '-v7.3');
+save_time_s = toc(t_save);
+checkpoint_state.save_count = checkpoint_payload.save_count;
+checkpoint_state.timing.checkpoint_save_total_s = checkpoint_state.timing.checkpoint_save_total_s + save_time_s;
+fprintf('[MB][joint] checkpoint saved (%d) in %.2fs -> %s\n', checkpoint_state.save_count, save_time_s, checkpoint_state.checkpoint_file);
+end
+
+function tf = local_checkpoint_matches(payload, checkpoint_state)
+tf = false;
+required = {'family_name', 'run_tag', 'design_keys', 'result_cell', 'completed_mask'};
+if ~all(isfield(payload, required))
+    return;
+end
+tf = string(payload.family_name) == checkpoint_state.family_name && ...
+    string(payload.run_tag) == checkpoint_state.run_tag && ...
+    isequal(payload.design_keys, checkpoint_state.design_keys) && ...
+    numel(payload.result_cell) == numel(checkpoint_state.result_cell) && ...
+    numel(payload.completed_mask) == numel(checkpoint_state.completed_mask);
+end
+
+function token = local_make_safe_token(value)
+token = regexprep(char(string(value)), '[^A-Za-z0-9_-]', '_');
 end
 
 function use_parallel = local_enable_parallel(cfg_stage)
