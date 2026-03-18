@@ -257,47 +257,7 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
             'lambda_worst', 'sigma_A_proj_worst', 't0_worst_DG_s', 't0_worst_DA_s', 't0_worst_DT_s', ...
             'dt_max_s', 'mean_num_visible', 'dual_coverage_ratio', 'custody_ratio', 'fail_tag_case'});
 
-    DG_valid = DG_case(isfinite(DG_case));
-    DA_valid = DA_case(isfinite(DA_case));
-    DT_bar_valid = DT_bar_case(isfinite(DT_bar_case));
-    DT_valid = DT_case(isfinite(DT_case));
-    pass_valid = pass_flag_case(~cellfun(@isempty, cellstr(case_id)));
-
-    if isempty(DG_valid), DG_rob = NaN; else, DG_rob = min(DG_valid); end
-    if isempty(DA_valid), DA_rob = NaN; else, DA_rob = min(DA_valid); end
-    if isempty(DT_bar_valid), DT_bar_rob = NaN; else, DT_bar_rob = min(DT_bar_valid); end
-    if isempty(DT_valid), DT_rob = NaN; else, DT_rob = min(DT_valid); end
-
-    joint_margin = min([DG_rob, DA_rob, DT_rob]);
-
-    if isempty(pass_valid)
-        pass_ratio = NaN;
-    else
-        if failed_early
-            pass_ratio = sum(pass_valid) / nCase;
-        else
-            pass_ratio = mean(pass_valid, 'omitnan');
-        end
-    end
-
-    feasible_flag = ...
-        (pass_ratio >= cfg.stage09.require_pass_ratio) && ...
-        (DG_rob >= cfg.stage09.require_DG_min) && ...
-        (DA_rob >= cfg.stage09.require_DA_min) && ...
-        (DT_rob >= cfg.stage09.require_DT_min);
-
-    worst_case_id_DG = local_pick_case_id(case_table, 'DG', 'min');
-    worst_case_id_DA = local_pick_case_id(case_table, 'DA', 'min');
-    worst_case_id_DT = local_pick_case_id(case_table, 'DT', 'min');
-
-    dominant_fail_tag = local_theta_fail_tag(DG_rob, DA_rob, DT_rob, cfg.stage09);
-
-    switch string(cfg.stage09.rank_rule)
-        case "min_Ns_then_max_joint_margin"
-            rank_score = row.Ns - 1e-3 * joint_margin;
-        otherwise
-            rank_score = row.Ns - 1e-3 * joint_margin;
-    end
+    metrics = aggregate_stage09_case_table(case_table, row, cfg, failed_early, nCase, n_evaluated);
 
     result = struct();
     result.walker = walker;
@@ -308,22 +268,22 @@ function result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_
         result.case_window_bank = case_window_bank;
     end
 
-    result.DG_rob = DG_rob;
-    result.DA_rob = DA_rob;
-    result.DT_bar_rob = DT_bar_rob;
-    result.DT_rob = DT_rob;
-    result.joint_margin = joint_margin;
-    result.pass_ratio = pass_ratio;
-    result.feasible_flag = feasible_flag;
-    result.dominant_fail_tag = dominant_fail_tag;
-    result.worst_case_id_DG = worst_case_id_DG;
-    result.worst_case_id_DA = worst_case_id_DA;
-    result.worst_case_id_DT = worst_case_id_DT;
-    result.rank_score = rank_score;
+    result.DG_rob = metrics.DG_rob;
+    result.DA_rob = metrics.DA_rob;
+    result.DT_bar_rob = metrics.DT_bar_rob;
+    result.DT_rob = metrics.DT_rob;
+    result.joint_margin = metrics.joint_margin;
+    result.pass_ratio = metrics.pass_ratio;
+    result.feasible_flag = metrics.feasible_flag;
+    result.dominant_fail_tag = metrics.dominant_fail_tag;
+    result.worst_case_id_DG = metrics.worst_case_id_DG;
+    result.worst_case_id_DA = metrics.worst_case_id_DA;
+    result.worst_case_id_DT = metrics.worst_case_id_DT;
+    result.rank_score = metrics.rank_score;
 
-    result.n_case_total = nCase;
-    result.n_case_evaluated = n_evaluated;
-    result.failed_early = failed_early;
+    result.n_case_total = metrics.n_case_total;
+    result.n_case_evaluated = metrics.n_case_evaluated;
+    result.failed_early = metrics.failed_early;
 end
 
 
