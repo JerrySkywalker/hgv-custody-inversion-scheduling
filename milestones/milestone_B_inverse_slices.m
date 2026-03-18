@@ -79,7 +79,7 @@ if write_figures
     close(fig3);
 end
 
-supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, write_figures, write_supplementary);
+supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, task_summary_table, write_figures, write_supplementary);
 
 result = struct();
 result.milestone_id = meta.milestone_id;
@@ -199,7 +199,7 @@ tf = isfield(meta, 'export_supplementary_figures') && logical(meta.export_supple
     ~(isfield(meta, 'preflight_mode') && logical(meta.preflight_mode));
 end
 
-function supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, write_figures, write_supplementary)
+function supplementary = local_build_supplementary_exports(cfg, meta, paths, style, pool, minimum_pack, task_summary_table, write_figures, write_supplementary)
 supplementary = struct('tables', struct(), 'figures', struct(), 'summary', struct('near_optimal_shell_check', struct()));
 if ~write_supplementary
     return;
@@ -317,6 +317,73 @@ if write_figures
     supplementary.figures.family_gap_heatmap_heading_minus_nominal = string(fig_gap_path);
 end
 close(fig_gap);
+
+dense_refinement = stage12I_mb_dense_refinement(cfg, pool, minimum_pack.minimum_design_table, task_summary_table, meta);
+if isfield(dense_refinement, 'summary') && isstruct(dense_refinement.summary) && ...
+        isfield(dense_refinement.summary, 'enabled') && logical(dense_refinement.summary.enabled)
+    dense_req_ip_csv = fullfile(paths.tables, 'MB_dense_requirement_heatmap_iP.csv');
+    milestone_common_save_table(dense_refinement.requirement_surface_iP.surface_table, dense_req_ip_csv);
+    supplementary.tables.dense_requirement_heatmap_iP = string(dense_req_ip_csv);
+
+    dense_gap_csv = fullfile(paths.tables, 'MB_dense_gap_heatmap_heading_minus_nominal.csv');
+    milestone_common_save_table(dense_refinement.gap_surface_heading_minus_nominal.gap_table, dense_gap_csv);
+    supplementary.tables.dense_gap_heatmap_heading_minus_nominal = string(dense_gap_csv);
+
+    dense_pass_joint_csv = fullfile(paths.tables, 'MB_dense_passratio_phasecurve_joint.csv');
+    dense_pass_heading_csv = fullfile(paths.tables, 'MB_dense_passratio_phasecurve_heading.csv');
+    milestone_common_save_table(dense_refinement.phasecurve_joint, dense_pass_joint_csv);
+    milestone_common_save_table(dense_refinement.phasecurve_heading, dense_pass_heading_csv);
+    supplementary.tables.dense_passratio_phasecurve_joint = string(dense_pass_joint_csv);
+    supplementary.tables.dense_passratio_phasecurve_heading = string(dense_pass_heading_csv);
+
+    if isfield(dense_refinement, 'requirement_surface_hi') && isstruct(dense_refinement.requirement_surface_hi) && ...
+            isfield(dense_refinement.requirement_surface_hi, 'surface_table') && ~isempty(dense_refinement.requirement_surface_hi.surface_table)
+        dense_req_hi_csv = fullfile(paths.tables, 'MB_dense_requirement_heatmap_hi.csv');
+        milestone_common_save_table(dense_refinement.requirement_surface_hi.surface_table, dense_req_hi_csv);
+        supplementary.tables.dense_requirement_heatmap_hi = string(dense_req_hi_csv);
+    end
+
+    dense_summary_md = fullfile(paths.tables, 'MB_dense_refinement_summary.md');
+    local_write_dense_refinement_summary(dense_summary_md, dense_refinement.summary);
+    supplementary.tables.dense_refinement_summary = string(dense_summary_md);
+    supplementary.summary.dense_refinement = dense_refinement.summary;
+
+    if write_figures
+        fig_dense_ip = plot_mb_dense_requirement_heatmap_iP(dense_refinement.requirement_surface_iP, minimum_pack.minimum_design_table, style);
+        fig_dense_ip_path = fullfile(paths.figures, 'MB_dense_requirement_heatmap_iP.png');
+        milestone_common_save_figure(fig_dense_ip, fig_dense_ip_path);
+        close(fig_dense_ip);
+        supplementary.figures.dense_requirement_heatmap_iP = string(fig_dense_ip_path);
+
+        [fig_dense_gap, ~] = plot_mb_dense_gap_heatmap_heading_minus_nominal(dense_refinement.gap_surface_heading_minus_nominal, style);
+        fig_dense_gap_path = fullfile(paths.figures, 'MB_dense_gap_heatmap_heading_minus_nominal.png');
+        milestone_common_save_figure(fig_dense_gap, fig_dense_gap_path);
+        close(fig_dense_gap);
+        supplementary.figures.dense_gap_heatmap_heading_minus_nominal = string(fig_dense_gap_path);
+
+        dense_phasecurve_options = local_phasecurve_options(cfg, minimum_pack);
+        fig_dense_joint = plot_mb_dense_passratio_phasecurve(dense_refinement.phasecurve_joint, 'joint', style, dense_phasecurve_options);
+        fig_dense_joint_path = fullfile(paths.figures, 'MB_dense_passratio_phasecurve_joint.png');
+        milestone_common_save_figure(fig_dense_joint, fig_dense_joint_path);
+        close(fig_dense_joint);
+        supplementary.figures.dense_passratio_phasecurve_joint = string(fig_dense_joint_path);
+
+        fig_dense_heading = plot_mb_dense_passratio_phasecurve(dense_refinement.phasecurve_heading, 'heading', style, dense_phasecurve_options);
+        fig_dense_heading_path = fullfile(paths.figures, 'MB_dense_passratio_phasecurve_heading.png');
+        milestone_common_save_figure(fig_dense_heading, fig_dense_heading_path);
+        close(fig_dense_heading);
+        supplementary.figures.dense_passratio_phasecurve_heading = string(fig_dense_heading_path);
+
+        if isfield(dense_refinement, 'requirement_surface_hi') && isstruct(dense_refinement.requirement_surface_hi) && ...
+                isfield(dense_refinement.requirement_surface_hi, 'surface_table') && ~isempty(dense_refinement.requirement_surface_hi.surface_table)
+            fig_dense_hi = plot_mb_dense_requirement_heatmap_hi(dense_refinement.requirement_surface_hi, minimum_pack.minimum_design_table, style);
+            fig_dense_hi_path = fullfile(paths.figures, 'MB_dense_requirement_heatmap_hi.png');
+            milestone_common_save_figure(fig_dense_hi, fig_dense_hi_path);
+            close(fig_dense_hi);
+            supplementary.figures.dense_requirement_heatmap_hi = string(fig_dense_hi_path);
+        end
+    end
+end
 end
 
 function options = local_phasecurve_options(cfg, minimum_pack)
@@ -488,4 +555,55 @@ else
     min_ns_span = max(min_ns_values) - min(min_ns_values);
 end
 tf = ratio_span < 0.05 && min_ns_span <= 2;
+end
+
+function local_write_dense_refinement_summary(file_path, summary)
+fid = fopen(file_path, 'w');
+if fid < 0
+    error('Failed to open dense refinement summary for writing: %s', file_path);
+end
+cleanup_obj = onCleanup(@() fclose(fid)); %#ok<NASGU>
+
+fprintf(fid, '# MB Dense Refinement Summary\n\n');
+fprintf(fid, '- `enabled`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'enabled', false)));
+fprintf(fid, '- `minimum_shell_Ns`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'minimum_shell_Ns', NaN)));
+fprintf(fid, '- `baseline_F`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'baseline_F', NaN)));
+fprintf(fid, '- `requirement_design_count`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'requirement_design_count', 0)));
+fprintf(fid, '- `phasecurve_design_count`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'phasecurve_design_count', 0)));
+fprintf(fid, '- `requirement_eval_s`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'requirement_eval_s', NaN)));
+fprintf(fid, '- `phasecurve_eval_s`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'phasecurve_eval_s', NaN)));
+fprintf(fid, '- `dense_requirement_i_deg`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_requirement_i_deg', [])));
+fprintf(fid, '- `dense_requirement_P`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_requirement_P', [])));
+fprintf(fid, '- `dense_requirement_h_km`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_requirement_h_km', [])));
+fprintf(fid, '- `dense_requirement_T`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_requirement_T', [])));
+fprintf(fid, '- `dense_phasecurve_i_deg`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_phasecurve_i_deg', [])));
+fprintf(fid, '- `dense_phasecurve_P`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_phasecurve_P', [])));
+fprintf(fid, '- `dense_phasecurve_T`: %s\n', local_stringify_summary_value(local_getfield_or(summary, 'dense_phasecurve_T', [])));
+fprintf(fid, '\n%s\n', local_stringify_summary_value(local_getfield_or(summary, 'note', "")));
+end
+
+function value = local_getfield_or(S, field_name, fallback)
+if isstruct(S) && isfield(S, field_name)
+    value = S.(field_name);
+else
+    value = fallback;
+end
+end
+
+function txt = local_stringify_summary_value(value)
+if isstring(value) || ischar(value)
+    txt = char(string(value));
+elseif isnumeric(value) || islogical(value)
+    if isscalar(value)
+        txt = char(string(value));
+    else
+        txt = mat2str(value);
+    end
+elseif isstruct(value)
+    txt = sprintf('struct(%d fields)', numel(fieldnames(value)));
+elseif istable(value)
+    txt = sprintf('table[%d x %d]', height(value), width(value));
+else
+    txt = char(string(value));
+end
 end
