@@ -137,7 +137,8 @@ else
         height(minimum_pack.near_optimal_table), local_mode_text(minimum_pack.minimum_design_table, 'dominant_constraint'));
 end
 task_text = local_task_conclusion(task_summary_table);
-txt = strjoin([domain_text, minimum_text, task_text], newline + newline);
+txt = join([string(domain_text); string(minimum_text); string(task_text)], sprintf('\n\n'));
+txt = txt(1);
 end
 
 function T = local_select_design_pool_columns(T)
