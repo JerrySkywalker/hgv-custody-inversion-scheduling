@@ -37,7 +37,14 @@ end
 xlabel(ax, 'N_s');
 ylabel(ax, 'Max pass ratio under fixed i');
 title(ax, sprintf('Pass-Ratio Profile versus N_s at h = %.0f km', h_km));
-ylim(ax, [0, 1.05]);
+if isfield(options, 'plot_xlim_ns') && numel(options.plot_xlim_ns) == 2 && all(isfinite(options.plot_xlim_ns))
+    xlim(ax, reshape(options.plot_xlim_ns, 1, []));
+end
+if isfield(options, 'plot_ylim_passratio') && numel(options.plot_ylim_passratio) == 2 && all(isfinite(options.plot_ylim_passratio))
+    ylim(ax, reshape(options.plot_ylim_passratio, 1, []));
+else
+    ylim(ax, [0, 1.05]);
+end
 grid(ax, 'on');
 legend(ax, 'Location', 'best', 'Box', style.legend_box);
 hold(ax, 'off');

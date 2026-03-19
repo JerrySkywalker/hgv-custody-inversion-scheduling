@@ -143,6 +143,7 @@ end
 function outputs = local_execute_semantic_runs(cfg, meta, resolved_modes, sensor_groups, family_set, heights_to_run)
 need_legacy = any(arrayfun(@(m) logical(m.uses_legacydg), resolved_modes));
 need_closed = any(arrayfun(@(m) logical(m.uses_closedd), resolved_modes));
+plot_options = local_semantic_plot_options(meta);
 outputs = repmat(struct( ...
     'mode', "", ...
     'sensor_group', "", ...
@@ -178,7 +179,7 @@ for idx_group = 1:numel(sensor_groups)
             'mode', "legacyDG", ...
             'sensor_group', string(sensor_group), ...
             'run_output', legacy_output, ...
-            'artifacts', export_mb_legacydg_outputs(legacy_output, mb_output_paths(cfg, 'MB', 'semantic_compare')));
+            'artifacts', export_mb_legacydg_outputs(legacy_output, mb_output_paths(cfg, 'MB', 'semantic_compare'), plot_options));
     end
     if need_closed
         cursor = cursor + 1;
@@ -187,10 +188,20 @@ for idx_group = 1:numel(sensor_groups)
             'mode', "closedD", ...
             'sensor_group', string(sensor_group), ...
             'run_output', closed_output, ...
-            'artifacts', export_mb_closedd_outputs(closed_output, mb_output_paths(cfg, 'MB', 'semantic_compare')));
+            'artifacts', export_mb_closedd_outputs(closed_output, mb_output_paths(cfg, 'MB', 'semantic_compare'), plot_options));
     end
 end
 outputs = outputs(1:cursor, 1);
+end
+
+function plot_options = local_semantic_plot_options(meta)
+plot_options = struct();
+if isfield(meta, 'plot_xlim_ns')
+    plot_options.plot_xlim_ns = meta.plot_xlim_ns;
+end
+if isfield(meta, 'plot_ylim_passratio')
+    plot_options.plot_ylim_passratio = meta.plot_ylim_passratio;
+end
 end
 
 function manifest = local_build_sensor_manifest(sensor_groups)

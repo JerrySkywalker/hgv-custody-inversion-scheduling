@@ -1,8 +1,11 @@
-function artifacts = export_mb_legacydg_outputs(run_output, paths)
+function artifacts = export_mb_legacydg_outputs(run_output, paths, plot_options)
 %EXPORT_MB_LEGACYDG_OUTPUTS Export legacyDG semantic outputs under MB layout.
 
 if nargin < 2 || isempty(paths)
     error('export_mb_legacydg_outputs requires run_output and paths.');
+end
+if nargin < 3 || isempty(plot_options)
+    plot_options = struct();
 end
 
 style = milestone_common_plot_style();
@@ -30,7 +33,7 @@ for idx = 1:numel(run_output.runs)
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_%s', h_label))) = string(pass_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_csv);
 
-    fig_pass = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, struct());
+    fig_pass = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, plot_options);
     local_retitle(fig_pass, sprintf('legacyDG Pass-Ratio Profile versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
     pass_png = fullfile(paths.figures, sprintf('MB_legacyDG_passratio_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass, pass_png);
