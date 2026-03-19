@@ -102,6 +102,14 @@ tune_result.stats = struct( ...
     'fresh_evaluations', fresh_evaluations, ...
     'total_iterations', history_count, ...
     'cache_dir', string(cache_dir));
+
+export_artifacts = export_mb_autotune_iteration_summary(tune_result, options);
+if strlength(export_artifacts.history_csv) > 0
+    tune_result.iteration_history_csv = export_artifacts.history_csv;
+end
+if ~isempty(export_artifacts.summary_row)
+    tune_result.summary_row = export_artifacts.summary_row;
+end
 end
 
 function [score_result, candidate_phasecurve, cache_hit, was_evaluated] = local_evaluate_profile(profile, current_phasecurve, options, evaluator_fn, cache_dir, reuse_tune_cache, auto_tune, cache_cfg)
