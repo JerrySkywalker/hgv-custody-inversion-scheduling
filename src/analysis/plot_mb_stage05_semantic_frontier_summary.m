@@ -5,25 +5,32 @@ fig = figure('Color', 'w', 'Name', 'MB Stage05 Semantic Frontier', 'Position', [
 
 valid_frontier = summary_table.frontier_Ns(isfinite(summary_table.frontier_Ns));
 if isempty(valid_frontier)
-    ax = axes(fig);
-    axis(ax, 'off');
+    ax_empty = axes(fig);
     x_span = local_i_span_string(summary_table);
-    text(ax, 0.5, 0.58, 'No feasible point found within current search domain', ...
-        'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'FontSize', 16);
-    text(ax, 0.5, 0.44, sprintf('Search domain: h = %.0f km, i = %s', h_km, x_span), ...
-        'HorizontalAlignment', 'center', 'FontSize', 12, 'Color', [0.25 0.25 0.25]);
-    title(ax, sprintf('MB Control (Stage05 Semantics): inclination-wise frontier summary at h = %.0f km', h_km));
+    apply_mb_plot_domain_guardrail(ax_empty, [], [], struct( ...
+        'empty_message', 'No feasible point found within current search domain', ...
+        'domain_summary', sprintf('Search domain: h = %.0f km, i = %s', h_km, x_span), ...
+        'plot_domain_source', "no_valid_frontier"));
+    title(ax_empty, sprintf('MB Control (Stage05 Semantics): inclination-wise frontier summary at h = %.0f km', h_km));
     return;
 end
 
 yyaxis left;
-plot(summary_table.i_deg, summary_table.frontier_Ns, '-o', 'LineWidth', 2.5, 'MarkerSize', 10);
+if numel(unique(summary_table.i_deg(isfinite(summary_table.frontier_Ns)))) < 2
+    plot(summary_table.i_deg, summary_table.frontier_Ns, 'o', 'LineWidth', 2.5, 'MarkerSize', 10, 'MarkerFaceColor', [0.15 0.35 0.75]);
+else
+    plot(summary_table.i_deg, summary_table.frontier_Ns, '-o', 'LineWidth', 2.5, 'MarkerSize', 10);
+end
 ylabel('minimum feasible N_s');
 
 ylim([max(0, min(valid_frontier) - 10), max(valid_frontier) + 10]);
 
 yyaxis right;
-plot(summary_table.i_deg, summary_table.frontier_D_G_min, '-s', 'LineWidth', 2.5, 'MarkerSize', 9);
+if numel(unique(summary_table.i_deg(isfinite(summary_table.frontier_D_G_min)))) < 2
+    plot(summary_table.i_deg, summary_table.frontier_D_G_min, 's', 'LineWidth', 2.5, 'MarkerSize', 9, 'MarkerFaceColor', [0.8 0.25 0.15]);
+else
+    plot(summary_table.i_deg, summary_table.frontier_D_G_min, '-s', 'LineWidth', 2.5, 'MarkerSize', 9);
+end
 ylabel('D_G^{min} of frontier point');
 
 hold on;
@@ -41,6 +48,12 @@ title(sprintf('MB Control (Stage05 Semantics): inclination-wise frontier summary
 grid on;
 box on;
 set(gca, 'FontSize', 13);
+yyaxis left;
+apply_mb_plot_domain_guardrail(gca, summary_table.i_deg, summary_table.frontier_Ns, struct( ...
+    'min_span', 10, ...
+    'empty_message', 'No valid frontier point found within current search domain', ...
+    'domain_summary', sprintf('Search domain: h = %.0f km, i = %s', h_km, local_i_span_string(summary_table)), ...
+    'plot_domain_source', "frontier_summary"));
 end
 
 function span_text = local_i_span_string(summary_table)

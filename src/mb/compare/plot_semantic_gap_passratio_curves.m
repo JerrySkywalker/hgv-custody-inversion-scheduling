@@ -5,8 +5,10 @@ if nargin < 3
     sensor_label = "";
 end
 
-i_values = unique(gap_table.i_deg, 'sorted');
+i_values = unique(local_getfield_or(gap_table, 'i_deg', []), 'sorted');
 cmap = turbo(max(2, numel(i_values)));
+guard = compute_mb_plot_window_from_data(local_getfield_or(gap_table, 'Ns', []), struct( ...
+    'empty_message', 'No valid pass-ratio comparison point found within current search domain'));
 
 fig = figure('Visible', 'off', 'Color', 'w');
 tiled = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -17,17 +19,17 @@ hold(ax1, 'on');
 for idx = 1:numel(i_values)
     Ti = gap_table(gap_table.i_deg == i_values(idx), :);
     Ti = sortrows(Ti, 'Ns');
-    plot(ax1, Ti.Ns, Ti.max_pass_ratio_legacyDG, '--s', ...
-        'Color', cmap(idx, :), 'LineWidth', 1.5, 'MarkerSize', 5, ...
-        'DisplayName', sprintf('legacyDG i=%g', i_values(idx)));
-    plot(ax1, Ti.Ns, Ti.max_pass_ratio_closedD, '-o', ...
-        'Color', cmap(idx, :), 'LineWidth', 1.8, 'MarkerSize', 5, ...
-        'DisplayName', sprintf('closedD i=%g', i_values(idx)));
+    local_plot_curve(ax1, Ti.Ns, Ti.max_pass_ratio_legacyDG, '--s', cmap(idx, :), 1.5, 5, sprintf('legacyDG i=%g', i_values(idx)));
+    local_plot_curve(ax1, Ti.Ns, Ti.max_pass_ratio_closedD, '-o', cmap(idx, :), 1.8, 5, sprintf('closedD i=%g', i_values(idx)));
 end
 ylabel(ax1, 'max pass ratio');
 title(ax1, 'Upper panel: pass ratio overlay');
 grid(ax1, 'on');
-ylim(ax1, [0, 1.05]);
+apply_mb_plot_domain_guardrail(ax1, local_getfield_or(gap_table, 'Ns', []), local_getfield_or(gap_table, 'max_pass_ratio_closedD', []), struct( ...
+    'ylim', [0, 1.05], ...
+    'empty_message', 'No valid pass-ratio comparison point found within current search domain', ...
+    'domain_summary', sprintf('Search domain: h = %.0f km [%s]', h_km, char(string(sensor_label))), ...
+    'plot_domain_source', guard.plot_domain_source));
 text(ax1, 0.02, 0.96, 'Upper: legacyDG vs closedD pass ratio under the shared N_s domain', ...
     'Units', 'normalized', 'FontSize', 10, 'Color', [0.20 0.20 0.20], 'VerticalAlignment', 'top');
 
@@ -42,9 +44,7 @@ hold(ax2, 'on');
 for idx = 1:numel(i_values)
     Ti = gap_table(gap_table.i_deg == i_values(idx), :);
     Ti = sortrows(Ti, 'Ns');
-    plot(ax2, Ti.Ns, Ti.passratio_gap, '-o', ...
-        'Color', cmap(idx, :), 'LineWidth', 1.6, 'MarkerSize', 5, ...
-        'DisplayName', sprintf('gap i=%g', i_values(idx)));
+    local_plot_curve(ax2, Ti.Ns, Ti.passratio_gap, '-o', cmap(idx, :), 1.6, 5, sprintf('gap i=%g', i_values(idx)));
 end
 yline(ax2, 0, ':', 'Color', [0.35, 0.35, 0.35], 'LineWidth', 1.1);
 xlabel(ax2, 'N_s');
@@ -58,9 +58,36 @@ if ~(legacy_plateau && closed_plateau)
         'Units', 'normalized', 'FontSize', 9.5, 'Color', [0.55 0.15 0.15], ...
         'VerticalAlignment', 'top');
 end
+apply_mb_plot_domain_guardrail(ax2, local_getfield_or(gap_table, 'Ns', []), local_getfield_or(gap_table, 'passratio_gap', []), struct( ...
+    'empty_message', 'No valid pass-ratio gap point found within current search domain', ...
+    'domain_summary', sprintf('Search domain: h = %.0f km [%s]', h_km, char(string(sensor_label))), ...
+    'plot_domain_source', guard.plot_domain_source));
 grid(ax2, 'on');
 
 legend(ax1, 'Location', 'eastoutside', 'Box', 'off');
+end
+
+function values = local_getfield_or(T, field_name, fallback)
+if istable(T) && ismember(field_name, T.Properties.VariableNames)
+    values = T.(field_name);
+else
+    values = fallback;
+end
+end
+
+function local_plot_curve(ax, x_values, y_values, line_spec, color_value, line_width, marker_size, label_text)
+valid_mask = isfinite(x_values) & isfinite(y_values);
+x_values = x_values(valid_mask);
+y_values = y_values(valid_mask);
+if isempty(x_values)
+    return;
+elseif numel(unique(x_values)) < 2
+    plot(ax, x_values, y_values, line_spec(end), 'Color', color_value, 'LineWidth', line_width, ...
+        'MarkerSize', marker_size + 1, 'MarkerFaceColor', color_value, 'DisplayName', sprintf('%s (single point)', label_text));
+else
+    plot(ax, x_values, y_values, line_spec, 'Color', color_value, 'LineWidth', line_width, ...
+        'MarkerSize', marker_size, 'DisplayName', label_text);
+end
 end
 
 function [legacy_plateau, closed_plateau, note] = local_plateau_status(gap_table)

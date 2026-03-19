@@ -10,10 +10,34 @@ tiled = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 
 ax1 = nexttile(tiled, 1);
 hold(ax1, 'on');
-plot(ax1, gap_table.i_deg, gap_table.minimum_feasible_Ns_legacyDG, '--s', ...
-    'Color', [0.15, 0.35, 0.75], 'LineWidth', 1.8, 'MarkerSize', 6, 'DisplayName', 'legacyDG');
-plot(ax1, gap_table.i_deg, gap_table.minimum_feasible_Ns_closedD, '-o', ...
-    'Color', [0.8, 0.25, 0.15], 'LineWidth', 1.8, 'MarkerSize', 6, 'DisplayName', 'closedD');
+if isempty(gap_table) || ~ismember('i_deg', gap_table.Properties.VariableNames)
+    apply_mb_plot_domain_guardrail(ax1, [], [], struct( ...
+        'empty_message', 'No valid frontier points in current search domain', ...
+        'domain_summary', sprintf('Frontier overlay unavailable at h = %.0f km [%s]', h_km, char(string(sensor_label))), ...
+        'plot_domain_source', "no_frontier_table"));
+else
+    legacy_valid = isfinite(gap_table.minimum_feasible_Ns_legacyDG);
+    closed_valid = isfinite(gap_table.minimum_feasible_Ns_closedD);
+    if any(legacy_valid)
+        local_plot_frontier(ax1, gap_table.i_deg(legacy_valid), gap_table.minimum_feasible_Ns_legacyDG(legacy_valid), '--s', [0.15, 0.35, 0.75], 'legacyDG');
+    end
+    if any(closed_valid)
+        local_plot_frontier(ax1, gap_table.i_deg(closed_valid), gap_table.minimum_feasible_Ns_closedD(closed_valid), '-o', [0.8, 0.25, 0.15], 'closedD');
+    end
+    if ~any(legacy_valid) && ~any(closed_valid)
+        apply_mb_plot_domain_guardrail(ax1, [], [], struct( ...
+            'empty_message', 'No valid frontier points in current search domain', ...
+            'domain_summary', sprintf('Neither legacyDG nor closedD frontier is defined at h = %.0f km [%s]', h_km, char(string(sensor_label))), ...
+            'plot_domain_source', "no_valid_frontier"));
+    else
+        apply_mb_plot_domain_guardrail(ax1, gap_table.i_deg(legacy_valid | closed_valid), [gap_table.minimum_feasible_Ns_legacyDG(legacy_valid); gap_table.minimum_feasible_Ns_closedD(closed_valid)], struct( ...
+            'min_span', 10, ...
+            'auto_ylim', true, ...
+            'empty_message', 'No valid frontier points in current search domain', ...
+            'domain_summary', local_frontier_note(legacy_valid, closed_valid), ...
+            'plot_domain_source', "frontier_overlay"));
+    end
+end
 xlabel(ax1, 'i (deg)');
 ylabel(ax1, 'minimum feasible N_s');
 title(ax1, sprintf('Frontier Overlay at h = %.0f km [%s]', h_km, char(string(sensor_label))));
@@ -22,17 +46,58 @@ legend(ax1, 'Location', 'best', 'Box', 'off');
 
 ax2 = nexttile(tiled, 2);
 hold(ax2, 'on');
-finite_mask = isfinite(gap_table.delta_Ns);
-plot(ax2, gap_table.i_deg(finite_mask), gap_table.delta_Ns(finite_mask), '-o', ...
-    'Color', [0.25, 0.25, 0.25], 'LineWidth', 1.6, 'MarkerSize', 6);
-inf_mask = isinf(gap_table.delta_Ns) & gap_table.delta_Ns > 0;
-if any(inf_mask)
-    plot(ax2, gap_table.i_deg(inf_mask), repmat(max([1; gap_table.minimum_feasible_Ns_legacyDG(isfinite(gap_table.minimum_feasible_Ns_legacyDG))]) + 10, sum(inf_mask), 1), 'x', ...
-        'Color', [0.8, 0.15, 0.15], 'LineWidth', 2.0, 'MarkerSize', 8, 'DisplayName', 'closedD infeasible');
+if isempty(gap_table) || ~ismember('delta_Ns', gap_table.Properties.VariableNames)
+    apply_mb_plot_domain_guardrail(ax2, [], [], struct( ...
+        'empty_message', 'No valid frontier shift point in current search domain', ...
+        'domain_summary', sprintf('Frontier shift unavailable at h = %.0f km [%s]', h_km, char(string(sensor_label))), ...
+        'plot_domain_source', "no_gap_table"));
+else
+    finite_mask = isfinite(gap_table.delta_Ns);
+    if any(finite_mask)
+        local_plot_frontier(ax2, gap_table.i_deg(finite_mask), gap_table.delta_Ns(finite_mask), '-o', [0.25, 0.25, 0.25], '\Delta N_s');
+        yline(ax2, 0, ':', 'Color', [0.35, 0.35, 0.35], 'LineWidth', 1.1);
+        apply_mb_plot_domain_guardrail(ax2, gap_table.i_deg(finite_mask), gap_table.delta_Ns(finite_mask), struct( ...
+            'min_span', 10, ...
+            'auto_ylim', true, ...
+            'empty_message', 'No valid frontier shift point in current search domain', ...
+            'domain_summary', 'Only defined \Delta N_s values are shown; missing frontier pairs are left undefined.', ...
+            'plot_domain_source', "frontier_shift"));
+    else
+        apply_mb_plot_domain_guardrail(ax2, [], [], struct( ...
+            'empty_message', 'No valid frontier shift point in current search domain', ...
+            'domain_summary', 'Delta N_s is undefined because at least one semantic frontier is missing for every inclination.', ...
+            'plot_domain_source', "undefined_delta"));
+    end
 end
-yline(ax2, 0, ':', 'Color', [0.35, 0.35, 0.35], 'LineWidth', 1.1);
 xlabel(ax2, 'i (deg)');
 ylabel(ax2, '\Delta N_s');
 title(ax2, 'Frontier Shift (closedD - legacyDG)');
 grid(ax2, 'on');
+end
+
+function local_plot_frontier(ax, x_values, y_values, line_spec, color_value, label_text)
+valid_mask = isfinite(x_values) & isfinite(y_values);
+x_values = x_values(valid_mask);
+y_values = y_values(valid_mask);
+if isempty(x_values)
+    return;
+elseif numel(unique(x_values)) < 2
+    plot(ax, x_values, y_values, line_spec(end), 'Color', color_value, 'LineWidth', 1.8, ...
+        'MarkerSize', 7, 'MarkerFaceColor', color_value, 'DisplayName', sprintf('%s (single point)', label_text));
+else
+    plot(ax, x_values, y_values, line_spec, 'Color', color_value, 'LineWidth', 1.8, ...
+        'MarkerSize', 6, 'DisplayName', label_text);
+end
+end
+
+function note = local_frontier_note(legacy_valid, closed_valid)
+if any(legacy_valid) && any(closed_valid)
+    note = 'Both legacyDG and closedD frontiers are available within the current search domain.';
+elseif any(legacy_valid)
+    note = 'Only legacyDG frontier is defined within the current search domain; closedD frontier is missing.';
+elseif any(closed_valid)
+    note = 'Only closedD frontier is defined within the current search domain; legacyDG frontier is missing.';
+else
+    note = 'No valid frontier points are available within the current search domain.';
+end
 end
