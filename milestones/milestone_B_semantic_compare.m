@@ -77,6 +77,16 @@ for idx = 1:numel(run_outputs)
         result.figures.(figures_field) = run_outputs(idx).artifacts.figures;
     end
 end
+comparison_artifacts = local_export_comparison_outputs(cfg, resolved_modes, resolved_sensor_groups, run_outputs);
+if ~isempty(fieldnames(comparison_artifacts.tables))
+    result.tables.comparison = comparison_artifacts.tables;
+end
+if ~isempty(fieldnames(comparison_artifacts.figures))
+    result.figures.comparison = comparison_artifacts.figures;
+end
+if isfield(comparison_artifacts, 'summary')
+    result.summary.comparison = comparison_artifacts.summary;
+end
 result.summary.execution_status = "executed";
 result.summary.run_count = numel(run_outputs);
 
@@ -86,11 +96,13 @@ result.artifacts.summary_mat = files.summary_mat;
 end
 
 function outputs = local_execute_semantic_runs(cfg, meta, resolved_modes, sensor_groups, family_set, heights_to_run)
+need_legacy = any(arrayfun(@(m) logical(m.uses_legacydg), resolved_modes));
+need_closed = any(arrayfun(@(m) logical(m.uses_closedd), resolved_modes));
 outputs = repmat(struct( ...
     'mode', "", ...
     'sensor_group', "", ...
     'run_output', struct(), ...
-    'artifacts', struct()), local_count_wrapped_runs(resolved_modes, numel(sensor_groups)), 1);
+    'artifacts', struct()), local_count_wrapped_runs(need_legacy, need_closed, numel(sensor_groups)), 1);
 cursor = 0;
 
 for idx_group = 1:numel(sensor_groups)
@@ -105,26 +117,23 @@ for idx_group = 1:numel(sensor_groups)
         'F_fixed', local_getfield_or(meta, 'F_fixed', 1), ...
         'use_parallel', logical(local_getfield_or(meta, 'use_parallel', true)));
 
-    for idx_mode = 1:numel(resolved_modes)
-        mode_entry = resolved_modes(idx_mode);
-        if mode_entry.uses_legacydg
-            cursor = cursor + 1;
-            legacy_output = run_mb_legacydg_semantics(cfg, common_options);
-            outputs(cursor, 1) = struct( ...
-                'mode', "legacyDG", ...
-                'sensor_group', string(sensor_group), ...
-                'run_output', legacy_output, ...
-                'artifacts', export_mb_legacydg_outputs(legacy_output, mb_output_paths(cfg, 'MB', 'semantic_compare')));
-        end
-        if mode_entry.uses_closedd
-            cursor = cursor + 1;
-            closed_output = run_mb_closedd_semantics(cfg, common_options);
-            outputs(cursor, 1) = struct( ...
-                'mode', "closedD", ...
-                'sensor_group', string(sensor_group), ...
-                'run_output', closed_output, ...
-                'artifacts', export_mb_closedd_outputs(closed_output, mb_output_paths(cfg, 'MB', 'semantic_compare')));
-        end
+    if need_legacy
+        cursor = cursor + 1;
+        legacy_output = run_mb_legacydg_semantics(cfg, common_options);
+        outputs(cursor, 1) = struct( ...
+            'mode', "legacyDG", ...
+            'sensor_group', string(sensor_group), ...
+            'run_output', legacy_output, ...
+            'artifacts', export_mb_legacydg_outputs(legacy_output, mb_output_paths(cfg, 'MB', 'semantic_compare')));
+    end
+    if need_closed
+        cursor = cursor + 1;
+        closed_output = run_mb_closedd_semantics(cfg, common_options);
+        outputs(cursor, 1) = struct( ...
+            'mode', "closedD", ...
+            'sensor_group', string(sensor_group), ...
+            'run_output', closed_output, ...
+            'artifacts', export_mb_closedd_outputs(closed_output, mb_output_paths(cfg, 'MB', 'semantic_compare')));
     end
 end
 outputs = outputs(1:cursor, 1);
@@ -215,12 +224,8 @@ else
 end
 end
 
-function count = local_count_wrapped_runs(resolved_modes, sensor_group_count)
-count_per_group = 0;
-for idx = 1:numel(resolved_modes)
-    mode_entry = resolved_modes(idx);
-    count_per_group = count_per_group + double(mode_entry.uses_legacydg) + double(mode_entry.uses_closedd);
-end
+function count = local_count_wrapped_runs(need_legacy, need_closed, sensor_group_count)
+count_per_group = double(need_legacy) + double(need_closed);
 count = sensor_group_count * count_per_group;
 end
 
@@ -230,4 +235,25 @@ end
 
 function field_name = local_mode_figures_field(mode_name, sensor_group)
 field_name = matlab.lang.makeValidName(sprintf('%s_%s_figures', string(mode_name), string(sensor_group)));
+end
+
+function artifacts = local_export_comparison_outputs(cfg, resolved_modes, sensor_groups, run_outputs)
+artifacts = struct('tables', struct(), 'figures', struct());
+if ~any(arrayfun(@(m) logical(m.emits_gap_outputs), resolved_modes))
+    return;
+end
+
+paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+for idx_group = 1:numel(sensor_groups)
+    sensor_group = string(sensor_groups{idx_group});
+    legacy_hit = find(arrayfun(@(r) r.mode == "legacyDG" && r.sensor_group == sensor_group, run_outputs), 1);
+    closed_hit = find(arrayfun(@(r) r.mode == "closedD" && r.sensor_group == sensor_group, run_outputs), 1);
+    if isempty(legacy_hit) || isempty(closed_hit)
+        continue;
+    end
+    group_artifacts = export_mb_semantic_gap_outputs(run_outputs(legacy_hit).run_output, run_outputs(closed_hit).run_output, paths);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('comparison_%s', sensor_group))) = group_artifacts.tables;
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('comparison_%s', sensor_group))) = group_artifacts.figures;
+    artifacts.summary = group_artifacts.summary;
+end
 end
