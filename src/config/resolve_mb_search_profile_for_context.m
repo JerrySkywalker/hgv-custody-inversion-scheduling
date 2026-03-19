@@ -14,8 +14,11 @@ profile = merge_mb_search_profile_overrides(mb_search_profile_defaults(cfg), pro
 
 figure_family = local_token(local_getfield_or(context, 'figure_family', ""));
 semantic_mode = local_token(local_getfield_or(context, 'semantic_mode', profile.semantic_mode));
+profile_mode = local_token(local_getfield_or(context, 'profile_mode', local_getfield_or(profile, 'profile_mode', 'debug')));
 height_km = local_getfield_or(context, 'height_km', []);
 sensor_group = local_token(local_getfield_or(context, 'sensor_group', ""));
+
+profile = merge_mb_search_profile_overrides(profile, resolve_mb_search_profile_mode(profile_mode, cfg), "profile_mode:" + profile_mode);
 
 profile = local_apply_named_override(profile, 'figure_family_overrides', figure_family, "figure_family_override");
 profile = local_apply_named_override(profile, 'semantic_overrides', semantic_mode, "semantic_override");
@@ -43,6 +46,7 @@ end
 profile.metadata.context = context;
 profile.metadata.context.figure_family = string(figure_family);
 profile.metadata.context.semantic_mode = string(semantic_mode);
+profile.metadata.context.profile_mode = string(profile_mode);
 profile.metadata.context.sensor_group = string(sensor_group);
 if ~isempty(height_km)
     profile.metadata.context.height_km = height_km;

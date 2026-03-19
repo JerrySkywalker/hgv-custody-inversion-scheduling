@@ -31,6 +31,8 @@ if nargin >= 3 && isstruct(overrides) && ~isempty(fieldnames(overrides))
 end
 
 cfg_out.milestones.MB_semantic_compare.search_profile = string(profile.name);
+cfg_out.milestones.MB_semantic_compare.search_profile_mode = string(profile.profile_mode);
+cfg_out.milestones.MB_semantic_compare.search_profile_mode_description = string(profile.profile_mode_description);
 cfg_out.milestones.MB_semantic_compare.search_profile_applied = true;
 cfg_out.milestones.MB_semantic_compare.search_profile_description = string(profile.description);
 cfg_out.milestones.MB_semantic_compare.mode = char(string(profile.semantic_mode));

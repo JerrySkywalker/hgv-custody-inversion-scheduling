@@ -31,6 +31,7 @@ selection = struct();
 selection.run_mode = local_default_run_mode(profile_name, local_getfield_or(meta, 'stage05_replica', struct()));
 selection.enable_search_profile_manager = logical(local_getfield_or(meta, 'enable_search_profile_manager', true));
 selection.profile_name = profile_name;
+selection.profile_mode = char(string(local_getfield_or(meta, 'search_profile_mode', local_getfield_or(profile, 'profile_mode', "debug"))));
 selection.figure_family = 'passratio';
 selection.semantic_mode = char(string(local_getfield_or(meta, 'mode', profile.semantic_mode)));
 selection.sensor_groups = resolve_sensor_param_groups(local_getfield_or(meta, 'sensor_groups', cellstr(string(profile.sensor_group_names))));
@@ -58,6 +59,12 @@ selection.enable_search_profile_manager = local_ask_yesno('enable search profile
 selection.profile_name = local_ask_choice('profile preset', selection.profile_name, ...
     {'mb_default', 'mb_dense_local', 'strict_stage05_replica', 'mb_auto_plot_tune'}, ...
     local_profile_labels(cfg, {'mb_default', 'mb_dense_local', 'strict_stage05_replica', 'mb_auto_plot_tune'}));
+selection.profile_mode = local_ask_choice('profile mode', selection.profile_mode, ...
+    {'debug', 'paper', 'strict_replica'}, ...
+    local_profile_mode_labels({'debug', 'paper', 'strict_replica'}));
+if strcmpi(selection.profile_mode, 'strict_replica')
+    selection.profile_name = 'strict_stage05_replica';
+end
 profile = get_mb_search_profile(selection.profile_name, cfg);
 selection.figure_family = local_ask_choice('figure family', selection.figure_family, ...
     {'passratio', 'heatmap', 'comparison', 'control_stage05', 'strict_replica'});
@@ -132,6 +139,7 @@ context = struct();
 if logical(selection.enable_search_profile_manager)
     context = struct( ...
         'user_selected_profile_name', string(selection.profile_name), ...
+        'profile_mode', string(selection.profile_mode), ...
         'figure_family', string(selection.figure_family), ...
         'semantic_mode', string(selection.semantic_mode), ...
         'sensor_group', string(local_pick_first(selection.sensor_groups, 'baseline')), ...
@@ -173,6 +181,7 @@ cfg_out.milestones.MB_semantic_compare.cli_selection = selection;
 cfg_out.milestones.MB_semantic_compare.enable_search_profile_manager = logical(selection.enable_search_profile_manager);
 cfg_out.milestones.MB_semantic_compare.search_range_source = string(selection.search_range_source);
 cfg_out.milestones.MB_semantic_compare.cache_policy = string(selection.cache_policy);
+cfg_out.milestones.MB_semantic_compare.search_profile_mode = string(selection.profile_mode);
 cfg_out.milestones.MB_semantic_compare.search_profile_context = context;
 cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only = strcmpi(selection.run_mode, 'strict_stage05_validation_only');
 if cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only
@@ -447,6 +456,7 @@ end
 function profile = local_build_current_profile(cfg_in, selection)
 meta = cfg_in.milestones.MB_semantic_compare;
 profile = get_mb_search_profile(local_getfield_or(meta, 'search_profile', 'mb_default'), cfg_in);
+profile = merge_mb_search_profile_overrides(profile, resolve_mb_search_profile_mode(local_getfield_or(selection, 'profile_mode', 'debug'), cfg_in), "cli_profile_mode");
 profile.semantic_mode = string(selection.semantic_mode);
 profile.sensor_group_names = cellstr(string(selection.sensor_groups));
 profile.height_grid_km = reshape(selection.heights_to_run, 1, []);
@@ -507,6 +517,13 @@ function labels = local_profile_labels(cfg, choices)
 labels = cell(size(choices));
 for idx = 1:numel(choices)
     labels{idx} = char(format_mb_search_profile_label(choices{idx}, cfg, "short"));
+end
+end
+
+function labels = local_profile_mode_labels(choices)
+labels = cell(size(choices));
+for idx = 1:numel(choices)
+    labels{idx} = char(format_mb_search_profile_mode_label(choices{idx}, "short"));
 end
 end
 

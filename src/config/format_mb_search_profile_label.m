@@ -19,6 +19,7 @@ end
 
 name = char(string(local_getfield_or(profile, 'name', "custom_profile")));
 semantic_mode = char(string(local_getfield_or(profile, 'semantic_mode', "")));
+profile_mode = char(string(local_getfield_or(profile, 'profile_mode', "")));
 height_grid = reshape(local_getfield_or(profile, 'height_grid_km', []), 1, []);
 P_grid = reshape(local_getfield_or(profile, 'P_values', local_getfield_or(profile, 'P_grid', [])), 1, []);
 T_grid = reshape(local_getfield_or(profile, 'T_values', local_getfield_or(profile, 'T_grid', [])), 1, []);
@@ -33,6 +34,9 @@ if ~isempty(P_grid) && ~isempty(T_grid)
 end
 
 short_parts = strings(0, 1);
+if strlength(string(profile_mode)) > 0
+    short_parts(end + 1, 1) = string(sprintf('mode=%s', profile_mode)); %#ok<AGROW>
+end
 if strlength(string(semantic_mode)) > 0
     short_parts(end + 1, 1) = string(sprintf('semantic=%s', semantic_mode)); %#ok<AGROW>
 end
@@ -58,6 +62,9 @@ if ~isempty(T_grid)
 end
 if isfield(profile, 'description') && strlength(string(profile.description)) > 0
     detail_parts(end + 1, 1) = string(profile.description); %#ok<AGROW>
+end
+if isfield(profile, 'profile_mode_description') && strlength(string(profile.profile_mode_description)) > 0
+    detail_parts(end + 1, 1) = string(profile.profile_mode_description); %#ok<AGROW>
 end
 
 if strcmpi(char(string(detail_level)), 'detailed')

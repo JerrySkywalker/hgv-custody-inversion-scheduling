@@ -40,6 +40,8 @@ if ~isfield(profile, 'Ns_target_window') || isempty(profile.Ns_target_window)
 end
 profile.height_grid_km = reshape(local_getfield_or(profile, 'height_grid_km', []), 1, []);
 profile.inclination_grid_deg = reshape(local_getfield_or(profile, 'inclination_grid_deg', []), 1, []);
+profile.profile_mode = string(local_getfield_or(profile, 'profile_mode', "debug"));
+profile.profile_mode_description = string(local_getfield_or(profile, 'profile_mode_description', "fast validation with smaller budget"));
 
 if ~isfield(profile, 'auto_tune') || ~isstruct(profile.auto_tune)
     profile.auto_tune = struct();
@@ -72,6 +74,8 @@ profile.autotune_left_floor_tol = profile.auto_tune.left_floor_tol;
 if ~isfield(profile, 'metadata') || ~isstruct(profile.metadata)
     profile.metadata = struct();
 end
+profile.metadata.profile_mode = string(profile.profile_mode);
+profile.metadata.profile_mode_description = string(profile.profile_mode_description);
 profile.metadata.override_sources = cellstr(string(local_getfield_or(profile.metadata, 'override_sources', {})));
 profile.metadata.context = local_getfield_or(profile.metadata, 'context', struct());
 end
