@@ -49,8 +49,8 @@ group.sensor_label = sprintf('%s (%g deg, %g arcsec)', name, max_off_boresight_d
 end
 
 function refs = local_stage05_reference_defaults()
-cfg = default_params();
+refs_loaded = load_stage05_reference_defaults(default_params());
 refs = struct();
-refs.max_off_boresight_deg = cfg.stage03.max_offnadir_deg;
-refs.angle_resolution_arcsec = cfg.stage04.sigma_angle_deg * 3600;
+refs.max_off_boresight_deg = refs_loaded.max_off_boresight_deg;
+refs.angle_resolution_arcsec = refs_loaded.angle_resolution_arcsec;
 end
