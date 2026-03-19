@@ -25,6 +25,13 @@ switch name
             50, ...
             15, ...
             'Robust sensor group: 50 deg max off-boresight and 15 arcsec angular resolution.');
+    case 'stage05_strict_reference'
+        refs = local_stage05_reference_defaults();
+        group = local_build_group( ...
+            'stage05_strict_reference', ...
+            refs.max_off_boresight_deg, ...
+            refs.angle_resolution_arcsec, ...
+            'Strict Stage05 reference sensor group derived from legacy Stage05 defaults.');
     otherwise
         error('Unknown sensor parameter group: %s', string(group_name));
 end
@@ -39,4 +46,11 @@ group.angle_resolution_rad = deg2rad(angle_resolution_arcsec / 3600);
 group.description = string(description);
 group.notes = group.description;
 group.sensor_label = sprintf('%s (%g deg, %g arcsec)', name, max_off_boresight_deg, angle_resolution_arcsec);
+end
+
+function refs = local_stage05_reference_defaults()
+cfg = default_params();
+refs = struct();
+refs.max_off_boresight_deg = cfg.stage03.max_offnadir_deg;
+refs.angle_resolution_arcsec = cfg.stage04.sigma_angle_deg * 3600;
 end
