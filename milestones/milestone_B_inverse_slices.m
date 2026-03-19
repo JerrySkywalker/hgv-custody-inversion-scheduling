@@ -786,6 +786,15 @@ end
 end
 
 function txt = local_stringify_summary_value(value)
+if ismissing(value)
+    if isscalar(value)
+        txt = "<missing>";
+    else
+        txt = mat2str(string(value));
+    end
+    return;
+end
+
 if isstring(value) || ischar(value)
     txt = char(string(value));
 elseif isnumeric(value) || islogical(value)
