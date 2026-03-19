@@ -107,7 +107,7 @@ for idx = 1:numel(run_outputs)
         result.figures.(figures_field) = run_outputs(idx).artifacts.figures;
     end
 end
-comparison_artifacts = local_export_comparison_outputs(cfg, resolved_modes, resolved_sensor_groups, run_outputs);
+comparison_artifacts = local_export_comparison_outputs(cfg, meta, resolved_modes, resolved_sensor_groups, run_outputs);
 if ~isempty(fieldnames(comparison_artifacts.tables))
     result.tables.comparison = comparison_artifacts.tables;
 end
@@ -122,14 +122,14 @@ end
 if isfield(comparison_artifacts, 'summary')
     result.summary.comparison = comparison_artifacts.summary;
 end
-control_artifacts = local_export_control_outputs(cfg, run_outputs);
+control_artifacts = local_export_control_outputs(cfg, meta, run_outputs);
 if ~isempty(fieldnames(control_artifacts.tables))
     result.tables.control = control_artifacts.tables;
 end
 if ~isempty(fieldnames(control_artifacts.figures))
     result.figures.control = control_artifacts.figures;
 end
-cross_profile_artifacts = local_export_cross_profile_outputs(cfg, run_outputs);
+cross_profile_artifacts = local_export_cross_profile_outputs(cfg, meta, run_outputs);
 if ~isempty(fieldnames(cross_profile_artifacts.tables))
     result.tables.cross_profile = cross_profile_artifacts.tables;
 end
@@ -177,6 +177,7 @@ function outputs = local_execute_semantic_runs(cfg, meta, resolved_modes, sensor
 need_legacy = any(arrayfun(@(m) logical(m.uses_legacydg), resolved_modes));
 need_closed = any(arrayfun(@(m) logical(m.uses_closedd), resolved_modes));
 plot_options = local_semantic_plot_options(meta);
+paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 outputs = repmat(struct( ...
     'mode', "", ...
     'sensor_group', "", ...
@@ -215,7 +216,7 @@ for idx_group = 1:numel(sensor_groups)
             'mode', "legacyDG", ...
             'sensor_group', string(sensor_group), ...
             'run_output', legacy_output, ...
-            'artifacts', export_mb_legacydg_outputs(legacy_output, mb_output_paths(cfg, 'MB', 'semantic_compare'), plot_options));
+            'artifacts', export_mb_legacydg_outputs(legacy_output, paths, plot_options));
     end
     if need_closed
         cursor = cursor + 1;
@@ -224,7 +225,7 @@ for idx_group = 1:numel(sensor_groups)
             'mode', "closedD", ...
             'sensor_group', string(sensor_group), ...
             'run_output', closed_output, ...
-            'artifacts', export_mb_closedd_outputs(closed_output, mb_output_paths(cfg, 'MB', 'semantic_compare'), plot_options));
+            'artifacts', export_mb_closedd_outputs(closed_output, paths, plot_options));
     end
 end
 outputs = outputs(1:cursor, 1);
@@ -415,13 +416,13 @@ function field_name = local_mode_figures_field(mode_name, sensor_group)
 field_name = matlab.lang.makeValidName(sprintf('%s_%s_figures', string(mode_name), string(sensor_group)));
 end
 
-function artifacts = local_export_comparison_outputs(cfg, resolved_modes, sensor_groups, run_outputs)
+function artifacts = local_export_comparison_outputs(cfg, meta, resolved_modes, sensor_groups, run_outputs)
 artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct(), 'summary_table', table());
 if ~any(arrayfun(@(m) logical(m.emits_gap_outputs), resolved_modes))
     return;
 end
 
-paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 summary_rows = cell(numel(sensor_groups), 1);
 summary_cursor = 0;
 for idx_group = 1:numel(sensor_groups)
@@ -446,9 +447,9 @@ if summary_cursor > 0
 end
 end
 
-function artifacts = local_export_control_outputs(cfg, run_outputs)
+function artifacts = local_export_control_outputs(cfg, meta, run_outputs)
 artifacts = struct('tables', struct(), 'figures', struct());
-paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 for idx = 1:numel(run_outputs)
     if run_outputs(idx).mode ~= "legacyDG"
         continue;
@@ -460,9 +461,9 @@ for idx = 1:numel(run_outputs)
 end
 end
 
-function artifacts = local_export_cross_profile_outputs(cfg, run_outputs)
+function artifacts = local_export_cross_profile_outputs(cfg, meta, run_outputs)
 artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct(), 'summary_table', table());
-paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 artifacts = export_mb_cross_profile_outputs(run_outputs, paths);
 end
 
@@ -472,7 +473,7 @@ if ~logical(local_getfield_or(meta, 'run_dense_local', false))
     return;
 end
 
-paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+    paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 dense_local_sensor_groups = resolve_sensor_param_groups(local_getfield_or(meta, 'dense_local_sensor_groups', {'baseline'}));
 for idx_group = 1:numel(sensor_groups)
     sensor_group = sensor_groups{idx_group};
@@ -504,7 +505,7 @@ if ~logical(local_getfield_or(stage05_replica_cfg, 'strict', false))
     return;
 end
 
-paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 for idx = 1:numel(run_outputs)
     if run_outputs(idx).mode ~= "legacyDG"
         continue;
@@ -589,7 +590,7 @@ if isempty(summary_table)
     return;
 end
 
-paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 summary_csv = fullfile(paths.tables, 'MB_sensor_group_sensitivity_check.csv');
 milestone_common_save_table(summary_table, summary_csv);
 artifacts.csv = string(summary_csv);
