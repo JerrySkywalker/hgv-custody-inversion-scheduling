@@ -67,6 +67,16 @@ end
 
 run_outputs = local_execute_semantic_runs(cfg, meta, resolved_modes, resolved_sensor_groups, resolved_families, resolved_heights);
 result.artifacts.run_outputs = run_outputs;
+for idx = 1:numel(run_outputs)
+    tables_field = local_mode_tables_field(run_outputs(idx).mode, run_outputs(idx).sensor_group);
+    figures_field = local_mode_figures_field(run_outputs(idx).mode, run_outputs(idx).sensor_group);
+    if isfield(run_outputs(idx), 'artifacts') && isfield(run_outputs(idx).artifacts, 'tables')
+        result.tables.(tables_field) = run_outputs(idx).artifacts.tables;
+    end
+    if isfield(run_outputs(idx), 'artifacts') && isfield(run_outputs(idx).artifacts, 'figures')
+        result.figures.(figures_field) = run_outputs(idx).artifacts.figures;
+    end
+end
 result.summary.execution_status = "executed";
 result.summary.run_count = numel(run_outputs);
 
@@ -79,7 +89,8 @@ function outputs = local_execute_semantic_runs(cfg, meta, resolved_modes, sensor
 outputs = repmat(struct( ...
     'mode', "", ...
     'sensor_group', "", ...
-    'run_output', struct()), local_count_wrapped_runs(resolved_modes, numel(sensor_groups)), 1);
+    'run_output', struct(), ...
+    'artifacts', struct()), local_count_wrapped_runs(resolved_modes, numel(sensor_groups)), 1);
 cursor = 0;
 
 for idx_group = 1:numel(sensor_groups)
@@ -98,17 +109,20 @@ for idx_group = 1:numel(sensor_groups)
         mode_entry = resolved_modes(idx_mode);
         if mode_entry.uses_legacydg
             cursor = cursor + 1;
+            legacy_output = run_mb_legacydg_semantics(cfg, common_options);
             outputs(cursor, 1) = struct( ...
                 'mode', "legacyDG", ...
                 'sensor_group', string(sensor_group), ...
-                'run_output', run_mb_legacydg_semantics(cfg, common_options));
+                'run_output', legacy_output, ...
+                'artifacts', export_mb_legacydg_outputs(legacy_output, mb_output_paths(cfg, 'MB', 'semantic_compare')));
         end
         if mode_entry.uses_closedd
             cursor = cursor + 1;
             outputs(cursor, 1) = struct( ...
                 'mode', "closedD", ...
                 'sensor_group', string(sensor_group), ...
-                'run_output', run_mb_closedd_semantics(cfg, common_options));
+                'run_output', run_mb_closedd_semantics(cfg, common_options), ...
+                'artifacts', struct());
         end
     end
 end
@@ -207,4 +221,12 @@ for idx = 1:numel(resolved_modes)
     count_per_group = count_per_group + double(mode_entry.uses_legacydg) + double(mode_entry.uses_closedd);
 end
 count = sensor_group_count * count_per_group;
+end
+
+function field_name = local_mode_tables_field(mode_name, sensor_group)
+field_name = matlab.lang.makeValidName(sprintf('%s_%s_tables', string(mode_name), string(sensor_group)));
+end
+
+function field_name = local_mode_figures_field(mode_name, sensor_group)
+field_name = matlab.lang.makeValidName(sprintf('%s_%s_figures', string(mode_name), string(sensor_group)));
 end
