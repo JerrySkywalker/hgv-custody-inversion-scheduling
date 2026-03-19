@@ -30,15 +30,18 @@ profile = get_mb_search_profile(profile_name, cfg);
 selection = struct();
 selection.run_mode = local_default_run_mode(profile_name);
 selection.profile_name = profile_name;
+selection.figure_family = 'passratio';
 selection.semantic_mode = char(string(profile.semantic_mode));
 selection.sensor_groups = cellstr(string(profile.sensor_group_names));
 selection.heights_to_run = reshape(profile.height_grid_km, 1, []);
 selection.search_range_source = 'profile_default';
 selection.P_grid = reshape(profile.P_grid, 1, []);
 selection.T_grid = reshape(profile.T_grid, 1, []);
+selection.plot_xlim_ns = reshape(profile.Ns_xlim_plot, 1, []);
 selection.cache_policy = 'all_reuse';
 selection.auto_tune_requested = logical(profile.auto_tune.enabled);
 selection.baseline_validation_only = isequal(selection.sensor_groups, {'baseline'}) && isequal(selection.heights_to_run, 1000);
+selection.manual_override = struct();
 end
 
 function selection = local_prompt_selection(cfg, selection)
@@ -48,7 +51,11 @@ fprintf('[run_stages][CLI] 直接回车表示保留默认值。\n');
 selection.run_mode = local_ask_choice('run mode', selection.run_mode, ...
     {'default', 'dense', 'strict_stage05_replica', 'compare_semantics', 'auto_plot_tune'});
 selection.profile_name = local_profile_name_from_run_mode(selection.run_mode, selection.profile_name);
+selection.profile_name = local_ask_choice('profile preset', selection.profile_name, ...
+    {'mb_default', 'mb_dense_local', 'strict_stage05_replica', 'mb_auto_plot_tune'});
 profile = get_mb_search_profile(selection.profile_name, cfg);
+selection.figure_family = local_ask_choice('figure family', selection.figure_family, ...
+    {'passratio', 'heatmap', 'comparison', 'control_stage05', 'strict_replica'});
 
 selection.baseline_validation_only = local_ask_yesno('baseline validation only', selection.baseline_validation_only);
 selection.semantic_mode = local_ask_choice('semantic mode', selection.semantic_mode, {'legacyDG', 'closedD', 'comparison'});
@@ -70,39 +77,78 @@ switch lower(height_mode)
 end
 
 selection.search_range_source = local_ask_choice('search range source', selection.search_range_source, ...
-    {'profile_default', 'manual', 'auto_tune'});
-if strcmpi(selection.search_range_source, 'manual')
+    {'profile_default', 'manual_override', 'auto_tuned_profile'});
+selection.manual_override = struct();
+if strcmpi(selection.search_range_source, 'manual_override')
     selection.P_grid = local_ask_vector('manual P_grid', profile.P_grid);
     selection.T_grid = local_ask_vector('manual T_grid', profile.T_grid);
+    selection.plot_xlim_ns = local_ask_vector('manual plot_xlim_ns', profile.Ns_xlim_plot);
+    selection.manual_override = struct( ...
+        'P_grid', reshape(selection.P_grid, 1, []), ...
+        'T_grid', reshape(selection.T_grid, 1, []), ...
+        'P_values', reshape(selection.P_grid, 1, []), ...
+        'T_values', reshape(selection.T_grid, 1, []), ...
+        'plot_xlim_ns', reshape(selection.plot_xlim_ns, 1, []), ...
+        'Ns_xlim_plot', reshape(selection.plot_xlim_ns, 1, []));
+elseif strcmpi(selection.search_range_source, 'auto_tuned_profile')
+    selection.P_grid = reshape(local_get_autotuned_or(profile.P_grid, cfg, 'recommended_P_grid'), 1, []);
+    selection.T_grid = reshape(local_get_autotuned_or(profile.T_grid, cfg, 'recommended_T_grid'), 1, []);
+    selection.plot_xlim_ns = reshape(local_get_autotuned_or(profile.Ns_xlim_plot, cfg, 'recommended_plot_xlim_ns'), 1, []);
 else
     selection.P_grid = reshape(profile.P_grid, 1, []);
     selection.T_grid = reshape(profile.T_grid, 1, []);
+    selection.plot_xlim_ns = reshape(profile.Ns_xlim_plot, 1, []);
 end
 
 selection.cache_policy = local_ask_choice('cache policy', selection.cache_policy, ...
     {'all_reuse', 'truth_only', 'no_reuse'});
-selection.auto_tune_requested = strcmpi(selection.search_range_source, 'auto_tune') || ...
+selection.auto_tune_requested = strcmpi(selection.search_range_source, 'auto_tuned_profile') || ...
     local_ask_yesno('enable auto tune', selection.auto_tune_requested);
 
 fprintf('[run_stages][CLI] ===== MB search profile 配置完成 =====\n\n');
 end
 
 function [cfg_out, profile] = local_apply_selection(cfg_in, selection)
-profile_overrides = struct();
-profile_overrides.semantic_mode = string(selection.semantic_mode);
-profile_overrides.sensor_group_names = {cellstr(string(selection.sensor_groups))};
-profile_overrides.height_grid_km = reshape(selection.heights_to_run, 1, []);
-profile_overrides.P_grid = reshape(selection.P_grid, 1, []);
-profile_overrides.T_grid = reshape(selection.T_grid, 1, []);
-profile_overrides.auto_tune = struct('enabled', logical(selection.auto_tune_requested));
-profile = get_mb_search_profile(selection.profile_name, cfg_in);
-profile = milestone_common_merge_structs(profile, profile_overrides);
+context = struct( ...
+    'user_selected_profile_name', string(selection.profile_name), ...
+    'figure_family', string(selection.figure_family), ...
+    'semantic_mode', string(selection.semantic_mode), ...
+    'sensor_group', string(local_pick_first(selection.sensor_groups, 'baseline')), ...
+    'height_km', local_pick_first(selection.heights_to_run, 1000), ...
+    'cli_manual_override', selection.manual_override);
+if strcmpi(selection.search_range_source, 'auto_tuned_profile')
+    context.autotuned_profile_if_any = local_extract_autotuned_profile_override(cfg_in);
+end
+profile = resolve_mb_search_profile_for_context(context, cfg_in);
+if logical(local_getfield_or(local_getfield_or(profile, 'stage05_replica', struct()), 'strict', false))
+    selection.semantic_mode = char(string(profile.semantic_mode));
+    selection.sensor_groups = cellstr(string(profile.sensor_group_names));
+    selection.heights_to_run = reshape(profile.height_grid_km, 1, []);
+    selection.P_grid = reshape(profile.P_values, 1, []);
+    selection.T_grid = reshape(profile.T_values, 1, []);
+    selection.plot_xlim_ns = reshape(profile.Ns_xlim_plot, 1, []);
+    selection.manual_override = struct();
+    selection.auto_tune_requested = false;
+else
+    profile = merge_mb_search_profile_overrides(profile, struct( ...
+        'semantic_mode', string(selection.semantic_mode), ...
+        'sensor_group_names', {cellstr(string(selection.sensor_groups))}, ...
+        'height_grid_km', reshape(selection.heights_to_run, 1, []), ...
+        'P_grid', reshape(selection.P_grid, 1, []), ...
+        'T_grid', reshape(selection.T_grid, 1, []), ...
+        'P_values', reshape(selection.P_grid, 1, []), ...
+        'T_values', reshape(selection.T_grid, 1, []), ...
+        'plot_xlim_ns', reshape(selection.plot_xlim_ns, 1, []), ...
+        'Ns_xlim_plot', reshape(selection.plot_xlim_ns, 1, []), ...
+        'auto_tune', struct('enabled', logical(selection.auto_tune_requested))), "cli_selection");
+end
 profile = local_apply_cache_policy(profile, selection.cache_policy);
 
 [cfg_out, profile] = apply_mb_search_profile_to_cfg(cfg_in, profile);
 cfg_out.milestones.MB_semantic_compare.cli_selection = selection;
 cfg_out.milestones.MB_semantic_compare.search_range_source = string(selection.search_range_source);
 cfg_out.milestones.MB_semantic_compare.cache_policy = string(selection.cache_policy);
+cfg_out.milestones.MB_semantic_compare.search_profile_context = context;
 end
 
 function profile = local_apply_cache_policy(profile, cache_policy)
@@ -135,10 +181,12 @@ end
 selection.heights_to_run = reshape(selection.heights_to_run, 1, []);
 selection.P_grid = reshape(selection.P_grid, 1, []);
 selection.T_grid = reshape(selection.T_grid, 1, []);
+selection.plot_xlim_ns = reshape(local_getfield_or(selection, 'plot_xlim_ns', []), 1, []);
+selection.manual_override = local_getfield_or(selection, 'manual_override', struct());
 if ~isfield(opts, 'auto_tune_requested') || isempty(opts.auto_tune_requested)
     profile_name = local_profile_name_from_run_mode(selection.run_mode, selection.profile_name);
     profile = get_mb_search_profile(profile_name);
-    selection.auto_tune_requested = logical(profile.auto_tune.enabled) || strcmpi(selection.search_range_source, 'auto_tune');
+    selection.auto_tune_requested = logical(profile.auto_tune.enabled) || strcmpi(selection.search_range_source, 'auto_tuned_profile');
 end
 end
 
@@ -146,7 +194,7 @@ function run_mode = local_default_run_mode(profile_name)
 switch lower(char(string(profile_name)))
     case 'mb_dense_local'
         run_mode = 'dense';
-    case 'mb_stage05_strict_replica'
+    case {'strict_stage05_replica', 'mb_stage05_strict_replica'}
         run_mode = 'strict_stage05_replica';
     case 'mb_auto_plot_tune'
         run_mode = 'auto_plot_tune';
@@ -162,7 +210,7 @@ switch lower(char(string(run_mode)))
     case 'dense'
         profile_name = 'mb_dense_local';
     case 'strict_stage05_replica'
-        profile_name = 'mb_stage05_strict_replica';
+        profile_name = 'strict_stage05_replica';
     case 'compare_semantics'
         profile_name = 'mb_default';
     case 'auto_plot_tune'
@@ -279,5 +327,47 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function values = local_get_autotuned_or(fallback, cfg, field_name)
+values = fallback;
+meta = cfg.milestones.MB_semantic_compare;
+if ~isfield(meta, 'auto_tune_result') || ~isstruct(meta.auto_tune_result)
+    return;
+end
+if isfield(meta.auto_tune_result, field_name)
+    values = meta.auto_tune_result.(field_name);
+end
+end
+
+function override = local_extract_autotuned_profile_override(cfg)
+override = struct();
+meta = cfg.milestones.MB_semantic_compare;
+if ~isfield(meta, 'auto_tune_result') || ~isstruct(meta.auto_tune_result)
+    return;
+end
+tune_result = meta.auto_tune_result;
+if isfield(tune_result, 'recommended_P_grid')
+    override.P_grid = reshape(tune_result.recommended_P_grid, 1, []);
+    override.P_values = override.P_grid;
+end
+if isfield(tune_result, 'recommended_T_grid')
+    override.T_grid = reshape(tune_result.recommended_T_grid, 1, []);
+    override.T_values = override.T_grid;
+end
+if isfield(tune_result, 'recommended_plot_xlim_ns')
+    override.plot_xlim_ns = reshape(tune_result.recommended_plot_xlim_ns, 1, []);
+    override.Ns_xlim_plot = override.plot_xlim_ns;
+end
+end
+
+function value = local_pick_first(values, fallback)
+if isempty(values)
+    value = fallback;
+elseif iscell(values)
+    value = values{1};
+else
+    value = values(1);
 end
 end
