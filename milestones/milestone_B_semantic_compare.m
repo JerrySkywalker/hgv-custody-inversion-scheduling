@@ -461,11 +461,25 @@ for idx = 1:numel(run_outputs)
     if isfield(run_out, 'validation_summary') && ~isempty(run_out.validation_summary)
         validation_table = run_out.validation_summary;
     else
-        validation_table = build_stage05_strict_replica_validation_summary(run_out, cfg, struct());
+        [validation_table, validation_meta] = build_stage05_strict_replica_validation_summary(run_out, cfg, struct());
+        [manifest_struct, manifest_table] = build_stage05_strict_replica_manifest(run_out, validation_meta);
+        run_out.validation_meta = validation_meta;
+        run_out.validation_manifest_struct = manifest_struct;
+        run_out.validation_manifest_table = manifest_table;
     end
     validation_csv = fullfile(paths.tables, 'MB_stage05_strictReplica_validation_summary.csv');
     milestone_common_save_table(validation_table, validation_csv);
     artifacts.tables.validation_summary = string(validation_csv);
+    manifest_table = local_getfield_or(run_out, 'validation_manifest_table', table());
+    manifest_struct = local_getfield_or(run_out, 'validation_manifest_struct', struct());
+    if ~isempty(manifest_table)
+        manifest_csv = fullfile(paths.tables, 'MB_stage05_strict_replica_manifest.csv');
+        milestone_common_save_table(manifest_table, manifest_csv);
+        manifest_mat = fullfile(paths.tables, 'MB_stage05_strict_replica_manifest.mat');
+        save(manifest_mat, 'manifest_struct');
+        artifacts.tables.validation_manifest_csv = string(manifest_csv);
+        artifacts.tables.validation_manifest_mat = string(manifest_mat);
+    end
     return;
 end
 end

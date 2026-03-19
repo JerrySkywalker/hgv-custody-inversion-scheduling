@@ -48,9 +48,13 @@ out.summary = struct( ...
     'interpretation_note', "Strict Stage05 replica keeps Stage05 search-domain defaults, Stage05 sensor defaults, and Stage05 D_G-based semantics within the MB wrapper shell.");
 
 if logical(local_getfield_or(options, 'build_validation_summary', false))
-    out.validation_summary = build_stage05_strict_replica_validation_summary(out, cfg, options);
+    [out.validation_summary, out.validation_meta] = build_stage05_strict_replica_validation_summary(out, cfg, options);
+    [out.validation_manifest_struct, out.validation_manifest_table] = build_stage05_strict_replica_manifest(out, out.validation_meta);
 else
     out.validation_summary = table();
+    out.validation_meta = struct();
+    out.validation_manifest_struct = struct();
+    out.validation_manifest_table = table();
 end
 end
 
