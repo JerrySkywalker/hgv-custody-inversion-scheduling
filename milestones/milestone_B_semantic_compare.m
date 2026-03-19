@@ -87,6 +87,13 @@ end
 if isfield(comparison_artifacts, 'summary')
     result.summary.comparison = comparison_artifacts.summary;
 end
+control_artifacts = local_export_control_outputs(cfg, run_outputs);
+if ~isempty(fieldnames(control_artifacts.tables))
+    result.tables.control = control_artifacts.tables;
+end
+if ~isempty(fieldnames(control_artifacts.figures))
+    result.figures.control = control_artifacts.figures;
+end
 result.summary.execution_status = "executed";
 result.summary.run_count = numel(run_outputs);
 
@@ -255,5 +262,19 @@ for idx_group = 1:numel(sensor_groups)
     artifacts.tables.(matlab.lang.makeValidName(sprintf('comparison_%s', sensor_group))) = group_artifacts.tables;
     artifacts.figures.(matlab.lang.makeValidName(sprintf('comparison_%s', sensor_group))) = group_artifacts.figures;
     artifacts.summary = group_artifacts.summary;
+end
+end
+
+function artifacts = local_export_control_outputs(cfg, run_outputs)
+artifacts = struct('tables', struct(), 'figures', struct());
+paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+for idx = 1:numel(run_outputs)
+    if run_outputs(idx).mode ~= "legacyDG"
+        continue;
+    end
+    group_artifacts = export_mb_stage05_control_outputs(run_outputs(idx).run_output, paths);
+    sensor_group = string(run_outputs(idx).sensor_group);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('control_%s', sensor_group))) = group_artifacts.tables;
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('control_%s', sensor_group))) = group_artifacts.figures;
 end
 end
