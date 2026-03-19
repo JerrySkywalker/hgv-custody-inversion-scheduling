@@ -24,4 +24,14 @@ cfg_out.stage03.sensor_group_name = group.name;
 cfg_out.stage04.sigma_angle_deg = group.angle_resolution_arcsec / 3600;
 cfg_out.stage04.sigma_angle_rad = group.angle_resolution_rad;
 cfg_out.stage04.sensor_group_name = group.name;
+
+if ~isfield(cfg_out, 'stage09') || ~isstruct(cfg_out.stage09)
+    cfg_out.stage09 = struct();
+end
+cfg_out.stage09.sensor_group_name = group.name;
+cfg_out.stage09.sensor_label = group.sensor_label;
+cfg_out.stage09.sensor_max_offnadir_deg = group.max_off_boresight_deg;
+cfg_out.stage09.sensor_sigma_angle_deg = group.angle_resolution_arcsec / 3600;
+cfg_out.stage09.sensor_sigma_angle_arcsec = group.angle_resolution_arcsec;
+cfg_out.stage09.sensor_sigma_angle_rad = group.angle_resolution_rad;
 end

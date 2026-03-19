@@ -38,6 +38,10 @@ end
 
 eval_table.family_name = repmat(string(family_token), height(eval_table), 1);
 eval_table.sensor_group = repmat(string(local_getfield_or(options, 'sensor_group', "")), height(eval_table), 1);
+eval_table.sensor_label = repmat(string(local_get_cfg_sensor_field(eval_out.cfg, 'sensor_label', "")), height(eval_table), 1);
+eval_table.max_off_boresight_deg = repmat(local_get_sensor_numeric(eval_out.cfg, 'max_off_boresight_deg'), height(eval_table), 1);
+eval_table.sigma_angle_arcsec = repmat(local_get_sensor_numeric(eval_out.cfg, 'sigma_angle_arcsec'), height(eval_table), 1);
+eval_table.sigma_angle_rad = repmat(local_get_sensor_numeric(eval_out.cfg, 'sigma_angle_rad'), height(eval_table), 1);
 eval_table.semantic_mode = repmat("closedD", height(eval_table), 1);
 eval_table.source_stage = repmat("Stage09", height(eval_table), 1);
 if ismember('DG_worst', eval_table.Properties.VariableNames) && ~ismember('D_G_min', eval_table.Properties.VariableNames)
@@ -59,6 +63,10 @@ out.feasible_table = eval_out.feasible_theta_table;
 out.summary = struct( ...
     'family_name', string(family_token), ...
     'sensor_group', string(local_getfield_or(options, 'sensor_group', "")), ...
+    'sensor_label', string(local_get_cfg_sensor_field(eval_out.cfg, 'sensor_label', "")), ...
+    'max_off_boresight_deg', local_get_sensor_numeric(eval_out.cfg, 'max_off_boresight_deg'), ...
+    'sigma_angle_arcsec', local_get_sensor_numeric(eval_out.cfg, 'sigma_angle_arcsec'), ...
+    'sigma_angle_rad', local_get_sensor_numeric(eval_out.cfg, 'sigma_angle_rad'), ...
     'num_total', height(eval_table), ...
     'num_feasible', height(eval_out.feasible_theta_table), ...
     'feasible_ratio', local_safe_divide(height(eval_out.feasible_theta_table), height(eval_table)), ...
@@ -99,5 +107,25 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function value = local_get_cfg_sensor_field(cfg, field_name, fallback)
+value = fallback;
+if isstruct(cfg) && isfield(cfg, 'sensor') && isstruct(cfg.sensor) && isfield(cfg.sensor, field_name)
+    value = cfg.sensor.(field_name);
+elseif isstruct(cfg) && isfield(cfg, 'stage09') && isstruct(cfg.stage09)
+    stage09_field = ['sensor_' field_name];
+    if isfield(cfg.stage09, stage09_field)
+        value = cfg.stage09.(stage09_field);
+    end
+end
+end
+
+function value = local_get_sensor_numeric(cfg, field_name)
+value = NaN;
+candidate = local_get_cfg_sensor_field(cfg, field_name, NaN);
+if isnumeric(candidate) && isscalar(candidate) && isfinite(candidate)
+    value = candidate;
 end
 end
