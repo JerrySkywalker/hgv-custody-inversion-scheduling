@@ -88,6 +88,13 @@ if ~isempty(batch_summary)
     milestone_common_save_table(batch_summary, batch_summary_csv);
     result.tables.sensor_group_batch_summary = string(batch_summary_csv);
 end
+sensitivity_artifacts = local_export_sensor_group_sensitivity(cfg, meta, run_outputs);
+if isfield(sensitivity_artifacts, 'csv') && strlength(sensitivity_artifacts.csv) > 0
+    result.tables.sensor_group_sensitivity_check = sensitivity_artifacts.csv;
+end
+if isfield(sensitivity_artifacts, 'summary')
+    result.summary.sensor_group_sensitivity = sensitivity_artifacts.summary;
+end
 for idx = 1:numel(run_outputs)
     tables_field = local_mode_tables_field(run_outputs(idx).mode, run_outputs(idx).sensor_group);
     figures_field = local_mode_figures_field(run_outputs(idx).mode, run_outputs(idx).sensor_group);
@@ -503,4 +510,19 @@ tagged_summary = addvars(tagged_summary, ...
     repmat(sensor_group.angle_resolution_arcsec, row_count, 1), ...
     'Before', 1, ...
     'NewVariableNames', {'sensor_group', 'sensor_label', 'max_off_boresight_deg', 'angle_resolution_arcsec'});
+end
+
+function artifacts = local_export_sensor_group_sensitivity(cfg, meta, run_outputs)
+artifacts = struct('csv', "", 'summary', struct());
+profile_name = string(local_getfield_or(meta, 'resolved_search_profile', local_getfield_or(meta, 'search_profile', 'mb_default')));
+[summary_table, sensitivity_meta] = build_mb_sensor_group_sensitivity_check(run_outputs, profile_name);
+if isempty(summary_table)
+    return;
+end
+
+paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+summary_csv = fullfile(paths.tables, 'MB_sensor_group_sensitivity_check.csv');
+milestone_common_save_table(summary_table, summary_csv);
+artifacts.csv = string(summary_csv);
+artifacts.summary = sensitivity_meta;
 end
