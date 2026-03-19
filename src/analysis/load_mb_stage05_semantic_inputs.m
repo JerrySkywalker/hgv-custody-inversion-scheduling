@@ -33,7 +33,7 @@ if isempty(stage02_out) || isempty(stage04_out)
     stage03_visibility_pipeline(cfg, struct('mode', run_mode));
     stage04_out = stage04_window_worstcase(cfg, struct('mode', run_mode));
     stage02_file = string(local_getfield_or(stage02_out, 'cache_file', ""));
-    stage04_file = string(local_getfield_or(stage04_out, 'cache_file', ""));
+    [~, stage04_file] = local_try_load_stage_output(cfg, 'stage04_window_worstcase_*.mat');
 end
 
 trajs_nominal = stage02_out.trajbank.nominal;
