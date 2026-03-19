@@ -51,11 +51,13 @@ fprintf('\n[run_stages][CLI] ===== 配置 MB search profile =====\n');
 fprintf('[run_stages][CLI] 直接回车表示保留默认值。\n');
 
 selection.run_mode = local_ask_choice('run mode', selection.run_mode, ...
-    {'default', 'dense', 'strict_stage05_replica', 'strict_stage05_validation_only', 'compare_semantics', 'auto_plot_tune'});
+    {'default', 'dense', 'strict_stage05_replica', 'strict_stage05_validation_only', 'compare_semantics', 'auto_plot_tune'}, ...
+    local_run_mode_labels());
 selection.profile_name = local_profile_name_from_run_mode(selection.run_mode, selection.profile_name);
 selection.enable_search_profile_manager = local_ask_yesno('enable search profile manager', selection.enable_search_profile_manager);
 selection.profile_name = local_ask_choice('profile preset', selection.profile_name, ...
-    {'mb_default', 'mb_dense_local', 'strict_stage05_replica', 'mb_auto_plot_tune'});
+    {'mb_default', 'mb_dense_local', 'strict_stage05_replica', 'mb_auto_plot_tune'}, ...
+    local_profile_labels(cfg, {'mb_default', 'mb_dense_local', 'strict_stage05_replica', 'mb_auto_plot_tune'}));
 profile = get_mb_search_profile(selection.profile_name, cfg);
 selection.figure_family = local_ask_choice('figure family', selection.figure_family, ...
     {'passratio', 'heatmap', 'comparison', 'control_stage05', 'strict_replica'});
@@ -64,6 +66,7 @@ selection.baseline_validation_only = local_ask_yesno('baseline validation only',
 selection.semantic_mode = local_ask_choice('semantic mode', selection.semantic_mode, {'legacyDG', 'closedD', 'comparison'});
 
 sensor_default = strjoin(local_default_sensor_groups(selection.baseline_validation_only, profile, selection), ',');
+local_print_labeled_list('sensor groups', list_sensor_param_groups(), local_sensor_labels(list_sensor_param_groups()));
 sensor_token = local_ask_csv_token('sensor groups', sensor_default, ...
     {'baseline', 'optimistic', 'robust', 'stage05_strict_reference', 'all'});
 selection.sensor_groups = local_parse_csv_cell(sensor_token);
@@ -300,13 +303,23 @@ end
 token = strjoin(parts, ',');
 end
 
-function value = local_ask_choice(name, default_val, choices)
-s = input(sprintf('%s [%s] options=%s: ', name, default_val, strjoin(choices, '/')), 's');
+function value = local_ask_choice(name, default_val, choices, labels)
+if nargin < 4 || isempty(labels)
+    labels = choices;
+end
+local_print_labeled_list(name, choices, labels);
+s = input(sprintf('%s [%s]: ', name, default_val), 's');
 if isempty(strtrim(s))
     value = default_val;
     return;
 end
-hit = find(strcmpi(strtrim(s), choices), 1);
+trimmed = strtrim(s);
+numeric_hit = str2double(trimmed);
+if isfinite(numeric_hit) && numeric_hit >= 1 && numeric_hit <= numel(choices) && abs(numeric_hit - round(numeric_hit)) < eps
+    value = choices{round(numeric_hit)};
+    return;
+end
+hit = find(strcmpi(trimmed, choices), 1);
 if isempty(hit)
     warning('%s 输入非法，保留默认值。', name);
     value = default_val;
@@ -487,5 +500,40 @@ elseif iscell(values)
     value = values{1};
 else
     value = values(1);
+end
+end
+
+function labels = local_profile_labels(cfg, choices)
+labels = cell(size(choices));
+for idx = 1:numel(choices)
+    labels{idx} = char(format_mb_search_profile_label(choices{idx}, cfg, "short"));
+end
+end
+
+function labels = local_sensor_labels(choices)
+labels = cell(size(choices));
+for idx = 1:numel(choices)
+    labels{idx} = char(format_mb_sensor_group_label(choices{idx}, "short"));
+end
+end
+
+function labels = local_run_mode_labels()
+labels = { ...
+    'default (routine MB semantic compare)', ...
+    'dense (local dense refinement focus)', ...
+    'strict_stage05_replica (locked Stage05 semantics + strict reference)', ...
+    'strict_stage05_validation_only (strict replica validation export only)', ...
+    'compare_semantics (legacyDG vs closedD comparison)', ...
+    'auto_plot_tune (autotune-first passratio exploration)'};
+end
+
+function local_print_labeled_list(name, choices, labels)
+fprintf('[run_stages][CLI] %s options:\n', name);
+for idx = 1:numel(choices)
+    if idx <= numel(labels) && ~isempty(labels{idx})
+        fprintf('  %d) %s\n', idx, labels{idx});
+    else
+        fprintf('  %d) %s\n', idx, choices{idx});
+    end
 end
 end

@@ -17,6 +17,9 @@ heights_to_run = reshape(local_getfield_or(options, 'heights_to_run', profile.he
 sensor_group = local_first_sensor_group(profile);
 lock_manifest = local_build_lock_manifest(options, profile);
 
+fprintf('[MB][strict replica] locked profile: %s\n', char(format_mb_search_profile_label(profile, cfg, "detailed")));
+fprintf('[MB][strict replica] locked sensor: %s\n', char(format_mb_sensor_group_label(sensor_group, "detailed")));
+
 [cfg_profile, profile] = apply_mb_search_profile_to_cfg(cfg, profile);
 legacy_output = run_mb_legacydg_semantics(cfg_profile, struct( ...
     'sensor_group', sensor_group, ...
