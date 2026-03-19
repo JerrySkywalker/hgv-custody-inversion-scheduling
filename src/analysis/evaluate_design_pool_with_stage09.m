@@ -226,10 +226,13 @@ summary.config_signature = local_casebank_signature(cfg_stage, family_name);
 end
 
 function signature = local_casebank_signature(cfg_stage, family_name)
-signature = sprintf('family=%s|heading_subset_max=%g|pool_size=%s', ...
+signature = sprintf('family=%s|heading_subset_max=%g|pool_size=%s|sensor_group=%s|max_offnadir_deg=%.6f|sigma_angle_rad=%.12g', ...
     char(family_name), ...
     cfg_stage.stage09.casebank_heading_subset_max, ...
-    char(string(cfg_stage.stage09.casebank_mode)));
+    char(string(cfg_stage.stage09.casebank_mode)), ...
+    char(string(local_get_sensor_signature_field(cfg_stage, 'sensor_group_name', ""))), ...
+    local_get_sensor_signature_value(cfg_stage, 'max_offnadir_deg'), ...
+    local_get_sensor_signature_value(cfg_stage, 'sigma_angle_rad'));
 end
 
 function value = local_safe_divide(a, b)
@@ -412,10 +415,48 @@ token = regexprep(char(string(value)), '[^A-Za-z0-9_-]', '_');
 end
 
 function signature = local_checkpoint_cfg_signature(cfg_stage)
-signature = sprintf('run_tag=%s|heading_subset_max=%g|parallel=%d', ...
+signature = sprintf('run_tag=%s|heading_subset_max=%g|parallel=%d|sensor_group=%s|max_offnadir_deg=%.6f|sigma_angle_rad=%.12g', ...
     char(string(cfg_stage.stage09.run_tag)), ...
     cfg_stage.stage09.casebank_heading_subset_max, ...
-    logical(cfg_stage.stage09.use_parallel));
+    logical(cfg_stage.stage09.use_parallel), ...
+    char(string(local_get_sensor_signature_field(cfg_stage, 'sensor_group_name', ""))), ...
+    local_get_sensor_signature_value(cfg_stage, 'max_offnadir_deg'), ...
+    local_get_sensor_signature_value(cfg_stage, 'sigma_angle_rad'));
+end
+
+function value = local_get_sensor_signature_field(cfg_stage, base_name, fallback)
+value = fallback;
+if isfield(cfg_stage, 'stage09') && isstruct(cfg_stage.stage09)
+    stage09_field = ['sensor_' base_name];
+    if isfield(cfg_stage.stage09, stage09_field) && ~isempty(cfg_stage.stage09.(stage09_field))
+        value = cfg_stage.stage09.(stage09_field);
+        return;
+    end
+end
+if isfield(cfg_stage, 'stage03') && isstruct(cfg_stage.stage03)
+    stage03_field = base_name;
+    if strcmp(base_name, 'sensor_group_name') && isfield(cfg_stage.stage03, stage03_field) && ~isempty(cfg_stage.stage03.(stage03_field))
+        value = cfg_stage.stage03.(stage03_field);
+        return;
+    end
+    if strcmp(base_name, 'max_offnadir_deg') && isfield(cfg_stage.stage03, 'max_offnadir_deg')
+        value = cfg_stage.stage03.max_offnadir_deg;
+        return;
+    end
+end
+if isfield(cfg_stage, 'stage04') && isstruct(cfg_stage.stage04)
+    if strcmp(base_name, 'sigma_angle_rad') && isfield(cfg_stage.stage04, 'sigma_angle_rad')
+        value = cfg_stage.stage04.sigma_angle_rad;
+        return;
+    end
+end
+end
+
+function value = local_get_sensor_signature_value(cfg_stage, base_name)
+value = local_get_sensor_signature_field(cfg_stage, base_name, NaN);
+if ~(isnumeric(value) && isscalar(value) && isfinite(value))
+    value = NaN;
+end
 end
 
 function token = local_design_pool_hash(design_keys)
