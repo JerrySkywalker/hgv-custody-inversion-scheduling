@@ -127,6 +127,19 @@ end
 if ~isempty(fieldnames(control_artifacts.figures))
     result.figures.control = control_artifacts.figures;
 end
+cross_profile_artifacts = local_export_cross_profile_outputs(cfg, run_outputs);
+if ~isempty(fieldnames(cross_profile_artifacts.tables))
+    result.tables.cross_profile = cross_profile_artifacts.tables;
+end
+if ~isempty(fieldnames(cross_profile_artifacts.figures))
+    result.figures.cross_profile = cross_profile_artifacts.figures;
+end
+if isfield(cross_profile_artifacts, 'summary_table') && ~isempty(cross_profile_artifacts.summary_table)
+    result.tables.cross_profile_summary = string(fullfile(paths.tables, 'MB_profileCompare_summary.csv'));
+end
+if isfield(cross_profile_artifacts, 'summary')
+    result.summary.cross_profile = cross_profile_artifacts.summary;
+end
 strict_replica_artifacts = local_export_strict_replica_validation_outputs(cfg, meta, run_outputs);
 if ~isempty(fieldnames(strict_replica_artifacts.tables))
     result.tables.strict_replica = strict_replica_artifacts.tables;
@@ -443,6 +456,12 @@ for idx = 1:numel(run_outputs)
     artifacts.tables.(matlab.lang.makeValidName(sprintf('control_%s', sensor_group))) = group_artifacts.tables;
     artifacts.figures.(matlab.lang.makeValidName(sprintf('control_%s', sensor_group))) = group_artifacts.figures;
 end
+end
+
+function artifacts = local_export_cross_profile_outputs(cfg, run_outputs)
+artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct(), 'summary_table', table());
+paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+artifacts = export_mb_cross_profile_outputs(run_outputs, paths);
 end
 
 function artifacts = local_export_dense_local_outputs(cfg, meta, sensor_groups, family_set)
