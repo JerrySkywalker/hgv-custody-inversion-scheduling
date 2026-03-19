@@ -94,6 +94,16 @@ end
 if ~isempty(fieldnames(control_artifacts.figures))
     result.figures.control = control_artifacts.figures;
 end
+dense_local_artifacts = local_export_dense_local_outputs(cfg, meta, resolved_sensor_groups, resolved_families);
+if ~isempty(fieldnames(dense_local_artifacts.tables))
+    result.tables.dense_local = dense_local_artifacts.tables;
+end
+if ~isempty(fieldnames(dense_local_artifacts.figures))
+    result.figures.dense_local = dense_local_artifacts.figures;
+end
+if isfield(dense_local_artifacts, 'summary')
+    result.summary.dense_local = dense_local_artifacts.summary;
+end
 result.summary.execution_status = "executed";
 result.summary.run_count = numel(run_outputs);
 
@@ -276,5 +286,32 @@ for idx = 1:numel(run_outputs)
     sensor_group = string(run_outputs(idx).sensor_group);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('control_%s', sensor_group))) = group_artifacts.tables;
     artifacts.figures.(matlab.lang.makeValidName(sprintf('control_%s', sensor_group))) = group_artifacts.figures;
+end
+end
+
+function artifacts = local_export_dense_local_outputs(cfg, meta, sensor_groups, family_set)
+artifacts = struct('tables', struct(), 'figures', struct());
+if ~logical(local_getfield_or(meta, 'run_dense_local', false))
+    return;
+end
+
+paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+for idx_group = 1:numel(sensor_groups)
+    sensor_group = sensor_groups{idx_group};
+    dense_out = run_mb_semantic_dense_local(cfg, struct( ...
+        'sensor_group', sensor_group, ...
+        'family_set', {family_set}, ...
+        'dense_local_heights', local_getfield_or(meta, 'dense_local_heights', 1000), ...
+        'anchor_h_km', local_getfield_or(meta, 'dense_local_anchor_h_km', 1000), ...
+        'dense_local_i_deg', local_getfield_or(meta, 'dense_local_i_deg', 50:5:70), ...
+        'dense_local_P', local_getfield_or(meta, 'dense_local_P', 6:10), ...
+        'dense_local_T', local_getfield_or(meta, 'dense_local_T', [6, 8, 10, 12]), ...
+        'F_fixed', local_getfield_or(meta, 'F_fixed', 1), ...
+        'use_parallel', logical(local_getfield_or(meta, 'use_parallel', true))));
+    group_artifacts = export_mb_semantic_dense_local_outputs(dense_out, paths);
+    group_field = matlab.lang.makeValidName(sprintf('denseLocal_%s', string(sensor_group)));
+    artifacts.tables.(group_field) = group_artifacts.tables;
+    artifacts.figures.(group_field) = group_artifacts.figures;
+    artifacts.summary = dense_out.summary;
 end
 end
