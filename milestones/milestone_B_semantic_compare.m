@@ -67,6 +67,8 @@ result.summary = struct( ...
     'dry_run', logical(local_getfield_or(meta, 'dry_run', false)), ...
     'fast_mode', logical(local_getfield_or(meta, 'fast_mode', false)), ...
     'resume_checkpoint', logical(local_getfield_or(meta, 'resume_checkpoint', false)), ...
+    'stage05_replica_flag', logical(local_getfield_or(local_getfield_or(meta, 'stage05_replica', struct()), 'strict', false)), ...
+    'auto_tuned_flag', logical(local_getfield_or(meta, 'auto_tuned_flag', false)), ...
     'run_dense_local', logical(local_getfield_or(meta, 'run_dense_local', false)), ...
     'baseline_validation_only', isequal(resolved_sensor_groups, {'baseline'}));
 
@@ -134,6 +136,15 @@ if isfield(dense_local_artifacts, 'summary')
 end
 result.summary.execution_status = "executed";
 result.summary.run_count = numel(run_outputs);
+
+metadata_artifacts = finalize_mb_output_metadata(paths, meta);
+if isfield(metadata_artifacts, 'manifest_csv') && strlength(metadata_artifacts.manifest_csv) > 0
+    result.tables.output_metadata_manifest = metadata_artifacts.manifest_csv;
+end
+if isfield(metadata_artifacts, 'autotune_csv') && strlength(metadata_artifacts.autotune_csv) > 0
+    result.tables.autotune_summary = metadata_artifacts.autotune_csv;
+end
+result.summary.output_metadata_manifest_rows = local_getfield_or(metadata_artifacts, 'manifest_row_count', 0);
 
 files = milestone_common_export_summary(result, paths);
 result.artifacts.summary_report = files.report_md;
@@ -263,6 +274,9 @@ fprintf(fid, '- `families`: %s\n', strjoin(family_set, ', '));
 fprintf(fid, '- `heights_to_run_km`: %s\n', mat2str(heights_to_run));
 fprintf(fid, '- `dry_run`: %s\n', char(string(logical(local_getfield_or(meta, 'dry_run', false)))));
 fprintf(fid, '- `fast_mode`: %s\n', char(string(logical(local_getfield_or(meta, 'fast_mode', false)))));
+fprintf(fid, '- `auto_tuned_flag`: %s\n', char(string(logical(local_getfield_or(meta, 'auto_tuned_flag', false)))));
+fprintf(fid, '- `stage05_replica_flag`: %s\n', char(string(logical(local_getfield_or(local_getfield_or(meta, 'stage05_replica', struct()), 'strict', false)))));
+fprintf(fid, '- `plot_xlim_ns`: %s\n', local_stringify_manifest_value(local_getfield_or(meta, 'plot_xlim_ns', [])));
 fprintf(fid, '- `run_dense_local`: %s\n\n', char(string(logical(local_getfield_or(meta, 'run_dense_local', false)))));
 
 fprintf(fid, '## Modes\n\n');
@@ -287,6 +301,24 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function txt = local_stringify_manifest_value(value)
+if isnumeric(value) || islogical(value)
+    if isempty(value)
+        txt = '[]';
+    elseif isscalar(value)
+        txt = char(string(value));
+    else
+        txt = mat2str(value);
+    end
+elseif isstring(value) || ischar(value)
+    txt = char(string(value));
+elseif iscell(value)
+    txt = strjoin(cellstr(string(value)), ', ');
+else
+    txt = char(string(value));
 end
 end
 
@@ -317,6 +349,7 @@ function count = local_count_wrapped_runs(need_legacy, need_closed, sensor_group
 count_per_group = double(need_legacy) + double(need_closed);
 count = sensor_group_count * count_per_group;
 end
+
 
 function field_name = local_mode_tables_field(mode_name, sensor_group)
 field_name = matlab.lang.makeValidName(sprintf('%s_%s_tables', string(mode_name), string(sensor_group)));
