@@ -17,12 +17,21 @@ score_value = 0;
 score_value = score_value + 24 * quality.left_zero_score;
 score_value = score_value + 30 * quality.right_one_score;
 score_value = score_value + 16 * quality.transition_center_score;
+score_value = score_value + 14 * quality.transition_width_score;
+score_value = score_value + 12 * quality.saturation_score;
 score_value = score_value + 10 * quality.monotonicity_soft_score;
 score_value = score_value + 10 * quality.plateau_score;
 score_value = score_value + 10 * min(quality.num_reaching_unity / max(quality.num_inclinations, 1), 1);
+score_value = score_value - 14 * quality.domain_efficiency_penalty;
 
 if quality.num_nonzero_curves == 0
     score_value = score_value - 35;
+end
+if quality.only_single_point_visible
+    score_value = score_value - 40;
+end
+if quality.insufficient_valid_curves
+    score_value = score_value - 25;
 end
 if quality.final_passratio_median < 0.50
     score_value = score_value - 20 * (0.50 - quality.final_passratio_median);
@@ -35,6 +44,9 @@ if ~quality.right_plateau_reached
 end
 if ~quality.mid_transition_ok
     score_value = score_value - 6;
+end
+if ~quality.transition_width_ok
+    score_value = score_value - 10;
 end
 
 score_result = struct( ...
@@ -49,8 +61,19 @@ score_result = struct( ...
     'window_width', max(diff(plot_xlim_ns), eps), ...
     'left_margin_ratio', local_margin_ratio(plot_xlim_ns, quality.transition_ns_low_median, 'left'), ...
     'right_margin_ratio', local_margin_ratio(plot_xlim_ns, quality.transition_ns_high_median, 'right'), ...
+    'left_zero_score', quality.left_zero_score, ...
+    'right_one_score', quality.right_one_score, ...
+    'transition_center_score', quality.transition_center_score, ...
+    'transition_width_score', quality.transition_width_score, ...
+    'saturation_score', quality.saturation_score, ...
+    'num_curves_saturated', quality.num_curves_saturated, ...
+    'num_curves_with_transition', quality.num_curves_with_transition, ...
+    'recommended_search_ns_min', quality.recommended_search_ns_min, ...
+    'recommended_search_ns_max', quality.recommended_search_ns_max, ...
+    'recommended_xlim_ns', quality.recommended_plot_xlim_ns, ...
     'state', local_score_state(quality), ...
-    'reason', string(quality.reason));
+    'reason', string(quality.reason), ...
+    'reason_code', string(quality.stop_reason_suggestion));
 end
 
 function ratio = local_margin_ratio(plot_xlim_ns, transition_ns, side)
@@ -72,6 +95,12 @@ end
 function state = local_score_state(quality)
 if quality.full_transition_resolved
     state = "success";
+elseif quality.no_feasible_point_found
+    state = "all_zero";
+elseif quality.only_single_point_visible
+    state = "single_point";
+elseif quality.insufficient_valid_curves
+    state = "insufficient_curves";
 elseif quality.num_nonzero_curves == 0
     state = "all_zero";
 elseif quality.right_plateau_reached

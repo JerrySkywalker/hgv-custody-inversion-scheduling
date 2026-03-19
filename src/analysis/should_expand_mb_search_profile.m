@@ -8,14 +8,16 @@ end
 decision = struct( ...
     'should_expand', true, ...
     'state', "continue", ...
-    'reason', "Quality target not reached yet.", ...
+    'reason', "continue_search", ...
+    'reason_detail', "Quality target not reached yet.", ...
     'limiting_factor', "", ...
     'stagnated', false);
 
 if quality.full_transition_resolved
     decision.should_expand = false;
     decision.state = "success";
-    decision.reason = "Quality thresholds reached: left floor, right plateau, and centered transition are all satisfied.";
+    decision.reason = "success_balanced_window";
+    decision.reason_detail = "Quality thresholds reached: left floor, right plateau, centered transition, and adequate transition width are all satisfied.";
     return;
 end
 
@@ -23,7 +25,8 @@ mode = lower(char(string(local_getfield_or(options, 'mode', "iterative_recommend
 if strcmp(mode, 'evaluate_only')
     decision.should_expand = false;
     decision.state = "evaluated_only";
-    decision.reason = "Evaluate-only auto-tune mode scored the current domain without iterative expansion.";
+    decision.reason = local_quality_stop_code(quality);
+    decision.reason_detail = "Evaluate-only auto-tune mode scored the current domain without iterative expansion.";
     return;
 end
 
@@ -32,7 +35,8 @@ max_iterations = local_getfield_or(options, 'max_iterations', 5);
 if iteration_idx >= max_iterations
     decision.should_expand = false;
     decision.state = "limit_reached";
-    decision.reason = "Reached the maximum number of auto-tune iterations.";
+    decision.reason = local_quality_stop_code(quality);
+    decision.reason_detail = "Reached the maximum number of auto-tune iterations.";
     decision.limiting_factor = "max_iterations";
     return;
 end
@@ -43,7 +47,8 @@ if iteration_idx >= 2
         if local_profiles_equivalent(history(end).profile, history(end - 1).profile)
             decision.should_expand = false;
             decision.state = "stalled";
-            decision.reason = "The best search profile stopped changing and score improvement is below threshold.";
+            decision.reason = local_quality_stop_code(quality);
+            decision.reason_detail = "The best search profile stopped changing and score improvement is below threshold.";
             decision.stagnated = true;
             return;
         end
@@ -57,7 +62,8 @@ can_expand_left = min(profile.T_values) > 2 || min(profile.P_values) > 2;
 if ~quality.right_plateau_reached && ~can_expand_right
     decision.should_expand = false;
     decision.state = "limit_reached";
-    decision.reason = "The right-side unity plateau was not reached before hitting the configured P/T upper limits.";
+    decision.reason = "limit_reached_without_right_plateau";
+    decision.reason_detail = "The right-side unity plateau was not reached before hitting the configured P/T upper limits.";
     decision.limiting_factor = "search_upper_bound";
     return;
 end
@@ -65,9 +71,26 @@ end
 if ~quality.left_zero_reached && ~can_expand_left
     decision.should_expand = false;
     decision.state = "limit_reached";
-    decision.reason = "The left-side near-zero floor was not reached before hitting the configured P/T lower limits.";
+    decision.reason = "limit_reached_insufficient_transition";
+    decision.reason_detail = "The left-side near-zero floor was not reached before hitting the configured P/T lower limits.";
     decision.limiting_factor = "search_lower_bound";
     return;
+end
+end
+
+function code = local_quality_stop_code(quality)
+if quality.no_feasible_point_found
+    code = "no_feasible_point_found";
+elseif quality.only_single_point_visible
+    code = "only_single_point_visible";
+elseif quality.insufficient_valid_curves
+    code = "insufficient_valid_curves";
+elseif ~quality.right_plateau_reached
+    code = "limit_reached_without_right_plateau";
+elseif quality.full_transition_resolved
+    code = "success_balanced_window";
+else
+    code = "limit_reached_insufficient_transition";
 end
 end
 

@@ -223,6 +223,11 @@ end
 if isfield(meta, 'plot_ylim_passratio')
     plot_options.plot_ylim_passratio = meta.plot_ylim_passratio;
 end
+plot_options.plot_domain_source = local_resolve_plot_domain_source(meta);
+diagnostic_text = local_resolve_autotune_diagnostic(meta);
+if strlength(diagnostic_text) > 0
+    plot_options.diagnostic_text = diagnostic_text;
+end
 end
 
 function manifest = local_build_sensor_manifest(sensor_groups)
@@ -311,6 +316,32 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function source = local_resolve_plot_domain_source(meta)
+if logical(local_getfield_or(meta, 'auto_tuned_flag', false))
+    source = "autotuned_profile";
+elseif logical(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'enabled', false))
+    source = "search_profile_with_autotune_probe";
+else
+    source = "search_profile";
+end
+end
+
+function diagnostic_text = local_resolve_autotune_diagnostic(meta)
+diagnostic_text = "";
+auto_tune_result = local_getfield_or(meta, 'auto_tune_result', struct());
+if ~isstruct(auto_tune_result) || isempty(fieldnames(auto_tune_result))
+    return;
+end
+
+state = string(local_getfield_or(auto_tune_result, 'state', ""));
+stop_reason = string(local_getfield_or(auto_tune_result, 'final_stop_reason', local_getfield_or(auto_tune_result, 'stop_reason', "")));
+if state == "success"
+    diagnostic_text = "auto-tune: balanced window";
+elseif stop_reason ~= ""
+    diagnostic_text = "auto-tune stop: " + stop_reason;
 end
 end
 

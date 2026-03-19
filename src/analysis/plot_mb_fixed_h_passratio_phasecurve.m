@@ -64,6 +64,7 @@ apply_mb_plot_domain_guardrail(ax, local_getfield_or(phasecurve_table, 'Ns', [])
     'empty_message', 'No valid pass-ratio point found within current search domain', ...
     'domain_summary', sprintf('Search domain: h = %.0f km', h_km), ...
     'plot_domain_source', guard.plot_domain_source));
+local_add_diagnostic_annotation(ax, options);
 grid(ax, 'on');
 legend(ax, 'Location', 'best', 'Box', style.legend_box);
 hold(ax, 'off');
@@ -85,4 +86,26 @@ if isfield(options, 'plot_ylim_passratio') && numel(options.plot_ylim_passratio)
 else
     ylim_values = [0, 1.05];
 end
+end
+
+function local_add_diagnostic_annotation(ax, options)
+text_parts = strings(0, 1);
+if isfield(options, 'plot_domain_source') && strlength(string(options.plot_domain_source)) > 0
+    text_parts(end + 1, 1) = "domain: " + string(options.plot_domain_source); %#ok<AGROW>
+end
+if isfield(options, 'diagnostic_text') && strlength(string(options.diagnostic_text)) > 0
+    text_parts(end + 1, 1) = string(options.diagnostic_text); %#ok<AGROW>
+end
+if isempty(text_parts)
+    return;
+end
+
+annotation_text = strjoin(text_parts, " | ");
+text(ax, 0.02, 0.02, annotation_text, ...
+    'Units', 'normalized', ...
+    'HorizontalAlignment', 'left', ...
+    'VerticalAlignment', 'bottom', ...
+    'FontSize', 10, ...
+    'Color', [0.35 0.35 0.35], ...
+    'Interpreter', 'none');
 end
