@@ -26,17 +26,18 @@ end
 function selection = local_default_selection(cfg)
 meta = cfg.milestones.MB_semantic_compare;
 profile_name = char(string(local_getfield_or(meta, 'search_profile', 'mb_default')));
+profile = get_mb_search_profile(profile_name, cfg);
 selection = struct();
 selection.run_mode = local_default_run_mode(profile_name);
 selection.profile_name = profile_name;
-selection.semantic_mode = char(string(local_getfield_or(meta, 'mode', 'comparison')));
-selection.sensor_groups = cellstr(string(local_getfield_or(meta, 'sensor_groups', {'baseline'})));
-selection.heights_to_run = reshape(local_getfield_or(meta, 'heights_to_run', 1000), 1, []);
+selection.semantic_mode = char(string(profile.semantic_mode));
+selection.sensor_groups = cellstr(string(profile.sensor_group_names));
+selection.heights_to_run = reshape(profile.height_grid_km, 1, []);
 selection.search_range_source = 'profile_default';
-selection.P_grid = reshape(local_getfield_or(meta, 'P_grid', cfg.stage05.P_grid), 1, []);
-selection.T_grid = reshape(local_getfield_or(meta, 'T_grid', cfg.stage05.T_grid), 1, []);
+selection.P_grid = reshape(profile.P_grid, 1, []);
+selection.T_grid = reshape(profile.T_grid, 1, []);
 selection.cache_policy = 'all_reuse';
-selection.auto_tune_requested = logical(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'enabled', false));
+selection.auto_tune_requested = logical(profile.auto_tune.enabled);
 selection.baseline_validation_only = isequal(selection.sensor_groups, {'baseline'}) && isequal(selection.heights_to_run, 1000);
 end
 

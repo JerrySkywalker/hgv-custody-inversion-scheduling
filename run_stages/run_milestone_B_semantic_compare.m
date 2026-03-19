@@ -26,12 +26,14 @@ function out = run_milestone_B_semantic_compare(cfg, interactive)
         interactive = (nargin == 0);
     end
 
+    [cfg, selection] = mb_cli_configure_search_profile(cfg, interactive);
     if interactive
-        cfg = local_configure_cli(cfg);
+        cfg = local_configure_runtime(cfg, selection);
     end
 
     fprintf('[run_stages] === MB semantic compare ===\n');
-    fprintf('[run_stages] mode=%s | sensor_groups=%s | heights=%s | families=%s | dense_local=%s | fast_mode=%s\n', ...
+    fprintf('[run_stages] profile=%s | mode=%s | sensor_groups=%s | heights=%s | families=%s | dense_local=%s | fast_mode=%s\n', ...
+        char(string(cfg.milestones.MB_semantic_compare.search_profile)), ...
         char(string(cfg.milestones.MB_semantic_compare.mode)), ...
         strjoin(resolve_sensor_param_groups(cfg.milestones.MB_semantic_compare.sensor_groups), ','), ...
         mat2str(cfg.milestones.MB_semantic_compare.heights_to_run), ...
@@ -43,50 +45,18 @@ function out = run_milestone_B_semantic_compare(cfg, interactive)
     fprintf('[run_stages] MB semantic compare complete: status=%s\n', char(string(out.summary.execution_status)));
 end
 
-function cfg = local_configure_cli(cfg)
+function cfg = local_configure_runtime(cfg, selection)
     meta = cfg.milestones.MB_semantic_compare;
-    validation_height = 1000;
-
-    fprintf('\n[run_stages][CLI] ===== 配置 MB semantic compare =====\n');
-    fprintf('[run_stages][CLI] 直接回车表示保留默认值。\n');
-
-    baseline_validation_only = local_ask_yesno('baseline validation only', true);
-    mode_value = local_ask_choice('mode', char(string(meta.mode)), {'legacyDG', 'closedD', 'comparison', 'all'});
-
-    if baseline_validation_only
-        sensor_default = 'baseline';
-        height_mode_default = 'validation';
-        family_default = 'nominal';
-    else
-        sensor_default = strjoin(resolve_sensor_param_groups(meta.sensor_groups), ',');
-        height_mode_default = 'default';
-        family_default = strjoin(cellstr(string(meta.family_set)), ',');
-    end
-
-    sensor_token = local_ask_csv_token('sensor groups', sensor_default, {'baseline', 'optimistic', 'robust', 'all'});
-    height_mode = local_ask_choice('height mode', height_mode_default, {'validation', 'default', 'custom'});
-    if strcmpi(height_mode, 'validation')
-        heights_to_run = validation_height;
-    elseif strcmpi(height_mode, 'custom')
-        heights_to_run = local_ask_vector('custom heights_to_run', meta.heights_to_run);
-    else
-        heights_to_run = meta.heights_to_run;
-    end
-
-    family_token = local_ask_csv_token('family set', family_default, {'nominal', 'heading', 'critical', 'all'});
+    fprintf('[run_stages][CLI] 当前 search profile: %s\n', char(string(selection.profile_name)));
+    family_token = local_ask_csv_token('family set', strjoin(cellstr(string(meta.family_set)), ','), {'nominal', 'heading', 'critical', 'all'});
     run_dense_local = local_ask_yesno('run dense local refinement', logical(meta.run_dense_local));
     fast_mode = local_ask_yesno('fast mode', logical(meta.fast_mode));
     resume_checkpoint = local_ask_yesno('resume checkpoint', logical(meta.resume_checkpoint));
 
-    cfg.milestones.MB_semantic_compare.mode = mode_value;
-    cfg.milestones.MB_semantic_compare.sensor_groups = local_parse_csv_cell(sensor_token);
     cfg.milestones.MB_semantic_compare.family_set = local_parse_csv_cell(family_token);
-    cfg.milestones.MB_semantic_compare.heights_to_run = heights_to_run;
     cfg.milestones.MB_semantic_compare.run_dense_local = run_dense_local;
     cfg.milestones.MB_semantic_compare.fast_mode = fast_mode;
     cfg.milestones.MB_semantic_compare.resume_checkpoint = resume_checkpoint;
-
-    fprintf('[run_stages][CLI] ===== MB semantic compare 配置完成 =====\n\n');
 end
 
 function token = local_ask_csv_token(name, default_val, allowed_values)
