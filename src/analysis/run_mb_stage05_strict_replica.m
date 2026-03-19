@@ -41,6 +41,12 @@ out.summary = struct( ...
     'family_set', {family_set}, ...
     'heights_to_run', heights_to_run, ...
     'interpretation_note', "Strict Stage05 replica keeps Stage05 search-domain defaults, Stage05 sensor defaults, and Stage05 D_G-based semantics within the MB wrapper shell.");
+
+if logical(local_getfield_or(options, 'build_validation_summary', false))
+    out.validation_summary = build_stage05_strict_replica_validation_summary(out, cfg, options);
+else
+    out.validation_summary = table();
+end
 end
 
 function family_set = local_resolve_family_set(family_input)

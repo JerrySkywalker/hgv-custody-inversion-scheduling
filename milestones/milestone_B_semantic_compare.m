@@ -118,6 +118,10 @@ end
 if ~isempty(fieldnames(control_artifacts.figures))
     result.figures.control = control_artifacts.figures;
 end
+strict_replica_artifacts = local_export_strict_replica_validation_outputs(cfg, meta, run_outputs);
+if ~isempty(fieldnames(strict_replica_artifacts.tables))
+    result.tables.strict_replica = strict_replica_artifacts.tables;
+end
 dense_local_artifacts = local_export_dense_local_outputs(cfg, meta, resolved_sensor_groups, resolved_families);
 if ~isempty(fieldnames(dense_local_artifacts.tables))
     result.tables.dense_local = dense_local_artifacts.tables;
@@ -160,7 +164,16 @@ for idx_group = 1:numel(sensor_groups)
 
     if need_legacy
         cursor = cursor + 1;
-        legacy_output = run_mb_legacydg_semantics(cfg, common_options);
+        if logical(local_getfield_or(meta.stage05_replica, 'strict', false)) && strcmpi(sensor_group, 'stage05_strict_reference')
+            strict_options = common_options;
+            strict_options.build_validation_summary = true;
+            strict_output = run_mb_stage05_strict_replica(cfg, strict_options);
+            legacy_output = strict_output.legacy_output;
+            legacy_output.validation_summary = strict_output.validation_summary;
+            legacy_output.strict_replica = strict_output;
+        else
+            legacy_output = run_mb_legacydg_semantics(cfg, common_options);
+        end
         outputs(cursor, 1) = struct( ...
             'mode', "legacyDG", ...
             'sensor_group', string(sensor_group), ...
@@ -229,7 +242,7 @@ fid = fopen(file_path, 'w');
 if fid < 0
     error('Failed to open MB run manifest: %s', file_path);
 end
-cleanup_obj = onCleanup(@() fclose(fid)); %#ok<NASGU>
+cleanup_obj = onCleanup(@() fclose(fid));
 
 fprintf(fid, '# MB Semantic Compare Run Manifest\n\n');
 fprintf(fid, '- `mode`: %s\n', char(string(local_getfield_or(meta, 'mode', 'comparison'))));
@@ -375,6 +388,34 @@ for idx_group = 1:numel(sensor_groups)
     artifacts.tables.(group_field) = group_artifacts.tables;
     artifacts.figures.(group_field) = group_artifacts.figures;
     artifacts.summary.(group_field) = dense_out.summary;
+end
+end
+
+function artifacts = local_export_strict_replica_validation_outputs(cfg, meta, run_outputs)
+artifacts = struct('tables', struct());
+stage05_replica_cfg = local_getfield_or(meta, 'stage05_replica', struct());
+if ~logical(local_getfield_or(stage05_replica_cfg, 'strict', false))
+    return;
+end
+
+paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+for idx = 1:numel(run_outputs)
+    if run_outputs(idx).mode ~= "legacyDG"
+        continue;
+    end
+    if string(run_outputs(idx).sensor_group) ~= "stage05_strict_reference"
+        continue;
+    end
+    run_out = run_outputs(idx).run_output;
+    if isfield(run_out, 'validation_summary') && ~isempty(run_out.validation_summary)
+        validation_table = run_out.validation_summary;
+    else
+        validation_table = build_stage05_strict_replica_validation_summary(run_out, cfg, struct());
+    end
+    validation_csv = fullfile(paths.tables, 'MB_stage05_strictReplica_validation_summary.csv');
+    milestone_common_save_table(validation_table, validation_csv);
+    artifacts.tables.validation_summary = string(validation_csv);
+    return;
 end
 end
 
