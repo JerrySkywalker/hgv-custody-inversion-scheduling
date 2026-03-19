@@ -39,8 +39,11 @@ for idx = 1:numel(i_values)
 end
 yline(ax2, 0, ':', 'Color', [0.35, 0.35, 0.35], 'LineWidth', 1.1);
 xlabel(ax2, 'N_s');
-ylabel(ax2, 'closedD - legacyDG');
-title(ax2, 'Pass-Ratio Gap');
+ylabel(ax2, '\Delta pass ratio');
+title(ax2, '\Delta pass ratio (closedD - legacyDG)');
+text(ax2, 0.02, 0.92, 'Positive: closedD higher | Negative: legacyDG higher', ...
+    'Units', 'normalized', 'FontSize', 10, 'Color', [0.25 0.25 0.25], ...
+    'VerticalAlignment', 'top');
 grid(ax2, 'on');
 
 legend(ax1, 'Location', 'eastoutside', 'Box', 'off');
