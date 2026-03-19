@@ -31,7 +31,7 @@ near_optimal_unique = unique_design_rows(near_optimal_design_table);
 if isfield(meta, 'output_paths') && isstruct(meta.output_paths)
     paths = meta.output_paths;
 else
-    paths = local_mb_output_paths(cfg, meta.milestone_id, meta.title);
+    paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 end
 style = milestone_common_plot_style();
 
@@ -71,30 +71,6 @@ end
 
 out = local_build_output(summary_table, candidate_table, candidate_eval, figure_path, summary);
 out.candidate_group_info = candidate_group_info;
-end
-
-function paths = local_mb_output_paths(cfg, milestone_id, milestone_title)
-if nargin < 1 || isempty(cfg)
-    cfg = milestone_common_defaults();
-end
-
-root_dir = cfg.paths.root;
-output_root = fullfile(root_dir, 'outputs', 'milestones');
-paths = struct();
-paths.root = output_root;
-paths.milestone_root = fullfile(output_root, milestone_id);
-paths.figures = fullfile(paths.milestone_root, 'figures');
-paths.tables = fullfile(paths.milestone_root, 'tables');
-paths.debug = fullfile(paths.milestone_root, 'debug');
-paths.summary_report = fullfile(paths.tables, sprintf('%s_summary.md', milestone_id));
-paths.summary_mat = fullfile(paths.tables, sprintf('%s_%s_summary.mat', milestone_id, milestone_title));
-
-ensure_dir(cfg.paths.outputs);
-ensure_dir(paths.root);
-ensure_dir(paths.milestone_root);
-ensure_dir(paths.figures);
-ensure_dir(paths.tables);
-ensure_dir(paths.debug);
 end
 
 function out = local_build_output(summary_table, candidate_table, candidate_eval, figure_path, summary)

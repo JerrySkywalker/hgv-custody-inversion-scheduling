@@ -10,7 +10,7 @@ else
 end
 
 meta = cfg.milestones.MB;
-paths = local_mb_output_paths(cfg, meta.milestone_id, meta.title);
+paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 paths.summary_report = fullfile(paths.tables, 'MB_summary.md');
 paths.summary_mat = fullfile(paths.tables, 'MB_inverse_slices_summary.mat');
 style = milestone_common_plot_style();
@@ -107,7 +107,7 @@ if isfield(meta, 'preflight_mode') && logical(meta.preflight_mode)
 end
 result.artifacts.timing_note = local_timing_note(pool.summary.timing, pool.summary.joint_eval_timing);
 result.artifacts.layer_exports_enabled = write_layer_exports;
-result.artifacts.debug_dir = string(paths.debug);
+result.artifacts.cache_dir = string(paths.cache);
 result.artifacts.near_optimal_shell_conclusion = local_getfield_or(local_getfield_or(layer_outputs.summary.formal, 'near_optimal_shell_check', struct()), 'conclusion', "");
 result.artifacts.fixed_h_exploration_note = local_getfield_or(layer_outputs.summary.fixed_h_exploration, 'interpretation_note', "");
 result.artifacts.stage05_semantic_control_note = local_getfield_or(layer_outputs.summary.stage05_semantic_control, 'interpretation_note', "");
@@ -703,30 +703,6 @@ else
     min_ns_span = max(min_ns_values) - min(min_ns_values);
 end
 tf = ratio_span < 0.05 && min_ns_span <= 2;
-end
-
-function paths = local_mb_output_paths(cfg, milestone_id, milestone_title)
-if nargin < 1 || isempty(cfg)
-    cfg = milestone_common_defaults();
-end
-
-root_dir = cfg.paths.root;
-output_root = fullfile(root_dir, 'outputs', 'milestones');
-paths = struct();
-paths.root = output_root;
-paths.milestone_root = fullfile(output_root, milestone_id);
-paths.figures = fullfile(paths.milestone_root, 'figures');
-paths.tables = fullfile(paths.milestone_root, 'tables');
-paths.debug = fullfile(paths.milestone_root, 'debug');
-paths.summary_report = fullfile(paths.tables, sprintf('%s_summary.md', milestone_id));
-paths.summary_mat = fullfile(paths.tables, sprintf('%s_%s_summary.mat', milestone_id, milestone_title));
-
-ensure_dir(cfg.paths.outputs);
-ensure_dir(paths.root);
-ensure_dir(paths.milestone_root);
-ensure_dir(paths.figures);
-ensure_dir(paths.tables);
-ensure_dir(paths.debug);
 end
 
 function value = local_get_required_pass_ratio(cfg)
