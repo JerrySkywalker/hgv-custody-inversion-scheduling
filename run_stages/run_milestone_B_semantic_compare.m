@@ -201,15 +201,19 @@ function compact = local_compact_tune_result(tune_result)
         'stop_reason', string(local_getfield_or(tune_result, 'stop_reason', "")), ...
         'unresolved_due_to_search_limit', logical(local_getfield_or(tune_result, 'unresolved_due_to_search_limit', false)), ...
         'iteration_history_csv', string(local_getfield_or(tune_result, 'iteration_history_csv', "")), ...
+        'summary_csv', string(local_getfield_or(tune_result, 'summary_csv', "")), ...
+        'summary_row', local_getfield_or(tune_result, 'summary_row', table()), ...
         'stats', local_getfield_or(tune_result, 'stats', struct()));
     if isfield(tune_result, 'legacyDG_result')
         compact.legacyDG_state = string(local_getfield_or(tune_result.legacyDG_result, 'state', ""));
         compact.legacyDG_iteration_history_csv = string(local_getfield_or(tune_result.legacyDG_result, 'iteration_history_csv', ""));
+        compact.legacyDG_summary_csv = string(local_getfield_or(tune_result.legacyDG_result, 'summary_csv', ""));
         compact.legacyDG_best_score = local_getfield_or(tune_result.legacyDG_result, 'best_score', NaN);
     end
     if isfield(tune_result, 'closedD_result')
         compact.closedD_state = string(local_getfield_or(tune_result.closedD_result, 'state', ""));
         compact.closedD_iteration_history_csv = string(local_getfield_or(tune_result.closedD_result, 'iteration_history_csv', ""));
+        compact.closedD_summary_csv = string(local_getfield_or(tune_result.closedD_result, 'summary_csv', ""));
         compact.closedD_best_score = local_getfield_or(tune_result.closedD_result, 'best_score', NaN);
     end
 end

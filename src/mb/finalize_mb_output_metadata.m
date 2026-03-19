@@ -5,7 +5,12 @@ artifacts = struct('manifest_csv', "", 'autotune_csv', "", 'manifest_row_count',
 
 if isfield(meta, 'auto_tune_result') && isstruct(meta.auto_tune_result) && ~isempty(fieldnames(meta.auto_tune_result))
     autotune_csv = fullfile(paths.tables, 'MB_autotune_summary.csv');
-    T_auto = local_append_metadata_columns(local_struct_to_kv_table(meta.auto_tune_result), local_infer_output_metadata('MB_autotune_summary.csv', meta));
+    if isfield(meta.auto_tune_result, 'summary_row') && istable(meta.auto_tune_result.summary_row) && ~isempty(meta.auto_tune_result.summary_row)
+        T_auto = meta.auto_tune_result.summary_row;
+    else
+        T_auto = local_struct_to_kv_table(meta.auto_tune_result);
+    end
+    T_auto = local_append_metadata_columns(T_auto, local_infer_output_metadata('MB_autotune_summary.csv', meta));
     milestone_common_save_table(T_auto, autotune_csv);
     artifacts.autotune_csv = string(autotune_csv);
 end
