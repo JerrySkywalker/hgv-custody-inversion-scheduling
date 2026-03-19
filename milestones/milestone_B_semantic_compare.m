@@ -67,6 +67,12 @@ end
 
 run_outputs = local_execute_semantic_runs(cfg, meta, resolved_modes, resolved_sensor_groups, resolved_families, resolved_heights);
 result.artifacts.run_outputs = run_outputs;
+batch_summary = local_build_sensor_group_batch_summary(run_outputs);
+if ~isempty(batch_summary)
+    batch_summary_csv = fullfile(paths.tables, 'MB_sensor_group_batch_summary.csv');
+    milestone_common_save_table(batch_summary, batch_summary_csv);
+    result.tables.sensor_group_batch_summary = string(batch_summary_csv);
+end
 for idx = 1:numel(run_outputs)
     tables_field = local_mode_tables_field(run_outputs(idx).mode, run_outputs(idx).sensor_group);
     figures_field = local_mode_figures_field(run_outputs(idx).mode, run_outputs(idx).sensor_group);
@@ -83,6 +89,11 @@ if ~isempty(fieldnames(comparison_artifacts.tables))
 end
 if ~isempty(fieldnames(comparison_artifacts.figures))
     result.figures.comparison = comparison_artifacts.figures;
+end
+if isfield(comparison_artifacts, 'summary_table') && ~isempty(comparison_artifacts.summary_table)
+    comparison_summary_csv = fullfile(paths.tables, 'MB_comparison_gap_summary_batch.csv');
+    milestone_common_save_table(comparison_artifacts.summary_table, comparison_summary_csv);
+    result.tables.comparison_batch_summary = string(comparison_summary_csv);
 end
 if isfield(comparison_artifacts, 'summary')
     result.summary.comparison = comparison_artifacts.summary;
@@ -255,12 +266,14 @@ field_name = matlab.lang.makeValidName(sprintf('%s_%s_figures', string(mode_name
 end
 
 function artifacts = local_export_comparison_outputs(cfg, resolved_modes, sensor_groups, run_outputs)
-artifacts = struct('tables', struct(), 'figures', struct());
+artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct(), 'summary_table', table());
 if ~any(arrayfun(@(m) logical(m.emits_gap_outputs), resolved_modes))
     return;
 end
 
 paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+summary_rows = cell(numel(sensor_groups), 1);
+summary_cursor = 0;
 for idx_group = 1:numel(sensor_groups)
     sensor_group = string(sensor_groups{idx_group});
     legacy_hit = find(arrayfun(@(r) r.mode == "legacyDG" && r.sensor_group == sensor_group, run_outputs), 1);
@@ -271,7 +284,15 @@ for idx_group = 1:numel(sensor_groups)
     group_artifacts = export_mb_semantic_gap_outputs(run_outputs(legacy_hit).run_output, run_outputs(closed_hit).run_output, paths);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('comparison_%s', sensor_group))) = group_artifacts.tables;
     artifacts.figures.(matlab.lang.makeValidName(sprintf('comparison_%s', sensor_group))) = group_artifacts.figures;
-    artifacts.summary = group_artifacts.summary;
+    group_field = matlab.lang.makeValidName(sprintf('comparison_%s', sensor_group));
+    artifacts.summary.(group_field) = group_artifacts.summary;
+    if ~isempty(group_artifacts.summary)
+        summary_cursor = summary_cursor + 1;
+        summary_rows{summary_cursor} = local_tag_comparison_summary(group_artifacts.summary, run_outputs(legacy_hit).run_output.sensor_group);
+    end
+end
+if summary_cursor > 0
+    artifacts.summary_table = vertcat(summary_rows{1:summary_cursor});
 end
 end
 
@@ -290,14 +311,18 @@ end
 end
 
 function artifacts = local_export_dense_local_outputs(cfg, meta, sensor_groups, family_set)
-artifacts = struct('tables', struct(), 'figures', struct());
+artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct());
 if ~logical(local_getfield_or(meta, 'run_dense_local', false))
     return;
 end
 
 paths = mb_output_paths(cfg, 'MB', 'semantic_compare');
+dense_local_sensor_groups = resolve_sensor_param_groups(local_getfield_or(meta, 'dense_local_sensor_groups', {'baseline'}));
 for idx_group = 1:numel(sensor_groups)
     sensor_group = sensor_groups{idx_group};
+    if ~ismember(sensor_group, dense_local_sensor_groups)
+        continue;
+    end
     dense_out = run_mb_semantic_dense_local(cfg, struct( ...
         'sensor_group', sensor_group, ...
         'family_set', {family_set}, ...
@@ -312,6 +337,48 @@ for idx_group = 1:numel(sensor_groups)
     group_field = matlab.lang.makeValidName(sprintf('denseLocal_%s', string(sensor_group)));
     artifacts.tables.(group_field) = group_artifacts.tables;
     artifacts.figures.(group_field) = group_artifacts.figures;
-    artifacts.summary = dense_out.summary;
+    artifacts.summary.(group_field) = dense_out.summary;
 end
+end
+
+function summary_table = local_build_sensor_group_batch_summary(run_outputs)
+row_count = 0;
+for idx = 1:numel(run_outputs)
+    row_count = row_count + numel(run_outputs(idx).run_output.runs);
+end
+summary_table = table('Size', [row_count, 10], ...
+    'VariableTypes', {'string', 'string', 'string', 'double', 'double', 'double', 'string', 'double', 'double', 'double'}, ...
+    'VariableNames', {'semantic_mode', 'sensor_group', 'sensor_label', 'max_off_boresight_deg', 'angle_resolution_arcsec', 'h_km', 'family_name', 'design_count', 'feasible_count', 'minimum_feasible_Ns'});
+cursor = 0;
+for idx = 1:numel(run_outputs)
+    run_output = run_outputs(idx).run_output;
+    sensor_group = run_output.sensor_group;
+    for idx_run = 1:numel(run_output.runs)
+        run = run_output.runs(idx_run);
+        cursor = cursor + 1;
+        summary_table(cursor, :) = { ...
+            string(run_outputs(idx).mode), ...
+            string(sensor_group.name), ...
+            string(sensor_group.sensor_label), ...
+            sensor_group.max_off_boresight_deg, ...
+            sensor_group.angle_resolution_arcsec, ...
+            run.h_km, ...
+            string(run.family_name), ...
+            height(run.design_table), ...
+            height(run.feasible_table), ...
+            local_getfield_or(run.summary, 'minimum_feasible_Ns', missing)};
+    end
+end
+end
+
+function tagged_summary = local_tag_comparison_summary(summary_table, sensor_group)
+tagged_summary = summary_table;
+row_count = height(tagged_summary);
+tagged_summary = addvars(tagged_summary, ...
+    repmat(string(sensor_group.name), row_count, 1), ...
+    repmat(string(sensor_group.sensor_label), row_count, 1), ...
+    repmat(sensor_group.max_off_boresight_deg, row_count, 1), ...
+    repmat(sensor_group.angle_resolution_arcsec, row_count, 1), ...
+    'Before', 1, ...
+    'NewVariableNames', {'sensor_group', 'sensor_label', 'max_off_boresight_deg', 'angle_resolution_arcsec'});
 end
