@@ -14,7 +14,7 @@ profile = build_stage05_strict_replica_profile(cfg);
 reference_defaults = load_stage05_reference_defaults(cfg);
 family_set = local_resolve_family_set(local_getfield_or(options, 'family_set', {'nominal'}));
 heights_to_run = reshape(local_getfield_or(options, 'heights_to_run', profile.height_grid_km), 1, []);
-sensor_group = char(string(profile.sensor_group_names{1}));
+sensor_group = local_first_sensor_group(profile);
 lock_manifest = local_build_lock_manifest(options, profile);
 
 [cfg_profile, profile] = apply_mb_search_profile_to_cfg(cfg, profile);
@@ -79,14 +79,14 @@ end
 function manifest = local_build_lock_manifest(options, profile)
 manifest = struct();
 manifest.semantic_mode = "legacyDG";
-manifest.sensor_group = string(profile.sensor_group_names{1});
+manifest.sensor_group = string(local_first_sensor_group(profile));
 manifest.search_profile = string(profile.name);
 manifest.plot_style = "stage05_replica_style";
 manifest.ignored_option_fields = strings(0, 1);
 
 ignored = strings(0, 1);
 if isstruct(options)
-    if isfield(options, 'sensor_group') && ~strcmpi(char(string(options.sensor_group)), char(string(profile.sensor_group_names{1})))
+    if isfield(options, 'sensor_group') && ~strcmpi(char(string(options.sensor_group)), local_first_sensor_group(profile))
         ignored(end + 1, 1) = "sensor_group"; %#ok<AGROW>
     end
     if isfield(options, 'semantic_mode') && ~strcmpi(char(string(options.semantic_mode)), 'legacyDG')
@@ -97,4 +97,9 @@ if isstruct(options)
     end
 end
 manifest.ignored_option_fields = ignored;
+end
+
+function sensor_group = local_first_sensor_group(profile)
+groups = cellstr(string(local_getfield_or(profile, 'sensor_group_names', {'stage05_strict_reference'})));
+sensor_group = char(string(groups{1}));
 end

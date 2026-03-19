@@ -189,6 +189,9 @@ for idx_group = 1:numel(sensor_groups)
             strict_output = run_mb_stage05_strict_replica(cfg, strict_options);
             legacy_output = strict_output.legacy_output;
             legacy_output.validation_summary = strict_output.validation_summary;
+            legacy_output.validation_meta = strict_output.validation_meta;
+            legacy_output.validation_manifest_struct = strict_output.validation_manifest_struct;
+            legacy_output.validation_manifest_table = strict_output.validation_manifest_table;
             legacy_output.strict_replica = strict_output;
         else
             legacy_output = run_mb_legacydg_semantics(cfg, common_options);
