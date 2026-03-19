@@ -110,6 +110,7 @@ result.artifacts.layer_exports_enabled = write_layer_exports;
 result.artifacts.debug_dir = string(paths.debug);
 result.artifacts.near_optimal_shell_conclusion = local_getfield_or(local_getfield_or(layer_outputs.summary.formal, 'near_optimal_shell_check', struct()), 'conclusion', "");
 result.artifacts.fixed_h_exploration_note = local_getfield_or(layer_outputs.summary.fixed_h_exploration, 'interpretation_note', "");
+result.artifacts.stage05_semantic_control_note = local_getfield_or(layer_outputs.summary.stage05_semantic_control, 'interpretation_note', "");
 result.artifacts.local_dense_zoom_note = local_getfield_or(layer_outputs.summary.local_dense_zoom, 'note', "");
 
 task_family_minNs = local_task_metric_map(task_summary_table, 'Ns_min_feasible');
@@ -148,6 +149,7 @@ result.summary = struct( ...
     'near_optimal_shell_check', layer_outputs.summary.formal.near_optimal_shell_check, ...
     'formal_layer', local_build_formal_layer_summary(minimum_pack, task_summary_table, layer_outputs.summary.formal), ...
     'fixed_h_exploration', layer_outputs.summary.fixed_h_exploration, ...
+    'stage05_semantic_control', layer_outputs.summary.stage05_semantic_control, ...
     'local_dense_zoom', layer_outputs.summary.local_dense_zoom, ...
     'slice_anchor_hi', local_struct_to_string(slice_hi.view_anchor), ...
     'slice_anchor_pt', local_struct_to_string(slice_pt.view_anchor), ...
@@ -205,13 +207,18 @@ function layer_outputs = local_build_layer_exports(cfg, meta, paths, style, pool
 layer_outputs = struct( ...
     'tables', struct(), ...
     'figures', struct(), ...
-    'summary', struct('formal', struct('near_optimal_shell_check', struct()), 'fixed_h_exploration', struct(), 'local_dense_zoom', struct()));
+    'summary', struct( ...
+        'formal', struct('near_optimal_shell_check', struct()), ...
+        'fixed_h_exploration', struct(), ...
+        'stage05_semantic_control', struct(), ...
+        'local_dense_zoom', struct()));
 if ~write_layer_exports
     return;
 end
 
 layer_outputs = local_export_formal_layer(cfg, meta, paths, style, pool, minimum_pack, write_figures, layer_outputs);
 layer_outputs = local_export_fixed_h_layer(cfg, meta, paths, style, pool, minimum_pack, write_figures, layer_outputs);
+layer_outputs = local_export_stage05_semantic_control(cfg, meta, paths, write_figures, layer_outputs);
 layer_outputs = local_export_local_zoom_layer(cfg, meta, paths, style, pool, minimum_pack, task_summary_table, write_figures, layer_outputs);
 end
 
@@ -467,6 +474,55 @@ if write_figures
 end
 end
 
+function layer_outputs = local_export_stage05_semantic_control(cfg, meta, paths, write_figures, layer_outputs)
+control = stage12K_mb_stage05_semantic_reproduction(cfg, meta);
+layer_outputs.summary.stage05_semantic_control = control.summary;
+if ~local_getfield_or(control.summary, 'enabled', false)
+    return;
+end
+
+for idx = 1:numel(control.height_runs)
+    run = control.height_runs(idx);
+    h_label = sprintf('%d', round(run.h_km));
+
+    eval_csv = fullfile(paths.tables, sprintf('MB_stage05sem_%s_design_eval.csv', h_label));
+    envelope_csv = fullfile(paths.tables, sprintf('MB_stage05sem_%s_envelope.csv', h_label));
+    frontier_csv = fullfile(paths.tables, sprintf('MB_stage05sem_%s_frontier_summary.csv', h_label));
+    milestone_common_save_table(run.eval_table, eval_csv);
+    milestone_common_save_table(run.envelope_table, envelope_csv);
+    milestone_common_save_table(run.frontier_summary, frontier_csv);
+
+    layer_outputs.tables.(matlab.lang.makeValidName(sprintf('stage05sem_%s_design_eval', h_label))) = string(eval_csv);
+    layer_outputs.tables.(matlab.lang.makeValidName(sprintf('stage05sem_%s_envelope', h_label))) = string(envelope_csv);
+    layer_outputs.tables.(matlab.lang.makeValidName(sprintf('stage05sem_%s_frontier_summary', h_label))) = string(frontier_csv);
+
+    if write_figures
+        fig_pass = plot_mb_stage05_semantic_passratio_envelope(run.envelope_table, run.h_km);
+        pass_png = fullfile(paths.figures, sprintf('MB_stage05sem_%s_passratio_envelope.png', h_label));
+        milestone_common_save_figure(fig_pass, pass_png);
+        close(fig_pass);
+
+        fig_dg = plot_mb_stage05_semantic_DG_envelope(run.envelope_table, run.h_km);
+        dg_png = fullfile(paths.figures, sprintf('MB_stage05sem_%s_DG_envelope.png', h_label));
+        milestone_common_save_figure(fig_dg, dg_png);
+        close(fig_dg);
+
+        fig_frontier = plot_mb_stage05_semantic_frontier_summary(run.frontier_summary, run.h_km);
+        frontier_png = fullfile(paths.figures, sprintf('MB_stage05sem_%s_frontier_summary.png', h_label));
+        milestone_common_save_figure(fig_frontier, frontier_png);
+        close(fig_frontier);
+
+        layer_outputs.figures.(matlab.lang.makeValidName(sprintf('stage05sem_%s_passratio_envelope', h_label))) = string(pass_png);
+        layer_outputs.figures.(matlab.lang.makeValidName(sprintf('stage05sem_%s_DG_envelope', h_label))) = string(dg_png);
+        layer_outputs.figures.(matlab.lang.makeValidName(sprintf('stage05sem_%s_frontier_summary', h_label))) = string(frontier_png);
+    end
+end
+
+summary_md = fullfile(paths.tables, 'MB_stage05_semantic_reproduction_summary.md');
+local_write_stage05_semantic_summary(summary_md, control);
+layer_outputs.tables.stage05_semantic_reproduction_summary = string(summary_md);
+end
+
 function options = local_phasecurve_options(cfg, minimum_pack)
 options = struct();
 options.minimum_shell_Ns = NaN;
@@ -719,6 +775,36 @@ for idx = 1:numel(fixed_h.height_runs)
 end
 end
 
+function local_write_stage05_semantic_summary(file_path, control)
+fid = fopen(file_path, 'w');
+if fid < 0
+    error('Failed to open Stage05 semantic control summary for writing: %s', file_path);
+end
+cleanup_obj = onCleanup(@() fclose(fid)); %#ok<NASGU>
+
+fprintf(fid, '# MB Stage05 Semantic Reproduction Summary\n\n');
+fprintf(fid, '%s\n\n', local_stringify_summary_value(local_getfield_or(control.summary, 'interpretation_note', "")));
+fprintf(fid, '- `enabled`: %s\n', local_stringify_summary_value(local_getfield_or(control.summary, 'enabled', false)));
+fprintf(fid, '- `family_name`: %s\n', local_stringify_summary_value(local_getfield_or(control.summary, 'family_name', "")));
+fprintf(fid, '- `h_fixed_list`: %s\n', local_stringify_summary_value(local_getfield_or(control.summary, 'h_fixed_list', [])));
+fprintf(fid, '- `i_grid_deg`: %s\n', local_stringify_summary_value(local_getfield_or(control.summary, 'i_grid_deg', [])));
+fprintf(fid, '- `P_grid`: %s\n', local_stringify_summary_value(local_getfield_or(control.summary, 'P_grid', [])));
+fprintf(fid, '- `T_grid`: %s\n', local_stringify_summary_value(local_getfield_or(control.summary, 'T_grid', [])));
+fprintf(fid, '- `F_fixed`: %s\n', local_stringify_summary_value(local_getfield_or(control.summary, 'F_fixed', NaN)));
+fprintf(fid, '- `gamma_req`: %s\n', local_stringify_summary_value(local_getfield_or(control.summary, 'gamma_req', NaN)));
+fprintf(fid, '- `source_stage02_file`: %s\n', local_stringify_summary_value(local_getfield_or(control.summary, 'source_stage02_file', "")));
+fprintf(fid, '- `source_stage04_file`: %s\n', local_stringify_summary_value(local_getfield_or(control.summary, 'source_stage04_file', "")));
+fprintf(fid, '\n## Height Runs\n\n');
+for idx = 1:numel(control.height_runs)
+    run = control.height_runs(idx);
+    fprintf(fid, '### h = %.0f km\n\n', run.h_km);
+    fprintf(fid, '- `design_count`: %s\n', local_stringify_summary_value(local_getfield_or(run.summary, 'design_count', 0)));
+    fprintf(fid, '- `feasible_count`: %s\n', local_stringify_summary_value(local_getfield_or(run.summary, 'feasible_count', 0)));
+    fprintf(fid, '- `minimum_feasible_Ns`: %s\n', local_stringify_summary_value(local_getfield_or(run.summary, 'minimum_feasible_Ns', missing)));
+    fprintf(fid, '- `eval_s`: %s\n\n', local_stringify_summary_value(local_getfield_or(run.summary, 'eval_s', NaN)));
+end
+end
+
 function local_write_mb_layered_summary(file_path, result, layer_outputs)
 fid = fopen(file_path, 'w');
 if fid < 0
@@ -740,6 +826,12 @@ fprintf(fid, '%s\n\n', local_stringify_summary_value(local_getfield_or(layer_out
 fprintf(fid, '- This layer reuses Stage05-style coarse scans at fixed height to explain threshold and phase-transition behavior from an engineering-design perspective.\n');
 fprintf(fid, '- `h_fixed_list`: %s\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.fixed_h_exploration, 'h_fixed_list', [])));
 fprintf(fid, '- `family_name`: %s\n\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.fixed_h_exploration, 'family_name', "")));
+
+fprintf(fid, '### Stage05-Semantic Control\n\n');
+fprintf(fid, '%s\n\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.stage05_semantic_control, 'interpretation_note', "")));
+fprintf(fid, '- `stage05_semantic_h_fixed_list`: %s\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.stage05_semantic_control, 'h_fixed_list', [])));
+fprintf(fid, '- `stage05_semantic_gamma_req`: %s\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.stage05_semantic_control, 'gamma_req', NaN)));
+fprintf(fid, '- `stage05_semantic_source_stage04`: %s\n\n', local_stringify_summary_value(local_getfield_or(layer_outputs.summary.stage05_semantic_control, 'source_stage04_file', "")));
 
 fprintf(fid, '## Local Dense Zoom\n\n');
 fprintf(fid, '- Local Dense Zoom is a shell-neighborhood observation layer. It can reveal finer-grained feasible candidates inside the zoomed local domain, but it does not replace the formal full-MB minimum-shell definition.\n');
