@@ -29,6 +29,7 @@ profile_name = char(string(local_getfield_or(meta, 'search_profile', 'mb_default
 profile = get_mb_search_profile(profile_name, cfg);
 selection = struct();
 selection.run_mode = local_default_run_mode(profile_name, local_getfield_or(meta, 'stage05_replica', struct()));
+selection.enable_search_profile_manager = logical(local_getfield_or(meta, 'enable_search_profile_manager', true));
 selection.profile_name = profile_name;
 selection.figure_family = 'passratio';
 selection.semantic_mode = char(string(local_getfield_or(meta, 'mode', profile.semantic_mode)));
@@ -40,6 +41,7 @@ selection.T_grid = reshape(local_getfield_or(meta, 'T_grid', profile.T_grid), 1,
 selection.plot_xlim_ns = reshape(local_getfield_or(meta, 'plot_xlim_ns', profile.Ns_xlim_plot), 1, []);
 selection.cache_policy = char(string(local_getfield_or(meta, 'cache_policy', 'all_reuse')));
 selection.auto_tune_requested = logical(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'enabled', profile.auto_tune.enabled));
+selection.auto_tune_mode = char(string(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'mode', local_default_autotune_mode(meta))));
 selection.baseline_validation_only = isequal(selection.sensor_groups, {'baseline'}) && isequal(selection.heights_to_run, 1000) && strcmpi(selection.semantic_mode, 'comparison');
 selection.manual_override = struct();
 end
@@ -51,6 +53,7 @@ fprintf('[run_stages][CLI] 直接回车表示保留默认值。\n');
 selection.run_mode = local_ask_choice('run mode', selection.run_mode, ...
     {'default', 'dense', 'strict_stage05_replica', 'strict_stage05_validation_only', 'compare_semantics', 'auto_plot_tune'});
 selection.profile_name = local_profile_name_from_run_mode(selection.run_mode, selection.profile_name);
+selection.enable_search_profile_manager = local_ask_yesno('enable search profile manager', selection.enable_search_profile_manager);
 selection.profile_name = local_ask_choice('profile preset', selection.profile_name, ...
     {'mb_default', 'mb_dense_local', 'strict_stage05_replica', 'mb_auto_plot_tune'});
 profile = get_mb_search_profile(selection.profile_name, cfg);
@@ -102,24 +105,42 @@ end
 
 selection.cache_policy = local_ask_choice('cache policy', selection.cache_policy, ...
     {'all_reuse', 'truth_only', 'no_reuse'});
-selection.auto_tune_requested = strcmpi(selection.search_range_source, 'auto_tuned_profile') || ...
-    local_ask_yesno('enable auto tune', selection.auto_tune_requested);
+selection.auto_tune_mode = local_ask_choice('auto tune mode', selection.auto_tune_mode, ...
+    {'off', 'evaluate_only', 'iterative_recommend_only', 'iterative_recommend_and_apply'});
+selection.auto_tune_requested = ~strcmpi(selection.auto_tune_mode, 'off');
+if selection.auto_tune_requested
+    current_max_iter = local_getfield_or(local_getfield_or(cfg.milestones.MB_semantic_compare, 'auto_tune', struct()), 'max_iterations', profile.auto_tune.max_iterations);
+    current_max_P = local_getfield_or(local_getfield_or(cfg.milestones.MB_semantic_compare, 'auto_tune', struct()), 'max_P', profile.auto_tune.max_P);
+    current_max_T = local_getfield_or(local_getfield_or(cfg.milestones.MB_semantic_compare, 'auto_tune', struct()), 'max_T', profile.auto_tune.max_T);
+    selection.auto_tune_max_iterations = local_ask_scalar('auto tune max iterations', current_max_iter);
+    selection.auto_tune_max_P = local_ask_scalar('auto tune max P', current_max_P);
+    selection.auto_tune_max_T = local_ask_scalar('auto tune max T', current_max_T);
+else
+    selection.auto_tune_max_iterations = [];
+    selection.auto_tune_max_P = [];
+    selection.auto_tune_max_T = [];
+end
 
 fprintf('[run_stages][CLI] ===== MB search profile 配置完成 =====\n\n');
 end
 
 function [cfg_out, profile] = local_apply_selection(cfg_in, selection)
-context = struct( ...
-    'user_selected_profile_name', string(selection.profile_name), ...
-    'figure_family', string(selection.figure_family), ...
-    'semantic_mode', string(selection.semantic_mode), ...
-    'sensor_group', string(local_pick_first(selection.sensor_groups, 'baseline')), ...
-    'height_km', local_pick_first(selection.heights_to_run, 1000), ...
-    'cli_manual_override', selection.manual_override);
-if strcmpi(selection.search_range_source, 'auto_tuned_profile')
-    context.autotuned_profile_if_any = local_extract_autotuned_profile_override(cfg_in);
+context = struct();
+if logical(selection.enable_search_profile_manager)
+    context = struct( ...
+        'user_selected_profile_name', string(selection.profile_name), ...
+        'figure_family', string(selection.figure_family), ...
+        'semantic_mode', string(selection.semantic_mode), ...
+        'sensor_group', string(local_pick_first(selection.sensor_groups, 'baseline')), ...
+        'height_km', local_pick_first(selection.heights_to_run, 1000), ...
+        'cli_manual_override', selection.manual_override);
+    if strcmpi(selection.search_range_source, 'auto_tuned_profile')
+        context.autotuned_profile_if_any = local_extract_autotuned_profile_override(cfg_in);
+    end
+    profile = resolve_mb_search_profile_for_context(context, cfg_in);
+else
+    profile = local_build_current_profile(cfg_in, selection);
 end
-profile = resolve_mb_search_profile_for_context(context, cfg_in);
 if logical(local_getfield_or(local_getfield_or(profile, 'stage05_replica', struct()), 'strict', false))
     selection.semantic_mode = char(string(profile.semantic_mode));
     selection.sensor_groups = cellstr(string(profile.sensor_group_names));
@@ -140,12 +161,13 @@ else
         'T_values', reshape(selection.T_grid, 1, []), ...
         'plot_xlim_ns', reshape(selection.plot_xlim_ns, 1, []), ...
         'Ns_xlim_plot', reshape(selection.plot_xlim_ns, 1, []), ...
-        'auto_tune', struct('enabled', logical(selection.auto_tune_requested))), "cli_selection");
+        'auto_tune', local_build_cli_autotune_override(selection)), "cli_selection");
 end
 profile = local_apply_cache_policy(profile, selection.cache_policy);
 
 [cfg_out, profile] = apply_mb_search_profile_to_cfg(cfg_in, profile);
 cfg_out.milestones.MB_semantic_compare.cli_selection = selection;
+cfg_out.milestones.MB_semantic_compare.enable_search_profile_manager = logical(selection.enable_search_profile_manager);
 cfg_out.milestones.MB_semantic_compare.search_range_source = string(selection.search_range_source);
 cfg_out.milestones.MB_semantic_compare.cache_policy = string(selection.cache_policy);
 cfg_out.milestones.MB_semantic_compare.search_profile_context = context;
@@ -156,6 +178,8 @@ if cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only
     cfg_out.milestones.MB_semantic_compare.run_dense_local = false;
     cfg_out.milestones.MB_semantic_compare.auto_tune.enabled = false;
 end
+cfg_out.milestones.MB_semantic_compare.auto_tune.mode = string(selection.auto_tune_mode);
+cfg_out.milestones.MB_semantic_compare.auto_tune_apply = strcmpi(selection.auto_tune_mode, 'iterative_recommend_and_apply');
 end
 
 function profile = local_apply_cache_policy(profile, cache_policy)
@@ -190,8 +214,9 @@ selection.P_grid = reshape(selection.P_grid, 1, []);
 selection.T_grid = reshape(selection.T_grid, 1, []);
 selection.plot_xlim_ns = reshape(local_getfield_or(selection, 'plot_xlim_ns', []), 1, []);
 selection.manual_override = local_getfield_or(selection, 'manual_override', struct());
-if (~isfield(opts, 'auto_tune_requested') || isempty(opts.auto_tune_requested)) && ...
-        (~isfield(selection, 'auto_tune_requested') || isempty(selection.auto_tune_requested))
+selection.auto_tune_mode = char(string(local_getfield_or(selection, 'auto_tune_mode', 'off')));
+selection.enable_search_profile_manager = logical(local_getfield_or(selection, 'enable_search_profile_manager', true));
+if local_is_missing_field(opts, 'auto_tune_requested') && local_is_missing_field(selection, 'auto_tune_requested')
     profile_name = local_profile_name_from_run_mode(selection.run_mode, selection.profile_name);
     profile = get_mb_search_profile(profile_name);
     selection.auto_tune_requested = logical(profile.auto_tune.enabled) || strcmpi(selection.search_range_source, 'auto_tuned_profile');
@@ -327,6 +352,21 @@ else
 end
 end
 
+function value = local_ask_scalar(name, default_val)
+s = input(sprintf('%s [%g]: ', name, default_val), 's');
+if isempty(strtrim(s))
+    value = default_val;
+    return;
+end
+tmp = str2double(s);
+if ~isfinite(tmp)
+    warning('%s 输入非法，保留默认值。', name);
+    value = default_val;
+else
+    value = tmp;
+end
+end
+
 function parts = local_parse_csv_cell(token)
 raw = split(string(token), ',');
 raw = strtrim(raw);
@@ -343,6 +383,19 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function tf = local_is_missing_field(S, field_name)
+tf = true;
+if ~(isstruct(S) && isfield(S, field_name))
+    return;
+end
+value = S.(field_name);
+if ischar(value) || isstring(value) || iscell(value) || isnumeric(value) || islogical(value)
+    tf = numel(value) == 0;
+else
+    tf = false;
 end
 end
 
@@ -376,6 +429,55 @@ if isfield(tune_result, 'recommended_plot_xlim_ns')
     override.plot_xlim_ns = reshape(tune_result.recommended_plot_xlim_ns, 1, []);
     override.Ns_xlim_plot = override.plot_xlim_ns;
 end
+end
+
+function profile = local_build_current_profile(cfg_in, selection)
+meta = cfg_in.milestones.MB_semantic_compare;
+profile = get_mb_search_profile(local_getfield_or(meta, 'search_profile', 'mb_default'), cfg_in);
+profile.semantic_mode = string(selection.semantic_mode);
+profile.sensor_group_names = cellstr(string(selection.sensor_groups));
+profile.height_grid_km = reshape(selection.heights_to_run, 1, []);
+profile.P_grid = reshape(selection.P_grid, 1, []);
+profile.T_grid = reshape(selection.T_grid, 1, []);
+profile.P_values = reshape(selection.P_grid, 1, []);
+profile.T_values = reshape(selection.T_grid, 1, []);
+profile.plot_xlim_ns = reshape(selection.plot_xlim_ns, 1, []);
+profile.Ns_xlim_plot = reshape(selection.plot_xlim_ns, 1, []);
+profile.auto_tune = local_build_cli_autotune_override(selection, profile);
+end
+
+function auto_tune_override = local_build_cli_autotune_override(selection, profile)
+if nargin < 2 || isempty(profile)
+    profile = struct();
+end
+base = local_getfield_or(profile, 'auto_tune', struct());
+auto_tune_override = base;
+auto_tune_override.enabled = logical(selection.auto_tune_requested);
+auto_tune_override.mode = string(selection.auto_tune_mode);
+if isfield(selection, 'auto_tune_max_iterations') && ~isempty(selection.auto_tune_max_iterations)
+    auto_tune_override.max_iterations = selection.auto_tune_max_iterations;
+end
+if isfield(selection, 'auto_tune_max_P') && ~isempty(selection.auto_tune_max_P)
+    auto_tune_override.max_P = selection.auto_tune_max_P;
+end
+if isfield(selection, 'auto_tune_max_T') && ~isempty(selection.auto_tune_max_T)
+    auto_tune_override.max_T = selection.auto_tune_max_T;
+end
+end
+
+function mode = local_default_autotune_mode(meta)
+mode = "off";
+auto_tune_cfg = local_getfield_or(meta, 'auto_tune', struct());
+if isfield(auto_tune_cfg, 'mode') && strlength(string(auto_tune_cfg.mode)) > 0
+    mode = string(auto_tune_cfg.mode);
+elseif logical(local_getfield_or(auto_tune_cfg, 'enabled', false))
+    if logical(local_getfield_or(meta, 'auto_tune_apply', false))
+        mode = "iterative_recommend_and_apply";
+    else
+        mode = "iterative_recommend_only";
+    end
+end
+mode = char(mode);
 end
 
 function value = local_pick_first(values, fallback)

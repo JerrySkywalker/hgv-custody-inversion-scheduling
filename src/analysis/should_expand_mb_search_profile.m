@@ -19,6 +19,14 @@ if quality.full_transition_resolved
     return;
 end
 
+mode = lower(char(string(local_getfield_or(options, 'mode', "iterative_recommend_only"))));
+if strcmp(mode, 'evaluate_only')
+    decision.should_expand = false;
+    decision.state = "evaluated_only";
+    decision.reason = "Evaluate-only auto-tune mode scored the current domain without iterative expansion.";
+    return;
+end
+
 iteration_idx = numel(history);
 max_iterations = local_getfield_or(options, 'max_iterations', 5);
 if iteration_idx >= max_iterations

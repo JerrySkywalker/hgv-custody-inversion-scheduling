@@ -83,6 +83,7 @@ tune_result.profile_name = string(local_getfield_or(profile, 'name', "mb_auto_pl
 tune_result.semantic_mode = string(local_getfield_or(options, 'semantic_mode', local_getfield_or(profile, 'semantic_mode', "legacyDG")));
 tune_result.sensor_group = string(local_getfield_or(options, 'sensor_group', local_first_sensor_group(profile)));
 tune_result.height_km = local_getfield_or(options, 'height_km', local_first_height(profile));
+tune_result.auto_tune_mode = string(local_getfield_or(auto_tune, 'mode', "iterative_recommend_only"));
 tune_result.recommended_P_grid = reshape(local_getfield_or(best_entry.profile, 'P_values', local_getfield_or(best_entry.profile, 'P_grid', local_getfield_or(profile, 'P_values', []))), 1, []);
 tune_result.recommended_T_grid = reshape(local_getfield_or(best_entry.profile, 'T_values', local_getfield_or(best_entry.profile, 'T_grid', local_getfield_or(profile, 'T_values', []))), 1, []);
 tune_result.recommended_plot_xlim_ns = reshape(local_getfield_or(best_entry.profile, 'Ns_xlim_plot', local_getfield_or(best_entry.profile, 'plot_xlim_ns', local_getfield_or(profile, 'Ns_xlim_plot', []))), 1, []);

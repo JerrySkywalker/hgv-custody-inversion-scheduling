@@ -48,7 +48,8 @@ end
 
 function cfg = local_apply_auto_tune_if_requested(cfg, interactive)
     meta = cfg.milestones.MB_semantic_compare;
-    if ~isfield(meta, 'auto_tune') || ~logical(local_getfield_or(meta.auto_tune, 'enabled', false))
+    auto_tune_mode = local_resolve_auto_tune_mode(meta);
+    if strcmpi(auto_tune_mode, 'off') || ~isfield(meta, 'auto_tune') || ~logical(local_getfield_or(meta.auto_tune, 'enabled', false))
         return;
     end
 
@@ -93,7 +94,7 @@ function cfg = local_apply_auto_tune_if_requested(cfg, interactive)
             'semantic_mode', probe.semantic_mode, ...
             'sensor_group', probe.sensor_group, ...
             'height_km', probe.height_km, ...
-            'auto_tune', meta.auto_tune, ...
+            'auto_tune', milestone_common_merge_structs(meta.auto_tune, struct('mode', string(auto_tune_mode))), ...
             'cache', meta.cache_profile, ...
             'cache_dir', paths.cache, ...
             'tables_dir', paths.tables, ...
@@ -115,13 +116,14 @@ function cfg = local_apply_auto_tune_if_requested(cfg, interactive)
 
     tune_result = local_combine_autotune_results(tune_results);
 
-    apply_recommendation = logical(local_getfield_or(meta, 'auto_tune_apply', false));
-    if interactive
+    apply_recommendation = strcmpi(auto_tune_mode, 'iterative_recommend_and_apply') || logical(local_getfield_or(meta, 'auto_tune_apply', false));
+    if interactive && ~strcmpi(auto_tune_mode, 'iterative_recommend_and_apply') && ~strcmpi(auto_tune_mode, 'evaluate_only')
         apply_recommendation = local_ask_yesno('apply auto-tune recommendation', apply_recommendation);
     end
 
     meta.auto_tune_probe = {tune_results.probe};
     meta.auto_tune_result = local_compact_tune_result(tune_result);
+    meta.auto_tune.mode = string(auto_tune_mode);
     meta.auto_tune_apply = apply_recommendation;
     meta.auto_tuned_flag = false;
     if apply_recommendation
@@ -194,6 +196,7 @@ function compact = local_compact_tune_result(tune_result)
         'recommended_T_grid', reshape(local_getfield_or(tune_result, 'recommended_T_grid', []), 1, []), ...
         'recommended_reason', string(local_getfield_or(tune_result, 'recommended_reason', "")), ...
         'best_score', local_getfield_or(tune_result, 'best_score', NaN), ...
+        'auto_tune_mode', string(local_getfield_or(tune_result, 'auto_tune_mode', "")), ...
         'state', string(local_getfield_or(tune_result, 'state', "")), ...
         'stop_reason', string(local_getfield_or(tune_result, 'stop_reason', "")), ...
         'unresolved_due_to_search_limit', logical(local_getfield_or(tune_result, 'unresolved_due_to_search_limit', false)), ...
@@ -337,6 +340,17 @@ function value = local_getfield_or(S, field_name, fallback)
     else
         value = fallback;
     end
+end
+
+function mode = local_resolve_auto_tune_mode(meta)
+mode = char(string(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'mode', "off")));
+if strcmpi(mode, 'off') && logical(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'enabled', false))
+    if logical(local_getfield_or(meta, 'auto_tune_apply', false))
+        mode = 'iterative_recommend_and_apply';
+    else
+        mode = 'iterative_recommend_only';
+    end
+end
 end
 
 function parts = local_parse_csv_cell(token)
