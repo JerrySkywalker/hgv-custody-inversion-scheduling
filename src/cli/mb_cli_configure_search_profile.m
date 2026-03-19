@@ -28,7 +28,7 @@ meta = cfg.milestones.MB_semantic_compare;
 profile_name = char(string(local_getfield_or(meta, 'search_profile', 'mb_default')));
 profile = get_mb_search_profile(profile_name, cfg);
 selection = struct();
-selection.run_mode = local_default_run_mode(profile_name);
+selection.run_mode = local_default_run_mode(profile_name, local_getfield_or(meta, 'stage05_replica', struct()));
 selection.profile_name = profile_name;
 selection.figure_family = 'passratio';
 selection.semantic_mode = char(string(local_getfield_or(meta, 'mode', profile.semantic_mode)));
@@ -49,7 +49,7 @@ fprintf('\n[run_stages][CLI] ===== 配置 MB search profile =====\n');
 fprintf('[run_stages][CLI] 直接回车表示保留默认值。\n');
 
 selection.run_mode = local_ask_choice('run mode', selection.run_mode, ...
-    {'default', 'dense', 'strict_stage05_replica', 'compare_semantics', 'auto_plot_tune'});
+    {'default', 'dense', 'strict_stage05_replica', 'strict_stage05_validation_only', 'compare_semantics', 'auto_plot_tune'});
 selection.profile_name = local_profile_name_from_run_mode(selection.run_mode, selection.profile_name);
 selection.profile_name = local_ask_choice('profile preset', selection.profile_name, ...
     {'mb_default', 'mb_dense_local', 'strict_stage05_replica', 'mb_auto_plot_tune'});
@@ -149,6 +149,13 @@ cfg_out.milestones.MB_semantic_compare.cli_selection = selection;
 cfg_out.milestones.MB_semantic_compare.search_range_source = string(selection.search_range_source);
 cfg_out.milestones.MB_semantic_compare.cache_policy = string(selection.cache_policy);
 cfg_out.milestones.MB_semantic_compare.search_profile_context = context;
+cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only = strcmpi(selection.run_mode, 'strict_stage05_validation_only');
+if cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only
+    cfg_out.milestones.MB_semantic_compare.mode = 'legacyDG';
+    cfg_out.milestones.MB_semantic_compare.sensor_groups = {'stage05_strict_reference'};
+    cfg_out.milestones.MB_semantic_compare.run_dense_local = false;
+    cfg_out.milestones.MB_semantic_compare.auto_tune.enabled = false;
+end
 end
 
 function profile = local_apply_cache_policy(profile, cache_policy)
@@ -191,7 +198,11 @@ if (~isfield(opts, 'auto_tune_requested') || isempty(opts.auto_tune_requested)) 
 end
 end
 
-function run_mode = local_default_run_mode(profile_name)
+function run_mode = local_default_run_mode(profile_name, stage05_replica_cfg)
+if nargin >= 2 && isstruct(stage05_replica_cfg) && logical(local_getfield_or(stage05_replica_cfg, 'validation_only', false))
+    run_mode = 'strict_stage05_validation_only';
+    return;
+end
 switch lower(char(string(profile_name)))
     case 'mb_dense_local'
         run_mode = 'dense';
@@ -212,6 +223,8 @@ switch lower(char(string(run_mode)))
         profile_name = 'mb_dense_local';
     case 'strict_stage05_replica'
         profile_name = 'strict_stage05_replica';
+    case 'strict_stage05_validation_only'
+        profile_name = 'strict_stage05_replica';
     case 'compare_semantics'
         profile_name = 'mb_default';
     case 'auto_plot_tune'
@@ -225,6 +238,8 @@ function groups = local_default_sensor_groups(baseline_validation_only, profile,
 if baseline_validation_only
     groups = {'baseline'};
 elseif strcmpi(char(string(selection.run_mode)), 'strict_stage05_replica')
+    groups = {'stage05_strict_reference'};
+elseif strcmpi(char(string(selection.run_mode)), 'strict_stage05_validation_only')
     groups = {'stage05_strict_reference'};
 else
     groups = cellstr(string(profile.sensor_group_names));
