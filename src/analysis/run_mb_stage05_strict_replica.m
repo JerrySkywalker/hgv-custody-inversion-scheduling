@@ -14,7 +14,8 @@ profile = build_stage05_strict_replica_profile(cfg);
 reference_defaults = load_stage05_reference_defaults(cfg);
 family_set = local_resolve_family_set(local_getfield_or(options, 'family_set', {'nominal'}));
 heights_to_run = reshape(local_getfield_or(options, 'heights_to_run', profile.height_grid_km), 1, []);
-sensor_group = char(string(local_getfield_or(options, 'sensor_group', profile.sensor_group_names{1})));
+sensor_group = char(string(profile.sensor_group_names{1}));
+lock_manifest = local_build_lock_manifest(options, profile);
 
 [cfg_profile, profile] = apply_mb_search_profile_to_cfg(cfg, profile);
 legacy_output = run_mb_legacydg_semantics(cfg_profile, struct( ...
@@ -34,10 +35,14 @@ out.strict_profile = profile;
 out.legacy_output = legacy_output;
 out.sensor_group = legacy_output.sensor_group;
 out.runs = legacy_output.runs;
+out.lock_manifest = lock_manifest;
 out.summary = struct( ...
     'mode', "stage05_strict_replica", ...
+    'semantic_mode', "legacyDG", ...
     'search_profile', string(profile.name), ...
     'sensor_group', string(legacy_output.sensor_group.name), ...
+    'plot_style', "stage05_replica_style", ...
+    'lock_manifest', lock_manifest, ...
     'family_set', {family_set}, ...
     'heights_to_run', heights_to_run, ...
     'interpretation_note', "Strict Stage05 replica keeps Stage05 search-domain defaults, Stage05 sensor defaults, and Stage05 D_G-based semantics within the MB wrapper shell.");
@@ -65,4 +70,27 @@ if isstruct(S) && isfield(S, field_name)
 else
     value = fallback;
 end
+end
+
+function manifest = local_build_lock_manifest(options, profile)
+manifest = struct();
+manifest.semantic_mode = "legacyDG";
+manifest.sensor_group = string(profile.sensor_group_names{1});
+manifest.search_profile = string(profile.name);
+manifest.plot_style = "stage05_replica_style";
+manifest.ignored_option_fields = strings(0, 1);
+
+ignored = strings(0, 1);
+if isstruct(options)
+    if isfield(options, 'sensor_group') && ~strcmpi(char(string(options.sensor_group)), char(string(profile.sensor_group_names{1})))
+        ignored(end + 1, 1) = "sensor_group"; %#ok<AGROW>
+    end
+    if isfield(options, 'semantic_mode') && ~strcmpi(char(string(options.semantic_mode)), 'legacyDG')
+        ignored(end + 1, 1) = "semantic_mode"; %#ok<AGROW>
+    end
+    if isfield(options, 'search_profile') && ~strcmpi(char(string(options.search_profile)), char(string(profile.name)))
+        ignored(end + 1, 1) = "search_profile"; %#ok<AGROW>
+    end
+end
+manifest.ignored_option_fields = ignored;
 end
