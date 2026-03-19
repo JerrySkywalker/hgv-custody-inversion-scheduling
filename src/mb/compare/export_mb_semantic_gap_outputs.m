@@ -21,11 +21,13 @@ for idx = 1:numel(comparison.run_pairs)
     gap_csv = fullfile(paths.tables, sprintf('MB_comparison_gap_heatmap_iP_%s_%s.csv', h_label, sensor_group));
     pass_csv = fullfile(paths.tables, sprintf('MB_comparison_passratio_overlay_%s_%s.csv', h_label, sensor_group));
     frontier_csv = fullfile(paths.tables, sprintf('MB_comparison_frontier_shift_%s_%s.csv', h_label, sensor_group));
+    frontier_diag_csv = fullfile(paths.tables, sprintf('MB_comparison_frontier_diagnostic_%s_%s.csv', h_label, sensor_group));
     summary_context_csv = fullfile(paths.tables, sprintf('MB_comparison_summary_%s_%s.csv', h_label, sensor_group));
     milestone_common_save_table(pair.requirement_gap_table, gap_csv);
     milestone_common_save_table(pair.passratio_gap_table, pass_csv);
     milestone_common_save_table(pair.frontier_gap_table, frontier_csv);
-    milestone_common_save_table(struct2table(pair.summary), summary_context_csv);
+    milestone_common_save_table(pair.frontier_diagnostic_table, frontier_diag_csv);
+    milestone_common_save_table(local_summary_context_table(pair), summary_context_csv);
 
     fig_gap = plot_semantic_gap_heatmap(pair.requirement_gap_table, pair.h_km, sensor_label);
     gap_png = fullfile(paths.figures, sprintf('MB_comparison_gap_heatmap_iP_%s_%s.png', h_label, sensor_group));
@@ -45,9 +47,19 @@ for idx = 1:numel(comparison.run_pairs)
     artifacts.tables.(matlab.lang.makeValidName(sprintf('gap_heatmap_iP_%s', h_label))) = string(gap_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_overlay_%s', h_label))) = string(pass_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_shift_%s', h_label))) = string(frontier_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_diagnostic_%s', h_label))) = string(frontier_diag_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('summary_%s', h_label))) = string(summary_context_csv);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('gap_heatmap_iP_%s', h_label))) = string(gap_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratio_overlay_%s', h_label))) = string(pass_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('frontier_shift_%s', h_label))) = string(frontier_png);
 end
+end
+
+function summary_table = local_summary_context_table(pair)
+summary_table = struct2table(pair.summary);
+summary_table = addvars(summary_table, ...
+    repmat(pair.h_km, height(summary_table), 1), ...
+    repmat(string(pair.family_name), height(summary_table), 1), ...
+    'Before', 1, ...
+    'NewVariableNames', {'h_km', 'family_name'});
 end

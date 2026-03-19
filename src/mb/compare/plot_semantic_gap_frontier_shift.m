@@ -7,6 +7,7 @@ end
 
 fig = figure('Visible', 'off', 'Color', 'w');
 tiled = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+diagnostic_note = local_frontier_diagnostic_note(gap_table);
 
 ax1 = nexttile(tiled, 1);
 hold(ax1, 'on');
@@ -41,6 +42,11 @@ end
 xlabel(ax1, 'i (deg)');
 ylabel(ax1, 'minimum feasible N_s');
 title(ax1, sprintf('Frontier Overlay at h = %.0f km [%s]', h_km, char(string(sensor_label))));
+if strlength(diagnostic_note) > 0
+    text(ax1, 0.02, 0.94, char(diagnostic_note), ...
+        'Units', 'normalized', 'FontSize', 10, 'Color', [0.25 0.25 0.25], ...
+        'VerticalAlignment', 'top');
+end
 grid(ax1, 'on');
 legend(ax1, 'Location', 'best', 'Box', 'off');
 
@@ -100,4 +106,19 @@ elseif any(closed_valid)
 else
     note = 'No valid frontier points are available within the current search domain.';
 end
+end
+
+function note = local_frontier_diagnostic_note(gap_table)
+note = "";
+if isempty(gap_table) || ~all(ismember({'legacy_frontier_status', 'closedD_frontier_status'}, gap_table.Properties.VariableNames))
+    return;
+end
+
+legacy_defined = sum(strcmp(gap_table.legacy_frontier_status, "defined"));
+closed_defined = sum(strcmp(gap_table.closedD_frontier_status, "defined"));
+delta_defined = 0;
+if ismember('delta_Ns', gap_table.Properties.VariableNames)
+    delta_defined = sum(isfinite(gap_table.delta_Ns));
+end
+note = sprintf('defined points: legacyDG=%d, closedD=%d, delta=%d', legacy_defined, closed_defined, delta_defined);
 end
