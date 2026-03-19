@@ -31,16 +31,16 @@ selection = struct();
 selection.run_mode = local_default_run_mode(profile_name);
 selection.profile_name = profile_name;
 selection.figure_family = 'passratio';
-selection.semantic_mode = char(string(profile.semantic_mode));
-selection.sensor_groups = cellstr(string(profile.sensor_group_names));
-selection.heights_to_run = reshape(profile.height_grid_km, 1, []);
-selection.search_range_source = 'profile_default';
-selection.P_grid = reshape(profile.P_grid, 1, []);
-selection.T_grid = reshape(profile.T_grid, 1, []);
-selection.plot_xlim_ns = reshape(profile.Ns_xlim_plot, 1, []);
-selection.cache_policy = 'all_reuse';
-selection.auto_tune_requested = logical(profile.auto_tune.enabled);
-selection.baseline_validation_only = isequal(selection.sensor_groups, {'baseline'}) && isequal(selection.heights_to_run, 1000);
+selection.semantic_mode = char(string(local_getfield_or(meta, 'mode', profile.semantic_mode)));
+selection.sensor_groups = resolve_sensor_param_groups(local_getfield_or(meta, 'sensor_groups', cellstr(string(profile.sensor_group_names))));
+selection.heights_to_run = reshape(local_getfield_or(meta, 'heights_to_run', profile.height_grid_km), 1, []);
+selection.search_range_source = char(string(local_getfield_or(meta, 'search_range_source', 'profile_default')));
+selection.P_grid = reshape(local_getfield_or(meta, 'P_grid', profile.P_grid), 1, []);
+selection.T_grid = reshape(local_getfield_or(meta, 'T_grid', profile.T_grid), 1, []);
+selection.plot_xlim_ns = reshape(local_getfield_or(meta, 'plot_xlim_ns', profile.Ns_xlim_plot), 1, []);
+selection.cache_policy = char(string(local_getfield_or(meta, 'cache_policy', 'all_reuse')));
+selection.auto_tune_requested = logical(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'enabled', profile.auto_tune.enabled));
+selection.baseline_validation_only = isequal(selection.sensor_groups, {'baseline'}) && isequal(selection.heights_to_run, 1000) && strcmpi(selection.semantic_mode, 'comparison');
 selection.manual_override = struct();
 end
 
@@ -183,7 +183,8 @@ selection.P_grid = reshape(selection.P_grid, 1, []);
 selection.T_grid = reshape(selection.T_grid, 1, []);
 selection.plot_xlim_ns = reshape(local_getfield_or(selection, 'plot_xlim_ns', []), 1, []);
 selection.manual_override = local_getfield_or(selection, 'manual_override', struct());
-if ~isfield(opts, 'auto_tune_requested') || isempty(opts.auto_tune_requested)
+if (~isfield(opts, 'auto_tune_requested') || isempty(opts.auto_tune_requested)) && ...
+        (~isfield(selection, 'auto_tune_requested') || isempty(selection.auto_tune_requested))
     profile_name = local_profile_name_from_run_mode(selection.run_mode, selection.profile_name);
     profile = get_mb_search_profile(profile_name);
     selection.auto_tune_requested = logical(profile.auto_tune.enabled) || strcmpi(selection.search_range_source, 'auto_tuned_profile');
