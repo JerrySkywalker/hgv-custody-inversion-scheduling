@@ -9,6 +9,7 @@ if nargin < 4 || isempty(options)
 end
 
 fig = figure('Visible', 'off', 'Color', 'w');
+setappdata(fig, 'mb_figure_style', local_getfield_or(options, 'figure_style', struct()));
 tiled = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 diagnostic_note = local_frontier_diagnostic_note(gap_table);
 truncation_table = local_getfield_or(options, 'frontier_truncation_table', table());
@@ -33,20 +34,22 @@ else
         apply_mb_plot_domain_guardrail(ax1, [], [], struct( ...
             'empty_message', 'No valid frontier points in current search domain', ...
             'domain_summary', sprintf('Neither legacyDG nor closedD frontier is defined at h = %.0f km [%s]', h_km, char(string(sensor_label))), ...
-            'plot_domain_source', "no_valid_frontier"));
+            'plot_domain_source', "no_valid_frontier", ...
+            'figure_style', local_getfield_or(options, 'figure_style', struct())));
     else
         apply_mb_plot_domain_guardrail(ax1, gap_table.i_deg(legacy_valid | closed_valid), [gap_table.minimum_feasible_Ns_legacyDG(legacy_valid); gap_table.minimum_feasible_Ns_closedD(closed_valid)], struct( ...
             'min_span', 10, ...
             'auto_ylim', true, ...
             'empty_message', 'No valid frontier points in current search domain', ...
             'domain_summary', local_frontier_note(legacy_valid, closed_valid), ...
-            'plot_domain_source', "frontier_overlay"));
+            'plot_domain_source', "frontier_overlay", ...
+            'figure_style', local_getfield_or(options, 'figure_style', struct())));
     end
 end
 xlabel(ax1, 'i (deg)');
 ylabel(ax1, 'minimum feasible N_s');
 title(ax1, sprintf('Frontier Overlay at h = %.0f km [%s]', h_km, char(string(sensor_label))));
-if strlength(diagnostic_note) > 0
+if local_show_annotations(options) && strlength(diagnostic_note) > 0
     text(ax1, 0.02, 0.94, char(diagnostic_note), ...
         'Units', 'normalized', 'FontSize', 10, 'Color', [0.25 0.25 0.25], ...
         'VerticalAlignment', 'top');
@@ -72,12 +75,14 @@ else
             'auto_ylim', true, ...
             'empty_message', 'No valid frontier shift point in current search domain', ...
             'domain_summary', 'Only defined \Delta N_s values are shown; missing frontier pairs are left undefined.', ...
-            'plot_domain_source', "frontier_shift"));
+            'plot_domain_source', "frontier_shift", ...
+            'figure_style', local_getfield_or(options, 'figure_style', struct())));
     else
         apply_mb_plot_domain_guardrail(ax2, [], [], struct( ...
             'empty_message', 'No valid frontier shift point in current search domain', ...
             'domain_summary', 'Delta N_s is undefined because at least one semantic frontier is missing for every inclination.', ...
-            'plot_domain_source', "undefined_delta"));
+            'plot_domain_source', "undefined_delta", ...
+            'figure_style', local_getfield_or(options, 'figure_style', struct())));
     end
 end
 xlabel(ax2, 'i (deg)');
@@ -130,6 +135,10 @@ note = sprintf('defined points: legacyDG=%d, closedD=%d, delta=%d', legacy_defin
 end
 
 function local_add_truncation_note(ax, truncation_table)
+style_mode = getappdata(ancestor(ax, 'figure'), 'mb_figure_style');
+if isstruct(style_mode) && isfield(style_mode, 'show_diagnostic_annotation') && ~logical(style_mode.show_diagnostic_annotation)
+    return;
+end
 if isempty(truncation_table) || ~istable(truncation_table) || ~ismember('diagnostic_note', truncation_table.Properties.VariableNames)
     return;
 end
@@ -148,5 +157,14 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function tf = local_show_annotations(options)
+style_mode = local_getfield_or(options, 'figure_style', struct());
+if isstruct(style_mode) && isfield(style_mode, 'show_diagnostic_annotation')
+    tf = logical(style_mode.show_diagnostic_annotation);
+else
+    tf = true;
 end
 end

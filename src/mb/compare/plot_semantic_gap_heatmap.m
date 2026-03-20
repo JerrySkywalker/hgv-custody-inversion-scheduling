@@ -25,6 +25,7 @@ display_matrix = value_matrix;
 display_matrix(~isfinite(display_matrix)) = NaN;
 
 fig = figure('Visible', 'off', 'Color', 'w');
+setappdata(fig, 'mb_figure_style', local_getfield_or(options, 'figure_style', struct()));
 ax = axes(fig);
 hold(ax, 'on');
 imagesc(ax, P_values, i_values, display_matrix);
@@ -40,7 +41,7 @@ local_overlay_labels(ax, P_values, i_values, value_matrix);
 xlabel(ax, 'P');
 ylabel(ax, 'i (deg)');
 title(ax, sprintf('Semantic Gap Heatmap over (i, P) at h = %.0f km [%s]', h_km, char(string(sensor_label))));
-local_add_diagnostics(ax, local_getfield_or(options, 'boundary_hit_table', table()));
+local_add_diagnostics(ax, local_getfield_or(options, 'boundary_hit_table', table()), options);
 grid(ax, 'on');
 hold(ax, 'off');
 end
@@ -72,7 +73,10 @@ for iy = 1:numel(y_values)
 end
 end
 
-function local_add_diagnostics(ax, boundary_hit_table)
+function local_add_diagnostics(ax, boundary_hit_table, options)
+if ~local_show_annotations(options)
+    return;
+end
 if isempty(boundary_hit_table) || ~istable(boundary_hit_table)
     return;
 end
@@ -89,6 +93,15 @@ end
 text(ax, 0.02, 0.98, strjoin(cellstr(note_lines), newline), ...
     'Units', 'normalized', 'VerticalAlignment', 'top', 'FontSize', 10, ...
     'Color', [0.55 0.15 0.15], 'FontWeight', 'bold');
+end
+
+function tf = local_show_annotations(options)
+style_mode = local_getfield_or(options, 'figure_style', struct());
+if isstruct(style_mode) && isfield(style_mode, 'show_diagnostic_annotation')
+    tf = logical(style_mode.show_diagnostic_annotation);
+else
+    tf = true;
+end
 end
 
 function values = local_table_column(T, field_name)

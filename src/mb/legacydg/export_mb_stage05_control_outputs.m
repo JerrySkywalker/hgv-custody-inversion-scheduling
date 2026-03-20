@@ -1,5 +1,9 @@
-function artifacts = export_mb_stage05_control_outputs(run_output, paths)
+function artifacts = export_mb_stage05_control_outputs(run_output, paths, plot_options)
 %EXPORT_MB_STAGE05_CONTROL_OUTPUTS Export Stage05-style control figures under MB layout.
+
+if nargin < 3 || isempty(plot_options)
+    plot_options = struct();
+end
 
 sensor_group = char(string(run_output.sensor_group.name));
 
@@ -25,22 +29,26 @@ for idx = 1:numel(run_output.runs)
     milestone_common_save_table(run.aggregate.frontier_summary, frontier_csv);
     milestone_common_save_table(run.aggregate.pareto_frontier, pareto_csv);
 
-    fig_pass = plot_mb_stage05_semantic_passratio_envelope(run.aggregate.dg_envelope, run.h_km);
+    fig_pass = plot_mb_stage05_semantic_passratio_envelope(run.aggregate.dg_envelope, run.h_km, struct( ...
+        'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     pass_png = fullfile(paths.figures, sprintf('MB_control_stage05_passratio_envelope_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass, pass_png);
     close(fig_pass);
 
-    fig_dg = plot_mb_stage05_semantic_DG_envelope(run.aggregate.dg_envelope, run.h_km);
+    fig_dg = plot_mb_stage05_semantic_DG_envelope(run.aggregate.dg_envelope, run.h_km, struct( ...
+        'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     dg_png = fullfile(paths.figures, sprintf('MB_control_stage05_DG_envelope_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_dg, dg_png);
     close(fig_dg);
 
-    fig_frontier = plot_mb_stage05_semantic_frontier_summary(run.aggregate.frontier_summary, run.h_km);
+    fig_frontier = plot_mb_stage05_semantic_frontier_summary(run.aggregate.frontier_summary, run.h_km, struct( ...
+        'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     frontier_png = fullfile(paths.figures, sprintf('MB_control_stage05_frontier_summary_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_frontier, frontier_png);
     close(fig_frontier);
 
-    fig_pareto = plot_mb_stage05_semantic_pareto_frontier(run.aggregate.pareto_frontier, run.h_km);
+    fig_pareto = plot_mb_stage05_semantic_pareto_frontier(run.aggregate.pareto_frontier, run.h_km, struct( ...
+        'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     pareto_png = fullfile(paths.figures, sprintf('MB_control_stage05_pareto_frontier_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pareto, pareto_png);
     close(fig_pareto);
@@ -53,7 +61,50 @@ for idx = 1:numel(run_output.runs)
     artifacts.figures.(matlab.lang.makeValidName(sprintf('DG_envelope_%s', h_label))) = string(dg_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('frontier_summary_%s', h_label))) = string(frontier_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('pareto_frontier_%s', h_label))) = string(pareto_png);
+
+    diagnostics = struct( ...
+        'passratio_saturation_table', build_mb_passratio_saturation_diagnostics(run.aggregate.dg_envelope(:, intersect({'h_km', 'i_deg', 'Ns', 'max_pass_ratio'}, run.aggregate.dg_envelope.Properties.VariableNames, 'stable')), struct( ...
+            'ns_search_min', min(run.aggregate.dg_envelope.Ns, [], 'omitnan'), ...
+            'ns_search_max', max(run.aggregate.dg_envelope.Ns, [], 'omitnan')), struct( ...
+            'value_fields', {{'max_pass_ratio'}}, ...
+            'semantic_labels', {{'legacyDG'}}, ...
+            'h_km', run.h_km, ...
+            'family_name', string(run.family_name))), ...
+        'frontier_truncation_table', build_mb_frontier_truncation_diagnostics(run.aggregate.frontier_summary(:, {'i_deg', 'frontier_Ns'}), struct( ...
+            'ns_search_min', min(run.aggregate.dg_envelope.Ns, [], 'omitnan'), ...
+            'ns_search_max', max(run.aggregate.dg_envelope.Ns, [], 'omitnan')), struct( ...
+            'value_fields', {{'frontier_Ns'}}, ...
+            'semantic_labels', {{'legacyDG'}}, ...
+            'h_km', run.h_km, ...
+            'family_name', string(run.family_name))));
+
+    local_maybe_export_paper_ready(@() plot_mb_stage05_semantic_passratio_envelope(run.aggregate.dg_envelope, run.h_km, struct('figure_style', resolve_mb_figure_style_mode('paper_ready'))), ...
+        fullfile(paths.figures, sprintf('MB_control_stage05_passratio_envelope_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        "control_stage05_passratio", diagnostics, plot_options);
+    local_maybe_export_paper_ready(@() plot_mb_stage05_semantic_DG_envelope(run.aggregate.dg_envelope, run.h_km, struct('figure_style', resolve_mb_figure_style_mode('paper_ready'))), ...
+        fullfile(paths.figures, sprintf('MB_control_stage05_DG_envelope_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        "control_stage05_dg_envelope", diagnostics, plot_options);
+    local_maybe_export_paper_ready(@() plot_mb_stage05_semantic_frontier_summary(run.aggregate.frontier_summary, run.h_km, struct('figure_style', resolve_mb_figure_style_mode('paper_ready'))), ...
+        fullfile(paths.figures, sprintf('MB_control_stage05_frontier_summary_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        "control_stage05_frontier", diagnostics, plot_options);
+    local_maybe_export_paper_ready(@() plot_mb_stage05_semantic_pareto_frontier(run.aggregate.pareto_frontier, run.h_km, struct('figure_style', resolve_mb_figure_style_mode('paper_ready'))), ...
+        fullfile(paths.figures, sprintf('MB_control_stage05_pareto_frontier_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        "control_stage05_frontier", diagnostics, plot_options);
 end
+end
+
+function local_maybe_export_paper_ready(builder_fn, file_path, figure_family, diagnostics, plot_options)
+if ~logical(local_getfield_or(plot_options, 'export_paper_ready', false))
+    return;
+end
+guard = guard_mb_paper_ready_export(figure_family, diagnostics, local_getfield_or(plot_options, 'paper_ready_guardrail', struct()));
+if ~guard.allowed
+    warning('MB:PaperReadyGuard', '%s', char(guard.note));
+    return;
+end
+fig = builder_fn();
+milestone_common_save_figure(fig, file_path);
+close(fig);
 end
 
 function summary_table = local_build_summary_table(run_output)

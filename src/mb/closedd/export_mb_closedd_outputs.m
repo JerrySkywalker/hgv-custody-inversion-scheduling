@@ -53,17 +53,46 @@ for idx = 1:numel(run_output.runs)
     pass_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass, pass_png);
     close(fig_pass);
+    local_maybe_export_paper_ready(@() plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, local_build_paper_options(pass_plot_options)), ...
+        fullfile(paths.figures, sprintf('MB_closedD_passratio_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        "closedD_passratio", diagnostics, plot_options);
 
     fig_heat = plot_mb_fixed_h_requirement_heatmap_iP(run.aggregate.requirement_surface_iP, style, struct( ...
         'boundary_hit_table', diagnostics.boundary_hit_table, ...
-        'domain_summary', char(string(local_getfield_or(plot_options, 'search_domain_label', "")))));
+        'domain_summary', char(string(local_getfield_or(plot_options, 'search_domain_label', ""))), ...
+        'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     local_retitle(fig_heat, sprintf('closedD Minimum Feasible Constellation Requirement over (i, P) at h = %.0f km [%s]', run.h_km, sensor_label));
     heat_png = fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_iP_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat, heat_png);
     close(fig_heat);
+    local_maybe_export_paper_ready(@() plot_mb_fixed_h_requirement_heatmap_iP(run.aggregate.requirement_surface_iP, style, struct( ...
+        'boundary_hit_table', diagnostics.boundary_hit_table, ...
+        'domain_summary', char(string(local_getfield_or(plot_options, 'search_domain_label', ""))), ...
+        'figure_style', resolve_mb_figure_style_mode('paper_ready'))), ...
+        fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_iP_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        "closedD_heatmap", diagnostics, plot_options);
 
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratio_%s', h_label))) = string(pass_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_png);
+end
+
+function local_maybe_export_paper_ready(builder_fn, file_path, figure_family, diagnostics, plot_options)
+if ~logical(local_getfield_or(plot_options, 'export_paper_ready', false))
+    return;
+end
+guard = guard_mb_paper_ready_export(figure_family, diagnostics, local_getfield_or(plot_options, 'paper_ready_guardrail', struct()));
+if ~guard.allowed
+    warning('MB:PaperReadyGuard', '%s', char(guard.note));
+    return;
+end
+fig = builder_fn();
+milestone_common_save_figure(fig, file_path);
+close(fig);
+end
+
+function options_out = local_build_paper_options(options_in)
+options_out = options_in;
+options_out.figure_style = resolve_mb_figure_style_mode('paper_ready');
 end
 
 function T = local_build_incremental_stop_reason(run)

@@ -342,6 +342,10 @@ plot_options.plot_domain_source = local_resolve_plot_domain_source(meta);
 plot_options.search_domain_label = string(local_getfield_or(meta, 'search_domain_label', ""));
 plot_options.plot_domain_label = string(local_getfield_or(meta, 'plot_domain_label', ""));
 plot_options.domain_summary = sprintf('search-domain: %s', char(string(local_getfield_or(meta, 'search_domain_label', ""))));
+plot_options.figure_style = resolve_mb_figure_style_mode(local_getfield_or(meta, 'figure_style_mode', 'diagnostic'));
+plot_options.figure_style_mode = string(plot_options.figure_style.name);
+plot_options.export_paper_ready = logical(local_getfield_or(meta, 'export_paper_ready', false));
+plot_options.paper_ready_guardrail = local_getfield_or(meta, 'paper_ready_guardrail', struct());
 diagnostic_text = local_resolve_autotune_diagnostic(meta);
 if strlength(diagnostic_text) > 0
     plot_options.diagnostic_text = diagnostic_text;
@@ -779,6 +783,7 @@ if ~any(arrayfun(@(m) logical(m.emits_gap_outputs), resolved_modes))
 end
 
 paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
+plot_options = local_semantic_plot_options(meta);
 summary_rows = cell(numel(sensor_groups), 1);
 summary_cursor = 0;
 for idx_group = 1:numel(sensor_groups)
@@ -788,7 +793,7 @@ for idx_group = 1:numel(sensor_groups)
     if isempty(legacy_hit) || isempty(closed_hit)
         continue;
     end
-    group_artifacts = export_mb_semantic_gap_outputs(run_outputs(legacy_hit).run_output, run_outputs(closed_hit).run_output, paths);
+    group_artifacts = export_mb_semantic_gap_outputs(run_outputs(legacy_hit).run_output, run_outputs(closed_hit).run_output, paths, plot_options);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('comparison_%s', sensor_group))) = group_artifacts.tables;
     artifacts.figures.(matlab.lang.makeValidName(sprintf('comparison_%s', sensor_group))) = group_artifacts.figures;
     group_field = matlab.lang.makeValidName(sprintf('comparison_%s', sensor_group));
@@ -806,11 +811,12 @@ end
 function artifacts = local_export_control_outputs(cfg, meta, run_outputs)
 artifacts = struct('tables', struct(), 'figures', struct());
 paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
+plot_options = local_semantic_plot_options(meta);
 for idx = 1:numel(run_outputs)
     if run_outputs(idx).mode ~= "legacyDG"
         continue;
     end
-    group_artifacts = export_mb_stage05_control_outputs(run_outputs(idx).run_output, paths);
+    group_artifacts = export_mb_stage05_control_outputs(run_outputs(idx).run_output, paths, plot_options);
     sensor_group = string(run_outputs(idx).sensor_group);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('control_%s', sensor_group))) = group_artifacts.tables;
     artifacts.figures.(matlab.lang.makeValidName(sprintf('control_%s', sensor_group))) = group_artifacts.figures;

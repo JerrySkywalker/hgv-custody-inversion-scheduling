@@ -1,5 +1,9 @@
-function fig = plot_mb_stage05_semantic_passratio_envelope(envelope_table, h_km)
+function fig = plot_mb_stage05_semantic_passratio_envelope(envelope_table, h_km, options)
 %PLOT_MB_STAGE05_SEMANTIC_PASSRATIO_ENVELOPE Plot the Stage05-semantic pass-ratio envelope under MB outputs.
+
+if nargin < 3 || isempty(options)
+    options = struct();
+end
 
 i_list = unique(envelope_table.i_deg, 'sorted');
 fig = figure('Color', 'w', 'Name', 'MB Stage05 Semantic PassRatio', 'Position', [120 120 1100 700]);
@@ -11,7 +15,8 @@ if isempty(envelope_table)
         'empty_message', 'No feasible point found within current search domain', ...
         'domain_summary', sprintf('Search domain summary unavailable at h = %.0f km', h_km), ...
         'ylim', [0, 1.05], ...
-        'plot_domain_source', "no_valid_points"));
+        'plot_domain_source', "no_valid_points", ...
+        'figure_style', local_getfield_or(options, 'figure_style', struct())));
     title(ax, sprintf('MB Control (Stage05 Semantics): pass-ratio envelope versus N_s at h = %.0f km', h_km));
     return;
 end
@@ -47,5 +52,14 @@ apply_mb_plot_domain_guardrail(ax, envelope_table.Ns, envelope_table.max_pass_ra
     'ylim', [0, 1.05], ...
     'empty_message', 'No feasible point found within current search domain', ...
     'domain_summary', sprintf('Search domain: h = %.0f km', h_km), ...
-    'plot_domain_source', "stage05_envelope"));
+    'plot_domain_source', "stage05_envelope", ...
+    'figure_style', local_getfield_or(options, 'figure_style', struct())));
+end
+
+function value = local_getfield_or(S, field_name, fallback)
+if isstruct(S) && isfield(S, field_name)
+    value = S.(field_name);
+else
+    value = fallback;
+end
 end

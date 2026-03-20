@@ -74,6 +74,7 @@ metadata.semantic_mode = string(local_getfield_or(meta, 'mode', 'comparison'));
 metadata.sensor_group = string(strjoin(resolve_sensor_param_groups(local_getfield_or(meta, 'sensor_groups', {'baseline'})), ','));
 metadata.search_profile = string(local_getfield_or(meta, 'resolved_search_profile', local_getfield_or(meta, 'search_profile', 'mb_default')));
 metadata.search_profile_mode = string(local_getfield_or(meta, 'search_profile_mode', 'debug'));
+metadata.figure_style_mode = string(local_getfield_or(meta, 'figure_style_mode', 'diagnostic'));
 metadata.stage05_replica_flag = logical(local_getfield_or(local_getfield_or(meta, 'stage05_replica', struct()), 'strict', false));
 metadata.auto_tuned_flag = logical(local_getfield_or(meta, 'auto_tuned_flag', false));
 
@@ -92,6 +93,10 @@ elseif contains(lower_name, 'mb_denselocal_')
     metadata.semantic_mode = "comparison";
 elseif contains(lower_name, 'mb_run_manifest') || contains(lower_name, 'mb_sensor_group_manifest')
     metadata.semantic_mode = "manifest";
+end
+
+if contains(lower_name, 'paperready')
+    metadata.figure_style_mode = "paper_ready";
 end
 
 group_hits = {'baseline', 'optimistic', 'robust', 'stage05_strict_reference'};
@@ -114,9 +119,10 @@ meta_table = table( ...
     repmat(string(metadata.sensor_group), height(T), 1), ...
     repmat(string(metadata.search_profile), height(T), 1), ...
     repmat(string(metadata.search_profile_mode), height(T), 1), ...
+    repmat(string(metadata.figure_style_mode), height(T), 1), ...
     repmat(logical(metadata.stage05_replica_flag), height(T), 1), ...
     repmat(logical(metadata.auto_tuned_flag), height(T), 1), ...
-    'VariableNames', {'semantic_mode', 'sensor_group', 'search_profile', 'search_profile_mode', 'stage05_replica_flag', 'auto_tuned_flag'});
+    'VariableNames', {'semantic_mode', 'sensor_group', 'search_profile', 'search_profile_mode', 'figure_style_mode', 'stage05_replica_flag', 'auto_tuned_flag'});
 
 meta_names = meta_table.Properties.VariableNames;
 added_names = strings(0, 1);
@@ -196,6 +202,7 @@ row.semantic_mode = string(metadata.semantic_mode);
 row.sensor_group = string(metadata.sensor_group);
 row.search_profile = string(metadata.search_profile);
 row.search_profile_mode = string(metadata.search_profile_mode);
+row.figure_style_mode = string(metadata.figure_style_mode);
 row.stage05_replica_flag = logical(metadata.stage05_replica_flag);
 row.auto_tuned_flag = logical(metadata.auto_tuned_flag);
 end
@@ -209,6 +216,7 @@ row = struct( ...
     'sensor_group', "", ...
     'search_profile', "", ...
     'search_profile_mode', "", ...
+    'figure_style_mode', "", ...
     'stage05_replica_flag', false, ...
     'auto_tuned_flag', false);
 end

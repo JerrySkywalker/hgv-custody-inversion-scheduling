@@ -20,7 +20,8 @@ if isempty(phasecurve_table)
     apply_mb_plot_domain_guardrail(ax, [], [], struct( ...
         'empty_message', 'No valid pass-ratio point found within current search domain', ...
         'domain_summary', sprintf('Search domain: h = %.0f km', h_km), ...
-        'plot_domain_source', guard.plot_domain_source));
+        'plot_domain_source', guard.plot_domain_source, ...
+        'figure_style', local_getfield_or(options, 'figure_style', struct())));
 else
     unique_i = unique(phasecurve_table.i_deg, 'sorted');
     cmap = turbo(max(2, numel(unique_i)));
@@ -63,7 +64,8 @@ apply_mb_plot_domain_guardrail(ax, local_getfield_or(phasecurve_table, 'Ns', [])
     'ylim', local_resolve_ylim(options), ...
     'empty_message', 'No valid pass-ratio point found within current search domain', ...
     'domain_summary', sprintf('Search domain: h = %.0f km', h_km), ...
-    'plot_domain_source', guard.plot_domain_source));
+    'plot_domain_source', guard.plot_domain_source, ...
+    'figure_style', local_getfield_or(options, 'figure_style', struct())));
 local_add_diagnostic_annotation(ax, options);
 grid(ax, 'on');
 legend(ax, 'Location', 'best', 'Box', style.legend_box);
@@ -89,6 +91,9 @@ end
 end
 
 function local_add_diagnostic_annotation(ax, options)
+if ~local_show_annotations(options)
+    return;
+end
 text_parts = strings(0, 1);
 if isfield(options, 'plot_domain_source') && strlength(string(options.plot_domain_source)) > 0
     text_parts(end + 1, 1) = "domain: " + string(options.plot_domain_source); %#ok<AGROW>
@@ -126,4 +131,13 @@ text(ax, 0.02, 0.02, annotation_text, ...
     'FontSize', 10, ...
     'Color', [0.35 0.35 0.35], ...
     'Interpreter', 'none');
+end
+
+function tf = local_show_annotations(options)
+style_mode = local_getfield_or(options, 'figure_style', struct());
+if isstruct(style_mode) && isfield(style_mode, 'show_diagnostic_annotation')
+    tf = logical(style_mode.show_diagnostic_annotation);
+else
+    tf = true;
+end
 end

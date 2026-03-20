@@ -18,7 +18,8 @@ if isempty(surface) || ~isfield(surface, 'value_matrix') || isempty(surface.valu
     apply_mb_plot_domain_guardrail(ax, [], [], struct( ...
         'empty_message', 'No feasible point found within current search domain', ...
         'domain_summary', sprintf('h = %.0f km', h_km), ...
-        'plot_domain_source', "no_heatmap_cell"));
+        'plot_domain_source', "no_heatmap_cell", ...
+        'figure_style', local_getfield_or(options, 'figure_style', struct())));
 else
     imagesc(ax, surface.x_values, surface.y_values, surface.value_matrix);
     set(ax, 'YDir', 'normal');
@@ -36,7 +37,7 @@ end
 xlabel(ax, 'P');
 ylabel(ax, 'i (deg)');
 title(ax, sprintf('Minimum Feasible Constellation Requirement over (i, P) at h = %.0f km', h_km));
-local_add_diagnostics(ax, local_getfield_or(options, 'boundary_hit_table', table()), local_getfield_or(options, 'domain_summary', ""));
+local_add_diagnostics(ax, local_getfield_or(options, 'boundary_hit_table', table()), local_getfield_or(options, 'domain_summary', ""), options);
 grid(ax, 'on');
 hold(ax, 'off');
 end
@@ -62,7 +63,10 @@ for iy = 1:numel(y_values)
 end
 end
 
-function local_add_diagnostics(ax, boundary_hit_table, domain_summary)
+function local_add_diagnostics(ax, boundary_hit_table, domain_summary, options)
+if ~local_show_annotations(options)
+    return;
+end
 text_lines = strings(0, 1);
 if strlength(string(domain_summary)) > 0
     text_lines(end + 1, 1) = string(domain_summary); %#ok<AGROW>
@@ -81,6 +85,15 @@ end
 text(ax, 0.02, 0.98, char(strjoin(text_lines, newline)), ...
     'Units', 'normalized', 'VerticalAlignment', 'top', ...
     'FontSize', 9.5, 'Color', [0.55 0.15 0.15]);
+end
+
+function tf = local_show_annotations(options)
+style_mode = local_getfield_or(options, 'figure_style', struct());
+if isstruct(style_mode) && isfield(style_mode, 'show_diagnostic_annotation')
+    tf = logical(style_mode.show_diagnostic_annotation);
+else
+    tf = true;
+end
 end
 
 function values = local_table_column(T, field_name)

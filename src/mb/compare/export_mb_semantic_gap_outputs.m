@@ -1,5 +1,9 @@
-function artifacts = export_mb_semantic_gap_outputs(legacy_output, closed_output, paths)
+function artifacts = export_mb_semantic_gap_outputs(legacy_output, closed_output, paths, plot_options)
 %EXPORT_MB_SEMANTIC_GAP_OUTPUTS Export comparison artifacts between legacyDG and closedD.
+
+if nargin < 4 || isempty(plot_options)
+    plot_options = struct();
+end
 
 comparison = build_semantic_gap_tables(legacy_output, closed_output);
 sensor_group = char(string(comparison.sensor_group));
@@ -36,20 +40,23 @@ for idx = 1:numel(comparison.run_pairs)
         paths, sprintf('comparison_%s_%s', h_label, sensor_group));
 
     fig_gap = plot_semantic_gap_heatmap(pair.requirement_gap_table, pair.h_km, sensor_label, struct( ...
-        'boundary_hit_table', pair.boundary_hit_table));
+        'boundary_hit_table', pair.boundary_hit_table, ...
+        'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     gap_png = fullfile(paths.figures, sprintf('MB_comparison_gap_heatmap_iP_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_gap, gap_png);
     close(fig_gap);
 
     fig_pass = plot_semantic_gap_passratio_curves(pair.passratio_gap_table, pair.h_km, sensor_label, struct( ...
         'passratio_saturation_table', pair.passratio_saturation_table, ...
-        'boundary_hit_table', pair.boundary_hit_table));
+        'boundary_hit_table', pair.boundary_hit_table, ...
+        'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     pass_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass, pass_png);
     close(fig_pass);
 
     fig_frontier = plot_semantic_gap_frontier_shift(pair.frontier_gap_table, pair.h_km, sensor_label, struct( ...
-        'frontier_truncation_table', pair.frontier_truncation_table));
+        'frontier_truncation_table', pair.frontier_truncation_table, ...
+        'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     frontier_png = fullfile(paths.figures, sprintf('MB_comparison_frontier_shift_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_frontier, frontier_png);
     close(fig_frontier);
@@ -65,6 +72,49 @@ for idx = 1:numel(comparison.run_pairs)
     artifacts.figures.(matlab.lang.makeValidName(sprintf('gap_heatmap_iP_%s', h_label))) = string(gap_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratio_overlay_%s', h_label))) = string(pass_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('frontier_shift_%s', h_label))) = string(frontier_png);
+
+    diagnostics = struct( ...
+        'boundary_hit_table', pair.boundary_hit_table, ...
+        'passratio_saturation_table', pair.passratio_saturation_table, ...
+        'frontier_truncation_table', pair.frontier_truncation_table);
+    local_maybe_export_paper_ready(@() plot_semantic_gap_heatmap(pair.requirement_gap_table, pair.h_km, sensor_label, struct( ...
+        'boundary_hit_table', pair.boundary_hit_table, ...
+        'figure_style', resolve_mb_figure_style_mode('paper_ready'))), ...
+        fullfile(paths.figures, sprintf('MB_comparison_gap_heatmap_iP_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        "comparison_heatmap", diagnostics, plot_options);
+    local_maybe_export_paper_ready(@() plot_semantic_gap_passratio_curves(pair.passratio_gap_table, pair.h_km, sensor_label, struct( ...
+        'passratio_saturation_table', pair.passratio_saturation_table, ...
+        'boundary_hit_table', pair.boundary_hit_table, ...
+        'figure_style', resolve_mb_figure_style_mode('paper_ready'))), ...
+        fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        "comparison_passratio", diagnostics, plot_options);
+    local_maybe_export_paper_ready(@() plot_semantic_gap_frontier_shift(pair.frontier_gap_table, pair.h_km, sensor_label, struct( ...
+        'frontier_truncation_table', pair.frontier_truncation_table, ...
+        'figure_style', resolve_mb_figure_style_mode('paper_ready'))), ...
+        fullfile(paths.figures, sprintf('MB_comparison_frontier_shift_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        "comparison_frontier", diagnostics, plot_options);
+end
+end
+
+function local_maybe_export_paper_ready(builder_fn, file_path, figure_family, diagnostics, plot_options)
+if ~logical(local_getfield_or(plot_options, 'export_paper_ready', false))
+    return;
+end
+guard = guard_mb_paper_ready_export(figure_family, diagnostics, local_getfield_or(plot_options, 'paper_ready_guardrail', struct()));
+if ~guard.allowed
+    warning('MB:PaperReadyGuard', '%s', char(guard.note));
+    return;
+end
+fig = builder_fn();
+milestone_common_save_figure(fig, file_path);
+close(fig);
+end
+
+function value = local_getfield_or(S, field_name, fallback)
+if isstruct(S) && isfield(S, field_name)
+    value = S.(field_name);
+else
+    value = fallback;
 end
 end
 

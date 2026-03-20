@@ -12,6 +12,7 @@ if nargin < 4 || isempty(options)
 end
 
 info = compute_mb_plot_window_from_data(x_values, options);
+show_annotations = local_resolve_show_annotations(options);
 
 if ~ishandle(ax)
     return;
@@ -56,10 +57,21 @@ if ~isempty(strtrim(stop_reason))
     note_lines(end + 1, 1) = string(sprintf('stop-reason: %s', stop_reason)); %#ok<AGROW>
 end
 
-if ~isempty(note_lines)
+if show_annotations && ~isempty(note_lines)
     text(ax, 0.02, 0.96, strjoin(cellstr(note_lines), newline), ...
         'Units', 'normalized', 'FontSize', 9.5, 'Color', [0.30 0.30 0.30], ...
         'VerticalAlignment', 'top');
+end
+end
+
+function tf = local_resolve_show_annotations(options)
+style_mode = local_getfield_or(options, 'figure_style', struct());
+if isstruct(style_mode) && isfield(style_mode, 'show_domain_annotation')
+    tf = logical(style_mode.show_domain_annotation) || logical(local_getfield_or(style_mode, 'show_diagnostic_annotation', true));
+elseif isfield(options, 'show_annotations')
+    tf = logical(options.show_annotations);
+else
+    tf = true;
 end
 end
 

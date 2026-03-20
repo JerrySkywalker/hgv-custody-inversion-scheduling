@@ -14,6 +14,7 @@ guard = compute_mb_plot_window_from_data(local_getfield_or(gap_table, 'Ns', []),
     'empty_message', 'No valid pass-ratio comparison point found within current search domain'));
 
 fig = figure('Visible', 'off', 'Color', 'w');
+setappdata(fig, 'mb_figure_style', local_getfield_or(options, 'figure_style', struct()));
 tiled = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 title(tiled, sprintf('Comparison Pass-Ratio Diagnostics at h = %.0f km [%s]', h_km, char(string(sensor_label))));
 
@@ -32,12 +33,15 @@ apply_mb_plot_domain_guardrail(ax1, local_getfield_or(gap_table, 'Ns', []), loca
     'ylim', [0, 1.05], ...
     'empty_message', 'No valid pass-ratio comparison point found within current search domain', ...
     'domain_summary', sprintf('Search domain: h = %.0f km [%s]', h_km, char(string(sensor_label))), ...
-    'plot_domain_source', guard.plot_domain_source));
-text(ax1, 0.02, 0.96, 'Upper: legacyDG vs closedD pass ratio under the shared N_s domain', ...
-    'Units', 'normalized', 'FontSize', 10, 'Color', [0.20 0.20 0.20], 'VerticalAlignment', 'top');
+    'plot_domain_source', guard.plot_domain_source, ...
+    'figure_style', local_getfield_or(options, 'figure_style', struct())));
+if local_show_annotations(options)
+    text(ax1, 0.02, 0.96, 'Upper: legacyDG vs closedD pass ratio under the shared N_s domain', ...
+        'Units', 'normalized', 'FontSize', 10, 'Color', [0.20 0.20 0.20], 'VerticalAlignment', 'top');
+end
 
 [legacy_plateau, closed_plateau, plateau_note] = local_plateau_status(gap_table, local_getfield_or(options, 'passratio_saturation_table', table()));
-if strlength(plateau_note) > 0
+if local_show_annotations(options) && strlength(plateau_note) > 0
     text(ax1, 0.02, 0.84, char(plateau_note), ...
         'Units', 'normalized', 'FontSize', 10, 'Color', [0.55 0.15 0.15], 'VerticalAlignment', 'top');
 end
@@ -53,19 +57,22 @@ yline(ax2, 0, ':', 'Color', [0.35, 0.35, 0.35], 'LineWidth', 1.1);
 xlabel(ax2, 'N_s');
 ylabel(ax2, '\Delta pass ratio');
 title(ax2, 'Lower panel: \Delta pass ratio (closedD - legacyDG)');
-text(ax2, 0.02, 0.92, 'Negative gap means closedD is more conservative than legacyDG', ...
-    'Units', 'normalized', 'FontSize', 10, 'Color', [0.25 0.25 0.25], ...
-    'VerticalAlignment', 'top');
-if ~(legacy_plateau && closed_plateau)
+if local_show_annotations(options)
+    text(ax2, 0.02, 0.92, 'Negative gap means closedD is more conservative than legacyDG', ...
+        'Units', 'normalized', 'FontSize', 10, 'Color', [0.25 0.25 0.25], ...
+        'VerticalAlignment', 'top');
+end
+if local_show_annotations(options) && ~(legacy_plateau && closed_plateau)
     text(ax2, 0.02, 0.82, 'Search domain not yet saturated: unity plateau not reached within current tuned domain.', ...
         'Units', 'normalized', 'FontSize', 9.5, 'Color', [0.55 0.15 0.15], ...
         'VerticalAlignment', 'top');
 end
-local_add_boundary_note(ax2, local_getfield_or(options, 'boundary_hit_table', table()));
+local_add_boundary_note(ax2, local_getfield_or(options, 'boundary_hit_table', table()), options);
 apply_mb_plot_domain_guardrail(ax2, local_getfield_or(gap_table, 'Ns', []), local_getfield_or(gap_table, 'passratio_gap', []), struct( ...
     'empty_message', 'No valid pass-ratio gap point found within current search domain', ...
     'domain_summary', sprintf('Search domain: h = %.0f km [%s]', h_km, char(string(sensor_label))), ...
-    'plot_domain_source', guard.plot_domain_source));
+    'plot_domain_source', guard.plot_domain_source, ...
+    'figure_style', local_getfield_or(options, 'figure_style', struct())));
 grid(ax2, 'on');
 
 legend(ax1, 'Location', 'eastoutside', 'Box', 'off');
@@ -148,7 +155,10 @@ else
 end
 end
 
-function local_add_boundary_note(ax, boundary_hit_table)
+function local_add_boundary_note(ax, boundary_hit_table, options)
+if ~local_show_annotations(options)
+    return;
+end
 if isempty(boundary_hit_table) || ~istable(boundary_hit_table) || ~ismember('is_boundary_dominated', boundary_hit_table.Properties.VariableNames)
     return;
 end
@@ -156,5 +166,14 @@ if any(boundary_hit_table.is_boundary_dominated)
     text(ax, 0.02, 0.72, 'Boundary-dominated heatmap context: minimum-N_s cells sit on the current search upper bound.', ...
         'Units', 'normalized', 'FontSize', 9.5, 'Color', [0.55 0.15 0.15], ...
         'VerticalAlignment', 'top');
+end
+end
+
+function tf = local_show_annotations(options)
+style_mode = local_getfield_or(options, 'figure_style', struct());
+if isstruct(style_mode) && isfield(style_mode, 'show_diagnostic_annotation')
+    tf = logical(style_mode.show_diagnostic_annotation);
+else
+    tf = true;
 end
 end

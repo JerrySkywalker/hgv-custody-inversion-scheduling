@@ -9,6 +9,7 @@ if nargin < 4 || isempty(options)
 end
 
 fig = figure('Visible', 'off', 'Color', 'w');
+setappdata(fig, 'mb_figure_style', local_getfield_or(options, 'figure_style', struct()));
 ax = axes(fig);
 hold(ax, 'on');
 
@@ -19,7 +20,8 @@ if ~valid_frontier
     apply_mb_plot_domain_guardrail(ax, [], [], struct( ...
         'empty_message', 'No feasible point found within current search domain', ...
         'domain_summary', sprintf('h = %.0f km', h_km), ...
-        'plot_domain_source', "no_valid_frontier"));
+        'plot_domain_source', "no_valid_frontier", ...
+        'figure_style', local_getfield_or(options, 'figure_style', struct())));
 else
     frontier_table = frontier_table(isfinite(frontier_table.i_deg) & isfinite(frontier_table.minimum_feasible_Ns), :);
     if numel(unique(frontier_table.i_deg)) < 2
@@ -35,14 +37,16 @@ else
             'MarkerSize', style.marker_size + 1, ...
             'MarkerFaceColor', style.colors(1, :));
     end
-    for idx = 1:height(frontier_table)
-        text(ax, frontier_table.i_deg(idx), frontier_table.minimum_feasible_Ns(idx) + 0.8, ...
-            sprintf('%d', round(frontier_table.minimum_feasible_Ns(idx))), ...
-            'HorizontalAlignment', 'center', ...
-            'VerticalAlignment', 'bottom', ...
-            'FontSize', 10, ...
-            'FontWeight', 'bold', ...
-            'Color', style.threshold_color);
+    if local_show_annotations(options)
+        for idx = 1:height(frontier_table)
+            text(ax, frontier_table.i_deg(idx), frontier_table.minimum_feasible_Ns(idx) + 0.8, ...
+                sprintf('%d', round(frontier_table.minimum_feasible_Ns(idx))), ...
+                'HorizontalAlignment', 'center', ...
+                'VerticalAlignment', 'bottom', ...
+                'FontSize', 10, ...
+                'FontWeight', 'bold', ...
+                'Color', style.threshold_color);
+        end
     end
 end
 
@@ -55,12 +59,18 @@ apply_mb_plot_domain_guardrail(ax, local_getfield_or(frontier_table, 'i_deg', []
     'auto_ylim', true, ...
     'empty_message', 'No feasible point found within current search domain', ...
     'domain_summary', sprintf('h = %.0f km', h_km), ...
-    'plot_domain_source', "frontier_guardrail"));
+    'plot_domain_source', "frontier_guardrail", ...
+    'figure_style', local_getfield_or(options, 'figure_style', struct())));
 local_add_frontier_note(ax, local_getfield_or(options, 'frontier_truncation_table', table()));
 hold(ax, 'off');
 end
 
 function local_add_frontier_note(ax, truncation_table)
+fig = ancestor(ax, 'figure');
+style_mode = getappdata(fig, 'mb_figure_style');
+if isstruct(style_mode) && isfield(style_mode, 'show_diagnostic_annotation') && ~logical(style_mode.show_diagnostic_annotation)
+    return;
+end
 if isempty(truncation_table) || ~istable(truncation_table) || ~ismember('diagnostic_note', truncation_table.Properties.VariableNames)
     return;
 end
@@ -77,7 +87,18 @@ end
 function values = local_getfield_or(T, field_name, fallback)
 if istable(T) && ismember(field_name, T.Properties.VariableNames)
     values = T.(field_name);
+elseif isstruct(T) && isfield(T, field_name)
+    values = T.(field_name);
 else
     values = fallback;
+end
+end
+
+function tf = local_show_annotations(options)
+style_mode = local_getfield_or(options, 'figure_style', struct());
+if isstruct(style_mode) && isfield(style_mode, 'show_diagnostic_annotation')
+    tf = logical(style_mode.show_diagnostic_annotation);
+else
+    tf = true;
 end
 end
