@@ -87,9 +87,8 @@ input_spec = struct( ...
         'P_grid', reshape(legacy_cfg.P_grid, 1, []), ...
         'T_grid', reshape(legacy_cfg.T_grid, 1, []), ...
         'F_fixed', legacy_cfg.F_fixed), ...
-    'stage02_file', string(local_getfield_or(semantic_inputs, 'stage02_file', "")), ...
-    'stage04_file', string(local_getfield_or(semantic_inputs, 'stage04_file', "")), ...
-    'gamma_req', local_getfield_or(semantic_inputs, 'gamma_req', NaN));
+    'gamma_req', local_getfield_or(semantic_inputs, 'gamma_req', NaN), ...
+    'nominal_case_count', numel(local_getfield_or(local_getfield_or(semantic_inputs, 'family_inputs', struct()), 'nominal', struct('trajs_in', repmat(struct(), 0, 1))).trajs_in));
 manifest = build_mb_cache_manifest("semantic_eval", mfilename, input_spec, struct( ...
     'cache_namespace', legacy_cfg.cache_namespace, ...
     'semantic_mode', "legacyDG", ...
@@ -112,6 +111,12 @@ end
 
 if loaded.hit
     run = loaded.payload.run;
+    if ~isfield(run, 'incremental_search_history')
+        run.incremental_search_history = table();
+    end
+    if ~isfield(run, 'incremental_seed_info')
+        run.incremental_seed_info = struct();
+    end
     cache_record = struct( ...
         'cache_file', string(cache_file), ...
         'manifest_csv', string(loaded.manifest_csv), ...
@@ -120,6 +125,39 @@ if loaded.hit
         'family_name', string(family_name), ...
         'h_km', h_km);
     run.cache_info = cache_record;
+    return;
+end
+
+[seed_hit, seed_run, seed_cache_record] = local_find_incremental_seed(cache_root, manifest, input_spec, design_table);
+if seed_hit
+    incremental = evaluate_design_pool_incremental_over_ns(seed_run, design_table, ...
+        @(added_designs) evaluate_design_pool_with_stage05_semantics(cfg_sensor, added_designs, family_name, semantic_inputs, struct( ...
+            'sensor_group', sensor_group.name, ...
+            'use_parallel', legacy_cfg.use_parallel)), ...
+        @(merged_eval) aggregate_stage05_semantics_results(merged_eval, h_km, family_name, sensor_group.name, legacy_cfg.i_grid_deg), ...
+        struct('iteration', 1, 'semantic_mode', "legacyDG", 'sensor_group', sensor_group.name, ...
+            'family_name', family_name, 'height_km', h_km, 'action', "incremental_expand", 'stop_reason', "incremental_merge_completed"));
+
+    run = local_empty_run();
+    run.h_km = h_km;
+    run.family_name = string(family_name);
+    run.design_table = incremental.design_table;
+    run.eval_table = incremental.eval_table;
+    run.feasible_table = incremental.feasible_table;
+    run.aggregate = incremental.aggregate;
+    run.summary = local_build_summary(run.eval_table, run.feasible_table, semantic_inputs, family_name);
+    run.incremental_search_history = build_mb_incremental_search_history(incremental.history_row);
+    cache_record = struct( ...
+        'cache_file', string(cache_file), ...
+        'manifest_csv', "", ...
+        'cache_hit', false, ...
+        'reason', "incremental_seed_merge", ...
+        'family_name', string(family_name), ...
+        'h_km', h_km);
+    artifacts = save_mb_cache_with_manifest(cache_file, struct('run', run), manifest);
+    cache_record.manifest_csv = artifacts.manifest_csv;
+    run.cache_info = cache_record;
+    run.incremental_seed_info = seed_cache_record;
     return;
 end
 
@@ -136,6 +174,12 @@ run.eval_table = eval_out.eval_table;
 run.feasible_table = eval_out.feasible_table;
 run.aggregate = agg_out;
 run.summary = eval_out.summary;
+run.incremental_search_history = build_mb_incremental_search_history(struct( ...
+    'iteration', 1, 'semantic_mode', "legacyDG", 'sensor_group', sensor_group.name, 'family_name', family_name, ...
+    'height_km', h_km, 'action', "fresh_evaluation", 'stop_reason', "initial_domain", 'cache_seed_hit', false, ...
+    'previous_design_count', 0, 'added_design_count', height(design_table), 'merged_design_count', height(design_table), ...
+    'P_grid', reshape(unique(design_table.P).', 1, []), 'T_grid', reshape(unique(design_table.T).', 1, []), ...
+    'ns_search_min', min(design_table.Ns), 'ns_search_max', max(design_table.Ns)));
 cache_record = struct( ...
     'cache_file', string(cache_file), ...
     'manifest_csv', "", ...
@@ -252,7 +296,87 @@ run = struct( ...
     'feasible_table', table(), ...
     'aggregate', struct(), ...
     'summary', struct(), ...
-    'cache_info', struct());
+    'cache_info', struct(), ...
+    'incremental_search_history', table(), ...
+    'incremental_seed_info', struct());
+end
+
+function summary = local_build_summary(eval_table, feasible_table, semantic_inputs, family_name)
+summary = struct( ...
+    'design_count', height(eval_table), ...
+    'feasible_count', height(feasible_table), ...
+    'minimum_feasible_Ns', local_min_or_missing(feasible_table, 'Ns'), ...
+    'gamma_req', local_getfield_or(semantic_inputs, 'gamma_req', NaN), ...
+    'family_name', string(family_name));
+end
+
+function [seed_hit, seed_run, seed_record] = local_find_incremental_seed(cache_root, target_manifest, input_spec, target_design_table)
+seed_hit = false;
+seed_run = struct();
+seed_record = struct('cache_file', "", 'manifest_csv', "", 'cache_hit', true, 'reason', "", 'family_name', "", 'h_km', NaN);
+listing = dir(fullfile(cache_root, '*.mat'));
+if isempty(listing)
+    return;
+end
+
+target_base_spec = input_spec;
+target_base_spec.search_domain = struct();
+target_base_hash = compute_mb_cache_input_hash(target_base_spec);
+best_count = 0;
+best_file = "";
+best_manifest_csv = "";
+for idx = 1:numel(listing)
+    data = load(fullfile(listing(idx).folder, listing(idx).name), 'cache_manifest', 'cache_payload');
+    if ~isfield(data, 'cache_manifest') || ~isfield(data, 'cache_payload') || ~isfield(data.cache_payload, 'run')
+        continue;
+    end
+    manifest = data.cache_manifest;
+    if string(local_getfield_or(manifest, 'cache_namespace', "")) ~= string(local_getfield_or(target_manifest, 'cache_namespace', ""))
+        continue;
+    end
+    candidate_spec = local_getfield_or(manifest, 'input_spec', struct());
+    candidate_spec.search_domain = struct();
+    if string(compute_mb_cache_input_hash(candidate_spec)) ~= string(target_base_hash)
+        continue;
+    end
+    candidate_run = data.cache_payload.run;
+    if isempty(candidate_run) || isempty(local_getfield_or(candidate_run, 'design_table', table()))
+        continue;
+    end
+    if height(candidate_run.design_table) >= height(target_design_table)
+        continue;
+    end
+    [is_subset, ~] = ismember(candidate_run.design_table(:, {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns'}), target_design_table(:, {'h_km', 'i_deg', 'P', 'T', 'F', 'Ns'}), 'rows');
+    if ~all(is_subset)
+        continue;
+    end
+    if height(candidate_run.design_table) > best_count
+        best_count = height(candidate_run.design_table);
+        best_file = string(fullfile(listing(idx).folder, listing(idx).name));
+        best_manifest_csv = replace(best_file, ".mat", ".csv");
+        seed_run = candidate_run;
+        seed_hit = true;
+    end
+end
+
+if seed_hit
+    seed_record.cache_file = best_file;
+    seed_record.manifest_csv = best_manifest_csv;
+    seed_record.reason = "compatible_subset_seed";
+    seed_record.family_name = string(local_getfield_or(seed_run, 'family_name', ""));
+    seed_record.h_km = local_getfield_or(seed_run, 'h_km', NaN);
+end
+end
+
+function value = local_min_or_missing(T, field_name)
+if isempty(T) || ~ismember(field_name, T.Properties.VariableNames)
+    value = missing;
+    return;
+end
+value = min(T.(field_name), [], 'omitnan');
+if ~isfinite(value)
+    value = missing;
+end
 end
 
 function family_set = local_resolve_family_set(family_input)

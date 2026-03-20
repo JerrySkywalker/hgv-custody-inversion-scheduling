@@ -29,12 +29,18 @@ for idx = 1:numel(run_output.runs)
 
     pass_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_%s_%s.csv', h_label, sensor_group));
     heat_csv = fullfile(paths.tables, sprintf('MB_legacyDG_minimumNs_heatmap_iP_%s_%s.csv', h_label, sensor_group));
+    incr_history_csv = fullfile(paths.tables, sprintf('MB_incremental_search_history_legacyDG_%s_%s.csv', h_label, sensor_group));
+    incr_stop_csv = fullfile(paths.tables, sprintf('MB_incremental_search_stop_reason_legacyDG_%s_%s.csv', h_label, sensor_group));
     milestone_common_save_table(run.aggregate.passratio_phasecurve, pass_csv);
     milestone_common_save_table(run.aggregate.requirement_surface_iP.surface_table, heat_csv);
+    milestone_common_save_table(run.incremental_search_history, incr_history_csv);
+    milestone_common_save_table(local_build_incremental_stop_reason(run), incr_stop_csv);
     diag_artifacts = export_mb_boundary_hit_outputs(diagnostics, paths, sprintf('legacyDG_%s_%s', h_label, sensor_group));
 
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_%s', h_label))) = string(pass_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('incremental_history_%s', h_label))) = string(incr_history_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('incremental_stop_%s', h_label))) = string(incr_stop_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('boundary_hit_%s', h_label))) = diag_artifacts.boundary_hit_csv;
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_saturation_%s', h_label))) = diag_artifacts.passratio_csv;
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_truncation_%s', h_label))) = diag_artifacts.frontier_csv;
@@ -58,6 +64,24 @@ for idx = 1:numel(run_output.runs)
 
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratio_%s', h_label))) = string(pass_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_png);
+end
+
+function T = local_build_incremental_stop_reason(run)
+history = run.incremental_search_history;
+if isempty(history)
+    T = table(string(run.family_name), run.h_km, "no_history", 0, 0, 0, ...
+        'VariableNames', {'family_name', 'h_km', 'stop_reason', 'previous_design_count', 'added_design_count', 'merged_design_count'});
+    return;
+end
+last_row = history(end, :);
+T = table( ...
+    string(run.family_name), ...
+    run.h_km, ...
+    string(last_row.stop_reason), ...
+    last_row.previous_design_count, ...
+    last_row.added_design_count, ...
+    last_row.merged_design_count, ...
+    'VariableNames', {'family_name', 'h_km', 'stop_reason', 'previous_design_count', 'added_design_count', 'merged_design_count'});
 end
 end
 

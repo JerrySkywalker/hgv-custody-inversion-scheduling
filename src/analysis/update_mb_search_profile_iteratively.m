@@ -12,6 +12,14 @@ P_values = reshape(local_getfield_or(next_profile, 'P_values', local_getfield_or
 T_values = reshape(local_getfield_or(next_profile, 'T_values', local_getfield_or(next_profile, 'T_grid', [])), 1, []);
 plot_xlim_ns = reshape(local_getfield_or(next_profile, 'Ns_xlim_plot', local_getfield_or(next_profile, 'plot_xlim_ns', [])), 1, []);
 
+search_domain = struct('P_grid', P_values, 'T_grid', T_values, 'P_values', P_values, 'T_values', T_values);
+[search_domain, search_action] = propose_next_mb_search_domain(search_domain, quality, options);
+P_values = reshape(local_getfield_or(search_domain, 'P_grid', P_values), 1, []);
+T_values = reshape(local_getfield_or(search_domain, 'T_grid', T_values), 1, []);
+if string(search_action.name) ~= "hold"
+    action = search_action;
+end
+
 max_P = local_getfield_or(options, 'max_P', max(P_values));
 max_T = local_getfield_or(options, 'max_T', max(T_values));
 step_P = local_getfield_or(options, 'expand_step_P', 2);
@@ -19,7 +27,7 @@ step_T = local_getfield_or(options, 'expand_step_T', 4);
 min_P = max(2, local_getfield_or(options, 'min_P', 2));
 min_T = max(2, local_getfield_or(options, 'min_T', 2));
 
-if quality.no_feasible_point_found || quality.only_single_point_visible || quality.insufficient_valid_curves
+if action.name == "hold" && (quality.no_feasible_point_found || quality.only_single_point_visible || quality.insufficient_valid_curves)
     if max(T_values) < max_T
         T_values = unique([T_values, min(max_T, T_values(end) + step_T)], 'stable');
         action.name = "expand_T_upper";
@@ -31,7 +39,7 @@ if quality.no_feasible_point_found || quality.only_single_point_visible || quali
     end
 end
 
-if ~quality.right_plateau_reached
+if action.name == "hold" && ~quality.right_plateau_reached
     if max(T_values) < max_T
         T_values = unique([T_values, min(max_T, T_values(end) + step_T)], 'stable');
         action.name = "expand_T_upper";
