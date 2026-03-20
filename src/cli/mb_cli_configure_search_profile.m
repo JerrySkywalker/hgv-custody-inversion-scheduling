@@ -25,6 +25,10 @@ if interactive
     meta = cfg_out.milestones.MB_semantic_compare;
     fprintf('[run_stages][CLI] search-domain: %s\n', char(string(local_getfield_or(meta, 'search_domain_label', ""))));
     fprintf('[run_stages][CLI] plot-domain: %s\n', char(string(local_getfield_or(meta, 'plot_domain_label', ""))));
+    fprintf('[run_stages][CLI] cache: %s\n', char(format_mb_cache_policy_label(local_getfield_or(meta, 'cache_policy', 'all_reuse'), local_getfield_or(meta, 'cache_profile', struct()), "short")));
+    fprintf('[run_stages][CLI] incremental: %s\n', char(format_mb_incremental_policy_label(meta, "short")));
+    fprintf('[run_stages][CLI] parallel: %s\n', char(format_mb_parallel_policy_label(meta, "short")));
+    fprintf('[run_stages][CLI] boundary diagnostics: %s\n', char(format_mb_boundary_diagnostics_label(local_getfield_or(meta, 'boundary_diagnostics_enabled', true), "short")));
 end
 end
 
@@ -42,12 +46,18 @@ selection.semantic_mode = char(string(local_getfield_or(meta, 'mode', profile.se
 selection.sensor_groups = resolve_sensor_param_groups(local_getfield_or(meta, 'sensor_groups', cellstr(string(profile.sensor_group_names))));
 selection.heights_to_run = reshape(local_getfield_or(meta, 'heights_to_run', profile.height_grid_km), 1, []);
 selection.search_range_source = char(string(local_getfield_or(meta, 'search_range_source', 'profile_default')));
+selection.search_domain_policy = char(string(local_getfield_or(meta, 'search_domain_policy', 'profile_default')));
+selection.plot_domain_policy = char(string(local_getfield_or(meta, 'plot_domain_policy', 'data_range')));
 selection.P_grid = reshape(local_getfield_or(meta, 'P_grid', profile.P_grid), 1, []);
 selection.T_grid = reshape(local_getfield_or(meta, 'T_grid', profile.T_grid), 1, []);
 selection.plot_xlim_ns = reshape(local_getfield_or(meta, 'plot_xlim_ns', profile.Ns_xlim_plot), 1, []);
 selection.cache_policy = char(string(local_getfield_or(meta, 'cache_policy', 'all_reuse')));
+selection.cache_strict_compatibility = logical(local_getfield_or(local_getfield_or(meta, 'cache_profile', struct()), 'strict_compatibility', true));
 selection.auto_tune_requested = logical(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'enabled', profile.auto_tune.enabled));
 selection.auto_tune_mode = char(string(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'mode', local_default_autotune_mode(meta))));
+selection.parallel_policy = char(string(local_getfield_or(meta, 'parallel_policy', 'off')));
+selection.incremental_expansion_enabled = logical(local_getfield_or(meta, 'incremental_expansion_enabled', local_getfield_or(meta, 'allow_auto_expand_upper', false)));
+selection.boundary_diagnostics_enabled = logical(local_getfield_or(meta, 'boundary_diagnostics_enabled', true));
 selection.baseline_validation_only = isequal(selection.sensor_groups, {'baseline'}) && isequal(selection.heights_to_run, 1000) && strcmpi(selection.semantic_mode, 'comparison');
 selection.manual_override = struct();
 end
@@ -96,6 +106,12 @@ end
 
 selection.search_range_source = local_ask_choice('search range source', selection.search_range_source, ...
     {'profile_default', 'manual_override', 'auto_tuned_profile'});
+selection.search_domain_policy = local_ask_choice('search domain policy', selection.search_domain_policy, ...
+    {'profile_default', 'expand_if_unsaturated', 'strict_stage05_reference', 'custom'}, ...
+    local_search_domain_policy_labels());
+selection.plot_domain_policy = local_ask_choice('plot domain policy', selection.plot_domain_policy, ...
+    {'search_profile', 'data_range', 'frontier_summary', 'strict_stage05_reference', 'custom'}, ...
+    local_plot_domain_policy_labels());
 selection.manual_override = struct();
 if strcmpi(selection.search_range_source, 'manual_override')
     selection.P_grid = local_ask_vector('manual P_grid', profile.P_grid);
@@ -117,9 +133,21 @@ else
     selection.T_grid = reshape(profile.T_grid, 1, []);
     selection.plot_xlim_ns = reshape(profile.Ns_xlim_plot, 1, []);
 end
+if strcmpi(selection.search_range_source, 'manual_override') && ~strcmpi(selection.search_domain_policy, 'strict_stage05_reference')
+    selection.search_domain_policy = 'custom';
+end
+if ~isempty(selection.plot_xlim_ns) && strcmpi(selection.plot_domain_policy, 'data_range') && strcmpi(selection.search_range_source, 'manual_override')
+    selection.plot_domain_policy = 'custom';
+end
 
 selection.cache_policy = local_ask_choice('cache policy', selection.cache_policy, ...
     {'all_reuse', 'truth_only', 'no_reuse'});
+selection.cache_strict_compatibility = local_ask_yesno('cache strict compatibility check', selection.cache_strict_compatibility);
+selection.parallel_policy = local_ask_choice('parallel policy', selection.parallel_policy, ...
+    {'off', 'task_bundle', 'task_plus_partition'}, ...
+    local_parallel_policy_labels());
+selection.incremental_expansion_enabled = local_ask_yesno('enable incremental expansion', selection.incremental_expansion_enabled);
+selection.boundary_diagnostics_enabled = local_ask_yesno('enable boundary diagnostics export', selection.boundary_diagnostics_enabled);
 selection.auto_tune_mode = local_ask_choice('auto tune mode', selection.auto_tune_mode, ...
     {'off', 'evaluate_only', 'iterative_recommend_only', 'iterative_recommend_and_apply'});
 selection.auto_tune_requested = ~strcmpi(selection.auto_tune_mode, 'off');
@@ -149,8 +177,19 @@ if logical(selection.enable_search_profile_manager)
         'semantic_mode', string(selection.semantic_mode), ...
         'sensor_group', string(local_pick_first(selection.sensor_groups, 'baseline')), ...
         'height_km', local_pick_first(selection.heights_to_run, 1000), ...
-        'search_domain_policy', string(selection.search_range_source), ...
+        'search_domain_policy', string(selection.search_domain_policy), ...
+        'plot_domain_policy', string(selection.plot_domain_policy), ...
+        'search_range_source', string(selection.search_range_source), ...
         'cli_manual_override', selection.manual_override);
+    context.search_domain_policy = string(selection.search_domain_policy);
+    context.plot_domain_policy = string(selection.plot_domain_policy);
+    context.search_domain_override = struct( ...
+        'allow_auto_expand_upper', logical(selection.incremental_expansion_enabled));
+    context.plot_domain_override = struct( ...
+        'plot_xlim_mode', string(selection.plot_domain_policy));
+    if strcmpi(selection.plot_domain_policy, 'custom') && numel(selection.plot_xlim_ns) == 2
+        context.plot_domain_override.plot_xlim_ns = reshape(selection.plot_xlim_ns, 1, []);
+    end
     if strcmpi(selection.search_range_source, 'auto_tuned_profile')
         context.autotuned_profile_if_any = local_extract_autotuned_profile_override(cfg_in);
     end
@@ -167,6 +206,10 @@ if logical(local_getfield_or(local_getfield_or(profile, 'stage05_replica', struc
     selection.plot_xlim_ns = reshape(profile.Ns_xlim_plot, 1, []);
     selection.manual_override = struct();
     selection.auto_tune_requested = false;
+    selection.search_domain_policy = 'strict_stage05_reference';
+    selection.plot_domain_policy = 'strict_stage05_reference';
+    selection.incremental_expansion_enabled = false;
+    selection.cache_strict_compatibility = true;
 else
     profile = merge_mb_search_profile_overrides(profile, struct( ...
         'semantic_mode', string(selection.semantic_mode), ...
@@ -186,8 +229,14 @@ profile = local_apply_cache_policy(profile, selection.cache_policy);
 cfg_out.milestones.MB_semantic_compare.cli_selection = selection;
 cfg_out.milestones.MB_semantic_compare.enable_search_profile_manager = logical(selection.enable_search_profile_manager);
 cfg_out.milestones.MB_semantic_compare.search_range_source = string(selection.search_range_source);
+cfg_out.milestones.MB_semantic_compare.search_domain_policy = string(selection.search_domain_policy);
+cfg_out.milestones.MB_semantic_compare.plot_domain_policy = string(selection.plot_domain_policy);
 cfg_out.milestones.MB_semantic_compare.cache_policy = string(selection.cache_policy);
 cfg_out.milestones.MB_semantic_compare.search_profile_mode = string(selection.profile_mode);
+cfg_out.milestones.MB_semantic_compare.parallel_policy = string(selection.parallel_policy);
+cfg_out.milestones.MB_semantic_compare.incremental_expansion_enabled = logical(selection.incremental_expansion_enabled);
+cfg_out.milestones.MB_semantic_compare.boundary_diagnostics_enabled = logical(selection.boundary_diagnostics_enabled);
+cfg_out.milestones.MB_semantic_compare.cache_profile.strict_compatibility = logical(selection.cache_strict_compatibility);
 cfg_out.milestones.MB_semantic_compare.search_profile_context = context;
 cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only = strcmpi(selection.run_mode, 'strict_stage05_validation_only');
 if cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only
@@ -538,6 +587,31 @@ function labels = local_sensor_labels(choices)
 labels = cell(size(choices));
 for idx = 1:numel(choices)
     labels{idx} = char(format_mb_sensor_group_label(choices{idx}, "short"));
+end
+end
+
+function labels = local_search_domain_policy_labels()
+labels = { ...
+    'profile_default (use the selected profile search grid)', ...
+    'expand_if_unsaturated (allow incremental search-domain growth)', ...
+    'strict_stage05_reference (locked Stage05 reference search domain)', ...
+    'custom (use the current manual or patched search domain)'};
+end
+
+function labels = local_plot_domain_policy_labels()
+labels = { ...
+    'search_profile (plot directly over the current search domain)', ...
+    'data_range (data-adaptive plotting window)', ...
+    'frontier_summary (summary-style window anchored to search domain)', ...
+    'strict_stage05_reference (locked Stage05 envelope window)', ...
+    'custom (use the current manual plot x limits)'};
+end
+
+function labels = local_parallel_policy_labels()
+choices = {'off', 'task_bundle', 'task_plus_partition'};
+labels = cell(size(choices));
+for idx = 1:numel(choices)
+    labels{idx} = char(format_mb_parallel_policy_label(struct('parallel_policy', choices{idx}), "short"));
 end
 end
 

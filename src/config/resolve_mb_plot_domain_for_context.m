@@ -83,8 +83,10 @@ plot_domain.plot_xlim_mode = string(mode_token);
 
 if isempty(plot_domain.plot_xlim_ns)
     switch lower(mode_token)
-        case {'search_profile', 'strict_stage05_reference'}
+        case {'search_profile', 'strict_stage05_reference', 'frontier_summary'}
             plot_domain.plot_xlim_ns = [search_domain.ns_search_min, search_domain.ns_search_max];
+        case 'custom'
+            plot_domain.plot_xlim_ns = reshape(local_getfield_or(plot_domain, 'plot_xlim_ns', []), 1, []);
         otherwise
             plot_domain.plot_xlim_ns = [];
     end

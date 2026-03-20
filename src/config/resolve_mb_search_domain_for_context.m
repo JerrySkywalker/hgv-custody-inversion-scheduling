@@ -54,6 +54,17 @@ if isstruct(context_override) && ~isempty(fieldnames(context_override))
 end
 
 search_domain = local_normalize_search_domain(search_domain);
+switch lower(char(string(policy_name)))
+    case 'strict_stage05_reference'
+        search_domain.strict_stage05_reference = true;
+        search_domain.allow_auto_expand_upper = false;
+    case 'expand_if_unsaturated'
+        search_domain.allow_auto_expand_upper = true;
+    case 'custom'
+        % keep the caller-provided grids and expansion flags as-is
+    otherwise
+        % profile_default and other catalog policies keep the resolved defaults
+end
 if logical(local_getfield_or(local_getfield_or(profile, 'auto_tune', struct()), 'enabled', false)) && ~strict_lock
     search_domain.allow_auto_expand_upper = true;
 end

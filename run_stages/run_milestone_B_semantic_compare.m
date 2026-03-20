@@ -38,6 +38,19 @@ function out = run_milestone_B_semantic_compare(cfg, interactive)
     profile_mode_label = char(format_mb_search_profile_mode_label(local_getfield_or(cfg.milestones.MB_semantic_compare, 'search_profile_mode', 'debug'), "short"));
     search_domain_label = char(local_getfield_or(cfg.milestones.MB_semantic_compare, 'search_domain_label', format_mb_search_domain_label(local_build_effective_search_domain_from_cfg(cfg), "short")));
     plot_domain_label = char(local_getfield_or(cfg.milestones.MB_semantic_compare, 'plot_domain_label', format_mb_plot_domain_label(local_build_effective_plot_domain_from_cfg(cfg), "short")));
+    cache_policy_label = char(format_mb_cache_policy_label( ...
+        local_getfield_or(cfg.milestones.MB_semantic_compare, 'cache_policy', 'all_reuse'), ...
+        local_getfield_or(cfg.milestones.MB_semantic_compare, 'cache_profile', struct()), ...
+        "short"));
+    incremental_policy_label = char(format_mb_incremental_policy_label(cfg.milestones.MB_semantic_compare, "short"));
+    parallel_policy_label = char(format_mb_parallel_policy_label(cfg.milestones.MB_semantic_compare, "short"));
+    boundary_label = char(format_mb_boundary_diagnostics_label(local_getfield_or(cfg.milestones.MB_semantic_compare, 'boundary_diagnostics_enabled', true), "detailed"));
+    strict_lock = logical(local_getfield_or(local_getfield_or(cfg.milestones.MB_semantic_compare, 'stage05_replica', struct()), 'strict', false));
+    if strict_lock
+        strict_lock_label = 'on (locked Stage05 reference)';
+    else
+        strict_lock_label = 'off';
+    end
 
     fprintf('[run_stages] === MB semantic compare ===\n');
     fprintf('[run_stages] profile=%s | profile_mode=%s | mode=%s | sensor_groups=%s | heights=%s | families=%s | dense_local=%s | fast_mode=%s\n', ...
@@ -53,6 +66,11 @@ function out = run_milestone_B_semantic_compare(cfg, interactive)
     fprintf('[run_stages] sensor detail: %s\n', strjoin(sensor_labels, ' | '));
     fprintf('[run_stages] search domain: %s\n', search_domain_label);
     fprintf('[run_stages] plot domain: %s\n', plot_domain_label);
+    fprintf('[run_stages] cache: %s\n', cache_policy_label);
+    fprintf('[run_stages] incremental: %s\n', incremental_policy_label);
+    fprintf('[run_stages] parallel: %s\n', parallel_policy_label);
+    fprintf('[run_stages] boundary diagnostics: %s\n', boundary_label);
+    fprintf('[run_stages] strict replica lock: %s\n', strict_lock_label);
 
     out = milestone_B_semantic_compare(cfg);
     fprintf('[run_stages] MB semantic compare complete: status=%s\n', char(string(out.summary.execution_status)));
@@ -161,7 +179,15 @@ end
 
 function cfg = local_configure_runtime(cfg, selection)
     meta = cfg.milestones.MB_semantic_compare;
-    fprintf('[run_stages][CLI] 当前 search profile: %s\n', char(string(selection.profile_name)));
+    fprintf('[run_stages][CLI] 当前 search profile: %s\n', char(format_mb_search_profile_label(selection.profile_name, cfg, "short")));
+    fprintf('[run_stages][CLI] search domain policy: %s\n', char(string(selection.search_domain_policy)));
+    fprintf('[run_stages][CLI] plot domain policy: %s\n', char(string(selection.plot_domain_policy)));
+    fprintf('[run_stages][CLI] cache policy: %s\n', char(format_mb_cache_policy_label(selection.cache_policy, struct('strict_compatibility', selection.cache_strict_compatibility), "short")));
+    fprintf('[run_stages][CLI] incremental policy: %s\n', char(format_mb_incremental_policy_label(struct( ...
+        'search_domain_policy', selection.search_domain_policy, ...
+        'incremental_expansion_enabled', selection.incremental_expansion_enabled, ...
+        'strict_stage05_reference', strcmpi(selection.profile_mode, 'strict_replica')), "short")));
+    fprintf('[run_stages][CLI] parallel policy: %s\n', char(format_mb_parallel_policy_label(struct('parallel_policy', selection.parallel_policy), "short")));
     family_token = local_ask_csv_token('family set', strjoin(cellstr(string(meta.family_set)), ','), {'nominal', 'heading', 'critical', 'all'});
     run_dense_local = local_ask_yesno('run dense local refinement', logical(meta.run_dense_local));
     fast_mode = local_ask_yesno('fast mode', logical(meta.fast_mode));
