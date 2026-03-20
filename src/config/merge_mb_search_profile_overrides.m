@@ -43,6 +43,15 @@ profile.inclination_grid_deg = reshape(local_getfield_or(profile, 'inclination_g
 profile.profile_mode = string(local_getfield_or(profile, 'profile_mode', "debug"));
 profile.profile_mode_description = string(local_getfield_or(profile, 'profile_mode_description', "fast validation with smaller budget"));
 
+if ~isfield(profile, 'search_domain') || ~isstruct(profile.search_domain)
+    profile.search_domain = struct();
+end
+if ~isfield(profile, 'plot_domain') || ~isstruct(profile.plot_domain)
+    profile.plot_domain = struct();
+end
+profile.search_domain = local_normalize_search_domain(profile.search_domain, profile);
+profile.plot_domain = local_normalize_plot_domain(profile.plot_domain, profile);
+
 if ~isfield(profile, 'auto_tune') || ~isstruct(profile.auto_tune)
     profile.auto_tune = struct();
 end
@@ -78,6 +87,25 @@ profile.metadata.profile_mode = string(profile.profile_mode);
 profile.metadata.profile_mode_description = string(profile.profile_mode_description);
 profile.metadata.override_sources = cellstr(string(local_getfield_or(profile.metadata, 'override_sources', {})));
 profile.metadata.context = local_getfield_or(profile.metadata, 'context', struct());
+end
+
+function search_domain = local_normalize_search_domain(search_domain, profile)
+search_domain.policy_name = string(local_getfield_or(search_domain, 'policy_name', "profile_default"));
+search_domain.height_grid_km = reshape(local_getfield_or(search_domain, 'height_grid_km', local_getfield_or(profile, 'height_grid_km', [])), 1, []);
+search_domain.inclination_grid_deg = reshape(local_getfield_or(search_domain, 'inclination_grid_deg', local_getfield_or(profile, 'inclination_grid_deg', [])), 1, []);
+search_domain.P_grid = reshape(local_getfield_or(search_domain, 'P_grid', local_getfield_or(profile, 'P_values', local_getfield_or(profile, 'P_grid', []))), 1, []);
+search_domain.T_grid = reshape(local_getfield_or(search_domain, 'T_grid', local_getfield_or(profile, 'T_values', local_getfield_or(profile, 'T_grid', []))), 1, []);
+search_domain.allow_auto_expand_upper = logical(local_getfield_or(search_domain, 'allow_auto_expand_upper', false));
+search_domain.allow_lower_bound_expansion = logical(local_getfield_or(search_domain, 'allow_lower_bound_expansion', false));
+end
+
+function plot_domain = local_normalize_plot_domain(plot_domain, profile)
+plot_domain.plot_xlim_mode = string(local_getfield_or(plot_domain, 'plot_xlim_mode', "data_range"));
+plot_domain.plot_xlim_ns = reshape(local_getfield_or(plot_domain, 'plot_xlim_ns', local_getfield_or(profile, 'Ns_xlim_plot', local_getfield_or(profile, 'plot_xlim_ns', []))), 1, []);
+plot_domain.plot_ylim_passratio = reshape(local_getfield_or(plot_domain, 'plot_ylim_passratio', local_getfield_or(profile, 'plot_ylim_passratio', [0, 1.05])), 1, []);
+plot_domain.plot_ylim_dg = reshape(local_getfield_or(plot_domain, 'plot_ylim_dg', local_getfield_or(profile, 'plot_ylim_dg', [])), 1, []);
+plot_domain.plot_domain_guardrail_mode = string(local_getfield_or(plot_domain, 'plot_domain_guardrail_mode', "standard"));
+plot_domain.show_domain_annotation = logical(local_getfield_or(plot_domain, 'show_domain_annotation', true));
 end
 
 function profile = local_record_source(profile, source_tag)

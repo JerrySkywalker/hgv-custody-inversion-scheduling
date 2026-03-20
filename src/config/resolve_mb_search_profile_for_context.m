@@ -51,6 +51,8 @@ profile.metadata.context.sensor_group = string(sensor_group);
 if ~isempty(height_km)
     profile.metadata.context.height_km = height_km;
 end
+profile.search_domain = resolve_mb_search_domain_for_context(profile.metadata.context, cfg, profile);
+profile.plot_domain = resolve_mb_plot_domain_for_context(profile.metadata.context, cfg, profile, profile.search_domain);
 profile.metadata.profile_source = "resolve_mb_search_profile_for_context";
 end
 

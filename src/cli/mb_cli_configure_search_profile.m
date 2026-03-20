@@ -21,6 +21,11 @@ if interactive
 end
 
 [cfg_out, profile] = local_apply_selection(cfg_out, selection);
+if interactive
+    meta = cfg_out.milestones.MB_semantic_compare;
+    fprintf('[run_stages][CLI] search-domain: %s\n', char(string(local_getfield_or(meta, 'search_domain_label', ""))));
+    fprintf('[run_stages][CLI] plot-domain: %s\n', char(string(local_getfield_or(meta, 'plot_domain_label', ""))));
+end
 end
 
 function selection = local_default_selection(cfg)
@@ -144,6 +149,7 @@ if logical(selection.enable_search_profile_manager)
         'semantic_mode', string(selection.semantic_mode), ...
         'sensor_group', string(local_pick_first(selection.sensor_groups, 'baseline')), ...
         'height_km', local_pick_first(selection.heights_to_run, 1000), ...
+        'search_domain_policy', string(selection.search_range_source), ...
         'cli_manual_override', selection.manual_override);
     if strcmpi(selection.search_range_source, 'auto_tuned_profile')
         context.autotuned_profile_if_any = local_extract_autotuned_profile_override(cfg_in);
@@ -187,6 +193,7 @@ cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only = strcmpi
 if cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only
     cfg_out.milestones.MB_semantic_compare.mode = 'legacyDG';
     cfg_out.milestones.MB_semantic_compare.sensor_groups = {'stage05_strict_reference'};
+    cfg_out.milestones.MB_semantic_compare.heights_to_run = 1000;
     cfg_out.milestones.MB_semantic_compare.run_dense_local = false;
     cfg_out.milestones.MB_semantic_compare.auto_tune.enabled = false;
 end

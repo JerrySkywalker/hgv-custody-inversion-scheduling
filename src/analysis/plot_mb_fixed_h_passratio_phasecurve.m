@@ -93,6 +93,12 @@ text_parts = strings(0, 1);
 if isfield(options, 'plot_domain_source') && strlength(string(options.plot_domain_source)) > 0
     text_parts(end + 1, 1) = "domain: " + string(options.plot_domain_source); %#ok<AGROW>
 end
+if isfield(options, 'search_domain_label') && strlength(string(options.search_domain_label)) > 0
+    text_parts(end + 1, 1) = "search-domain: " + string(options.search_domain_label); %#ok<AGROW>
+end
+if isfield(options, 'plot_domain_label') && strlength(string(options.plot_domain_label)) > 0
+    text_parts(end + 1, 1) = "plot-domain: " + string(options.plot_domain_label); %#ok<AGROW>
+end
 if isfield(options, 'diagnostic_text') && strlength(string(options.diagnostic_text)) > 0
     text_parts(end + 1, 1) = string(options.diagnostic_text); %#ok<AGROW>
 end

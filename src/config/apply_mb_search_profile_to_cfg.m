@@ -30,6 +30,13 @@ if nargin >= 3 && isstruct(overrides) && ~isempty(fieldnames(overrides))
     profile = merge_mb_search_profile_overrides(profile, overrides, "apply_overrides");
 end
 
+domain_context = local_getfield_or(profile.metadata, 'context', struct());
+if ~isfield(domain_context, 'user_selected_profile_name') || strlength(string(domain_context.user_selected_profile_name)) == 0
+    domain_context.user_selected_profile_name = string(profile.name);
+end
+search_domain = resolve_mb_search_domain_for_context(domain_context, cfg_out, profile);
+plot_domain = resolve_mb_plot_domain_for_context(domain_context, cfg_out, profile, search_domain);
+
 cfg_out.milestones.MB_semantic_compare.search_profile = string(profile.name);
 cfg_out.milestones.MB_semantic_compare.search_profile_mode = string(profile.profile_mode);
 cfg_out.milestones.MB_semantic_compare.search_profile_mode_description = string(profile.profile_mode_description);
@@ -37,12 +44,6 @@ cfg_out.milestones.MB_semantic_compare.search_profile_applied = true;
 cfg_out.milestones.MB_semantic_compare.search_profile_description = string(profile.description);
 cfg_out.milestones.MB_semantic_compare.mode = char(string(profile.semantic_mode));
 cfg_out.milestones.MB_semantic_compare.sensor_groups = cellstr(string(profile.sensor_group_names));
-cfg_out.milestones.MB_semantic_compare.heights_to_run = reshape(profile.height_grid_km, 1, []);
-cfg_out.milestones.MB_semantic_compare.i_grid_deg = reshape(profile.inclination_grid_deg, 1, []);
-cfg_out.milestones.MB_semantic_compare.P_grid = reshape(profile.P_values, 1, []);
-cfg_out.milestones.MB_semantic_compare.T_grid = reshape(profile.T_values, 1, []);
-cfg_out.milestones.MB_semantic_compare.plot_xlim_ns = reshape(profile.Ns_xlim_plot, 1, []);
-cfg_out.milestones.MB_semantic_compare.plot_ylim_passratio = profile.plot_ylim_passratio;
 cfg_out.milestones.MB_semantic_compare.plot_xlim_heatmap_P = profile.plot_xlim_heatmap_P;
 cfg_out.milestones.MB_semantic_compare.plot_ylim_heatmap_i = profile.plot_ylim_heatmap_i;
 cfg_out.milestones.MB_semantic_compare.plot_xlim_frontier_i = profile.plot_xlim_frontier_i;
@@ -62,6 +63,8 @@ cfg_out.milestones.MB_semantic_compare.dense_local_T = reshape(profile.dense_loc
 cfg_out.milestones.MB_semantic_compare.search_profile_metadata = profile.metadata;
 cfg_out.milestones.MB_semantic_compare.search_profile_context = local_getfield_or(profile.metadata, 'context', struct());
 cfg_out.milestones.MB_semantic_compare.search_profile_override_sources = cellstr(string(local_getfield_or(profile.metadata, 'override_sources', {})));
+cfg_out = apply_mb_search_domain_to_cfg(cfg_out, search_domain);
+cfg_out = apply_mb_plot_domain_to_cfg(cfg_out, plot_domain);
 end
 
 function name = local_get_profile_name(profile_in)

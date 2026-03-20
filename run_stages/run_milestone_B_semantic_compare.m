@@ -36,6 +36,8 @@ function out = run_milestone_B_semantic_compare(cfg, interactive)
     sensor_labels = cellfun(@(name) char(format_mb_sensor_group_label(name, "short")), sensor_groups, 'UniformOutput', false);
     profile_label = char(format_mb_search_profile_label(local_build_effective_profile_from_cfg(cfg), cfg, "detailed"));
     profile_mode_label = char(format_mb_search_profile_mode_label(local_getfield_or(cfg.milestones.MB_semantic_compare, 'search_profile_mode', 'debug'), "short"));
+    search_domain_label = char(local_getfield_or(cfg.milestones.MB_semantic_compare, 'search_domain_label', format_mb_search_domain_label(local_build_effective_search_domain_from_cfg(cfg), "short")));
+    plot_domain_label = char(local_getfield_or(cfg.milestones.MB_semantic_compare, 'plot_domain_label', format_mb_plot_domain_label(local_build_effective_plot_domain_from_cfg(cfg), "short")));
 
     fprintf('[run_stages] === MB semantic compare ===\n');
     fprintf('[run_stages] profile=%s | profile_mode=%s | mode=%s | sensor_groups=%s | heights=%s | families=%s | dense_local=%s | fast_mode=%s\n', ...
@@ -49,6 +51,8 @@ function out = run_milestone_B_semantic_compare(cfg, interactive)
         char(string(logical(cfg.milestones.MB_semantic_compare.fast_mode))));
     fprintf('[run_stages] profile detail: %s\n', profile_label);
     fprintf('[run_stages] sensor detail: %s\n', strjoin(sensor_labels, ' | '));
+    fprintf('[run_stages] search domain: %s\n', search_domain_label);
+    fprintf('[run_stages] plot domain: %s\n', plot_domain_label);
 
     out = milestone_B_semantic_compare(cfg);
     fprintf('[run_stages] MB semantic compare complete: status=%s\n', char(string(out.summary.execution_status)));
@@ -140,6 +144,18 @@ function cfg = local_apply_auto_tune_if_requested(cfg, interactive)
         meta.plot_xlim_ns = tune_result.recommended_plot_xlim_ns;
         meta.auto_tuned_flag = true;
     end
+    search_context = local_getfield_or(meta, 'search_profile_context', struct());
+    if ~isfield(search_context, 'user_selected_profile_name') || strlength(string(search_context.user_selected_profile_name)) == 0
+        search_context.user_selected_profile_name = string(local_getfield_or(meta, 'search_profile', 'mb_default'));
+    end
+    search_context.autotuned_profile_if_any = local_compact_tune_override(meta, tune_result, apply_recommendation);
+    profile = local_build_effective_profile_from_meta(meta);
+    meta.search_domain = resolve_mb_search_domain_for_context(search_context, cfg, profile);
+    meta.plot_domain = resolve_mb_plot_domain_for_context(search_context, cfg, profile, meta.search_domain);
+    meta.search_domain_label = string(format_mb_search_domain_label(meta.search_domain, "short"));
+    meta.search_domain_detail = string(format_mb_search_domain_label(meta.search_domain, "detailed"));
+    meta.plot_domain_label = string(format_mb_plot_domain_label(meta.plot_domain, "short"));
+    meta.plot_domain_detail = string(format_mb_plot_domain_label(meta.plot_domain, "detailed"));
     cfg.milestones.MB_semantic_compare = meta;
 end
 
@@ -382,7 +398,11 @@ end
 
 function profile = local_build_effective_profile_from_cfg(cfg)
 meta = cfg.milestones.MB_semantic_compare;
-    profile = struct( ...
+profile = local_build_effective_profile_from_meta(meta);
+end
+
+function profile = local_build_effective_profile_from_meta(meta)
+profile = struct( ...
         'name', string(local_getfield_or(meta, 'search_profile', "mb_default")), ...
         'description', string(local_getfield_or(meta, 'search_profile_description', "")), ...
         'profile_mode', string(local_getfield_or(meta, 'search_profile_mode', "debug")), ...
@@ -397,7 +417,54 @@ meta = cfg.milestones.MB_semantic_compare;
     'T_values', reshape(local_getfield_or(meta, 'T_grid', []), 1, []), ...
     'plot_xlim_ns', reshape(local_getfield_or(meta, 'plot_xlim_ns', []), 1, []), ...
     'Ns_xlim_plot', reshape(local_getfield_or(meta, 'plot_xlim_ns', []), 1, []), ...
-    'stage05_replica', local_getfield_or(meta, 'stage05_replica', struct()));
+    'stage05_replica', local_getfield_or(meta, 'stage05_replica', struct()), ...
+    'search_domain', local_getfield_or(meta, 'search_domain', struct()), ...
+    'plot_domain', local_getfield_or(meta, 'plot_domain', struct()), ...
+    'auto_tune', local_getfield_or(meta, 'auto_tune', struct()), ...
+    'cache', local_getfield_or(meta, 'cache_profile', struct()), ...
+    'metadata', struct('context', local_getfield_or(meta, 'search_profile_context', struct())));
+end
+
+function search_domain = local_build_effective_search_domain_from_cfg(cfg)
+meta = cfg.milestones.MB_semantic_compare;
+search_domain = local_getfield_or(meta, 'search_domain', struct());
+if isempty(fieldnames(search_domain))
+    search_domain = struct( ...
+        'policy_name', string(local_getfield_or(meta, 'search_domain_policy', "profile_default")), ...
+        'height_grid_km', reshape(local_getfield_or(meta, 'heights_to_run', []), 1, []), ...
+        'inclination_grid_deg', reshape(local_getfield_or(meta, 'i_grid_deg', []), 1, []), ...
+        'P_grid', reshape(local_getfield_or(meta, 'P_grid', []), 1, []), ...
+        'T_grid', reshape(local_getfield_or(meta, 'T_grid', []), 1, []), ...
+        'ns_search_min', local_getfield_or(meta, 'ns_search_min', NaN), ...
+        'ns_search_max', local_getfield_or(meta, 'ns_search_max', NaN), ...
+        'ns_search_step', local_getfield_or(meta, 'ns_search_step', NaN), ...
+        'allow_auto_expand_upper', logical(local_getfield_or(meta, 'allow_auto_expand_upper', false)));
+end
+end
+
+function plot_domain = local_build_effective_plot_domain_from_cfg(cfg)
+meta = cfg.milestones.MB_semantic_compare;
+plot_domain = local_getfield_or(meta, 'plot_domain', struct());
+if isempty(fieldnames(plot_domain))
+    plot_domain = struct( ...
+        'plot_xlim_mode', string(local_getfield_or(meta, 'plot_domain_policy', "data_range")), ...
+        'plot_xlim_ns', reshape(local_getfield_or(meta, 'plot_xlim_ns', []), 1, []), ...
+        'plot_ylim_passratio', reshape(local_getfield_or(meta, 'plot_ylim_passratio', [0, 1.05]), 1, []), ...
+        'plot_domain_guardrail_mode', string(local_getfield_or(meta, 'plot_domain_guardrail_mode', "standard")));
+end
+end
+
+function override = local_compact_tune_override(meta, tune_result, apply_recommendation)
+override = struct();
+if ~apply_recommendation
+    return;
+end
+override.P_grid = reshape(local_getfield_or(tune_result, 'recommended_P_grid', local_getfield_or(meta, 'P_grid', [])), 1, []);
+override.T_grid = reshape(local_getfield_or(tune_result, 'recommended_T_grid', local_getfield_or(meta, 'T_grid', [])), 1, []);
+override.P_values = override.P_grid;
+override.T_values = override.T_grid;
+override.plot_xlim_ns = reshape(local_getfield_or(tune_result, 'recommended_plot_xlim_ns', local_getfield_or(meta, 'plot_xlim_ns', [])), 1, []);
+override.Ns_xlim_plot = override.plot_xlim_ns;
 end
 
 function ns_value = local_grid_ns_bound(P_grid, T_grid, mode)
