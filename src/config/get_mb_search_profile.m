@@ -33,6 +33,8 @@ switch token
         token = 'mb_default';
     case {'dense', 'mb_dense_local'}
         token = 'mb_dense_local';
+    case {'heavy', 'mb_heavy'}
+        token = 'mb_heavy';
     case {'strict', 'stage05_strict_replica', 'strict_stage05_replica', 'mb_stage05_strict_replica'}
         token = 'strict_stage05_replica';
     case {'auto_plot_tune', 'auto_tune', 'mb_auto_plot_tune'}

@@ -29,18 +29,26 @@ end
 search_domain = struct();
 search_domain.policy_name = policy_name;
 search_domain.profile_name = string(local_getfield_or(profile, 'name', "mb_default"));
-search_domain.profile_mode = string(local_getfield_or(profile, 'profile_mode', "debug"));
+search_domain.profile_mode = string(local_getfield_or(profile, 'profile_mode', "expand_default"));
 search_domain.semantic_mode = string(local_getfield_or(profile, 'semantic_mode', ""));
 search_domain.sensor_group_names = cellstr(string(local_getfield_or(profile, 'sensor_group_names', {'baseline'})));
 search_domain.height_grid_km = reshape(local_getfield_or(profile, 'height_grid_km', []), 1, []);
 search_domain.inclination_grid_deg = reshape(local_getfield_or(profile, 'inclination_grid_deg', []), 1, []);
 search_domain.P_grid = reshape(local_getfield_or(profile, 'P_values', local_getfield_or(profile, 'P_grid', [])), 1, []);
 search_domain.T_grid = reshape(local_getfield_or(profile, 'T_values', local_getfield_or(profile, 'T_grid', [])), 1, []);
-search_domain.allow_auto_expand_upper = logical(local_getfield_or(local_getfield_or(profile, 'auto_tune', struct()), 'enabled', false)) && ~strict_lock;
+search_domain.Ns_initial_range = reshape(local_getfield_or(profile, 'Ns_initial_range', local_getfield_or(local_getfield_or(profile, 'search_domain', struct()), 'Ns_initial_range', [])), 1, []);
+search_domain.Ns_expand_blocks = local_normalize_expand_blocks(local_getfield_or(profile, 'Ns_expand_blocks', local_getfield_or(local_getfield_or(profile, 'search_domain', struct()), 'Ns_expand_blocks', [])));
+search_domain.Ns_hard_max = local_getfield_or(profile, 'Ns_hard_max', local_getfield_or(local_getfield_or(profile, 'search_domain', struct()), 'Ns_hard_max', NaN));
+search_domain.Ns_allow_expand = logical(local_getfield_or(profile, 'Ns_allow_expand', local_getfield_or(local_getfield_or(profile, 'search_domain', struct()), 'Ns_allow_expand', false))) && ~strict_lock;
+search_domain.solve_domain_mode = string(local_getfield_or(profile, 'solve_domain_mode', local_getfield_or(local_getfield_or(profile, 'search_domain', struct()), 'solve_domain_mode', "fixed")));
+search_domain.expand_strategy = string(local_getfield_or(profile, 'expand_strategy', local_getfield_or(local_getfield_or(profile, 'search_domain', struct()), 'expand_strategy', "incremental_blocks")));
+search_domain.expand_trigger_policy = local_getfield_or(profile, 'expand_trigger_policy', local_getfield_or(local_getfield_or(profile, 'search_domain', struct()), 'expand_trigger_policy', struct()));
+search_domain.expand_stop_policy = local_getfield_or(profile, 'expand_stop_policy', local_getfield_or(local_getfield_or(profile, 'search_domain', struct()), 'expand_stop_policy', struct()));
+search_domain.allow_auto_expand_upper = search_domain.Ns_allow_expand;
 search_domain.allow_lower_bound_expansion = false;
 search_domain.expand_step_P = local_getfield_or(local_getfield_or(profile, 'auto_tune', struct()), 'expand_step_P', 2);
 search_domain.expand_step_T = local_getfield_or(local_getfield_or(profile, 'auto_tune', struct()), 'expand_step_T', 4);
-search_domain.max_expand_iterations = local_getfield_or(local_getfield_or(profile, 'auto_tune', struct()), 'max_iterations', 5);
+search_domain.max_expand_iterations = max(numel(search_domain.Ns_expand_blocks), local_getfield_or(local_getfield_or(profile, 'auto_tune', struct()), 'max_iterations', 5));
 search_domain.strict_stage05_reference = strict_lock;
 
 profile_search_domain = local_getfield_or(profile, 'search_domain', struct());
@@ -58,8 +66,12 @@ switch lower(char(string(policy_name)))
     case 'strict_stage05_reference'
         search_domain.strict_stage05_reference = true;
         search_domain.allow_auto_expand_upper = false;
+        search_domain.Ns_allow_expand = false;
+        search_domain.solve_domain_mode = "fixed";
     case 'expand_if_unsaturated'
         search_domain.allow_auto_expand_upper = true;
+        search_domain.Ns_allow_expand = true;
+        search_domain.solve_domain_mode = "expandable";
     case 'custom'
         % keep the caller-provided grids and expansion flags as-is
     otherwise
@@ -85,9 +97,20 @@ search_domain.inclination_grid_deg = reshape(local_getfield_or(search_domain, 'i
 search_domain.P_grid = reshape(local_getfield_or(search_domain, 'P_grid', []), 1, []);
 search_domain.T_grid = reshape(local_getfield_or(search_domain, 'T_grid', []), 1, []);
 search_domain.sensor_group_names = cellstr(string(local_getfield_or(search_domain, 'sensor_group_names', {'baseline'})));
+search_domain.Ns_initial_range = reshape(local_getfield_or(search_domain, 'Ns_initial_range', []), 1, []);
+search_domain.Ns_expand_blocks = local_normalize_expand_blocks(local_getfield_or(search_domain, 'Ns_expand_blocks', []));
+search_domain.Ns_hard_max = local_getfield_or(search_domain, 'Ns_hard_max', NaN);
+search_domain.Ns_allow_expand = logical(local_getfield_or(search_domain, 'Ns_allow_expand', false));
+search_domain.solve_domain_mode = string(local_getfield_or(search_domain, 'solve_domain_mode', "fixed"));
+search_domain.expand_strategy = string(local_getfield_or(search_domain, 'expand_strategy', "incremental_blocks"));
 
 ns_grid = local_build_ns_grid(search_domain.P_grid, search_domain.T_grid);
-if isempty(ns_grid)
+if numel(search_domain.Ns_initial_range) >= 3 && all(isfinite(search_domain.Ns_initial_range(1:3)))
+    ns_min = search_domain.Ns_initial_range(1);
+    ns_step = search_domain.Ns_initial_range(2);
+    ns_max = search_domain.Ns_initial_range(3);
+    ns_grid = ns_min:ns_step:ns_max;
+elseif isempty(ns_grid)
     ns_min = NaN;
     ns_max = NaN;
     ns_step = NaN;
@@ -137,5 +160,24 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function blocks = local_normalize_expand_blocks(blocks_in)
+if isempty(blocks_in)
+    blocks = repmat(struct('name', "", 'ns_min', NaN, 'ns_step', NaN, 'ns_max', NaN, 'ns_values', []), 1, 0);
+    return;
+end
+blocks = blocks_in;
+for idx = 1:numel(blocks)
+    blocks(idx).name = string(local_getfield_or(blocks(idx), 'name', "block" + idx));
+    blocks(idx).ns_min = local_getfield_or(blocks(idx), 'ns_min', NaN);
+    blocks(idx).ns_step = local_getfield_or(blocks(idx), 'ns_step', NaN);
+    blocks(idx).ns_max = local_getfield_or(blocks(idx), 'ns_max', NaN);
+    ns_values = local_getfield_or(blocks(idx), 'ns_values', []);
+    if isempty(ns_values) && all(isfinite([blocks(idx).ns_min, blocks(idx).ns_step, blocks(idx).ns_max]))
+        ns_values = blocks(idx).ns_min:blocks(idx).ns_step:blocks(idx).ns_max;
+    end
+    blocks(idx).ns_values = reshape(ns_values, 1, []);
 end
 end

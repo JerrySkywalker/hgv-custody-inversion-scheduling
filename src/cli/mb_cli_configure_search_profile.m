@@ -40,7 +40,7 @@ selection = struct();
 selection.run_mode = local_default_run_mode(profile_name, local_getfield_or(meta, 'stage05_replica', struct()));
 selection.enable_search_profile_manager = logical(local_getfield_or(meta, 'enable_search_profile_manager', true));
 selection.profile_name = profile_name;
-selection.profile_mode = char(string(local_getfield_or(meta, 'search_profile_mode', local_getfield_or(profile, 'profile_mode', "debug"))));
+selection.profile_mode = char(string(local_getfield_or(meta, 'search_profile_mode', local_getfield_or(profile, 'profile_mode', "expand_default"))));
 selection.figure_family = 'passratio';
 selection.semantic_mode = char(string(local_getfield_or(meta, 'mode', profile.semantic_mode)));
 selection.sensor_groups = resolve_sensor_param_groups(local_getfield_or(meta, 'sensor_groups', cellstr(string(profile.sensor_group_names))));
@@ -72,11 +72,11 @@ selection.run_mode = local_ask_choice('run mode', selection.run_mode, ...
 selection.profile_name = local_profile_name_from_run_mode(selection.run_mode, selection.profile_name);
 selection.enable_search_profile_manager = local_ask_yesno('enable search profile manager', selection.enable_search_profile_manager);
 selection.profile_name = local_ask_choice('profile preset', selection.profile_name, ...
-    {'mb_default', 'mb_dense_local', 'strict_stage05_replica', 'mb_auto_plot_tune'}, ...
-    local_profile_labels(cfg, {'mb_default', 'mb_dense_local', 'strict_stage05_replica', 'mb_auto_plot_tune'}));
+    {'mb_default', 'mb_dense_local', 'mb_heavy', 'strict_stage05_replica', 'mb_auto_plot_tune'}, ...
+    local_profile_labels(cfg, {'mb_default', 'mb_dense_local', 'mb_heavy', 'strict_stage05_replica', 'mb_auto_plot_tune'}));
 selection.profile_mode = local_ask_choice('profile mode', selection.profile_mode, ...
-    {'debug', 'paper', 'strict_replica'}, ...
-    local_profile_mode_labels({'debug', 'paper', 'strict_replica'}));
+    {'expand_default', 'expand_heavy', 'paper', 'strict_replica'}, ...
+    local_profile_mode_labels({'expand_default', 'expand_heavy', 'paper', 'strict_replica'}));
 if strcmpi(selection.profile_mode, 'strict_replica')
     selection.profile_name = 'strict_stage05_replica';
 end
@@ -512,7 +512,7 @@ end
 function profile = local_build_current_profile(cfg_in, selection)
 meta = cfg_in.milestones.MB_semantic_compare;
 profile = get_mb_search_profile(local_getfield_or(meta, 'search_profile', 'mb_default'), cfg_in);
-profile = merge_mb_search_profile_overrides(profile, resolve_mb_search_profile_mode(local_getfield_or(selection, 'profile_mode', 'debug'), cfg_in), "cli_profile_mode");
+profile = merge_mb_search_profile_overrides(profile, resolve_mb_search_profile_mode(local_getfield_or(selection, 'profile_mode', 'expand_default'), cfg_in), "cli_profile_mode");
 profile.semantic_mode = string(selection.semantic_mode);
 profile.sensor_group_names = cellstr(string(selection.sensor_groups));
 profile.height_grid_km = reshape(selection.heights_to_run, 1, []);

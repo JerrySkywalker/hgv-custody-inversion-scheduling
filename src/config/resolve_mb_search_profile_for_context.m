@@ -14,7 +14,7 @@ profile = merge_mb_search_profile_overrides(mb_search_profile_defaults(cfg), pro
 
 figure_family = local_token(local_getfield_or(context, 'figure_family', ""));
 semantic_mode = local_token(local_getfield_or(context, 'semantic_mode', profile.semantic_mode));
-profile_mode = local_token(local_getfield_or(context, 'profile_mode', local_getfield_or(profile, 'profile_mode', 'debug')));
+profile_mode = local_token(local_getfield_or(context, 'profile_mode', local_getfield_or(profile, 'profile_mode', 'expand_default')));
 height_km = local_getfield_or(context, 'height_km', []);
 sensor_group = local_token(local_getfield_or(context, 'sensor_group', ""));
 
@@ -87,7 +87,6 @@ end
 end
 
 function tf = local_should_lock_strict_replica(profile, context)
-tf = false;
 stage05_replica = local_getfield_or(profile, 'stage05_replica', struct());
 if logical(local_getfield_or(stage05_replica, 'strict', false))
     tf = true;

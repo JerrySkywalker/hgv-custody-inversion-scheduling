@@ -40,8 +40,26 @@ if ~isfield(profile, 'Ns_target_window') || isempty(profile.Ns_target_window)
 end
 profile.height_grid_km = reshape(local_getfield_or(profile, 'height_grid_km', []), 1, []);
 profile.inclination_grid_deg = reshape(local_getfield_or(profile, 'inclination_grid_deg', []), 1, []);
-profile.profile_mode = string(local_getfield_or(profile, 'profile_mode', "debug"));
-profile.profile_mode_description = string(local_getfield_or(profile, 'profile_mode_description', "fast validation with smaller budget"));
+profile.Ns_initial_range = reshape(local_getfield_or(profile, 'Ns_initial_range', []), 1, []);
+profile.Ns_expand_blocks = local_normalize_expand_blocks(local_getfield_or(profile, 'Ns_expand_blocks', []));
+profile.Ns_hard_max = local_getfield_or(profile, 'Ns_hard_max', NaN);
+profile.Ns_allow_expand = logical(local_getfield_or(profile, 'Ns_allow_expand', false));
+profile.solve_domain_mode = string(local_getfield_or(profile, 'solve_domain_mode', "fixed"));
+profile.expand_strategy = string(local_getfield_or(profile, 'expand_strategy', "incremental_blocks"));
+profile.expand_trigger_policy = local_normalize_policy(local_getfield_or(profile, 'expand_trigger_policy', struct()), struct( ...
+    'require_right_unity', true, ...
+    'required_upper_target', 0.99, ...
+    'end_slope_tol', 0.01, ...
+    'boundary_hit_ratio_threshold', 0.25, ...
+    'allow_summary_warning_trigger', true));
+profile.expand_stop_policy = local_normalize_policy(local_getfield_or(profile, 'expand_stop_policy', struct()), struct( ...
+    'max_rounds_without_improvement', 2, ...
+    'min_passratio_gain', 0.01, ...
+    'min_frontier_gain', 1, ...
+    'time_budget_s', 1800, ...
+    'stop_if_two_rounds_without_new_feasible', true));
+profile.profile_mode = string(local_getfield_or(profile, 'profile_mode', "expand_default"));
+profile.profile_mode_description = string(local_getfield_or(profile, 'profile_mode_description', "incremental Ns expansion up to 400 with a balanced runtime budget"));
 
 if ~isfield(profile, 'search_domain') || ~isstruct(profile.search_domain)
     profile.search_domain = struct();
@@ -95,8 +113,17 @@ search_domain.height_grid_km = reshape(local_getfield_or(search_domain, 'height_
 search_domain.inclination_grid_deg = reshape(local_getfield_or(search_domain, 'inclination_grid_deg', local_getfield_or(profile, 'inclination_grid_deg', [])), 1, []);
 search_domain.P_grid = reshape(local_getfield_or(search_domain, 'P_grid', local_getfield_or(profile, 'P_values', local_getfield_or(profile, 'P_grid', []))), 1, []);
 search_domain.T_grid = reshape(local_getfield_or(search_domain, 'T_grid', local_getfield_or(profile, 'T_values', local_getfield_or(profile, 'T_grid', []))), 1, []);
-search_domain.allow_auto_expand_upper = logical(local_getfield_or(search_domain, 'allow_auto_expand_upper', false));
+search_domain.Ns_initial_range = reshape(local_getfield_or(search_domain, 'Ns_initial_range', local_getfield_or(profile, 'Ns_initial_range', [])), 1, []);
+search_domain.Ns_expand_blocks = local_normalize_expand_blocks(local_getfield_or(search_domain, 'Ns_expand_blocks', local_getfield_or(profile, 'Ns_expand_blocks', [])));
+search_domain.Ns_hard_max = local_getfield_or(search_domain, 'Ns_hard_max', local_getfield_or(profile, 'Ns_hard_max', NaN));
+search_domain.Ns_allow_expand = logical(local_getfield_or(search_domain, 'Ns_allow_expand', local_getfield_or(profile, 'Ns_allow_expand', false)));
+search_domain.solve_domain_mode = string(local_getfield_or(search_domain, 'solve_domain_mode', local_getfield_or(profile, 'solve_domain_mode', "fixed")));
+search_domain.expand_strategy = string(local_getfield_or(search_domain, 'expand_strategy', local_getfield_or(profile, 'expand_strategy', "incremental_blocks")));
+search_domain.expand_trigger_policy = local_normalize_policy(local_getfield_or(search_domain, 'expand_trigger_policy', local_getfield_or(profile, 'expand_trigger_policy', struct())), local_getfield_or(profile, 'expand_trigger_policy', struct()));
+search_domain.expand_stop_policy = local_normalize_policy(local_getfield_or(search_domain, 'expand_stop_policy', local_getfield_or(profile, 'expand_stop_policy', struct())), local_getfield_or(profile, 'expand_stop_policy', struct()));
+search_domain.allow_auto_expand_upper = logical(local_getfield_or(search_domain, 'allow_auto_expand_upper', search_domain.Ns_allow_expand));
 search_domain.allow_lower_bound_expansion = logical(local_getfield_or(search_domain, 'allow_lower_bound_expansion', false));
+search_domain.max_expand_iterations = local_getfield_or(search_domain, 'max_expand_iterations', numel(search_domain.Ns_expand_blocks));
 end
 
 function plot_domain = local_normalize_plot_domain(plot_domain, profile)
@@ -119,7 +146,7 @@ if isempty(sources)
     sources = {'default'};
 end
 if ~ismember(token, sources)
-    sources{end + 1} = token; %#ok<AGROW>
+    sources{end + 1} = token;
 end
 profile.metadata.override_sources = sources;
 end
@@ -130,4 +157,36 @@ if isstruct(S) && isfield(S, field_name)
 else
     value = fallback;
 end
+end
+
+function blocks = local_normalize_expand_blocks(blocks_in)
+if isempty(blocks_in)
+    blocks = repmat(struct('name', "", 'ns_min', NaN, 'ns_step', NaN, 'ns_max', NaN, 'ns_values', []), 1, 0);
+    return;
+end
+if ~isstruct(blocks_in)
+    error('MB Ns_expand_blocks must be provided as a struct array.');
+end
+blocks = blocks_in;
+for idx = 1:numel(blocks)
+    blocks(idx).name = string(local_getfield_or(blocks(idx), 'name', "block" + idx));
+    blocks(idx).ns_min = local_getfield_or(blocks(idx), 'ns_min', NaN);
+    blocks(idx).ns_step = local_getfield_or(blocks(idx), 'ns_step', NaN);
+    blocks(idx).ns_max = local_getfield_or(blocks(idx), 'ns_max', NaN);
+    ns_values = local_getfield_or(blocks(idx), 'ns_values', []);
+    if isempty(ns_values) && all(isfinite([blocks(idx).ns_min, blocks(idx).ns_step, blocks(idx).ns_max]))
+        ns_values = blocks(idx).ns_min:blocks(idx).ns_step:blocks(idx).ns_max;
+    end
+    blocks(idx).ns_values = reshape(ns_values, 1, []);
+end
+end
+
+function policy = local_normalize_policy(policy_in, defaults)
+if nargin < 1 || ~isstruct(policy_in)
+    policy_in = struct();
+end
+if nargin < 2 || ~isstruct(defaults)
+    defaults = struct();
+end
+policy = milestone_common_merge_structs(defaults, policy_in);
 end
