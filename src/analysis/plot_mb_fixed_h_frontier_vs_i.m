@@ -1,8 +1,11 @@
-function fig = plot_mb_fixed_h_frontier_vs_i(frontier_table, h_km, style)
+function fig = plot_mb_fixed_h_frontier_vs_i(frontier_table, h_km, style, options)
 %PLOT_MB_FIXED_H_FRONTIER_VS_I Plot the fixed-height minimum-feasible inclination frontier.
 
 if nargin < 3 || isempty(style)
     style = milestone_common_plot_style();
+end
+if nargin < 4 || isempty(options)
+    options = struct();
 end
 
 fig = figure('Visible', 'off', 'Color', 'w');
@@ -53,7 +56,22 @@ apply_mb_plot_domain_guardrail(ax, local_getfield_or(frontier_table, 'i_deg', []
     'empty_message', 'No feasible point found within current search domain', ...
     'domain_summary', sprintf('h = %.0f km', h_km), ...
     'plot_domain_source', "frontier_guardrail"));
+local_add_frontier_note(ax, local_getfield_or(options, 'frontier_truncation_table', table()));
 hold(ax, 'off');
+end
+
+function local_add_frontier_note(ax, truncation_table)
+if isempty(truncation_table) || ~istable(truncation_table) || ~ismember('diagnostic_note', truncation_table.Properties.VariableNames)
+    return;
+end
+notes = unique(string(truncation_table.diagnostic_note));
+notes = notes(strlength(notes) > 0);
+if isempty(notes)
+    return;
+end
+text(ax, 0.02, 0.90, char(strjoin(notes, newline)), ...
+    'Units', 'normalized', 'VerticalAlignment', 'top', ...
+    'FontSize', 9.5, 'Color', [0.55 0.15 0.15]);
 end
 
 function values = local_getfield_or(T, field_name, fallback)

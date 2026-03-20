@@ -1,13 +1,17 @@
-function fig = plot_semantic_gap_frontier_shift(gap_table, h_km, sensor_label)
+function fig = plot_semantic_gap_frontier_shift(gap_table, h_km, sensor_label, options)
 %PLOT_SEMANTIC_GAP_FRONTIER_SHIFT Plot legacyDG/closedD frontier overlay and shift summary.
 
 if nargin < 3
     sensor_label = "";
 end
+if nargin < 4 || isempty(options)
+    options = struct();
+end
 
 fig = figure('Visible', 'off', 'Color', 'w');
 tiled = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 diagnostic_note = local_frontier_diagnostic_note(gap_table);
+truncation_table = local_getfield_or(options, 'frontier_truncation_table', table());
 
 ax1 = nexttile(tiled, 1);
 hold(ax1, 'on');
@@ -47,6 +51,7 @@ if strlength(diagnostic_note) > 0
         'Units', 'normalized', 'FontSize', 10, 'Color', [0.25 0.25 0.25], ...
         'VerticalAlignment', 'top');
 end
+local_add_truncation_note(ax1, truncation_table);
 grid(ax1, 'on');
 legend(ax1, 'Location', 'best', 'Box', 'off');
 
@@ -78,6 +83,7 @@ end
 xlabel(ax2, 'i (deg)');
 ylabel(ax2, '\Delta N_s');
 title(ax2, 'Frontier Shift (closedD - legacyDG)');
+local_add_truncation_note(ax2, truncation_table);
 grid(ax2, 'on');
 end
 
@@ -121,4 +127,26 @@ if ismember('delta_Ns', gap_table.Properties.VariableNames)
     delta_defined = sum(isfinite(gap_table.delta_Ns));
 end
 note = sprintf('defined points: legacyDG=%d, closedD=%d, delta=%d', legacy_defined, closed_defined, delta_defined);
+end
+
+function local_add_truncation_note(ax, truncation_table)
+if isempty(truncation_table) || ~istable(truncation_table) || ~ismember('diagnostic_note', truncation_table.Properties.VariableNames)
+    return;
+end
+notes = unique(string(truncation_table.diagnostic_note));
+notes = notes(strlength(notes) > 0);
+if isempty(notes)
+    return;
+end
+text(ax, 0.02, 0.86, char(strjoin(notes, newline)), ...
+    'Units', 'normalized', 'FontSize', 9.5, 'Color', [0.55 0.15 0.15], ...
+    'VerticalAlignment', 'top');
+end
+
+function value = local_getfield_or(S, field_name, fallback)
+if isstruct(S) && isfield(S, field_name)
+    value = S.(field_name);
+else
+    value = fallback;
+end
 end

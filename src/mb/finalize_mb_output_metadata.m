@@ -119,15 +119,72 @@ meta_table = table( ...
     'VariableNames', {'semantic_mode', 'sensor_group', 'search_profile', 'search_profile_mode', 'stage05_replica_flag', 'auto_tuned_flag'});
 
 meta_names = meta_table.Properties.VariableNames;
+added_names = strings(0, 1);
 for idx = 1:numel(meta_names)
     var_name = meta_names{idx};
     if ismember(var_name, T.Properties.VariableNames)
-        T.(var_name) = meta_table.(var_name);
+        if local_preserve_existing_column(T.(var_name), meta_table.(var_name))
+            artifact_name = matlab.lang.makeUniqueStrings("artifact_" + string(var_name), string(T.Properties.VariableNames));
+            T.(char(artifact_name)) = meta_table.(var_name);
+            added_names(end + 1, 1) = artifact_name; %#ok<AGROW>
+        else
+            T.(var_name) = meta_table.(var_name);
+        end
     else
         T = addvars(T, meta_table.(var_name), 'Before', 1, 'NewVariableNames', var_name);
+        added_names(end + 1, 1) = string(var_name); %#ok<AGROW>
     end
 end
-T = movevars(T, meta_names, 'Before', 1);
+move_names = meta_names(ismember(meta_names, T.Properties.VariableNames));
+if ~isempty(move_names)
+    T = movevars(T, move_names, 'Before', 1);
+end
+artifact_names = cellstr(added_names(strlength(added_names) > 0));
+artifact_names = artifact_names(ismember(artifact_names, T.Properties.VariableNames));
+if ~isempty(artifact_names)
+    T = movevars(T, artifact_names, 'Before', 1);
+end
+end
+
+function tf = local_preserve_existing_column(existing_values, new_values)
+tf = false;
+if isempty(existing_values)
+    return;
+end
+
+existing_clean = local_unique_nonmissing(existing_values);
+new_clean = local_unique_nonmissing(new_values);
+
+if numel(existing_clean) > 1
+    tf = true;
+    return;
+end
+if isempty(existing_clean)
+    tf = false;
+    return;
+end
+if isempty(new_clean)
+    tf = true;
+    return;
+end
+
+tf = ~isequal(existing_clean, new_clean);
+end
+
+function values = local_unique_nonmissing(data)
+if isstring(data) || ischar(data)
+    values = unique(string(data(:)));
+    values = values(strlength(values) > 0 & ~ismissing(values));
+elseif iscellstr(data) || iscell(data)
+    values = unique(string(data(:)));
+    values = values(strlength(values) > 0 & ~ismissing(values));
+elseif isnumeric(data) || islogical(data)
+    values = unique(data(:));
+    values = values(~isnan(values));
+else
+    values = unique(string(data(:)));
+    values = values(strlength(values) > 0 & ~ismissing(values));
+end
 end
 
 function row = local_manifest_row(file_path, file_name, artifact_kind, metadata)

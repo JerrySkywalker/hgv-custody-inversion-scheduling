@@ -1,8 +1,11 @@
-function fig = plot_semantic_gap_heatmap(gap_table, h_km, sensor_label)
+function fig = plot_semantic_gap_heatmap(gap_table, h_km, sensor_label, options)
 %PLOT_SEMANTIC_GAP_HEATMAP Plot Delta N_s = closedD - legacyDG over (i, P).
 
 if nargin < 3
     sensor_label = "";
+end
+if nargin < 4 || isempty(options)
+    options = struct();
 end
 
 P_values = unique(gap_table.P, 'sorted');
@@ -37,6 +40,7 @@ local_overlay_labels(ax, P_values, i_values, value_matrix);
 xlabel(ax, 'P');
 ylabel(ax, 'i (deg)');
 title(ax, sprintf('Semantic Gap Heatmap over (i, P) at h = %.0f km [%s]', h_km, char(string(sensor_label))));
+local_add_diagnostics(ax, local_getfield_or(options, 'boundary_hit_table', table()));
 grid(ax, 'on');
 hold(ax, 'off');
 end
@@ -65,5 +69,40 @@ for iy = 1:numel(y_values)
             'FontSize', 9, ...
             'Color', color);
     end
+end
+end
+
+function local_add_diagnostics(ax, boundary_hit_table)
+if isempty(boundary_hit_table) || ~istable(boundary_hit_table)
+    return;
+end
+note_lines = strings(0, 1);
+if any(logical(local_table_column(boundary_hit_table, 'is_boundary_dominated')))
+    note_lines(end + 1, 1) = "boundary-dominated result"; %#ok<AGROW>
+end
+if any(logical(local_table_column(boundary_hit_table, 'search_upper_bound_likely_insufficient')))
+    note_lines(end + 1, 1) = "search upper bound likely insufficient"; %#ok<AGROW>
+end
+if isempty(note_lines)
+    return;
+end
+text(ax, 0.02, 0.98, strjoin(cellstr(note_lines), newline), ...
+    'Units', 'normalized', 'VerticalAlignment', 'top', 'FontSize', 10, ...
+    'Color', [0.55 0.15 0.15], 'FontWeight', 'bold');
+end
+
+function values = local_table_column(T, field_name)
+if istable(T) && ismember(field_name, T.Properties.VariableNames)
+    values = T.(field_name);
+else
+    values = [];
+end
+end
+
+function value = local_getfield_or(S, field_name, fallback)
+if isstruct(S) && isfield(S, field_name)
+    value = S.(field_name);
+else
+    value = fallback;
 end
 end

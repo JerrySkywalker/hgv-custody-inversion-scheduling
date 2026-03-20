@@ -29,17 +29,27 @@ for idx = 1:numel(comparison.run_pairs)
     milestone_common_save_table(pair.frontier_diagnostic_table, frontier_diag_csv);
     milestone_common_save_table(local_summary_context_table(pair), summary_context_csv);
 
-    fig_gap = plot_semantic_gap_heatmap(pair.requirement_gap_table, pair.h_km, sensor_label);
+    diag_artifacts = export_mb_boundary_hit_outputs(struct( ...
+        'boundary_hit_table', pair.boundary_hit_table, ...
+        'passratio_saturation_table', pair.passratio_saturation_table, ...
+        'frontier_truncation_table', pair.frontier_truncation_table), ...
+        paths, sprintf('comparison_%s_%s', h_label, sensor_group));
+
+    fig_gap = plot_semantic_gap_heatmap(pair.requirement_gap_table, pair.h_km, sensor_label, struct( ...
+        'boundary_hit_table', pair.boundary_hit_table));
     gap_png = fullfile(paths.figures, sprintf('MB_comparison_gap_heatmap_iP_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_gap, gap_png);
     close(fig_gap);
 
-    fig_pass = plot_semantic_gap_passratio_curves(pair.passratio_gap_table, pair.h_km, sensor_label);
+    fig_pass = plot_semantic_gap_passratio_curves(pair.passratio_gap_table, pair.h_km, sensor_label, struct( ...
+        'passratio_saturation_table', pair.passratio_saturation_table, ...
+        'boundary_hit_table', pair.boundary_hit_table));
     pass_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass, pass_png);
     close(fig_pass);
 
-    fig_frontier = plot_semantic_gap_frontier_shift(pair.frontier_gap_table, pair.h_km, sensor_label);
+    fig_frontier = plot_semantic_gap_frontier_shift(pair.frontier_gap_table, pair.h_km, sensor_label, struct( ...
+        'frontier_truncation_table', pair.frontier_truncation_table));
     frontier_png = fullfile(paths.figures, sprintf('MB_comparison_frontier_shift_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_frontier, frontier_png);
     close(fig_frontier);
@@ -49,6 +59,9 @@ for idx = 1:numel(comparison.run_pairs)
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_shift_%s', h_label))) = string(frontier_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_diagnostic_%s', h_label))) = string(frontier_diag_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('summary_%s', h_label))) = string(summary_context_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('boundary_hit_%s', h_label))) = diag_artifacts.boundary_hit_csv;
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_saturation_%s', h_label))) = diag_artifacts.passratio_csv;
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_truncation_%s', h_label))) = diag_artifacts.frontier_csv;
     artifacts.figures.(matlab.lang.makeValidName(sprintf('gap_heatmap_iP_%s', h_label))) = string(gap_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratio_overlay_%s', h_label))) = string(pass_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('frontier_shift_%s', h_label))) = string(frontier_png);

@@ -1,8 +1,11 @@
-function fig = plot_semantic_gap_passratio_curves(gap_table, h_km, sensor_label)
+function fig = plot_semantic_gap_passratio_curves(gap_table, h_km, sensor_label, options)
 %PLOT_SEMANTIC_GAP_PASSRATIO_CURVES Plot overlay and gap curves for pass ratio.
 
 if nargin < 3
     sensor_label = "";
+end
+if nargin < 4 || isempty(options)
+    options = struct();
 end
 
 i_values = unique(local_getfield_or(gap_table, 'i_deg', []), 'sorted');
@@ -33,7 +36,7 @@ apply_mb_plot_domain_guardrail(ax1, local_getfield_or(gap_table, 'Ns', []), loca
 text(ax1, 0.02, 0.96, 'Upper: legacyDG vs closedD pass ratio under the shared N_s domain', ...
     'Units', 'normalized', 'FontSize', 10, 'Color', [0.20 0.20 0.20], 'VerticalAlignment', 'top');
 
-[legacy_plateau, closed_plateau, plateau_note] = local_plateau_status(gap_table);
+[legacy_plateau, closed_plateau, plateau_note] = local_plateau_status(gap_table, local_getfield_or(options, 'passratio_saturation_table', table()));
 if strlength(plateau_note) > 0
     text(ax1, 0.02, 0.84, char(plateau_note), ...
         'Units', 'normalized', 'FontSize', 10, 'Color', [0.55 0.15 0.15], 'VerticalAlignment', 'top');
@@ -58,6 +61,7 @@ if ~(legacy_plateau && closed_plateau)
         'Units', 'normalized', 'FontSize', 9.5, 'Color', [0.55 0.15 0.15], ...
         'VerticalAlignment', 'top');
 end
+local_add_boundary_note(ax2, local_getfield_or(options, 'boundary_hit_table', table()));
 apply_mb_plot_domain_guardrail(ax2, local_getfield_or(gap_table, 'Ns', []), local_getfield_or(gap_table, 'passratio_gap', []), struct( ...
     'empty_message', 'No valid pass-ratio gap point found within current search domain', ...
     'domain_summary', sprintf('Search domain: h = %.0f km [%s]', h_km, char(string(sensor_label))), ...
@@ -69,6 +73,8 @@ end
 
 function values = local_getfield_or(T, field_name, fallback)
 if istable(T) && ismember(field_name, T.Properties.VariableNames)
+    values = T.(field_name);
+elseif isstruct(T) && isfield(T, field_name)
     values = T.(field_name);
 else
     values = fallback;
@@ -90,12 +96,29 @@ else
 end
 end
 
-function [legacy_plateau, closed_plateau, note] = local_plateau_status(gap_table)
+function [legacy_plateau, closed_plateau, note] = local_plateau_status(gap_table, saturation_table)
 legacy_plateau = false;
 closed_plateau = false;
 note = "";
-if isempty(gap_table) || ~all(ismember({'i_deg', 'Ns', 'max_pass_ratio_legacyDG', 'max_pass_ratio_closedD'}, gap_table.Properties.VariableNames))
-    return;
+if istable(saturation_table) && ~isempty(saturation_table) && ismember('semantic_mode', saturation_table.Properties.VariableNames)
+    legacy_row = saturation_table(strcmpi(string(saturation_table.semantic_mode), "legacyDG"), :);
+    closed_row = saturation_table(strcmpi(string(saturation_table.semantic_mode), "closedD"), :);
+    if ~isempty(legacy_row)
+        legacy_plateau = logical(legacy_row.right_unity_reached(1));
+    end
+    if ~isempty(closed_row)
+        closed_plateau = logical(closed_row.right_unity_reached(1));
+    end
+    if ~legacy_plateau && ~closed_plateau
+        note = "Unity plateau not reached for either legacyDG or closedD within the current search domain.";
+    elseif ~legacy_plateau
+        note = "Unity plateau not reached for legacyDG within the current search domain.";
+    elseif ~closed_plateau
+        note = "Unity plateau not reached for closedD within the current search domain.";
+    end
+    if legacy_plateau || closed_plateau || strlength(note) > 0
+        return;
+    end
 end
 
 i_values = unique(gap_table.i_deg, 'sorted');
@@ -122,5 +145,16 @@ elseif ~legacy_plateau
     note = "Unity plateau not reached for legacyDG within the current tuned domain.";
 else
     note = "Unity plateau not reached for closedD within the current tuned domain.";
+end
+end
+
+function local_add_boundary_note(ax, boundary_hit_table)
+if isempty(boundary_hit_table) || ~istable(boundary_hit_table) || ~ismember('is_boundary_dominated', boundary_hit_table.Properties.VariableNames)
+    return;
+end
+if any(boundary_hit_table.is_boundary_dominated)
+    text(ax, 0.02, 0.72, 'Boundary-dominated heatmap context: minimum-N_s cells sit on the current search upper bound.', ...
+        'Units', 'normalized', 'FontSize', 9.5, 'Color', [0.55 0.15 0.15], ...
+        'VerticalAlignment', 'top');
 end
 end
