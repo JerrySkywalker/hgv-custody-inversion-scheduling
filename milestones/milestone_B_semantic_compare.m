@@ -1,7 +1,7 @@
 function result = milestone_B_semantic_compare(cfg)
 %MILESTONE_B_SEMANTIC_COMPARE Unified MB semantic-comparison entry point.
 
-startup();
+mb_safe_startup();
 
 if nargin < 1 || isempty(cfg)
     cfg = milestone_common_defaults();
@@ -181,28 +181,64 @@ need_legacy = any(arrayfun(@(m) logical(m.uses_legacydg), resolved_modes));
 need_closed = any(arrayfun(@(m) logical(m.uses_closedd), resolved_modes));
 plot_options = local_semantic_plot_options(meta);
 paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
-outputs = repmat(struct( ...
-    'mode', "", ...
-    'sensor_group', "", ...
-    'run_output', struct(), ...
-    'artifacts', struct()), local_count_wrapped_runs(need_legacy, need_closed, numel(sensor_groups)), 1);
-cursor = 0;
+parallel_policy = resolve_mb_parallel_policy(meta);
+tasks = local_build_semantic_tasks(sensor_groups, heights_to_run, family_set, need_legacy, need_closed);
+task_runner = @(task) local_execute_semantic_task(cfg, meta, task, parallel_policy);
+if logical(parallel_policy.outer_enabled)
+    task_outputs = run_mb_task_bundle_parallel(tasks, task_runner, parallel_policy);
+else
+    task_outputs = run_mb_task_bundle_parallel(tasks, task_runner, resolve_mb_parallel_policy(struct('parallel_policy', 'off')));
+end
+outputs = local_merge_semantic_task_outputs(task_outputs);
+for idx = 1:numel(outputs)
+    if outputs(idx).mode == "legacyDG"
+        outputs(idx).artifacts = export_mb_legacydg_outputs(outputs(idx).run_output, paths, plot_options);
+    else
+        outputs(idx).artifacts = export_mb_closedd_outputs(outputs(idx).run_output, paths, plot_options);
+    end
+end
+end
 
+function tasks = local_build_semantic_tasks(sensor_groups, heights_to_run, family_set, need_legacy, need_closed)
+tasks = repmat(struct('mode', "", 'sensor_group', "", 'height_km', NaN, 'family_set', {{}}, 'strict_replica', false), 0, 1);
 for idx_group = 1:numel(sensor_groups)
     sensor_group = sensor_groups{idx_group};
-    common_options = struct( ...
-        'sensor_group', sensor_group, ...
-        'heights_to_run', heights_to_run, ...
-        'family_set', {family_set}, ...
-        'i_grid_deg', reshape(local_getfield_or(meta, 'i_grid_deg', []), 1, []), ...
-        'P_grid', reshape(local_getfield_or(meta, 'P_grid', []), 1, []), ...
-        'T_grid', reshape(local_getfield_or(meta, 'T_grid', []), 1, []), ...
-        'F_fixed', local_getfield_or(meta, 'F_fixed', 1), ...
-        'use_parallel', logical(local_getfield_or(meta, 'use_parallel', true)));
+    for idx_h = 1:numel(heights_to_run)
+        h_km = heights_to_run(idx_h);
+        if need_legacy
+            tasks(end + 1, 1) = struct( ... %#ok<AGROW>
+                'mode', "legacyDG", ...
+                'sensor_group', string(sensor_group), ...
+                'height_km', h_km, ...
+                'family_set', {family_set}, ...
+                'strict_replica', strcmpi(sensor_group, 'stage05_strict_reference'));
+        end
+        if need_closed
+            tasks(end + 1, 1) = struct( ... %#ok<AGROW>
+                'mode', "closedD", ...
+                'sensor_group', string(sensor_group), ...
+                'height_km', h_km, ...
+                'family_set', {family_set}, ...
+                'strict_replica', false);
+        end
+    end
+end
+end
 
-    if need_legacy
-        cursor = cursor + 1;
-        if logical(local_getfield_or(meta.stage05_replica, 'strict', false)) && strcmpi(sensor_group, 'stage05_strict_reference')
+function task_output = local_execute_semantic_task(cfg, meta, task, parallel_policy)
+common_options = struct( ...
+    'sensor_group', char(task.sensor_group), ...
+    'heights_to_run', task.height_km, ...
+    'family_set', {task.family_set}, ...
+    'i_grid_deg', reshape(local_getfield_or(meta, 'i_grid_deg', []), 1, []), ...
+    'P_grid', reshape(local_getfield_or(meta, 'P_grid', []), 1, []), ...
+    'T_grid', reshape(local_getfield_or(meta, 'T_grid', []), 1, []), ...
+    'F_fixed', local_getfield_or(meta, 'F_fixed', 1), ...
+    'parallel_policy', parallel_policy, ...
+    'use_parallel', local_resolve_task_use_parallel(meta, parallel_policy));
+
+if task.mode == "legacyDG"
+        if logical(local_getfield_or(meta.stage05_replica, 'strict', false)) && logical(task.strict_replica)
             strict_options = common_options;
             strict_options.build_validation_summary = true;
             strict_output = run_mb_stage05_strict_replica(cfg, strict_options);
@@ -212,26 +248,75 @@ for idx_group = 1:numel(sensor_groups)
             legacy_output.validation_manifest_struct = strict_output.validation_manifest_struct;
             legacy_output.validation_manifest_table = strict_output.validation_manifest_table;
             legacy_output.strict_replica = strict_output;
+            run_output = legacy_output;
         else
-            legacy_output = run_mb_legacydg_semantics(cfg, common_options);
+            run_output = run_mb_legacydg_semantics(cfg, common_options);
         end
-        outputs(cursor, 1) = struct( ...
-            'mode', "legacyDG", ...
-            'sensor_group', string(sensor_group), ...
-            'run_output', legacy_output, ...
-            'artifacts', export_mb_legacydg_outputs(legacy_output, paths, plot_options));
-    end
-    if need_closed
-        cursor = cursor + 1;
-        closed_output = run_mb_closedd_semantics(cfg, common_options);
-        outputs(cursor, 1) = struct( ...
-            'mode', "closedD", ...
-            'sensor_group', string(sensor_group), ...
-            'run_output', closed_output, ...
-            'artifacts', export_mb_closedd_outputs(closed_output, paths, plot_options));
-    end
+else
+    run_output = run_mb_closedd_semantics(cfg, common_options);
 end
-outputs = outputs(1:cursor, 1);
+
+task_output = struct( ...
+    'mode', task.mode, ...
+    'sensor_group', string(task.sensor_group), ...
+    'run_output', run_output, ...
+    'artifacts', struct());
+end
+
+function outputs = local_merge_semantic_task_outputs(task_outputs)
+if isempty(task_outputs)
+    outputs = repmat(struct('mode', "", 'sensor_group', "", 'run_output', struct(), 'artifacts', struct()), 0, 1);
+    return;
+end
+
+group_keys = strings(numel(task_outputs), 1);
+for idx = 1:numel(task_outputs)
+    group_keys(idx) = task_outputs(idx).mode + "|" + task_outputs(idx).sensor_group;
+end
+unique_keys = unique(group_keys, 'stable');
+outputs = repmat(struct('mode', "", 'sensor_group', "", 'run_output', struct(), 'artifacts', struct()), numel(unique_keys), 1);
+for idx_key = 1:numel(unique_keys)
+    member_idx = find(group_keys == unique_keys(idx_key));
+    group_runs = task_outputs(member_idx);
+    merged = group_runs(1).run_output;
+    for idx_member = 2:numel(group_runs)
+        merged = local_merge_run_outputs(merged, group_runs(idx_member).run_output);
+    end
+    outputs(idx_key, 1) = struct( ...
+        'mode', group_runs(1).mode, ...
+        'sensor_group', group_runs(1).sensor_group, ...
+        'run_output', merged, ...
+        'artifacts', struct());
+end
+end
+
+function merged = local_merge_run_outputs(base_output, added_output)
+merged = base_output;
+merged.runs = [base_output.runs; added_output.runs];
+if numel(merged.runs) > 1
+    [~, order] = sort([merged.runs.h_km]);
+    merged.runs = merged.runs(order);
+end
+if isfield(base_output, 'cache_records') || isfield(added_output, 'cache_records')
+    merged.cache_records = [local_getfield_or(base_output, 'cache_records', repmat(struct(), 0, 1)); ...
+        local_getfield_or(added_output, 'cache_records', repmat(struct(), 0, 1))];
+end
+merged.options.heights_to_run = unique([reshape(local_getfield_or(base_output.options, 'heights_to_run', []), 1, []), ...
+    reshape(local_getfield_or(added_output.options, 'heights_to_run', []), 1, [])], 'stable');
+if isfield(merged, 'summary')
+    merged.summary.total_run_count = numel(merged.runs);
+    merged.summary.cache_hits = local_getfield_or(base_output.summary, 'cache_hits', 0) + local_getfield_or(added_output.summary, 'cache_hits', 0);
+    merged.summary.fresh_evaluations = local_getfield_or(base_output.summary, 'fresh_evaluations', 0) + local_getfield_or(added_output.summary, 'fresh_evaluations', 0);
+    merged.summary.heights_to_run = merged.options.heights_to_run;
+end
+end
+
+function use_parallel = local_resolve_task_use_parallel(meta, parallel_policy)
+if logical(parallel_policy.outer_enabled) || logical(parallel_policy.inner_enabled)
+    use_parallel = false;
+else
+    use_parallel = logical(local_getfield_or(meta, 'use_parallel', true));
+end
 end
 
 function plot_options = local_semantic_plot_options(meta)

@@ -1,7 +1,7 @@
 function out = evaluate_design_pool_with_stage09_semantics(cfg, design_pool_table, family_name, options)
 %EVALUATE_DESIGN_POOL_WITH_STAGE09_SEMANTICS Evaluate an explicit design pool using Stage09-compatible semantics.
 
-startup();
+mb_safe_startup();
 
 if nargin < 1 || isempty(cfg)
     cfg = milestone_common_defaults();
@@ -22,26 +22,40 @@ overrides.use_parallel = logical(local_getfield_or(options, 'use_parallel', true
 if isfield(options, 'heading_subset_max') && ~isempty(options.heading_subset_max)
     overrides.heading_subset_max = options.heading_subset_max;
 end
+parallel_policy = resolve_mb_parallel_policy(local_getfield_or(options, 'parallel_policy', struct('parallel_policy', 'off')));
 
-eval_out = evaluate_design_pool_with_stage09(cfg, design_pool_table, family_token, overrides);
-eval_table = eval_out.full_theta_table;
+if logical(parallel_policy.inner_enabled) && height(design_pool_table) > 1
+    partitions = partition_mb_design_tasks(design_pool_table, parallel_policy);
+    partition_outputs = run_mb_design_partition_parallel(partitions, ...
+        @(partition_table) local_evaluate_partition(cfg, partition_table, family_token, overrides), ...
+        parallel_policy);
+    eval_parts = cellfun(@(s) s.eval_table, partition_outputs, 'UniformOutput', false);
+    eval_table = vertcat(eval_parts{:});
+    feasible_table = eval_table(logical(eval_table.feasible_flag), :);
+    cfg_eval = partition_outputs{1}.cfg;
+else
+    eval_out = evaluate_design_pool_with_stage09(cfg, design_pool_table, family_token, overrides);
+    eval_table = eval_out.full_theta_table;
+    feasible_table = eval_out.feasible_theta_table;
+    cfg_eval = eval_out.cfg;
+end
 if isempty(eval_table)
     out = struct();
-    out.cfg = eval_out.cfg;
+    out.cfg = cfg_eval;
     out.family_name = string(family_token);
     out.design_pool_table = design_pool_table;
     out.eval_table = eval_table;
-    out.feasible_table = eval_out.feasible_theta_table;
-    out.summary = eval_out.summary;
+    out.feasible_table = feasible_table;
+    out.summary = struct();
     return;
 end
 
 eval_table.family_name = repmat(string(family_token), height(eval_table), 1);
 eval_table.sensor_group = repmat(string(local_getfield_or(options, 'sensor_group', "")), height(eval_table), 1);
-eval_table.sensor_label = repmat(string(local_get_cfg_sensor_field(eval_out.cfg, 'sensor_label', "")), height(eval_table), 1);
-eval_table.max_off_boresight_deg = repmat(local_get_sensor_numeric(eval_out.cfg, 'max_off_boresight_deg'), height(eval_table), 1);
-eval_table.sigma_angle_arcsec = repmat(local_get_sensor_numeric(eval_out.cfg, 'sigma_angle_arcsec'), height(eval_table), 1);
-eval_table.sigma_angle_rad = repmat(local_get_sensor_numeric(eval_out.cfg, 'sigma_angle_rad'), height(eval_table), 1);
+eval_table.sensor_label = repmat(string(local_get_cfg_sensor_field(cfg_eval, 'sensor_label', "")), height(eval_table), 1);
+eval_table.max_off_boresight_deg = repmat(local_get_sensor_numeric(cfg_eval, 'max_off_boresight_deg'), height(eval_table), 1);
+eval_table.sigma_angle_arcsec = repmat(local_get_sensor_numeric(cfg_eval, 'sigma_angle_arcsec'), height(eval_table), 1);
+eval_table.sigma_angle_rad = repmat(local_get_sensor_numeric(cfg_eval, 'sigma_angle_rad'), height(eval_table), 1);
 eval_table.semantic_mode = repmat("closedD", height(eval_table), 1);
 eval_table.source_stage = repmat("Stage09", height(eval_table), 1);
 if ismember('DG_worst', eval_table.Properties.VariableNames) && ~ismember('D_G_min', eval_table.Properties.VariableNames)
@@ -55,24 +69,34 @@ if ~ismember('feasible', eval_table.Properties.VariableNames)
 end
 
 out = struct();
-out.cfg = eval_out.cfg;
+out.cfg = cfg_eval;
 out.family_name = string(family_token);
 out.design_pool_table = design_pool_table;
 out.eval_table = eval_table;
-out.feasible_table = eval_out.feasible_theta_table;
+out.feasible_table = feasible_table;
 out.summary = struct( ...
     'family_name', string(family_token), ...
     'sensor_group', string(local_getfield_or(options, 'sensor_group', "")), ...
-    'sensor_label', string(local_get_cfg_sensor_field(eval_out.cfg, 'sensor_label', "")), ...
-    'max_off_boresight_deg', local_get_sensor_numeric(eval_out.cfg, 'max_off_boresight_deg'), ...
-    'sigma_angle_arcsec', local_get_sensor_numeric(eval_out.cfg, 'sigma_angle_arcsec'), ...
-    'sigma_angle_rad', local_get_sensor_numeric(eval_out.cfg, 'sigma_angle_rad'), ...
+    'sensor_label', string(local_get_cfg_sensor_field(cfg_eval, 'sensor_label', "")), ...
+    'max_off_boresight_deg', local_get_sensor_numeric(cfg_eval, 'max_off_boresight_deg'), ...
+    'sigma_angle_arcsec', local_get_sensor_numeric(cfg_eval, 'sigma_angle_arcsec'), ...
+    'sigma_angle_rad', local_get_sensor_numeric(cfg_eval, 'sigma_angle_rad'), ...
     'num_total', height(eval_table), ...
-    'num_feasible', height(eval_out.feasible_theta_table), ...
-    'feasible_ratio', local_safe_divide(height(eval_out.feasible_theta_table), height(eval_table)), ...
-    'minimum_feasible_Ns', local_min_or_missing(eval_out.feasible_theta_table, 'Ns'), ...
-    'best_joint_margin', local_max_or_nan(eval_out.feasible_theta_table, 'joint_margin'), ...
+    'num_feasible', height(feasible_table), ...
+    'feasible_ratio', local_safe_divide(height(feasible_table), height(eval_table)), ...
+    'minimum_feasible_Ns', local_min_or_missing(feasible_table, 'Ns'), ...
+    'best_joint_margin', local_max_or_nan(feasible_table, 'joint_margin'), ...
     'source_stage', "Stage09");
+end
+
+function partition_out = local_evaluate_partition(cfg, design_partition, family_token, overrides)
+overrides_local = overrides;
+overrides_local.use_parallel = false;
+eval_out = evaluate_design_pool_with_stage09(cfg, design_partition, family_token, overrides_local);
+partition_out = struct( ...
+    'cfg', eval_out.cfg, ...
+    'eval_table', eval_out.full_theta_table, ...
+    'feasible_table', eval_out.feasible_theta_table);
 end
 
 function value = local_min_or_missing(T, field_name)
