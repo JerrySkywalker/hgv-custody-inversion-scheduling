@@ -1,7 +1,7 @@
 function artifacts = export_mb_cross_profile_outputs(run_outputs, paths)
 %EXPORT_MB_CROSS_PROFILE_OUTPUTS Export cross-profile overlays across sensor groups.
 
-artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct(), 'summary_table', table());
+artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct(), 'summary_table', table(), 'export_grade_table', table());
 
 if nargin < 2 || isempty(paths) || isempty(run_outputs)
     return;
@@ -9,29 +9,43 @@ end
 
 summary_chunks = {};
 summary_cursor = 0;
+grade_chunks = {};
+grade_cursor = 0;
 
-[legacy_artifacts, legacy_summary] = local_export_mode_family(run_outputs, paths, "legacyDG");
+[legacy_artifacts, legacy_summary, legacy_grade] = local_export_mode_family(run_outputs, paths, "legacyDG");
 artifacts.tables = milestone_common_merge_structs(artifacts.tables, legacy_artifacts.tables);
 artifacts.figures = milestone_common_merge_structs(artifacts.figures, legacy_artifacts.figures);
 if ~isempty(legacy_summary)
     summary_cursor = summary_cursor + 1;
     summary_chunks{summary_cursor, 1} = legacy_summary; %#ok<AGROW>
 end
+if ~isempty(legacy_grade)
+    grade_cursor = grade_cursor + 1;
+    grade_chunks{grade_cursor, 1} = legacy_grade; %#ok<AGROW>
+end
 
-[closed_artifacts, closed_summary] = local_export_mode_family(run_outputs, paths, "closedD");
+[closed_artifacts, closed_summary, closed_grade] = local_export_mode_family(run_outputs, paths, "closedD");
 artifacts.tables = milestone_common_merge_structs(artifacts.tables, closed_artifacts.tables);
 artifacts.figures = milestone_common_merge_structs(artifacts.figures, closed_artifacts.figures);
 if ~isempty(closed_summary)
     summary_cursor = summary_cursor + 1;
     summary_chunks{summary_cursor, 1} = closed_summary; %#ok<AGROW>
 end
+if ~isempty(closed_grade)
+    grade_cursor = grade_cursor + 1;
+    grade_chunks{grade_cursor, 1} = closed_grade; %#ok<AGROW>
+end
 
-[dg_artifacts, dg_summary] = local_export_legacy_dg_overlays(run_outputs, paths);
+[dg_artifacts, dg_summary, dg_grade] = local_export_legacy_dg_overlays(run_outputs, paths);
 artifacts.tables = milestone_common_merge_structs(artifacts.tables, dg_artifacts.tables);
 artifacts.figures = milestone_common_merge_structs(artifacts.figures, dg_artifacts.figures);
 if ~isempty(dg_summary)
     summary_cursor = summary_cursor + 1;
     summary_chunks{summary_cursor, 1} = dg_summary; %#ok<AGROW>
+end
+if ~isempty(dg_grade)
+    grade_cursor = grade_cursor + 1;
+    grade_chunks{grade_cursor, 1} = dg_grade; %#ok<AGROW>
 end
 
 if summary_cursor > 0
@@ -40,6 +54,12 @@ if summary_cursor > 0
     milestone_common_save_table(artifacts.summary_table, summary_csv);
     artifacts.tables.summary = string(summary_csv);
 end
+if grade_cursor > 0
+    artifacts.export_grade_table = vertcat(grade_chunks{1:grade_cursor});
+    grade_csv = fullfile(paths.tables, 'MB_profileCompare_export_grade.csv');
+    milestone_common_save_table(artifacts.export_grade_table, grade_csv);
+    artifacts.tables.export_grade = string(grade_csv);
+end
 
 artifacts.summary = struct( ...
     'legacyDG_groups', {local_collect_sensor_groups(run_outputs, "legacyDG")}, ...
@@ -47,9 +67,10 @@ artifacts.summary = struct( ...
     'has_strict_stage05_reference', any(strcmp(local_collect_sensor_groups(run_outputs, "legacyDG"), 'stage05_strict_reference')));
 end
 
-function [artifacts, summary_table] = local_export_mode_family(run_outputs, paths, semantic_mode)
+function [artifacts, summary_table, grade_table] = local_export_mode_family(run_outputs, paths, semantic_mode)
 artifacts = struct('tables', struct(), 'figures', struct());
 summary_table = table();
+grade_table = table();
 
 mode_runs = run_outputs(arrayfun(@(r) r.mode == semantic_mode, run_outputs));
 if isempty(mode_runs)
@@ -59,6 +80,8 @@ end
 contexts = local_collect_contexts(mode_runs);
 summary_chunks = {};
 summary_cursor = 0;
+grade_chunks = {};
+grade_cursor = 0;
 for idx_ctx = 1:size(contexts, 1)
     h_km = contexts{idx_ctx, 1};
     family_name = contexts{idx_ctx, 2};
@@ -84,6 +107,8 @@ for idx_ctx = 1:size(contexts, 1)
         artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratio_%s', char(semantic_mode), context_tag))) = string(pass_png);
         summary_cursor = summary_cursor + 1;
         summary_chunks{summary_cursor, 1} = local_normalize_summary(pass_summary, "passratio_overlay"); %#ok<AGROW>
+        grade_cursor = grade_cursor + 1;
+        grade_chunks{grade_cursor, 1} = local_build_cross_profile_grade(pass_summary, "passratio_overlay", semantic_mode, h_km, family_name); %#ok<AGROW>
     end
 
     [frontier_table, frontier_summary] = local_build_frontier_overlay_table(context_runs, semantic_mode, h_km, family_name);
@@ -102,17 +127,23 @@ for idx_ctx = 1:size(contexts, 1)
         artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_frontier_%s', char(semantic_mode), context_tag))) = string(frontier_png);
         summary_cursor = summary_cursor + 1;
         summary_chunks{summary_cursor, 1} = local_normalize_summary(frontier_summary, "frontier_summary"); %#ok<AGROW>
+        grade_cursor = grade_cursor + 1;
+        grade_chunks{grade_cursor, 1} = local_build_cross_profile_grade(frontier_summary, "frontier_summary", semantic_mode, h_km, family_name); %#ok<AGROW>
     end
 end
 
 if summary_cursor > 0
     summary_table = vertcat(summary_chunks{1:summary_cursor});
 end
+if grade_cursor > 0
+    grade_table = vertcat(grade_chunks{1:grade_cursor});
+end
 end
 
-function [artifacts, summary_table] = local_export_legacy_dg_overlays(run_outputs, paths)
+function [artifacts, summary_table, grade_table] = local_export_legacy_dg_overlays(run_outputs, paths)
 artifacts = struct('tables', struct(), 'figures', struct());
 summary_table = table();
+grade_table = table();
 
 mode_runs = run_outputs(arrayfun(@(r) r.mode == "legacyDG", run_outputs));
 if isempty(mode_runs)
@@ -122,6 +153,8 @@ end
 contexts = local_collect_contexts(mode_runs);
 summary_chunks = {};
 summary_cursor = 0;
+grade_chunks = {};
+grade_cursor = 0;
 for idx_ctx = 1:size(contexts, 1)
     h_km = contexts{idx_ctx, 1};
     family_name = contexts{idx_ctx, 2};
@@ -150,10 +183,15 @@ for idx_ctx = 1:size(contexts, 1)
     artifacts.figures.(matlab.lang.makeValidName(sprintf('legacyDG_DG_envelope_%s', context_tag))) = string(dg_png);
     summary_cursor = summary_cursor + 1;
     summary_chunks{summary_cursor, 1} = local_normalize_summary(dg_summary, "DG_envelope"); %#ok<AGROW>
+    grade_cursor = grade_cursor + 1;
+    grade_chunks{grade_cursor, 1} = local_build_cross_profile_grade(dg_summary, "DG_envelope", "legacyDG", h_km, family_name); %#ok<AGROW>
 end
 
 if summary_cursor > 0
     summary_table = vertcat(summary_chunks{1:summary_cursor});
+end
+if grade_cursor > 0
+    grade_table = vertcat(grade_chunks{1:grade_cursor});
 end
 end
 
@@ -459,6 +497,59 @@ switch char(string(summary_kind))
         summary_table.status_flag = false(height(T), 1);
 end
 summary_table = local_sort_sensor_groups(summary_table);
+end
+
+function grade_table = local_build_cross_profile_grade(summary_table, summary_kind, semantic_mode, h_km, family_name)
+group_count = numel(unique(summary_table.sensor_group));
+single_group_only = group_count < 2;
+switch char(string(summary_kind))
+    case {'passratio_overlay', 'DG_envelope'}
+        plateau_ok = all(logical(local_pick_or_repeat(summary_table, 'right_plateau_reached', false, height(summary_table))));
+        paper_candidate = (~single_group_only) && plateau_ok;
+        note = "";
+        if single_group_only
+            note = "single-group diagnostic only";
+        elseif ~plateau_ok
+            note = "search domain may still be insufficient for full saturation";
+        end
+    case 'frontier_summary'
+        defined_counts = double(local_pick_or_repeat(summary_table, 'frontier_defined_count', 0, height(summary_table)));
+        sampled_counts = double(local_pick_or_repeat(summary_table, 'sampled_inclination_count', 0, height(summary_table)));
+        frontier_ok = all(defined_counts == sampled_counts & defined_counts > 1);
+        paper_candidate = (~single_group_only) && frontier_ok;
+        note = "";
+        if single_group_only
+            note = "single-group diagnostic only";
+        elseif ~frontier_ok
+            note = "frontier remains weakly defined for at least one sensor group";
+        end
+    otherwise
+        paper_candidate = false;
+        note = "unsupported summary kind";
+end
+
+grade_table = table( ...
+    repmat(string(summary_kind), height(summary_table), 1), ...
+    repmat(string(semantic_mode), height(summary_table), 1), ...
+    repmat(h_km, height(summary_table), 1), ...
+    repmat(string(family_name), height(summary_table), 1), ...
+    summary_table.sensor_group, ...
+    repmat(group_count, height(summary_table), 1), ...
+    repmat(single_group_only, height(summary_table), 1), ...
+    repmat(string(local_grade_label(paper_candidate)), height(summary_table), 1), ...
+    repmat(logical(paper_candidate), height(summary_table), 1), ...
+    repmat(string(note), height(summary_table), 1), ...
+    'VariableNames', {'summary_kind', 'semantic_mode', 'h_km', 'family_name', 'sensor_group', ...
+    'group_count', 'single_group_only', 'export_grade', 'paper_candidate', 'note'});
+grade_table = local_sort_sensor_groups(grade_table);
+end
+
+function grade = local_grade_label(flag)
+if logical(flag)
+    grade = "paper_candidate";
+else
+    grade = "diagnostic_only";
+end
 end
 
 function values = local_pick_or_repeat(T, var_name, fallback, row_count)

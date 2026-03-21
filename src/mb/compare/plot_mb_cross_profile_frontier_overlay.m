@@ -69,6 +69,10 @@ note = "";
 if isempty(summary_table) || ~all(ismember({'sensor_group', 'frontier_defined_count', 'sampled_inclination_count'}, summary_table.Properties.VariableNames))
     return;
 end
+if numel(unique(summary_table.sensor_group)) < 2
+    note = "single-group diagnostic only";
+    return;
+end
 messages = strings(0, 1);
 for idx = 1:height(summary_table)
     if summary_table.frontier_defined_count(idx) < summary_table.sampled_inclination_count(idx)

@@ -27,6 +27,7 @@ for idx = 1:numel(comparison.run_pairs)
     frontier_csv = fullfile(paths.tables, sprintf('MB_comparison_frontier_shift_%s_%s.csv', h_label, sensor_group));
     frontier_diag_csv = fullfile(paths.tables, sprintf('MB_comparison_frontier_diagnostic_%s_%s.csv', h_label, sensor_group));
     summary_context_csv = fullfile(paths.tables, sprintf('MB_comparison_summary_%s_%s.csv', h_label, sensor_group));
+    export_grade_csv = fullfile(paths.tables, sprintf('MB_comparison_export_grade_%s_%s.csv', h_label, sensor_group));
     milestone_common_save_table(pair.requirement_gap_table, gap_csv);
     milestone_common_save_table(pair.passratio_gap_table, pass_csv);
     milestone_common_save_table(pair.frontier_gap_table, frontier_csv);
@@ -66,6 +67,7 @@ for idx = 1:numel(comparison.run_pairs)
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_shift_%s', h_label))) = string(frontier_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_diagnostic_%s', h_label))) = string(frontier_diag_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('summary_%s', h_label))) = string(summary_context_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('export_grade_%s', h_label))) = string(export_grade_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('boundary_hit_%s', h_label))) = diag_artifacts.boundary_hit_csv;
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_saturation_%s', h_label))) = diag_artifacts.passratio_csv;
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_truncation_%s', h_label))) = diag_artifacts.frontier_csv;
@@ -77,6 +79,8 @@ for idx = 1:numel(comparison.run_pairs)
         'boundary_hit_table', pair.boundary_hit_table, ...
         'passratio_saturation_table', pair.passratio_saturation_table, ...
         'frontier_truncation_table', pair.frontier_truncation_table);
+    export_grade_table = local_build_comparison_export_grade(pair, sensor_group, diagnostics, plot_options);
+    milestone_common_save_table(export_grade_table, export_grade_csv);
     local_maybe_export_paper_ready(@() plot_semantic_gap_heatmap(pair.requirement_gap_table, pair.h_km, sensor_label, struct( ...
         'boundary_hit_table', pair.boundary_hit_table, ...
         'figure_style', resolve_mb_figure_style_mode('paper_ready'))), ...
@@ -125,4 +129,30 @@ summary_table = addvars(summary_table, ...
     repmat(string(pair.family_name), height(summary_table), 1), ...
     'Before', 1, ...
     'NewVariableNames', {'h_km', 'family_name'});
+end
+
+function export_grade_table = local_build_comparison_export_grade(pair, sensor_group, diagnostics, plot_options)
+families = ["comparison_heatmap", "comparison_passratio", "comparison_frontier"];
+figure_names = ["gap_heatmap", "passratio_overlay", "frontier_shift"];
+rows = cell(numel(families), 10);
+for idx = 1:numel(families)
+    guard = guard_mb_paper_ready_export(families(idx), diagnostics, local_getfield_or(plot_options, 'paper_ready_guardrail', struct()));
+    rows(idx, :) = {pair.h_km, string(sensor_group), string(pair.family_name), figure_names(idx), ...
+        string(local_export_grade_from_guard(guard)), logical(guard.allowed), string(guard.status), string(guard.note), ...
+        logical(local_getfield_or(guard, 'boundary_dominated', false)), logical(local_getfield_or(guard, 'right_unity_reached', false))};
+end
+export_grade_table = cell2table(rows, 'VariableNames', {'h_km', 'sensor_group', 'family_name', 'figure_family', ...
+    'export_grade', 'paper_ready_allowed', 'guard_status', 'note', 'boundary_dominated', 'right_unity_reached'});
+export_grade_table.h_km = double(export_grade_table.h_km);
+export_grade_table.paper_ready_allowed = logical(export_grade_table.paper_ready_allowed);
+export_grade_table.boundary_dominated = logical(export_grade_table.boundary_dominated);
+export_grade_table.right_unity_reached = logical(export_grade_table.right_unity_reached);
+end
+
+function grade = local_export_grade_from_guard(guard)
+if logical(local_getfield_or(guard, 'allowed', false))
+    grade = "paper_candidate";
+else
+    grade = "diagnostic_only";
+end
 end

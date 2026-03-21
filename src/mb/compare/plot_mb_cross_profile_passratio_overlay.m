@@ -71,6 +71,10 @@ note = "";
 if isempty(summary_table) || ~ismember('right_plateau_reached', summary_table.Properties.VariableNames)
     return;
 end
+if numel(unique(summary_table.sensor_group)) < 2
+    note = "single-group diagnostic only";
+    return;
+end
 mask = ~summary_table.right_plateau_reached;
 if any(mask)
     names = cellfun(@(s) char(format_mb_sensor_group_label(s, "short")), cellstr(summary_table.sensor_group(mask)), 'UniformOutput', false);
