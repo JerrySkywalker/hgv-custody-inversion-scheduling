@@ -131,15 +131,18 @@ search_domain.P_grid = reshape(local_getfield_or(search_domain, 'P_grid', []), 1
 search_domain.T_grid = reshape(local_getfield_or(search_domain, 'T_grid', []), 1, []);
 search_domain.Ns_expand_blocks = local_getfield_or(search_domain, 'Ns_expand_blocks', repmat(struct('name', "", 'ns_min', NaN, 'ns_step', NaN, 'ns_max', NaN, 'ns_values', []), 1, 0));
 search_domain.max_expand_iterations = local_getfield_or(search_domain, 'max_expand_iterations', numel(search_domain.Ns_expand_blocks));
+plan = build_mb_ns_search_plan(search_domain);
 if ~isfield(search_domain, 'ns_search_min') || ~isfinite(search_domain.ns_search_min)
-    search_domain.ns_search_min = local_ns_bound(search_domain.P_grid, search_domain.T_grid, 'min');
+    search_domain.ns_search_min = local_first_finite(plan.initial.ns_min, local_ns_bound(search_domain.P_grid, search_domain.T_grid, 'min'));
 end
 if ~isfield(search_domain, 'ns_search_max') || ~isfinite(search_domain.ns_search_max)
-    search_domain.ns_search_max = local_ns_bound(search_domain.P_grid, search_domain.T_grid, 'max');
+    search_domain.ns_search_max = local_first_finite(plan.initial.ns_max, local_ns_bound(search_domain.P_grid, search_domain.T_grid, 'max'));
 end
 if ~isfield(search_domain, 'ns_search_step') || ~isfinite(search_domain.ns_search_step)
-    search_domain.ns_search_step = local_min_grid_step(search_domain.T_grid);
+    search_domain.ns_search_step = local_first_finite(plan.initial.ns_step, local_min_grid_step(search_domain.T_grid));
 end
+search_domain.Ns_initial_range = [search_domain.ns_search_min, search_domain.ns_search_step, search_domain.ns_search_max];
+search_domain.ns_search_plan = plan;
 end
 
 function diag = local_build_iteration_diagnostics(run, search_domain, options)
@@ -277,6 +280,14 @@ function value = local_ns_bound(P_grid, T_grid, mode_name)
 if isempty(P_grid) || isempty(T_grid)
     value = NaN;
     return;
+end
+
+function value = local_first_finite(primary_value, fallback_value)
+if isfinite(primary_value)
+    value = primary_value;
+else
+    value = fallback_value;
+end
 end
 switch lower(mode_name)
     case 'min'

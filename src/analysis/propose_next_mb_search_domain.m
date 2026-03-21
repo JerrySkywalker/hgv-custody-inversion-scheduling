@@ -10,8 +10,9 @@ action = struct('name', "hold", 'reason', "Search domain already satisfies the c
 
 P_values = reshape(local_getfield_or(search_domain, 'P_grid', local_getfield_or(search_domain, 'P_values', [])), 1, []);
 T_values = reshape(local_getfield_or(search_domain, 'T_grid', local_getfield_or(search_domain, 'T_values', [])), 1, []);
-expand_blocks = local_getfield_or(search_domain, 'Ns_expand_blocks', repmat(struct('name', "", 'ns_min', NaN, 'ns_step', NaN, 'ns_max', NaN, 'ns_values', []), 1, 0));
-hard_max = local_getfield_or(options, 'hard_max', local_getfield_or(search_domain, 'Ns_hard_max', NaN));
+plan = build_mb_ns_search_plan(search_domain, struct('Ns_hard_max', local_getfield_or(options, 'hard_max', NaN)));
+expand_blocks = local_getfield_or(plan, 'blocks', repmat(struct('name', "", 'ns_min', NaN, 'ns_step', NaN, 'ns_max', NaN, 'ns_values', []), 1, 0));
+hard_max = local_getfield_or(options, 'hard_max', local_getfield_or(plan, 'hard_max', local_getfield_or(search_domain, 'Ns_hard_max', NaN)));
 current_ns_max = local_getfield_or(search_domain, 'ns_search_max', NaN);
 
 if isempty(P_values) || isempty(T_values)
@@ -27,6 +28,7 @@ if isempty(target_block)
         target_ns_max = hard_max;
         target_ns_step = local_getfield_or(search_domain, 'ns_search_step', local_getfield_or(search_domain, 'expand_step_ns', 4));
         block_name = "hard_max_extension";
+        target_ns_min = current_ns_max + target_ns_step;
     else
         return;
     end
@@ -34,39 +36,20 @@ else
     target_ns_max = min(local_getfield_or(target_block, 'ns_max', current_ns_max), hard_max);
     target_ns_step = local_getfield_or(target_block, 'ns_step', local_getfield_or(search_domain, 'ns_search_step', 4));
     block_name = string(local_getfield_or(target_block, 'name', "next_block"));
+    target_ns_min = local_getfield_or(target_block, 'ns_min', local_getfield_or(search_domain, 'ns_search_min', NaN));
 end
 
 if ~isfinite(target_ns_max) || target_ns_max <= current_ns_max + 1.0e-9
     return;
 end
 
-expand_step_T = max(1, local_getfield_or(search_domain, 'expand_step_T', local_getfield_or(options, 'expand_step_T', 4)));
-required_T_max = ceil(target_ns_max ./ max(P_values));
-required_T_max = expand_step_T * ceil(required_T_max / expand_step_T);
-current_T_max = max(T_values);
-if required_T_max > current_T_max
-    added_T = (current_T_max + expand_step_T):expand_step_T:required_T_max;
-    T_values = unique([T_values, added_T], 'stable');
-    action.name = "expand_Ns_block";
-    if search_unsaturated
-        action.reason = "Append the next configured Ns expansion block by extending the Walker slot-count grid toward the missing right-side plateau.";
-    else
-        action.reason = "Append the next configured Ns expansion block to relieve boundary-dominated frontier or heatmap diagnostics.";
-    end
-else
-    action.name = "advance_Ns_ceiling";
-    action.reason = "Advance the search-domain Ns ceiling to the next configured block while keeping the current Walker grids.";
-end
-
-next_domain.P_grid = reshape(P_values, 1, []);
-next_domain.T_grid = reshape(T_values, 1, []);
-next_domain.P_values = reshape(P_values, 1, []);
-next_domain.T_values = reshape(T_values, 1, []);
-next_domain.ns_search_min = min(P_values) * min(T_values);
-next_domain.ns_search_max = target_ns_max;
-next_domain.ns_search_step = local_getfield_or(search_domain, 'ns_search_step', target_ns_step);
-next_domain.expand_step_ns = target_ns_step;
-next_domain.current_expand_block = block_name;
+target_block = struct( ...
+    'name', block_name, ...
+    'ns_min', target_ns_min, ...
+    'ns_step', target_ns_step, ...
+    'ns_max', target_ns_max);
+[next_domain, action] = extend_mb_ns_grid_by_policy(search_domain, target_block, quality, struct( ...
+    'expand_step_T', local_getfield_or(search_domain, 'expand_step_T', local_getfield_or(options, 'expand_step_T', 4))));
 end
 
 function block = local_pick_next_block(expand_blocks, current_ns_max)

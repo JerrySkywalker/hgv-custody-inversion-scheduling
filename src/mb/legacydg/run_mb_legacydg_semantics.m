@@ -579,6 +579,9 @@ search_domain.P_grid = reshape(local_getfield_or(search_domain, 'P_grid', legacy
 search_domain.T_grid = reshape(local_getfield_or(search_domain, 'T_grid', legacy_cfg.T_grid), 1, []);
 search_domain.inclination_grid_deg = reshape(local_getfield_or(search_domain, 'inclination_grid_deg', legacy_cfg.i_grid_deg), 1, []);
 search_domain.allow_auto_expand_upper = logical(local_getfield_or(search_domain, 'Ns_allow_expand', false));
+plan = build_mb_ns_search_plan(search_domain);
+search_domain.Ns_initial_range = [plan.initial.ns_min, plan.initial.ns_step, plan.initial.ns_max];
+[search_domain, ~] = extend_mb_ns_grid_by_policy(search_domain, plan.initial, struct(), struct());
 end
 
 function design_table = local_build_design_table_for_domain(search_domain, legacy_cfg, h_km, slice_source)
