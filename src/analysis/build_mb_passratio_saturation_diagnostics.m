@@ -178,11 +178,15 @@ for idx = 1:numel(i_values)
         plateau_lengths(end + 1, 1) = 0; %#ok<AGROW>
         continue;
     end
-    last_false = find(~mask, 1, 'last');
-    if isempty(last_false)
+    if ~mask(end)
+        plateau_lengths(end + 1, 1) = 0; %#ok<AGROW>
+        continue;
+    end
+    last_false_before_end = find(~mask(1:end-1), 1, 'last');
+    if isempty(last_false_before_end)
         start_idx = 1;
     else
-        start_idx = last_false + 1;
+        start_idx = last_false_before_end + 1;
     end
     plateau_lengths(end + 1, 1) = Ti.Ns(end) - Ti.Ns(start_idx); %#ok<AGROW>
 end

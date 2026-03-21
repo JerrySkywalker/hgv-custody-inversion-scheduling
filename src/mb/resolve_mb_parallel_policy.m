@@ -8,9 +8,11 @@ elseif isstruct(cfg_or_meta) && isfield(cfg_or_meta, 'milestones') ...
         && isfield(cfg_or_meta.milestones, 'MB_semantic_compare')
     meta = cfg_or_meta.milestones.MB_semantic_compare;
     runtime_parallel = local_getfield_or(local_getfield_or(cfg_or_meta, 'runtime', struct()), 'parallel', struct());
+    runtime_parallel = milestone_common_merge_structs(runtime_parallel, local_getfield_or(cfg_or_meta, 'parallel', struct()));
 else
     meta = cfg_or_meta;
     runtime_parallel = local_getfield_or(local_getfield_or(cfg_or_meta, 'runtime', struct()), 'parallel', struct());
+    runtime_parallel = milestone_common_merge_structs(runtime_parallel, local_getfield_or(cfg_or_meta, 'parallel', struct()));
 end
 if nargin < 2 || isempty(overrides)
     overrides = struct();
