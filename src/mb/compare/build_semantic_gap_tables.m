@@ -7,6 +7,8 @@ comparison.sensor_label = string(legacy_output.sensor_group.sensor_label);
 comparison.run_pairs = repmat(struct( ...
     'h_km', NaN, ...
     'family_name', "", ...
+    'snapshot_stage', "expanded_final", ...
+    'search_domain', struct(), ...
     'requirement_gap_table', table(), ...
     'passratio_gap_table', table(), ...
     'frontier_gap_table', table(), ...
@@ -54,6 +56,8 @@ for idx = 1:numel(legacy_output.runs)
     comparison.run_pairs(pair_cursor, 1) = struct( ...
         'h_km', legacy_run.h_km, ...
         'family_name', string(legacy_run.family_name), ...
+        'snapshot_stage', "expanded_final", ...
+        'search_domain', pair_search_domain, ...
         'requirement_gap_table', requirement_gap_table, ...
         'passratio_gap_table', passratio_gap_table, ...
         'frontier_gap_table', frontier_gap_table, ...
@@ -222,6 +226,45 @@ else
 end
 end
 
+function value = local_min_table_value(T, field_name)
+values = local_table_column(T, field_name);
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = min(values);
+end
+end
+
+function value = local_max_table_value(T, field_name)
+values = local_table_column(T, field_name);
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = max(values);
+end
+end
+
+function value = local_min_spacing(T, field_name)
+values = unique(sort(local_table_column(T, field_name)));
+values = values(isfinite(values));
+if numel(values) < 2
+    value = NaN;
+else
+    value = min(diff(values));
+end
+end
+
+function value = local_non_nan_min(values)
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = min(values);
+end
+end
+
 function summary = local_build_pair_summary(legacy_run, closed_run, boundary_hit_table, passratio_saturation_table, frontier_truncation_table)
 passratio_gap_table = local_build_passratio_gap_table(legacy_run, closed_run);
 [legacy_final, closed_final, legacy_plateau, closed_plateau, end_gap] = local_summarize_passratio_end_state(passratio_gap_table);
@@ -259,28 +302,57 @@ summary = struct( ...
 end
 
 function search_domain = local_build_search_domain_from_runs(legacy_run, closed_run)
-Ns = [local_table_column(legacy_run.design_table, 'Ns'); local_table_column(closed_run.design_table, 'Ns')];
-Ns = Ns(isfinite(Ns));
-if isempty(Ns)
-    ns_min = NaN;
-    ns_max = NaN;
-    ns_step = NaN;
-else
-    Ns = unique(sort(Ns));
-    ns_min = Ns(1);
-    ns_max = Ns(end);
-    if numel(Ns) >= 2
-        ns_step = min(diff(Ns));
-    else
+legacy_domain = local_resolve_run_search_domain(legacy_run);
+closed_domain = local_resolve_run_search_domain(closed_run);
+
+ns_min = max([local_getfield_or(legacy_domain, 'ns_search_min', NaN), local_getfield_or(closed_domain, 'ns_search_min', NaN)], [], 'omitnan');
+ns_max = min([local_getfield_or(legacy_domain, 'ns_search_max', NaN), local_getfield_or(closed_domain, 'ns_search_max', NaN)], [], 'omitnan');
+ns_step = local_non_nan_min([local_getfield_or(legacy_domain, 'ns_search_step', NaN), local_getfield_or(closed_domain, 'ns_search_step', NaN)]);
+
+if ~isfinite(ns_min) || ~isfinite(ns_max) || ns_min > ns_max
+    Ns = [local_table_column(legacy_run.design_table, 'Ns'); local_table_column(closed_run.design_table, 'Ns')];
+    Ns = Ns(isfinite(Ns));
+    if isempty(Ns)
+        ns_min = NaN;
+        ns_max = NaN;
         ns_step = NaN;
+    else
+        Ns = unique(sort(Ns));
+        ns_min = Ns(1);
+        ns_max = Ns(end);
+        if numel(Ns) >= 2
+            ns_step = min(diff(Ns));
+        else
+            ns_step = NaN;
+        end
     end
 end
+
+shared_P = intersect(reshape(local_getfield_or(legacy_domain, 'P_grid', []), 1, []), reshape(local_getfield_or(closed_domain, 'P_grid', []), 1, []), 'stable');
+if isempty(shared_P)
+    shared_P = unique([local_table_column(legacy_run.design_table, 'P'); local_table_column(closed_run.design_table, 'P')], 'sorted');
+end
+shared_T = intersect(reshape(local_getfield_or(legacy_domain, 'T_grid', []), 1, []), reshape(local_getfield_or(closed_domain, 'T_grid', []), 1, []), 'stable');
+if isempty(shared_T)
+    shared_T = unique([local_table_column(legacy_run.design_table, 'T'); local_table_column(closed_run.design_table, 'T')], 'sorted');
+end
+
 search_domain = struct( ...
     'ns_search_min', ns_min, ...
     'ns_search_max', ns_max, ...
     'ns_search_step', ns_step, ...
-    'P_grid', unique([local_table_column(legacy_run.design_table, 'P'); local_table_column(closed_run.design_table, 'P')], 'sorted'), ...
-    'T_grid', unique([local_table_column(legacy_run.design_table, 'T'); local_table_column(closed_run.design_table, 'T')], 'sorted'));
+    'P_grid', shared_P, ...
+    'T_grid', shared_T);
+end
+
+function search_domain = local_resolve_run_search_domain(run)
+effective_domain = local_getfield_or(local_getfield_or(run, 'expansion_state', struct()), 'effective_search_domain', struct());
+search_domain = struct( ...
+    'ns_search_min', local_getfield_or(effective_domain, 'ns_search_min', local_min_table_value(run.design_table, 'Ns')), ...
+    'ns_search_max', local_getfield_or(effective_domain, 'ns_search_max', local_max_table_value(run.design_table, 'Ns')), ...
+    'ns_search_step', local_getfield_or(effective_domain, 'ns_search_step', local_min_spacing(run.design_table, 'Ns')), ...
+    'P_grid', reshape(local_getfield_or(effective_domain, 'P_grid', unique(local_table_column(run.design_table, 'P'), 'sorted')), 1, []), ...
+    'T_grid', reshape(local_getfield_or(effective_domain, 'T_grid', unique(local_table_column(run.design_table, 'T'), 'sorted')), 1, []));
 end
 
 function row = local_diag_row(T, semantic_mode)
