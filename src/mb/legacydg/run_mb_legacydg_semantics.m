@@ -247,8 +247,8 @@ cfg_stage.stage02.make_plot = false;
 cfg_stage.stage02.make_plot_3d = false;
 cfg_stage.stage03.make_plot = false;
 cfg_stage.stage04.make_plot = false;
-cfg_stage.paths.cache = fullfile(paths.cache, 'stage05_inputs', legacy_cfg.sensor_group);
-ensure_dir(cfg_stage.paths.cache);
+cfg_stage = local_configure_isolated_stage_io(cfg_stage, paths, legacy_cfg.sensor_group);
+local_seed_stage01_cache(cfg_sensor, cfg_stage);
 
 run_mode = local_run_mode(legacy_cfg.use_parallel);
 stage02_out = stage02_hgv_nominal(cfg_stage, struct('mode', run_mode));
@@ -279,6 +279,42 @@ if isempty(listing)
 end
 [~, idx_latest] = max([listing.datenum]);
 stage04_file = string(fullfile(listing(idx_latest).folder, listing(idx_latest).name));
+end
+
+function cfg_stage = local_configure_isolated_stage_io(cfg_stage, paths, sensor_group_name)
+sensor_tag = char(matlab.lang.makeValidName(char(string(sensor_group_name))));
+stage_root = fullfile(paths.cache, 'stage05_inputs', sensor_tag);
+cfg_stage.paths.stage_outputs = fullfile(stage_root, 'stage_outputs');
+cfg_stage.paths.log_outputs = fullfile(stage_root, 'logs');
+cfg_stage.paths.cache = fullfile(cfg_stage.paths.stage_outputs, 'stage00', 'cache');
+cfg_stage.paths.logs = fullfile(cfg_stage.paths.log_outputs, 'stage00');
+cfg_stage.paths.figs = fullfile(cfg_stage.paths.stage_outputs, 'stage00', 'figs');
+cfg_stage.paths.tables = fullfile(cfg_stage.paths.stage_outputs, 'stage00', 'tables');
+ensure_dir(cfg_stage.paths.stage_outputs);
+ensure_dir(cfg_stage.paths.log_outputs);
+end
+
+function local_seed_stage01_cache(cfg_source, cfg_target)
+source_listing = find_stage_cache_files(cfg_source, 'stage01_scenario_disk_*.mat');
+if isempty(source_listing)
+    error('MB legacyDG wrapper could not locate any Stage01 cache to seed the isolated Stage02/03/04 pipeline.');
+end
+[~, idx_latest] = max([source_listing.datenum]);
+source_file = fullfile(source_listing(idx_latest).folder, source_listing(idx_latest).name);
+
+target_stage01_cache = fullfile(cfg_target.paths.stage_outputs, 'stage01', 'cache');
+ensure_dir(target_stage01_cache);
+target_file = fullfile(target_stage01_cache, source_listing(idx_latest).name);
+if exist(target_file, 'file') ~= 2
+    copyfile(source_file, target_file);
+    return;
+end
+
+source_info = dir(source_file);
+target_info = dir(target_file);
+if isempty(target_info) || source_info.bytes ~= target_info.bytes
+    copyfile(source_file, target_file);
+end
 end
 
 function hard_order = local_build_hard_order(trajs_in, stage04_out, family_name)
