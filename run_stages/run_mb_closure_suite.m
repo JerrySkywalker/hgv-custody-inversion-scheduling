@@ -90,6 +90,18 @@ cache_summary_csv = fullfile(cache_root, 'tables', 'MB_cache_ab_validation.csv')
 milestone_common_save_table(cache_summary, cache_summary_csv);
 out.cache_ab_summary_csv = string(cache_summary_csv);
 
+cache_reuse_summary = local_build_cache_reuse_summary( ...
+    out.cache_base_result, out.cache_plotonly_result, out.cache_semantic_result);
+cache_reuse_csv = fullfile(cache_root, 'tables', 'MB_cache_reuse_summary.csv');
+milestone_common_save_table(cache_reuse_summary, cache_reuse_csv);
+out.cache_reuse_summary_csv = string(cache_reuse_csv);
+
+cache_signature_manifest = local_build_cache_signature_manifest( ...
+    out.cache_base_result, out.cache_plotonly_result, out.cache_semantic_result);
+cache_signature_csv = fullfile(cache_root, 'tables', 'MB_cache_signature_manifest.csv');
+milestone_common_save_table(cache_signature_manifest, cache_signature_csv);
+out.cache_signature_manifest_csv = string(cache_signature_csv);
+
 stage_summary = local_build_stage_smoke_summary(out.stage_smoke);
 stage_summary_csv = fullfile(fresh_root, 'tables', 'MB_run_all_stages_headless_smoke.csv');
 milestone_common_save_table(stage_summary, stage_summary_csv);
@@ -147,6 +159,93 @@ for idx = 1:numel(run_outputs)
         local_getfield_or(summary, 'total_run_count', numel(local_getfield_or(run_output, 'runs', struct([])))), ...
         char(string(local_getfield_or(summary, 'interpretation_note', "")))};
     end
+end
+
+function summary_table = local_build_cache_reuse_summary(base_result, plot_result, semantic_result)
+rows = {};
+rows = local_append_reuse_rows(rows, "base", base_result, false, "fresh baseline run");
+rows = local_append_reuse_rows(rows, "plot_only_rerun", plot_result, true, "plot-only rerun should reuse semantic cache");
+rows = local_append_reuse_rows(rows, "semantic_change_rerun", semantic_result, false, "semantic-domain change should invalidate semantic cache");
+summary_table = cell2table(rows, 'VariableNames', ...
+    {'scenario', 'semantic_mode', 'sensor_group', 'expected_reuse', 'actual_reuse', 'cache_hits', 'fresh_evaluations', 'status', 'note'});
+summary_table.scenario = string(summary_table.scenario);
+summary_table.semantic_mode = string(summary_table.semantic_mode);
+summary_table.sensor_group = string(summary_table.sensor_group);
+summary_table.expected_reuse = logical(summary_table.expected_reuse);
+summary_table.actual_reuse = logical(summary_table.actual_reuse);
+summary_table.cache_hits = double(summary_table.cache_hits);
+summary_table.fresh_evaluations = double(summary_table.fresh_evaluations);
+summary_table.status = string(summary_table.status);
+summary_table.note = string(summary_table.note);
+end
+
+function rows = local_append_reuse_rows(rows, scenario_name, result, expected_reuse, note)
+run_outputs = local_getfield_or(local_getfield_or(result, 'artifacts', struct()), 'run_outputs', struct([]));
+for idx = 1:numel(run_outputs)
+    summary = local_getfield_or(run_outputs(idx).run_output, 'summary', struct());
+    cache_hits = local_getfield_or(summary, 'cache_hits', 0);
+    fresh_evaluations = local_getfield_or(summary, 'fresh_evaluations', 0);
+    actual_reuse = cache_hits > 0 && fresh_evaluations == 0;
+    if expected_reuse == actual_reuse
+        status = "PASS";
+    else
+        status = "WARN";
+    end
+    rows(end + 1, :) = { ... %#ok<AGROW>
+        char(string(scenario_name)), ...
+        char(string(local_getfield_or(summary, 'mode', run_outputs(idx).mode))), ...
+        char(string(local_getfield_or(summary, 'sensor_group', run_outputs(idx).sensor_group))), ...
+        expected_reuse, actual_reuse, cache_hits, fresh_evaluations, char(status), char(string(note))};
+end
+end
+
+function manifest_table = local_build_cache_signature_manifest(base_result, plot_result, semantic_result)
+rows = {};
+rows = local_append_signature_rows(rows, "base", base_result);
+rows = local_append_signature_rows(rows, "plot_only_rerun", plot_result);
+rows = local_append_signature_rows(rows, "semantic_change_rerun", semantic_result);
+manifest_table = cell2table(rows, 'VariableNames', ...
+    {'scenario', 'semantic_mode', 'sensor_group', 'family_name', 'height_km', 'cache_file', 'manifest_csv', 'semantic_version', 'figure_version', 'semantic_cache_signature', 'figure_cache_signature', 'cache_hit', 'reason'});
+manifest_table.scenario = string(manifest_table.scenario);
+manifest_table.semantic_mode = string(manifest_table.semantic_mode);
+manifest_table.sensor_group = string(manifest_table.sensor_group);
+manifest_table.family_name = string(manifest_table.family_name);
+manifest_table.height_km = double(manifest_table.height_km);
+manifest_table.cache_file = string(manifest_table.cache_file);
+manifest_table.manifest_csv = string(manifest_table.manifest_csv);
+manifest_table.semantic_version = string(manifest_table.semantic_version);
+manifest_table.figure_version = string(manifest_table.figure_version);
+manifest_table.semantic_cache_signature = string(manifest_table.semantic_cache_signature);
+manifest_table.figure_cache_signature = string(manifest_table.figure_cache_signature);
+manifest_table.cache_hit = logical(manifest_table.cache_hit);
+manifest_table.reason = string(manifest_table.reason);
+end
+
+function rows = local_append_signature_rows(rows, scenario_name, result)
+run_outputs = local_getfield_or(local_getfield_or(result, 'artifacts', struct()), 'run_outputs', struct([]));
+for idx = 1:numel(run_outputs)
+    run_output = run_outputs(idx).run_output;
+    cache_records = local_getfield_or(run_output, 'cache_records', struct([]));
+    for idx_record = 1:numel(cache_records)
+        record = cache_records(idx_record);
+        manifest_info = read_mb_cache_manifest(record.cache_file);
+        manifest = local_getfield_or(manifest_info, 'manifest', struct());
+        rows(end + 1, :) = { ... %#ok<AGROW>
+            char(string(scenario_name)), ...
+            char(string(run_outputs(idx).mode)), ...
+            char(string(run_outputs(idx).sensor_group)), ...
+            char(string(local_getfield_or(record, 'family_name', ""))), ...
+            local_getfield_or(record, 'h_km', NaN), ...
+            char(string(local_getfield_or(record, 'cache_file', ""))), ...
+            char(string(local_getfield_or(record, 'manifest_csv', local_getfield_or(manifest_info, 'manifest_csv', "")))), ...
+            char(string(local_getfield_or(manifest, 'semantic_version', ""))), ...
+            char(string(local_getfield_or(manifest, 'figure_version', ""))), ...
+            char(string(local_getfield_or(manifest, 'semantic_cache_signature', ""))), ...
+            char(string(local_getfield_or(manifest, 'figure_cache_signature', ""))), ...
+            logical(local_getfield_or(record, 'cache_hit', false)), ...
+            char(string(local_getfield_or(record, 'reason', "")))};
+    end
+end
 end
 
 function summary_table = local_build_stage_smoke_summary(stage_out)
