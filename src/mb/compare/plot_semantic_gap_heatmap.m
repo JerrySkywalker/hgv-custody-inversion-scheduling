@@ -31,7 +31,14 @@ hold(ax, 'on');
 imagesc(ax, P_values, i_values, display_matrix);
 set(ax, 'YDir', 'normal');
 if ~isempty(finite_values)
-    clim(ax, [min(finite_values), max(finite_values)]);
+    cmin = min(finite_values);
+    cmax = max(finite_values);
+    if cmax <= cmin
+        span = max(1, abs(cmin));
+        clim(ax, [cmin - 0.5 * span, cmax + 0.5 * span]);
+    else
+        clim(ax, [cmin, cmax]);
+    end
 end
 colormap(ax, parula);
 cb = colorbar(ax);

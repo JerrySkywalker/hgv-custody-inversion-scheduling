@@ -19,19 +19,26 @@ cache_root = fullfile(paths.cache, 'semantic', 'closedD');
 ensure_dir(cache_root);
 
 run_bank = repmat(local_empty_run(), 0, 1);
-cache_records = repmat(struct('cache_file', "", 'manifest_csv', "", 'cache_hit', false, 'reason', "", 'family_name', "", 'h_km', NaN), 0, 1);
+cache_records = repmat(struct('cache_file', "", 'manifest_csv', "", 'cache_hit', false, 'reason', "", 'family_name', "", 'h_km', NaN, 'cache_hit_count', 0, 'fresh_evaluation_count', 0), 0, 1);
 cache_hits = 0;
 fresh_evaluations = 0;
 for idx_family = 1:numel(closed_cfg.family_set)
     family_name = closed_cfg.family_set{idx_family};
     for idx_h = 1:numel(closed_cfg.heights_to_run)
         h_km = closed_cfg.heights_to_run(idx_h);
-        design_table = build_mb_fixed_h_design_table( ...
-            h_km, closed_cfg.i_grid_deg, closed_cfg.P_grid, closed_cfg.T_grid, closed_cfg.F_fixed, "closedD_wrapper");
-        [run, cache_record] = local_run_or_load_cache(cfg_sensor, closed_cfg, sensor_group, family_name, h_km, design_table, cache_root);
+        search_domain = local_search_domain_for_height(closed_cfg, h_km);
+        expansion = expand_mb_search_domain_iteratively(search_domain, ...
+            @(domain, iteration) local_build_design_table_for_domain(domain, closed_cfg, h_km, "closedD_expand_" + iteration), ...
+            @(domain, design_table, iteration, action, action_reason) local_evaluate_domain_iteration( ...
+                cfg_sensor, closed_cfg, sensor_group, family_name, h_km, domain, design_table, ...
+                cache_root, iteration, action, action_reason), ...
+            struct('semantic_mode', "closedD", 'sensor_group', sensor_group.name, ...
+                'family_name', family_name, 'height_km', h_km));
+        run = expansion.run;
+        cache_record = local_build_expansion_cache_record(cache_root, family_name, h_km, expansion);
         cache_records(end + 1, 1) = cache_record; %#ok<AGROW>
-        cache_hits = cache_hits + double(cache_record.cache_hit);
-        fresh_evaluations = fresh_evaluations + double(~cache_record.cache_hit);
+        cache_hits = cache_hits + local_getfield_or(cache_record, 'cache_hit_count', double(local_getfield_or(cache_record, 'cache_hit', false)));
+        fresh_evaluations = fresh_evaluations + local_getfield_or(cache_record, 'fresh_evaluation_count', double(~local_getfield_or(cache_record, 'cache_hit', false)));
         run_bank(end + 1, 1) = run; %#ok<AGROW>
     end
 end
@@ -58,13 +65,13 @@ out.summary = struct( ...
 end
 
 function closed_cfg = local_normalize_options(cfg, options)
-meta = cfg.milestones.MB;
+meta = cfg.milestones.MB_semantic_compare;
 closed_cfg = struct();
 closed_cfg.sensor_group = char(string(local_getfield_or(options, 'sensor_group', 'baseline')));
 closed_cfg.heights_to_run = reshape(local_getfield_or(options, 'heights_to_run', 1000), 1, []);
-closed_cfg.i_grid_deg = reshape(local_getfield_or(options, 'i_grid_deg', meta.fixed_h_exploration_i_deg), 1, []);
-closed_cfg.P_grid = reshape(local_getfield_or(options, 'P_grid', meta.fixed_h_exploration_P), 1, []);
-closed_cfg.T_grid = reshape(local_getfield_or(options, 'T_grid', meta.fixed_h_exploration_T), 1, []);
+closed_cfg.i_grid_deg = reshape(local_getfield_or(options, 'i_grid_deg', local_getfield_or(meta, 'i_grid_deg', [30 40 50 60 70 80 90])), 1, []);
+closed_cfg.P_grid = reshape(local_getfield_or(options, 'P_grid', local_getfield_or(meta, 'P_grid', [4 6 8 10 12])), 1, []);
+closed_cfg.T_grid = reshape(local_getfield_or(options, 'T_grid', local_getfield_or(meta, 'T_grid', [4 6 8 10 12 16])), 1, []);
 closed_cfg.F_fixed = local_getfield_or(options, 'F_fixed', 1);
 closed_cfg.family_set = local_resolve_family_set(local_getfield_or(options, 'family_set', {'nominal'}));
 closed_cfg.use_parallel = logical(local_getfield_or(options, 'use_parallel', true));
@@ -72,9 +79,29 @@ closed_cfg.parallel_policy = resolve_mb_parallel_policy(local_getfield_or(option
 closed_cfg.heading_subset_max = local_getfield_or(options, 'heading_subset_max', cfg.milestones.MB.slice_settings.heading_subset_max);
 closed_cfg.cache_profile = local_getfield_or(options, 'cache_profile', cfg.milestones.MB_semantic_compare.cache_profile);
 closed_cfg.cache_namespace = string(local_getfield_or(options, 'cache_namespace', "mb_closedD"));
+closed_cfg.search_domain = local_getfield_or(meta, 'search_domain', struct());
+if isstruct(local_getfield_or(options, 'search_domain', struct())) && ~isempty(fieldnames(local_getfield_or(options, 'search_domain', struct())))
+    closed_cfg.search_domain = milestone_common_merge_structs(closed_cfg.search_domain, local_getfield_or(options, 'search_domain', struct()));
+end
+closed_cfg.search_domain.height_grid_km = reshape(closed_cfg.heights_to_run, 1, []);
+closed_cfg.search_domain.inclination_grid_deg = reshape(closed_cfg.i_grid_deg, 1, []);
+closed_cfg.search_domain.P_grid = reshape(closed_cfg.P_grid, 1, []);
+closed_cfg.search_domain.T_grid = reshape(closed_cfg.T_grid, 1, []);
 end
 
-function [run, cache_record] = local_run_or_load_cache(cfg_sensor, closed_cfg, sensor_group, family_name, h_km, design_table, cache_root)
+function [run, cache_record] = local_run_or_load_cache(cfg_sensor, closed_cfg, sensor_group, family_name, h_km, design_table, cache_root, search_domain, iteration, action, action_reason)
+if nargin < 8 || isempty(search_domain)
+    search_domain = struct();
+end
+if nargin < 9
+    iteration = 1;
+end
+if nargin < 10 || strlength(string(action)) == 0
+    action = "fresh_evaluation";
+end
+if nargin < 11 || strlength(string(action_reason)) == 0
+    action_reason = "Evaluate the current search-domain design table.";
+end
 input_spec = struct( ...
     'semantic_mode', "closedD", ...
     'family_name', string(family_name), ...
@@ -86,9 +113,11 @@ input_spec = struct( ...
     'search_domain', struct( ...
         'height_km', h_km, ...
         'inclination_grid_deg', reshape(closed_cfg.i_grid_deg, 1, []), ...
-        'P_grid', reshape(closed_cfg.P_grid, 1, []), ...
-        'T_grid', reshape(closed_cfg.T_grid, 1, []), ...
-        'F_fixed', closed_cfg.F_fixed), ...
+        'P_grid', reshape(unique(design_table.P).', 1, []), ...
+        'T_grid', reshape(unique(design_table.T).', 1, []), ...
+        'F_fixed', closed_cfg.F_fixed, ...
+        'ns_search_min', local_getfield_or(search_domain, 'ns_search_min', local_min_or_missing(design_table, 'Ns')), ...
+        'ns_search_max', local_getfield_or(search_domain, 'ns_search_max', local_max_or_missing(design_table, 'Ns'))), ...
     'heading_subset_max', closed_cfg.heading_subset_max);
 manifest = build_mb_cache_manifest("semantic_eval", mfilename, input_spec, struct( ...
     'cache_namespace', closed_cfg.cache_namespace, ...
@@ -138,8 +167,8 @@ if seed_hit
             'use_parallel', closed_cfg.use_parallel, ...
             'heading_subset_max', closed_cfg.heading_subset_max)), ...
         @(merged_eval) aggregate_stage09_semantics_results(merged_eval, h_km, family_name, sensor_group.name, closed_cfg.i_grid_deg), ...
-        struct('iteration', 1, 'semantic_mode', "closedD", 'sensor_group', sensor_group.name, ...
-            'family_name', family_name, 'height_km', h_km, 'action', "incremental_expand", 'stop_reason', "incremental_merge_completed"));
+        struct('iteration', iteration, 'semantic_mode', "closedD", 'sensor_group', sensor_group.name, ...
+            'family_name', family_name, 'height_km', h_km, 'action', string(action), 'stop_reason', "incremental_merge_completed"));
 
     run = local_empty_run();
     run.h_km = h_km;
@@ -180,11 +209,12 @@ run.feasible_table = eval_out.feasible_table;
 run.aggregate = agg_out;
 run.summary = eval_out.summary;
 run.incremental_search_history = build_mb_incremental_search_history(struct( ...
-    'iteration', 1, 'semantic_mode', "closedD", 'sensor_group', sensor_group.name, 'family_name', family_name, ...
-    'height_km', h_km, 'action', "fresh_evaluation", 'stop_reason', "initial_domain", 'cache_seed_hit', false, ...
+    'iteration', iteration, 'semantic_mode', "closedD", 'sensor_group', sensor_group.name, 'family_name', family_name, ...
+    'height_km', h_km, 'action', string(action), 'action_reason', string(action_reason), 'stop_reason', "initial_domain", 'cache_seed_hit', false, ...
     'previous_design_count', 0, 'added_design_count', height(design_table), 'merged_design_count', height(design_table), ...
     'P_grid', reshape(unique(design_table.P).', 1, []), 'T_grid', reshape(unique(design_table.T).', 1, []), ...
-    'ns_search_min', min(design_table.Ns), 'ns_search_max', max(design_table.Ns)));
+    'ns_search_min', local_getfield_or(search_domain, 'ns_search_min', min(design_table.Ns)), ...
+    'ns_search_max', local_getfield_or(search_domain, 'ns_search_max', max(design_table.Ns))));
 cache_record = struct( ...
     'cache_file', string(cache_file), ...
     'manifest_csv', "", ...
@@ -208,7 +238,8 @@ run = struct( ...
     'summary', struct(), ...
     'cache_info', struct(), ...
     'incremental_search_history', table(), ...
-    'incremental_seed_info', struct());
+    'incremental_seed_info', struct(), ...
+    'expansion_state', struct());
 end
 
 function summary = local_build_summary(eval_table, feasible_table, sensor_group, family_name)
@@ -296,6 +327,17 @@ if ~isfinite(value)
 end
 end
 
+function value = local_max_or_missing(T, field_name)
+if isempty(T) || ~ismember(field_name, T.Properties.VariableNames)
+    value = missing;
+    return;
+end
+value = max(T.(field_name), [], 'omitnan');
+if ~isfinite(value)
+    value = missing;
+end
+end
+
 function value = local_max_or_nan(T, field_name)
 if isempty(T) || ~ismember(field_name, T.Properties.VariableNames)
     value = NaN;
@@ -310,6 +352,58 @@ if b == 0
 else
     value = a / b;
 end
+end
+
+function search_domain = local_search_domain_for_height(closed_cfg, h_km)
+search_domain = closed_cfg.search_domain;
+search_domain.height_grid_km = h_km;
+search_domain.h_km = h_km;
+search_domain.P_grid = reshape(local_getfield_or(search_domain, 'P_grid', closed_cfg.P_grid), 1, []);
+search_domain.T_grid = reshape(local_getfield_or(search_domain, 'T_grid', closed_cfg.T_grid), 1, []);
+search_domain.inclination_grid_deg = reshape(local_getfield_or(search_domain, 'inclination_grid_deg', closed_cfg.i_grid_deg), 1, []);
+search_domain.allow_auto_expand_upper = logical(local_getfield_or(search_domain, 'Ns_allow_expand', false));
+end
+
+function design_table = local_build_design_table_for_domain(search_domain, closed_cfg, h_km, slice_source)
+design_table = build_mb_fixed_h_design_table( ...
+    h_km, ...
+    reshape(local_getfield_or(search_domain, 'inclination_grid_deg', closed_cfg.i_grid_deg), 1, []), ...
+    reshape(local_getfield_or(search_domain, 'P_grid', closed_cfg.P_grid), 1, []), ...
+    reshape(local_getfield_or(search_domain, 'T_grid', closed_cfg.T_grid), 1, []), ...
+    closed_cfg.F_fixed, slice_source);
+ns_min = local_getfield_or(search_domain, 'ns_search_min', NaN);
+ns_max = local_getfield_or(search_domain, 'ns_search_max', NaN);
+if isfinite(ns_min)
+    design_table = design_table(design_table.Ns >= ns_min, :);
+end
+if isfinite(ns_max)
+    design_table = design_table(design_table.Ns <= ns_max, :);
+end
+end
+
+function eval_output = local_evaluate_domain_iteration(cfg_sensor, closed_cfg, sensor_group, family_name, h_km, search_domain, design_table, cache_root, iteration, action, action_reason)
+[run, cache_record] = local_run_or_load_cache(cfg_sensor, closed_cfg, sensor_group, family_name, h_km, design_table, cache_root, search_domain, iteration, action, action_reason);
+eval_output = struct('run', run, 'cache_record', cache_record);
+end
+
+function cache_record = local_build_expansion_cache_record(cache_root, family_name, h_km, expansion)
+records = local_getfield_or(expansion, 'cache_records', repmat(struct('cache_hit', false), 0, 1));
+cache_record = struct( ...
+    'cache_file', string(fullfile(cache_root, sprintf('mb_closedd_%s_h%d_expansion.mat', char(string(family_name)), round(h_km)))), ...
+    'manifest_csv', "", ...
+    'cache_hit', false, ...
+    'reason', string(local_getfield_or(expansion, 'stop_reason', "")), ...
+    'family_name', string(family_name), ...
+    'h_km', h_km, ...
+    'cache_hit_count', 0, ...
+    'fresh_evaluation_count', 0);
+if isempty(records)
+    return;
+end
+cache_record.manifest_csv = string(local_getfield_or(records(end), 'manifest_csv', ""));
+cache_record.cache_hit = any(arrayfun(@(r) double(logical(local_getfield_or(r, 'cache_hit', false))), records));
+cache_record.cache_hit_count = sum(arrayfun(@(r) double(logical(local_getfield_or(r, 'cache_hit', false))), records));
+cache_record.fresh_evaluation_count = numel(records) - cache_record.cache_hit_count;
 end
 
 function family_set = local_resolve_family_set(family_input)
