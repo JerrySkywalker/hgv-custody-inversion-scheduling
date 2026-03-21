@@ -255,12 +255,15 @@ cfg_stage.stage02.make_plot_3d = false;
 cfg_stage.stage03.make_plot = false;
 cfg_stage.stage04.make_plot = false;
 cfg_stage = local_configure_isolated_stage_io(cfg_stage, paths, legacy_cfg.sensor_group);
-local_seed_stage01_cache(cfg_sensor, cfg_stage);
-
-run_mode = local_run_mode(legacy_cfg.use_parallel);
-stage02_out = stage02_hgv_nominal(cfg_stage, struct('mode', run_mode));
-stage03_visibility_pipeline(cfg_stage, struct('mode', run_mode));
-stage04_out = stage04_window_worstcase(cfg_stage, struct('mode', run_mode));
+seed_info = local_seed_stage01_cache(cfg_sensor, cfg_stage);
+[reuse_hit, stage02_out, stage04_out] = local_try_load_cached_stage_input_chain(cfg_stage, legacy_cfg, seed_info);
+if ~reuse_hit
+    run_mode = local_run_mode(legacy_cfg.use_parallel);
+    stage02_out = stage02_hgv_nominal(cfg_stage, struct('mode', run_mode));
+    stage03_visibility_pipeline(cfg_stage, struct('mode', run_mode));
+    stage04_out = stage04_window_worstcase(cfg_stage, struct('mode', run_mode));
+    local_save_stage_input_chain_manifest(cfg_stage, legacy_cfg, seed_info, stage02_out, stage04_out);
+end
 
 family_inputs.stage02_file = string(local_getfield_or(stage02_out, 'cache_file', ""));
 family_inputs.stage04_file = local_find_latest_stage04_file(cfg_stage);
@@ -301,7 +304,7 @@ ensure_dir(cfg_stage.paths.stage_outputs);
 ensure_dir(cfg_stage.paths.log_outputs);
 end
 
-function local_seed_stage01_cache(cfg_source, cfg_target)
+function seed_info = local_seed_stage01_cache(cfg_source, cfg_target)
 source_listing = find_stage_cache_files(cfg_source, 'stage01_scenario_disk_*.mat');
 if isempty(source_listing)
     error('MB legacyDG wrapper could not locate any Stage01 cache to seed the isolated Stage02/03/04 pipeline.');
@@ -314,14 +317,92 @@ ensure_dir(target_stage01_cache);
 target_file = fullfile(target_stage01_cache, source_listing(idx_latest).name);
 if exist(target_file, 'file') ~= 2
     copyfile(source_file, target_file);
-    return;
+else
+    source_info = dir(source_file);
+    target_info = dir(target_file);
+    if isempty(target_info) || source_info.bytes ~= target_info.bytes
+        copyfile(source_file, target_file);
+    end
 end
 
 source_info = dir(source_file);
-target_info = dir(target_file);
-if isempty(target_info) || source_info.bytes ~= target_info.bytes
-    copyfile(source_file, target_file);
+seed_info = struct( ...
+    'source_file', string(source_file), ...
+    'target_file', string(target_file), ...
+    'source_bytes', source_info.bytes, ...
+    'source_datenum', source_info.datenum);
 end
+
+function [reuse_hit, stage02_out, stage04_out] = local_try_load_cached_stage_input_chain(cfg_stage, legacy_cfg, seed_info)
+reuse_hit = false;
+stage02_out = struct();
+stage04_out = struct();
+if logical(local_getfield_or(legacy_cfg, 'force_rebuild_inputs', false))
+    return;
+end
+
+manifest_path = local_stage_input_manifest_path(cfg_stage);
+if exist(manifest_path, 'file') ~= 2
+    return;
+end
+
+tmp = load(manifest_path, 'manifest');
+if ~isfield(tmp, 'manifest')
+    return;
+end
+manifest = tmp.manifest;
+if string(local_getfield_or(manifest, 'version', "")) ~= "mb_stage05_input_chain_v1"
+    return;
+end
+if string(local_getfield_or(manifest, 'sensor_group', "")) ~= string(local_getfield_or(legacy_cfg, 'sensor_group', ""))
+    return;
+end
+if string(local_getfield_or(manifest, 'source_stage01_file', "")) ~= string(seed_info.source_file)
+    return;
+end
+if double(local_getfield_or(manifest, 'source_stage01_bytes', NaN)) ~= double(seed_info.source_bytes)
+    return;
+end
+if abs(double(local_getfield_or(manifest, 'source_stage01_datenum', NaN)) - double(seed_info.source_datenum)) > 1e-9
+    return;
+end
+
+stage02_file = char(string(local_getfield_or(manifest, 'stage02_cache_file', "")));
+stage04_file = char(string(local_getfield_or(manifest, 'stage04_cache_file', "")));
+if exist(stage02_file, 'file') ~= 2 || exist(stage04_file, 'file') ~= 2
+    return;
+end
+
+tmp_stage02 = load(stage02_file, 'out');
+tmp_stage04 = load(stage04_file, 'out');
+if ~isfield(tmp_stage02, 'out') || ~isfield(tmp_stage04, 'out')
+    return;
+end
+
+stage02_out = tmp_stage02.out;
+stage04_out = tmp_stage04.out;
+reuse_hit = true;
+end
+
+function local_save_stage_input_chain_manifest(cfg_stage, legacy_cfg, seed_info, stage02_out, stage04_out)
+stage04_cache_file = string(local_getfield_or(stage04_out, 'cache_file', ""));
+if strlength(stage04_cache_file) == 0
+    stage04_cache_file = local_find_latest_stage04_file(cfg_stage);
+end
+manifest = struct( ...
+    'version', "mb_stage05_input_chain_v1", ...
+    'sensor_group', string(local_getfield_or(legacy_cfg, 'sensor_group', "")), ...
+    'source_stage01_file', string(seed_info.source_file), ...
+    'source_stage01_bytes', double(seed_info.source_bytes), ...
+    'source_stage01_datenum', double(seed_info.source_datenum), ...
+    'stage02_cache_file', string(local_getfield_or(stage02_out, 'cache_file', "")), ...
+    'stage04_cache_file', stage04_cache_file, ...
+    'saved_at', string(datestr(now, 'yyyy-mm-dd HH:MM:SS')));
+save(local_stage_input_manifest_path(cfg_stage), 'manifest', '-v7');
+end
+
+function manifest_path = local_stage_input_manifest_path(cfg_stage)
+manifest_path = fullfile(fileparts(cfg_stage.paths.stage_outputs), 'stage05_input_manifest.mat');
 end
 
 function hard_order = local_build_hard_order(trajs_in, stage04_out, family_name)
