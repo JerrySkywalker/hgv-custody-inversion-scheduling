@@ -187,7 +187,9 @@ diag.upper_bound_hit_ratio = local_getfield_or(boundary_row, 'ratio_upper_bound_
 diag.boundary_dominated = logical(local_getfield_or(boundary_row, 'is_boundary_dominated', false));
 diag.frontier_points = local_getfield_or(frontier_row, 'num_frontier_points', 0);
 diag.internal_frontier_points = local_getfield_or(frontier_row, 'num_internal_frontier_points', 0);
+diag.frontier_defined_ratio = local_getfield_or(frontier_row, 'frontier_defined_ratio_over_inclinations', NaN);
 diag.frontier_truncated = logical(local_getfield_or(frontier_row, 'frontier_truncated_by_upper_bound', false));
+diag.frontier_weakly_defined = logical(local_getfield_or(frontier_row, 'frontier_weakly_defined', false));
 diag.no_feasible_point_found = logical(local_getfield_or(boundary_row, 'num_no_feasible_cells', 0) >= local_getfield_or(boundary_row, 'num_total_cells', 1));
 diag.search_domain_unsaturated = logical(local_getfield_or(passratio_row, 'is_search_domain_unsaturated', false)) || ...
     logical(local_getfield_or(boundary_row, 'search_upper_bound_likely_insufficient', false)) || ...

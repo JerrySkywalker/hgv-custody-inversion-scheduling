@@ -26,12 +26,15 @@ last_improvement_iteration = local_getfield_or(options, 'last_improvement_iterat
 
 right_unity_reached = logical(local_getfield_or(diagnostics, 'right_unity_reached', false));
 frontier_truncated = logical(local_getfield_or(diagnostics, 'frontier_truncated', false));
+frontier_weakly_defined = logical(local_getfield_or(diagnostics, 'frontier_weakly_defined', false));
 boundary_dominated = logical(local_getfield_or(diagnostics, 'boundary_dominated', false));
 search_unsaturated = logical(local_getfield_or(diagnostics, 'search_domain_unsaturated', false));
 no_feasible_point_found = logical(local_getfield_or(diagnostics, 'no_feasible_point_found', false));
 added_design_count = local_getfield_or(diagnostics, 'added_design_count', 0);
 current_ns_max = local_getfield_or(search_domain, 'ns_search_max', NaN);
 hit_hard_max = isfinite(hard_max) && isfinite(current_ns_max) && current_ns_max >= hard_max - 1.0e-9;
+frontier_internalized = ~frontier_truncated && ~boundary_dominated && ~frontier_weakly_defined && ...
+    local_getfield_or(diagnostics, 'internal_frontier_points', 0) >= 2;
 
 if ~Ns_allow_expand
     decision.state = "fixed_domain";
@@ -52,6 +55,13 @@ if right_unity_reached && ~frontier_truncated && ~boundary_dominated && ~search_
     decision.state = "success";
     decision.reason = "unity_plateau_reached";
     decision.reason_detail = "The right-side unity plateau is resolved and the frontier no longer depends on the current search upper bound.";
+    return;
+end
+
+if frontier_internalized && ~search_unsaturated
+    decision.state = "success";
+    decision.reason = "frontier_internalized";
+    decision.reason_detail = "The frontier is now internally defined and the current search domain no longer appears boundary-dominated.";
     return;
 end
 
@@ -121,6 +131,8 @@ if local_getfield_or(diagnostics, 'no_feasible_point_found', false)
     reason = "no_feasible_point_found";
 elseif hit_hard_max
     reason = "hard_upper_bound_reached";
+elseif local_getfield_or(diagnostics, 'frontier_truncated', false)
+    reason = "frontier_still_truncated_at_hardmax";
 elseif ~local_getfield_or(diagnostics, 'right_unity_reached', false)
     reason = "limit_reached_without_right_plateau";
 else
