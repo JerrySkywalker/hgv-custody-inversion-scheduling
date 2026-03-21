@@ -153,6 +153,10 @@ end
 if isfield(cross_profile_artifacts, 'summary')
     result.summary.cross_profile = cross_profile_artifacts.summary;
 end
+reliability_artifacts = local_export_reliability_reports(paths, run_outputs, comparison_artifacts);
+if ~isempty(fieldnames(reliability_artifacts))
+    result.tables.reliability = reliability_artifacts;
+end
 strict_replica_artifacts = local_export_strict_replica_validation_outputs(cfg, meta, run_outputs);
 if ~isempty(fieldnames(strict_replica_artifacts.tables))
     result.tables.strict_replica = strict_replica_artifacts.tables;
@@ -936,6 +940,45 @@ function artifacts = local_export_cross_profile_outputs(cfg, meta, run_outputs)
 artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct(), 'summary_table', table());
 paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 artifacts = export_mb_cross_profile_outputs(run_outputs, paths);
+end
+
+function artifacts = local_export_reliability_reports(paths, run_outputs, comparison_artifacts)
+artifacts = struct();
+
+frontier_report = build_mb_frontier_coverage_report(run_outputs);
+if ~isempty(frontier_report)
+    frontier_csv = fullfile(paths.tables, 'MB_frontier_coverage_report.csv');
+    milestone_common_save_table(frontier_report, frontier_csv);
+    artifacts.frontier_coverage_report = string(frontier_csv);
+end
+
+comparison_summary = local_getfield_or(comparison_artifacts, 'summary_table', table());
+comparison_grade = table();
+if isfield(comparison_artifacts, 'tables') && isstruct(comparison_artifacts.tables)
+    values = struct2cell(comparison_artifacts.tables);
+    for idx = 1:numel(values)
+        if ~(ischar(values{idx}) || isstring(values{idx}))
+            continue;
+        end
+        candidate = string(values{idx});
+        if numel(candidate) ~= 1 || strlength(candidate) == 0 || ~contains(lower(candidate), "export_grade") || ~isfile(candidate)
+            continue;
+        end
+        Ti = readtable(candidate, 'TextType', 'string');
+        if isempty(comparison_grade)
+            comparison_grade = Ti;
+        else
+            comparison_grade = vertcat(comparison_grade, Ti);
+        end
+    end
+end
+
+gap_report = build_mb_gap_reliability_report(comparison_summary, comparison_grade);
+if ~isempty(gap_report)
+    gap_csv = fullfile(paths.tables, 'MB_gap_reliability_report.csv');
+    milestone_common_save_table(gap_report, gap_csv);
+    artifacts.gap_reliability_report = string(gap_csv);
+end
 end
 
 function artifacts = local_export_dense_local_outputs(cfg, meta, sensor_groups, family_set)
