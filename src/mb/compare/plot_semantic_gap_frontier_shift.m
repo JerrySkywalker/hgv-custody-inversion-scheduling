@@ -8,7 +8,7 @@ if nargin < 4 || isempty(options)
     options = struct();
 end
 
-fig = figure('Visible', 'off', 'Color', 'w');
+fig = create_managed_figure(local_getfield_or(options, 'runtime', struct()), 'Color', 'w');
 setappdata(fig, 'mb_figure_style', local_getfield_or(options, 'figure_style', struct()));
 tiled = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 diagnostic_note = local_frontier_diagnostic_note(gap_table);
@@ -147,7 +147,7 @@ notes = notes(strlength(notes) > 0);
 if isempty(notes)
     return;
 end
-text(ax, 0.02, 0.86, char(strjoin(notes, newline)), ...
+text(ax, 0.02, 0.86, char(strjoin(notes(1:min(end, 2)), newline)), ...
     'Units', 'normalized', 'FontSize', 9.5, 'Color', [0.55 0.15 0.15], ...
     'VerticalAlignment', 'top');
 end

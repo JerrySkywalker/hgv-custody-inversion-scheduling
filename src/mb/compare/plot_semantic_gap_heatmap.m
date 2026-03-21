@@ -24,7 +24,7 @@ finite_values = value_matrix(isfinite(value_matrix));
 display_matrix = value_matrix;
 display_matrix(~isfinite(display_matrix)) = NaN;
 
-fig = figure('Visible', 'off', 'Color', 'w');
+fig = create_managed_figure(local_getfield_or(options, 'runtime', struct()), 'Color', 'w');
 setappdata(fig, 'mb_figure_style', local_getfield_or(options, 'figure_style', struct()));
 ax = axes(fig);
 hold(ax, 'on');
@@ -97,7 +97,7 @@ end
 if isempty(note_lines)
     return;
 end
-text(ax, 0.02, 0.98, strjoin(cellstr(note_lines), newline), ...
+text(ax, 0.02, 0.98, strjoin(cellstr(note_lines(1:min(end, 2))), newline), ...
     'Units', 'normalized', 'VerticalAlignment', 'top', 'FontSize', 10, ...
     'Color', [0.55 0.15 0.15], 'FontWeight', 'bold');
 end

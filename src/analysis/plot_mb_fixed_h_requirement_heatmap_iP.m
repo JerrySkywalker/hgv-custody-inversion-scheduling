@@ -10,7 +10,7 @@ end
 
 h_km = local_getfield_or(surface, 'h_km', NaN);
 
-fig = figure('Visible', 'off', 'Color', 'w');
+fig = create_managed_figure(local_getfield_or(options, 'runtime', struct()), 'Color', 'w');
 ax = axes(fig);
 hold(ax, 'on');
 
@@ -68,7 +68,10 @@ if ~local_show_annotations(options)
     return;
 end
 text_lines = strings(0, 1);
-if strlength(string(domain_summary)) > 0
+plot_domain_label = string(local_getfield_or(options, 'plot_domain_label', ""));
+if strlength(plot_domain_label) > 0
+    text_lines(end + 1, 1) = "plot-domain: " + plot_domain_label; %#ok<AGROW>
+elseif strlength(string(domain_summary)) > 0
     text_lines(end + 1, 1) = string(domain_summary); %#ok<AGROW>
 end
 if istable(boundary_hit_table) && ~isempty(boundary_hit_table)
@@ -82,7 +85,7 @@ end
 if isempty(text_lines)
     return;
 end
-text(ax, 0.02, 0.98, char(strjoin(text_lines, newline)), ...
+text(ax, 0.02, 0.98, char(strjoin(text_lines(1:min(end, 2)), newline)), ...
     'Units', 'normalized', 'VerticalAlignment', 'top', ...
     'FontSize', 9.5, 'Color', [0.55 0.15 0.15]);
 end
