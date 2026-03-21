@@ -61,6 +61,10 @@ selection.cache_strict_compatibility = logical(local_getfield_or(local_getfield_
 selection.auto_tune_requested = logical(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'enabled', profile.auto_tune.enabled));
 selection.auto_tune_mode = char(string(local_getfield_or(local_getfield_or(meta, 'auto_tune', struct()), 'mode', local_default_autotune_mode(meta))));
 selection.parallel_policy = char(string(local_getfield_or(meta, 'parallel_policy', 'off')));
+runtime_parallel = local_getfield_or(local_getfield_or(cfg, 'runtime', struct()), 'parallel', struct());
+if logical(local_getfield_or(runtime_parallel, 'enable', false)) && strcmpi(selection.parallel_policy, 'off')
+    selection.parallel_policy = char(string(local_getfield_or(runtime_parallel, 'scope', 'none')));
+end
 selection.incremental_expansion_enabled = logical(local_getfield_or(meta, 'incremental_expansion_enabled', local_getfield_or(meta, 'allow_auto_expand_upper', false)));
 selection.boundary_diagnostics_enabled = logical(local_getfield_or(meta, 'boundary_diagnostics_enabled', true));
 selection.baseline_validation_only = isequal(selection.sensor_groups, {'baseline'}) && isequal(selection.heights_to_run, 1000) && strcmpi(selection.semantic_mode, 'comparison');
@@ -150,7 +154,7 @@ selection.cache_policy = local_ask_choice('cache policy', selection.cache_policy
     {'all_reuse', 'truth_only', 'no_reuse'});
 selection.cache_strict_compatibility = local_ask_yesno('cache strict compatibility check', selection.cache_strict_compatibility);
 selection.parallel_policy = local_ask_choice('parallel policy', selection.parallel_policy, ...
-    {'off', 'task_bundle', 'task_plus_partition'}, ...
+    {'off', 'task_bundle', 'task_plus_partition', 'outer_loop_only', 'design_block_only'}, ...
     local_parallel_policy_labels());
 selection.incremental_expansion_enabled = local_ask_yesno('enable incremental expansion', selection.incremental_expansion_enabled);
 selection.boundary_diagnostics_enabled = local_ask_yesno('enable boundary diagnostics export', selection.boundary_diagnostics_enabled);
@@ -242,6 +246,10 @@ cfg_out.milestones.MB_semantic_compare.plot_domain_policy = string(selection.plo
 cfg_out.milestones.MB_semantic_compare.cache_policy = string(selection.cache_policy);
 cfg_out.milestones.MB_semantic_compare.search_profile_mode = string(selection.profile_mode);
 cfg_out.milestones.MB_semantic_compare.parallel_policy = string(selection.parallel_policy);
+parallel_policy = resolve_mb_parallel_policy(cfg_out, struct('parallel_policy', selection.parallel_policy));
+cfg_out.runtime.parallel.enable = ~strcmpi(char(parallel_policy.scope), 'none');
+cfg_out.runtime.parallel.scope = char(parallel_policy.scope);
+cfg_out.runtime.parallel.max_workers = max(parallel_policy.max_workers_outer, parallel_policy.max_workers_inner);
 cfg_out.milestones.MB_semantic_compare.incremental_expansion_enabled = logical(selection.incremental_expansion_enabled);
 cfg_out.milestones.MB_semantic_compare.boundary_diagnostics_enabled = logical(selection.boundary_diagnostics_enabled);
 cfg_out.milestones.MB_semantic_compare.cache_profile.strict_compatibility = logical(selection.cache_strict_compatibility);
@@ -617,7 +625,7 @@ labels = { ...
 end
 
 function labels = local_parallel_policy_labels()
-choices = {'off', 'task_bundle', 'task_plus_partition'};
+choices = {'off', 'task_bundle', 'task_plus_partition', 'outer_loop_only', 'design_block_only'};
 labels = cell(size(choices));
 for idx = 1:numel(choices)
     labels{idx} = char(format_mb_parallel_policy_label(struct('parallel_policy', choices{idx}), "short"));

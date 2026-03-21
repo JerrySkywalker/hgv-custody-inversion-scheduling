@@ -23,6 +23,7 @@ end
 if strcmpi(char(string(detail_level)), 'detailed')
     parts = [
         base
+        "scope=" + string(policy.scope)
         "outer=" + local_onoff(policy.outer_enabled)
         "inner=" + local_onoff(policy.inner_enabled)
         "pool=" + string(policy.pool_profile)
@@ -32,7 +33,7 @@ if strcmpi(char(string(detail_level)), 'detailed')
         "partition=" + string(policy.partition_strategy)];
     label = strjoin(cellstr(parts), ', ');
 else
-    label = sprintf('%s, pool=%s', char(base), char(string(policy.pool_profile)));
+    label = sprintf('%s, scope=%s, pool=%s', char(base), char(string(policy.scope)), char(string(policy.pool_profile)));
 end
 end
 
