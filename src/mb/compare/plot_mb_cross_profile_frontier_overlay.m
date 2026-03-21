@@ -5,7 +5,7 @@ if nargin < 5 || strlength(string(family_name)) == 0
     family_name = "nominal";
 end
 
-fig = figure('Visible', 'off', 'Color', 'w', 'Position', [160 160 1100 720]);
+fig = create_managed_figure(struct(), 'Color', 'w', 'Position', [160 160 1100 720]);
 ax = axes(fig);
 hold(ax, 'on');
 
@@ -83,6 +83,6 @@ for idx = 1:height(summary_table)
     end
 end
 if ~isempty(messages)
-    note = "frontier domain coverage: " + strjoin(cellstr(messages), '; ');
+    note = "diagnostic-only: partial frontier coverage";
 end
 end

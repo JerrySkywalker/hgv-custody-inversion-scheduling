@@ -5,7 +5,7 @@ if nargin < 3 || isempty(options)
     options = struct();
 end
 
-fig = figure('Color', 'w', 'Name', 'MB Stage05 Semantic Frontier', 'Position', [160 160 1100 700]);
+fig = create_managed_figure(struct(), 'Color', 'w', 'Name', 'MB Stage05 Semantic Frontier', 'Position', [160 160 1100 700]);
 
 valid_frontier = summary_table.frontier_Ns(isfinite(summary_table.frontier_Ns));
 if isempty(valid_frontier)

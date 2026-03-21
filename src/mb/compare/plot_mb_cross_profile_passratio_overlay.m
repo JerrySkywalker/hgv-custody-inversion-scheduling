@@ -5,7 +5,7 @@ if nargin < 5 || strlength(string(family_name)) == 0
     family_name = "nominal";
 end
 
-fig = figure('Visible', 'off', 'Color', 'w', 'Position', [140 140 1100 720]);
+fig = create_managed_figure(struct(), 'Color', 'w', 'Position', [140 140 1100 720]);
 ax = axes(fig);
 hold(ax, 'on');
 
@@ -77,7 +77,6 @@ if numel(unique(summary_table.sensor_group)) < 2
 end
 mask = ~summary_table.right_plateau_reached;
 if any(mask)
-    names = cellfun(@(s) char(format_mb_sensor_group_label(s, "short")), cellstr(summary_table.sensor_group(mask)), 'UniformOutput', false);
-    note = "search domain may still be insufficient for full saturation: " + strjoin(names, ', ');
+    note = "diagnostic-only: unsaturated sensor-group overlay";
 end
 end
