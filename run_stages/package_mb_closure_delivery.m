@@ -124,12 +124,15 @@ local_write_readme(fullfile(delivery_root, sprintf('README_delivery_%s.md', roun
 local_write_validation(fullfile(delivery_root, sprintf('VALIDATION_CLOSURE_%s.md', round_slug)), strict_root, fresh_root, cache_root, round_slug);
 local_write_cache_policy(fullfile(delivery_root, sprintf('CACHE_POLICY_%s.md', round_slug)), cache_root, round_slug);
 local_write_paper_shortlist(fullfile(delivery_root, sprintf('PAPER_FIGURE_SHORTLIST_%s.md', round_slug)), delivery_root, round_slug);
+cleanup_out = build_mb_history_cleanup_inventory(struct('tag', tag, 'delivery_id', delivery_id));
 
 out = struct();
 out.delivery_root = string(delivery_root);
 out.expanded_source_csv = string(expanded_sources_csv);
 out.diagnostic_only_csv = string(diagnostic_csv);
 out.copied_manifest_csv = string(copied_manifest_csv);
+out.history_inventory_csv = string(cleanup_out.csv_path);
+out.history_cleanup_md = string(cleanup_out.md_path);
 end
 
 function T = local_concat_tables(paths)
