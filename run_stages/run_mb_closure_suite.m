@@ -102,6 +102,32 @@ cache_signature_csv = fullfile(cache_root, 'tables', 'MB_cache_signature_manifes
 milestone_common_save_table(cache_signature_manifest, cache_signature_csv);
 out.cache_signature_manifest_csv = string(cache_signature_csv);
 
+mb_headless_summary = local_build_mb_headless_smoke_summary(out.fresh_result, fresh_root);
+mb_headless_csv = fullfile(fresh_root, 'tables', 'MB_headless_smoke_summary.csv');
+milestone_common_save_table(mb_headless_summary, mb_headless_csv);
+out.mb_headless_smoke_summary_csv = string(mb_headless_csv);
+
+parallel_options = struct( ...
+    'profile_name', 'mb_default', ...
+    'milestone_id', "MB_" + tag + "_parallelcheck", ...
+    'tag', tag + "_parallel", ...
+    'sensor_groups', {{'baseline'}}, ...
+    'heights_to_run', 1000, ...
+    'family_set', {{'nominal'}}, ...
+    'i_grid_deg', [70, 80], ...
+    'P_grid', [10, 12], ...
+    'T_grid', [12, 16], ...
+    'parallel_scope', 'outer_loop_only', ...
+    'parallel_mode', 'grid', ...
+    'max_workers', 2);
+out.parallel_check = run_mb_parallel_consistency_checks(parallel_options);
+parallel_consistency_csv = fullfile(fresh_root, 'tables', 'MB_parallel_consistency_summary.csv');
+parallel_timing_csv = fullfile(fresh_root, 'tables', 'MB_parallel_timing_summary.csv');
+copyfile(char(out.parallel_check.consistency_csv), parallel_consistency_csv);
+copyfile(char(out.parallel_check.timing_csv), parallel_timing_csv);
+out.parallel_consistency_csv = string(parallel_consistency_csv);
+out.parallel_timing_csv = string(parallel_timing_csv);
+
 stage_summary = local_build_stage_smoke_summary(out.stage_smoke);
 stage_summary_csv = fullfile(fresh_root, 'tables', 'MB_run_all_stages_headless_smoke.csv');
 milestone_common_save_table(stage_summary, stage_summary_csv);
@@ -255,8 +281,8 @@ for idx = 1:numel(stage_names)
     name = stage_names{idx};
     entry = stage_out.(name);
     status = string(local_getfield_or(entry, 'status', local_getfield_or(entry, 'Status', "unknown")));
-    fig_path = string(local_getfield_or(entry, 'figure_path', local_getfield_or(entry, 'figure', "")));
-    cache_path = string(local_getfield_or(entry, 'cache_file', local_getfield_or(entry, 'cache', "")));
+    fig_path = string(local_pick_first_field(entry, {'figure_path', 'figure', 'Figure', 'fig_path', 'figure_file'}, ""));
+    cache_path = string(local_pick_first_field(entry, {'cache_file', 'cache', 'cache_path', 'Cache'}, ""));
     rows(end + 1, :) = {string(name), status, fig_path, cache_path}; %#ok<AGROW>
 end
 summary_table = cell2table(rows, 'VariableNames', {'stage_name', 'status', 'figure_path', 'cache_path'});
@@ -264,6 +290,60 @@ summary_table.stage_name = string(summary_table.stage_name);
 summary_table.status = string(summary_table.status);
 summary_table.figure_path = string(summary_table.figure_path);
 summary_table.cache_path = string(summary_table.cache_path);
+end
+
+function summary_table = local_build_mb_headless_smoke_summary(result, milestone_root)
+artifacts = local_getfield_or(result, 'artifacts', struct());
+run_outputs = local_getfield_or(artifacts, 'run_outputs', struct([]));
+cfg = local_getfield_or(result, 'cfg', struct());
+runtime = local_getfield_or(cfg, 'runtime', struct());
+plotting = local_getfield_or(runtime, 'plotting', struct());
+plotting_mode = string(local_getfield_or(plotting, 'mode', "headless"));
+figure_dir = fullfile(milestone_root, 'figures');
+if isfolder(figure_dir)
+    png_files = dir(fullfile(figure_dir, '*.png'));
+    meta_files = dir(fullfile(figure_dir, '*.meta.json'));
+else
+    png_files = dir.empty(1, 0);
+    meta_files = dir.empty(1, 0);
+end
+rows = {};
+for idx = 1:numel(run_outputs)
+    run_output = run_outputs(idx).run_output;
+    summary = local_getfield_or(run_output, 'summary', struct());
+    rows(end + 1, :) = { ... %#ok<AGROW>
+        string(local_getfield_or(summary, 'mode', run_outputs(idx).mode)), ...
+        string(local_getfield_or(summary, 'sensor_group', run_outputs(idx).sensor_group)), ...
+        plotting_mode, ...
+        double(numel(png_files)), ...
+        double(numel(meta_files)), ...
+        string("headless export completed without interactive figure requirement")};
+end
+if isempty(rows)
+    rows = {string(""), string(""), string("headless"), 0, 0, string("no run outputs recorded")};
+end
+summary_table = cell2table(rows, 'VariableNames', ...
+    {'semantic_mode', 'sensor_group', 'plotting_mode', 'png_count', 'meta_count', 'note'});
+summary_table.semantic_mode = string(summary_table.semantic_mode);
+summary_table.sensor_group = string(summary_table.sensor_group);
+summary_table.plotting_mode = string(summary_table.plotting_mode);
+summary_table.png_count = double(summary_table.png_count);
+summary_table.meta_count = double(summary_table.meta_count);
+summary_table.note = string(summary_table.note);
+end
+
+function value = local_pick_first_field(S, field_names, fallback)
+value = fallback;
+if ~isstruct(S)
+    return;
+end
+for idx = 1:numel(field_names)
+    name = field_names{idx};
+    if isfield(S, name)
+        value = S.(name);
+        return;
+    end
+end
 end
 
 function value = local_getfield_or(S, field_name, fallback)

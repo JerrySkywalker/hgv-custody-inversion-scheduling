@@ -73,7 +73,14 @@ copy_items = {
     fullfile(strict_root, 'figures', 'MB_control_stage05_DG_envelope_h1000_stage05_strict_reference.png'), 'figures/strict_replica/MB_control_stage05_DG_envelope_h1000_stage05_strict_reference.png', 'figure';
     fullfile(fresh_root, 'tables', 'MB_run_manifest.csv'), 'tables/baseline_h1000/MB_run_manifest.csv', 'table';
     fullfile(fresh_root, 'tables', 'MB_output_metadata_manifest.csv'), 'tables/baseline_h1000/MB_output_metadata_manifest.csv', 'table';
+    fullfile(fresh_root, 'tables', 'MB_headless_smoke_summary.csv'), 'tables/diagnostics/MB_headless_smoke_summary.csv', 'table';
+    fullfile(fresh_root, 'tables', 'MB_frontier_coverage_report.csv'), 'tables/diagnostics/MB_frontier_coverage_report.csv', 'table';
+    fullfile(fresh_root, 'tables', 'MB_gap_reliability_report.csv'), 'tables/diagnostics/MB_gap_reliability_report.csv', 'table';
+    fullfile(fresh_root, 'tables', 'MB_parallel_consistency_summary.csv'), 'tables/diagnostics/MB_parallel_consistency_summary.csv', 'table';
+    fullfile(fresh_root, 'tables', 'MB_parallel_timing_summary.csv'), 'tables/diagnostics/MB_parallel_timing_summary.csv', 'table';
     fullfile(cache_root, 'tables', 'MB_cache_ab_validation.csv'), 'tables/cache_ab/MB_cache_ab_validation.csv', 'table';
+    fullfile(cache_root, 'tables', 'MB_cache_reuse_summary.csv'), 'tables/cache_ab/MB_cache_reuse_summary.csv', 'table';
+    fullfile(cache_root, 'tables', 'MB_cache_signature_manifest.csv'), 'tables/cache_ab/MB_cache_signature_manifest.csv', 'table';
     fullfile(fresh_root, 'tables', 'MB_legacyDG_passratio_h1000_baseline.csv'), 'tables/baseline_h1000/MB_legacyDG_passratio_h1000_baseline.csv', 'table';
     fullfile(fresh_root, 'tables', 'MB_closedD_passratio_h1000_baseline.csv'), 'tables/baseline_h1000/MB_closedD_passratio_h1000_baseline.csv', 'table';
     fullfile(fresh_root, 'tables', 'MB_legacyDG_minimumNs_heatmap_iP_h1000_baseline.csv'), 'tables/baseline_h1000/MB_legacyDG_minimumNs_heatmap_iP_h1000_baseline.csv', 'table';
@@ -157,7 +164,7 @@ fprintf(fid, '# %s\n\n', delivery_id);
 fprintf(fid, '- fresh root: `%s`\n', fresh_id);
 fprintf(fid, '- strict root: `%s`\n', strict_id);
 fprintf(fid, '- cache A/B root: `%s`\n', cache_id);
-fprintf(fid, '- package contents: expanded-final source list, diagnostic-only list, strict replica validation, baseline h=1000 fresh results, cross-profile overlays, cache A/B summary, stage headless smoke summary\n');
+fprintf(fid, '- package contents: expanded-final source list, diagnostic-only list, strict replica validation, baseline h=1000 fresh results, cross-profile overlays, cache A/B summary, MB/stage headless smoke summaries, frontier/gap reliability, and parallel consistency tables\n');
 fprintf(fid, '- intent: provide a clean handoff bundle without mixing historical `outputs/milestones/MB` artifacts\n');
 fclose(fid);
 end
@@ -166,6 +173,8 @@ function local_write_validation(path_str, strict_root, fresh_root, cache_root, r
 strict_summary = readtable(fullfile(strict_root, 'tables', 'MB_stage05_strictReplica_validation_summary.csv'));
 comparison_summary = readtable(fullfile(fresh_root, 'tables', 'MB_comparison_summary_h1000_baseline.csv'));
 cache_ab = readtable(fullfile(cache_root, 'tables', 'MB_cache_ab_validation.csv'));
+frontier_cov = readtable(fullfile(fresh_root, 'tables', 'MB_frontier_coverage_report.csv'));
+gap_rel = readtable(fullfile(fresh_root, 'tables', 'MB_gap_reliability_report.csv'));
 fid = fopen(path_str, 'w');
 fprintf(fid, '# Validation Closure %s\n\n', round_slug);
 fprintf(fid, '- strict replica max_abs_diff_over_curve: `%g`\n', strict_summary.max_abs_diff_over_curve(1));
@@ -175,12 +184,16 @@ fprintf(fid, '- baseline comparison closedD minimum Ns: `%g`\n', comparison_summ
 fprintf(fid, '- baseline comparison right_plateau_reached_legacy: `%d`\n', comparison_summary.right_plateau_reached_legacy(1));
 fprintf(fid, '- baseline comparison right_plateau_reached_closed: `%d`\n', comparison_summary.right_plateau_reached_closed(1));
 fprintf(fid, '- cache A/B rows: `%d`\n', height(cache_ab));
+fprintf(fid, '- frontier coverage rows: `%d`\n', height(frontier_cov));
+fprintf(fid, '- gap reliability rows: `%d`\n', height(gap_rel));
 fprintf(fid, '- headless smoke: see `tables/diagnostics/MB_run_all_stages_headless_smoke.csv`\n');
 fclose(fid);
 end
 
 function local_write_cache_policy(path_str, cache_root, round_slug)
 cache_ab = readtable(fullfile(cache_root, 'tables', 'MB_cache_ab_validation.csv'));
+cache_reuse = readtable(fullfile(cache_root, 'tables', 'MB_cache_reuse_summary.csv'));
+cache_manifest = readtable(fullfile(cache_root, 'tables', 'MB_cache_signature_manifest.csv'));
 fid = fopen(path_str, 'w');
 fprintf(fid, '# Cache Policy %s\n\n', round_slug);
 fprintf(fid, '- semantic cache key includes semantic mode, sensor group, search profile, profile mode, Ns/P/T grids, expand blocks, hard max, evaluator version, sensor propagation version\n');
@@ -191,6 +204,16 @@ for idx = 1:height(cache_ab)
         char(string(cache_ab.scenario(idx))), char(string(cache_ab.semantic_mode(idx))), ...
         cache_ab.cache_hits(idx), cache_ab.fresh_evaluations(idx));
 end
+fprintf(fid, '\n## Reuse Classification\n');
+for idx = 1:height(cache_reuse)
+    fprintf(fid, '- %s / %s: expected_reuse=%d, actual_reuse=%d, status=%s\n', ...
+        char(string(cache_reuse.scenario(idx))), ...
+        char(string(cache_reuse.semantic_mode(idx))), ...
+        cache_reuse.expected_reuse(idx), cache_reuse.actual_reuse(idx), ...
+        char(string(cache_reuse.status(idx))));
+end
+fprintf(fid, '\n## Signature Manifest Rows\n');
+fprintf(fid, '- manifest rows: `%d`\n', height(cache_manifest));
 fclose(fid);
 end
 
