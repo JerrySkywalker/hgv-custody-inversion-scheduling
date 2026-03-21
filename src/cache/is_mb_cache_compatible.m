@@ -30,6 +30,48 @@ if string(existing_manifest.input_hash) ~= string(expected_manifest.input_hash)
     reason = "input_hash_mismatch";
     return;
 end
+if isfield(existing_manifest, 'generator_version') && isfield(expected_manifest, 'generator_version') && ...
+        string(existing_manifest.generator_version) ~= string(expected_manifest.generator_version)
+    reason = "generator_version_mismatch";
+    return;
+end
+if isfield(existing_manifest, 'semantic_mode') && isfield(expected_manifest, 'semantic_mode') && ...
+        string(existing_manifest.semantic_mode) ~= string(expected_manifest.semantic_mode)
+    reason = "semantic_mode_mismatch";
+    return;
+end
+if isfield(existing_manifest, 'sensor_group_name') && isfield(expected_manifest, 'sensor_group_name') && ...
+        string(existing_manifest.sensor_group_name) ~= string(expected_manifest.sensor_group_name)
+    reason = "sensor_group_mismatch";
+    return;
+end
+if isfield(existing_manifest, 'sensor_param_digest') && isfield(expected_manifest, 'sensor_param_digest') && ...
+        string(existing_manifest.sensor_param_digest) ~= string(expected_manifest.sensor_param_digest)
+    reason = "sensor_param_digest_mismatch";
+    return;
+end
+if isfield(existing_manifest, 'search_domain_digest') && isfield(expected_manifest, 'search_domain_digest') && ...
+        string(existing_manifest.search_domain_digest) ~= string(expected_manifest.search_domain_digest)
+    reason = "search_domain_digest_mismatch";
+    return;
+end
+if isfield(existing_manifest, 'profile_mode') && isfield(expected_manifest, 'profile_mode') && ...
+        string(existing_manifest.profile_mode) ~= string(expected_manifest.profile_mode)
+    reason = "profile_mode_mismatch";
+    return;
+end
+if isfield(existing_manifest, 'cache_tag') && isfield(expected_manifest, 'cache_tag') && ...
+        string(existing_manifest.cache_tag) ~= string(expected_manifest.cache_tag)
+    reason = "cache_tag_mismatch";
+    return;
+end
+if isfield(existing_manifest, 'cache_signature') && isfield(expected_manifest, 'cache_signature') && ...
+        strlength(string(existing_manifest.cache_signature)) > 0 && ...
+        strlength(string(expected_manifest.cache_signature)) > 0 && ...
+        string(existing_manifest.cache_signature) ~= string(expected_manifest.cache_signature)
+    reason = "cache_signature_mismatch";
+    return;
+end
 
 if isfield(existing_manifest, 'generator_function') && isfield(expected_manifest, 'generator_function') && ...
         string(existing_manifest.generator_function) ~= string(expected_manifest.generator_function)
