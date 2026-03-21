@@ -174,7 +174,14 @@ end
 result.summary.execution_status = "executed";
 result.summary.run_count = numel(run_outputs);
 
-metadata_artifacts = finalize_mb_output_metadata(paths, meta);
+metadata_artifacts = finalize_mb_output_metadata(paths, struct( ...
+    'meta', meta, ...
+    'run_outputs', run_outputs, ...
+    'artifact_files', {local_collect_result_artifact_files(result)}, ...
+    'resolved_modes', {resolved_modes}, ...
+    'resolved_sensor_groups', {resolved_sensor_groups}, ...
+    'resolved_families', {resolved_families}, ...
+    'resolved_heights', resolved_heights));
 if isfield(metadata_artifacts, 'manifest_csv') && strlength(metadata_artifacts.manifest_csv) > 0
     result.tables.output_metadata_manifest = metadata_artifacts.manifest_csv;
 end
@@ -186,6 +193,59 @@ result.summary.output_metadata_manifest_rows = local_getfield_or(metadata_artifa
 files = milestone_common_export_summary(result, paths);
 result.artifacts.summary_report = files.report_md;
 result.artifacts.summary_mat = files.summary_mat;
+end
+
+function files = local_collect_result_artifact_files(result)
+files = strings(0, 1);
+files = local_collect_artifact_paths_iterative(files, local_getfield_or(result, 'tables', struct()));
+files = local_collect_artifact_paths_iterative(files, local_getfield_or(result, 'figures', struct()));
+files = local_collect_artifact_paths_iterative(files, local_getfield_or(result, 'artifacts', struct()));
+files = unique(files(strlength(files) > 0));
+end
+
+function files = local_collect_artifact_paths_iterative(files, value)
+stack = {value};
+while ~isempty(stack)
+    current = stack{end};
+    stack(end) = [];
+    if isstring(current) || ischar(current)
+        candidate = string(current);
+        candidate = candidate(:);
+        for idx_candidate = 1:numel(candidate)
+            current_candidate = candidate(idx_candidate);
+            if strlength(current_candidate) > 0 && local_is_supported_artifact(current_candidate)
+                files(end + 1, 1) = current_candidate; %#ok<AGROW>
+            end
+        end
+        continue;
+    end
+    if iscell(current)
+        for idx = numel(current):-1:1
+            stack{end + 1} = current{idx}; %#ok<AGROW>
+        end
+        continue;
+    end
+    if isstruct(current)
+        if isempty(current)
+            continue;
+        end
+        if numel(current) > 1
+            for idx = numel(current):-1:1
+                stack{end + 1} = current(idx); %#ok<AGROW>
+            end
+            continue;
+        end
+        names = fieldnames(current);
+        for idx = numel(names):-1:1
+            stack{end + 1} = current.(names{idx}); %#ok<AGROW>
+        end
+    end
+end
+end
+
+function tf = local_is_supported_artifact(path_value)
+[~, ~, ext] = fileparts(char(path_value));
+tf = any(strcmpi(ext, {'.csv', '.png', '.md', '.txt'}));
 end
 
 function outputs = local_execute_semantic_runs(cfg, meta, resolved_modes, sensor_groups, family_set, heights_to_run)
