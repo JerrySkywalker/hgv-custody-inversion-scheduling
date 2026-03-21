@@ -63,4 +63,9 @@ function startup()
         set(groot, 'defaultTextInterpreter', 'none');
         set(groot, 'defaultLegendInterpreter', 'none');
         set(groot, 'defaultAxesTickLabelInterpreter', 'none');
+        if isappdata(0, 'mb_plot_runtime_config')
+            apply_plot_runtime_config(getappdata(0, 'mb_plot_runtime_config'));
+        else
+            apply_plot_runtime_config(struct('plotting', struct('mode', 'headless')));
+        end
     end

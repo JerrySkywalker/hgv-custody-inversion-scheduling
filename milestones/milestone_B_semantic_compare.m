@@ -8,6 +8,7 @@ if nargin < 1 || isempty(cfg)
 else
     cfg = milestone_common_defaults(cfg);
 end
+apply_plot_runtime_config(cfg);
 
 incoming_meta = cfg.milestones.MB_semantic_compare;
 profile_name = local_getfield_or(incoming_meta, 'search_profile', 'mb_default');

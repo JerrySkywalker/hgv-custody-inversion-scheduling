@@ -6,5 +6,10 @@ if isempty(fig) || ~ishandle(fig)
     return;
 end
 
-exportgraphics(fig, file_path, 'Resolution', 180);
+runtime = get_plot_runtime_config([]);
+[parent_dir, ~, ~] = fileparts(file_path);
+if ~isempty(parent_dir)
+    ensure_dir(parent_dir);
+end
+exportgraphics(fig, file_path, 'Resolution', runtime.export_dpi);
 end

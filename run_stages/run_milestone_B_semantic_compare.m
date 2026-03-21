@@ -30,6 +30,7 @@ function out = run_milestone_B_semantic_compare(cfg, interactive)
     if interactive
         cfg = local_configure_runtime(cfg, selection);
     end
+    apply_plot_runtime_config(cfg);
     cfg = local_apply_auto_tune_if_requested(cfg, interactive);
 
     sensor_groups = resolve_sensor_param_groups(cfg.milestones.MB_semantic_compare.sensor_groups);
@@ -71,6 +72,10 @@ function out = run_milestone_B_semantic_compare(cfg, interactive)
     fprintf('[run_stages] parallel: %s\n', parallel_policy_label);
     fprintf('[run_stages] boundary diagnostics: %s\n', boundary_label);
     fprintf('[run_stages] strict replica lock: %s\n', strict_lock_label);
+    fprintf('[run_stages] plotting: %s, close_after_save=%s, dpi=%g\n', ...
+        char(string(cfg.runtime.plotting.mode)), ...
+        char(string(logical(cfg.runtime.plotting.close_after_save))), ...
+        cfg.runtime.plotting.export_dpi);
 
     out = milestone_B_semantic_compare(cfg);
     fprintf('[run_stages] MB semantic compare complete: status=%s\n', char(string(out.summary.execution_status)));

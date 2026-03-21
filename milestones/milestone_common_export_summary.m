@@ -23,7 +23,7 @@ if ~isfield(result, 'artifacts')
     result.artifacts = struct();
 end
 
-save(paths.summary_mat, 'result', '-v7.3');
+local_safe_save_summary_mat(paths.summary_mat, result);
 files.summary_mat = string(paths.summary_mat);
 
 fid = fopen(paths.summary_report, 'w');
@@ -123,4 +123,23 @@ elseif isnumeric(value) || islogical(value)
 else
     txt = char(string(value));
 end
+end
+
+function local_safe_save_summary_mat(target_path, result)
+target_dir = fileparts(target_path);
+if ~isempty(target_dir) && ~exist(target_dir, 'dir')
+    mkdir(target_dir);
+end
+
+tmp_path = [char(target_path) '.tmp'];
+if exist(tmp_path, 'file')
+    delete(tmp_path);
+end
+
+save(tmp_path, 'result', '-v7.3');
+
+if exist(target_path, 'file')
+    delete(target_path);
+end
+movefile(tmp_path, target_path, 'f');
 end

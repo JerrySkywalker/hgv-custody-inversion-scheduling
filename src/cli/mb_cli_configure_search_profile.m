@@ -21,6 +21,7 @@ if interactive
 end
 
 [cfg_out, profile] = local_apply_selection(cfg_out, selection);
+apply_plot_runtime_config(cfg_out);
 if interactive
     meta = cfg_out.milestones.MB_semantic_compare;
     fprintf('[run_stages][CLI] search-domain: %s\n', char(string(local_getfield_or(meta, 'search_domain_label', ""))));
@@ -29,6 +30,10 @@ if interactive
     fprintf('[run_stages][CLI] incremental: %s\n', char(format_mb_incremental_policy_label(meta, "short")));
     fprintf('[run_stages][CLI] parallel: %s\n', char(format_mb_parallel_policy_label(meta, "short")));
     fprintf('[run_stages][CLI] boundary diagnostics: %s\n', char(format_mb_boundary_diagnostics_label(local_getfield_or(meta, 'boundary_diagnostics_enabled', true), "short")));
+    fprintf('[run_stages][CLI] plotting: %s, close_after_save=%s, dpi=%g\n', ...
+        char(string(cfg_out.runtime.plotting.mode)), ...
+        char(string(logical(cfg_out.runtime.plotting.close_after_save))), ...
+        cfg_out.runtime.plotting.export_dpi);
 end
 end
 
@@ -60,6 +65,7 @@ selection.incremental_expansion_enabled = logical(local_getfield_or(meta, 'incre
 selection.boundary_diagnostics_enabled = logical(local_getfield_or(meta, 'boundary_diagnostics_enabled', true));
 selection.baseline_validation_only = isequal(selection.sensor_groups, {'baseline'}) && isequal(selection.heights_to_run, 1000) && strcmpi(selection.semantic_mode, 'comparison');
 selection.manual_override = struct();
+selection.plotting_mode = char(string(local_getfield_or(local_getfield_or(cfg, 'runtime', struct()), 'plotting', struct('mode', 'headless')).mode));
 end
 
 function selection = local_prompt_selection(cfg, selection)
@@ -148,6 +154,8 @@ selection.parallel_policy = local_ask_choice('parallel policy', selection.parall
     local_parallel_policy_labels());
 selection.incremental_expansion_enabled = local_ask_yesno('enable incremental expansion', selection.incremental_expansion_enabled);
 selection.boundary_diagnostics_enabled = local_ask_yesno('enable boundary diagnostics export', selection.boundary_diagnostics_enabled);
+selection.plotting_mode = local_ask_choice('plotting mode', selection.plotting_mode, ...
+    {'headless', 'visible', 'offscreen-safe'});
 selection.auto_tune_mode = local_ask_choice('auto tune mode', selection.auto_tune_mode, ...
     {'off', 'evaluate_only', 'iterative_recommend_only', 'iterative_recommend_and_apply'});
 selection.auto_tune_requested = ~strcmpi(selection.auto_tune_mode, 'off');
@@ -237,6 +245,7 @@ cfg_out.milestones.MB_semantic_compare.parallel_policy = string(selection.parall
 cfg_out.milestones.MB_semantic_compare.incremental_expansion_enabled = logical(selection.incremental_expansion_enabled);
 cfg_out.milestones.MB_semantic_compare.boundary_diagnostics_enabled = logical(selection.boundary_diagnostics_enabled);
 cfg_out.milestones.MB_semantic_compare.cache_profile.strict_compatibility = logical(selection.cache_strict_compatibility);
+cfg_out.runtime.plotting.mode = string(selection.plotting_mode);
 cfg_out.milestones.MB_semantic_compare.search_profile_context = context;
 cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only = strcmpi(selection.run_mode, 'strict_stage05_validation_only');
 if cfg_out.milestones.MB_semantic_compare.stage05_replica.validation_only

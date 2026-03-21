@@ -21,7 +21,14 @@ function [cfg, opts] = rs_cli_configure(stage_name, cfg, interactive, opts)
         opts = struct();
     end
 
+    if ~isfield(opts, 'runtime_plotting_configured')
+        opts.runtime_plotting_configured = false;
+    end
+
+    cfg = local_ensure_runtime_defaults(cfg);
+
     if ~interactive
+        apply_plot_runtime_config(cfg);
         return;
     end
 
@@ -29,6 +36,13 @@ function [cfg, opts] = rs_cli_configure(stage_name, cfg, interactive, opts)
 
     fprintf('\n[run_stages][CLI] ===== 配置 %s =====\n', stage_name);
     fprintf('[run_stages][CLI] 直接回车表示保留默认值。\n');
+
+    if ~opts.runtime_plotting_configured
+        cfg.runtime.plotting.mode = ask_choice('runtime.plotting.mode', cfg.runtime.plotting.mode, {'headless','visible','offscreen-safe'});
+        cfg.runtime.plotting.close_after_save = ask_yesno('runtime.plotting.close_after_save', cfg.runtime.plotting.close_after_save);
+        cfg.runtime.plotting.export_dpi = ask_scalar('runtime.plotting.export_dpi', cfg.runtime.plotting.export_dpi);
+        opts.runtime_plotting_configured = true;
+    end
 
     switch stage_name
         case "stage00"
@@ -210,7 +224,29 @@ function [cfg, opts] = rs_cli_configure(stage_name, cfg, interactive, opts)
             fprintf('[run_stages][CLI] %s 没有额外交互项，使用默认 cfg。\n', stage_name);
     end
 
+    apply_plot_runtime_config(cfg);
+    fprintf('[run_stages][CLI] plotting: %s, close_after_save=%s, dpi=%g\n', ...
+        char(string(cfg.runtime.plotting.mode)), ...
+        char(string(logical(cfg.runtime.plotting.close_after_save))), ...
+        cfg.runtime.plotting.export_dpi);
+
     fprintf('[run_stages][CLI] ===== %s 配置完成 =====\n\n', stage_name);
+end
+
+function cfg = local_ensure_runtime_defaults(cfg)
+if ~isfield(cfg, 'runtime') || ~isstruct(cfg.runtime)
+    cfg.runtime = struct();
+end
+if ~isfield(cfg.runtime, 'plotting') || ~isstruct(cfg.runtime.plotting)
+    cfg.runtime.plotting = struct();
+end
+cfg.runtime.plotting = milestone_common_merge_structs(struct( ...
+    'mode', 'headless', ...
+    'default_visible', false, ...
+    'close_after_save', true, ...
+    'reuse_figures', false, ...
+    'export_dpi', 200, ...
+    'renderer', 'auto'), cfg.runtime.plotting);
 end
 
 
