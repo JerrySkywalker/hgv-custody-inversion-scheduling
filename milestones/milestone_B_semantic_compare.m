@@ -279,7 +279,7 @@ end
 function outputs = local_execute_semantic_runs(cfg, meta, resolved_modes, sensor_groups, family_set, heights_to_run)
 need_legacy = any(arrayfun(@(m) logical(m.uses_legacydg), resolved_modes));
 need_closed = any(arrayfun(@(m) logical(m.uses_closedd), resolved_modes));
-plot_options = local_semantic_plot_options(meta);
+plot_options = local_semantic_plot_options(cfg, meta);
 paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 parallel_policy = resolve_mb_parallel_policy(meta);
 tasks = local_build_semantic_tasks(sensor_groups, heights_to_run, family_set, need_legacy, need_closed);
@@ -419,7 +419,7 @@ else
 end
 end
 
-function plot_options = local_semantic_plot_options(meta)
+function plot_options = local_semantic_plot_options(cfg, meta)
 plot_options = struct();
 if isfield(meta, 'plot_xlim_ns')
     plot_options.plot_xlim_ns = meta.plot_xlim_ns;
@@ -435,6 +435,7 @@ plot_options.figure_style = resolve_mb_figure_style_mode(local_getfield_or(meta,
 plot_options.figure_style_mode = string(plot_options.figure_style.name);
 plot_options.export_paper_ready = logical(local_getfield_or(meta, 'export_paper_ready', false));
 plot_options.paper_ready_guardrail = local_getfield_or(meta, 'paper_ready_guardrail', struct());
+plot_options.runtime = cfg;
 diagnostic_text = local_resolve_autotune_diagnostic(meta);
 if strlength(diagnostic_text) > 0
     plot_options.diagnostic_text = diagnostic_text;
