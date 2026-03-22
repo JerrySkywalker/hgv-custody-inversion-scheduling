@@ -182,6 +182,12 @@ runtime_manifest = local_build_runtime_run_manifest(run_outputs, comparison_arti
 if ~isempty(runtime_manifest)
     milestone_common_save_table(runtime_manifest, run_manifest_csv);
 end
+expandable_search_summary = build_mb_expandable_search_summary_table(run_outputs, meta);
+if ~isempty(expandable_search_summary)
+    expandable_search_summary_csv = fullfile(paths.tables, 'MB_expandable_search_summary.csv');
+    milestone_common_save_table(expandable_search_summary, expandable_search_summary_csv);
+    result.tables.expandable_search_summary = string(expandable_search_summary_csv);
+end
 cache_summary_artifacts = local_export_cache_runtime_summaries(paths, run_outputs, meta);
 if isfield(cache_summary_artifacts, 'reuse_csv') && strlength(cache_summary_artifacts.reuse_csv) > 0
     result.tables.cache_reuse_decision_summary = cache_summary_artifacts.reuse_csv;
