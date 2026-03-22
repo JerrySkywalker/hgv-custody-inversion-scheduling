@@ -342,7 +342,7 @@ for idx = 1:height(passratio_audit)
 end
 for idx = 1:height(heatmap_audit)
     row = heatmap_audit(idx, :);
-    signature_fields = "heatmap_view=" + row.heatmap_mode + ";domain_view=" + row.domain_mode + ";matrix=" + row.matrix_value_type;
+    signature_fields = "heatmap_view=" + row.heatmap_mode + ";domain_view=" + row.domain_mode + ";source=" + row.heatmap_surface_source + ";matrix=" + row.matrix_value_type;
     rows(end + 1, :) = {row.figure_name(1), "heatmap_view", row.cache_key(1), signature_fields, row.cache_hit(1), row.root_cause_tag(1) ~= "correct", row.pass_fail(1)}; %#ok<AGROW>
 end
 T = cell2table(rows, 'VariableNames', {'artifact_name', 'cache_type', 'cache_key', 'semantic_signature_fields', 'cache_hit', 'reused_old_domain_semantics', 'pass_fail'});
@@ -676,6 +676,10 @@ end
 if tf && string(domain_mode) == "globalSkeleton" && ~contains(lower(string(matrix_source_name)), "global")
     tf = false;
     root_cause_tag = "global_skeleton_using_local_matrix_source";
+end
+if tf && string(domain_mode) == "local" && contains(lower(string(matrix_source_name)), "global")
+    tf = false;
+    root_cause_tag = "local_heatmap_using_global_matrix_source";
 end
 end
 
