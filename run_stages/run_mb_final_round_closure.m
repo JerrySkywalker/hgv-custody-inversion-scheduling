@@ -51,12 +51,15 @@ else
 end
 
 stage_smoke_csv = fullfile(cfg0.paths.outputs, 'milestones', "STAGE_plot_runtime_smoke_" + tag + "_stage", 'tables', 'STAGE_headless_smoke_summary.csv');
-if isfile(char(stage_smoke_csv))
+stage_notes_md = fullfile(cfg0.paths.outputs, 'milestones', "STAGE_plot_runtime_smoke_" + tag + "_stage", 'tables', 'stage_runtime_closure_notes.md');
+if isfile(char(stage_smoke_csv)) && isfile(char(stage_notes_md))
     stage_smoke = struct('reused_existing_root', true);
 else
     stage_smoke = run_stage_plot_runtime_smoke(tag + "_stage");
 end
 stage_csv = fullfile(cfg0.paths.outputs, 'milestones', "STAGE_plot_runtime_smoke_" + tag + "_stage", 'tables', 'STAGE_headless_smoke_summary.csv');
+audit_artifacts = export_mb_final_round_audit_tables(baseline_root);
+temp_artifacts = audit_root_temp_scripts(cfg0.paths.root, "mb_final_round");
 validation_csv = fullfile(baseline_root, 'tables', 'MB_validation_closure_round_final.csv');
 validation_table = local_build_validation_closure(strict_root, baseline_root, string(stage_csv));
 milestone_common_save_table(validation_table, validation_csv);
@@ -72,6 +75,8 @@ out.strict_result = strict_result;
 out.baseline_result = baseline_result;
 out.stage_smoke = stage_smoke;
 out.stage_smoke_csv = string(stage_csv);
+out.audit_artifacts = audit_artifacts;
+out.temp_artifacts = temp_artifacts;
 out.validation_csv = string(validation_csv);
 end
 
@@ -110,7 +115,11 @@ heatmap_state_separation_pass = local_all_files_exist({ ...
 output_organization_pass = local_all_files_exist({ ...
     fullfile(fileparts(baseline_root), 'MB_final_round_delivery', 'MB_output_inventory.csv'), ...
     fullfile(fileparts(baseline_root), 'MB_final_round_delivery', 'MB_recommended_figure_index.csv'), ...
-    fullfile(fileparts(baseline_root), 'MB_final_round_delivery', 'MB_historical_output_map.csv')});
+    fullfile(fileparts(baseline_root), 'MB_final_round_delivery', 'MB_historical_output_map.csv'), ...
+    fullfile(baseline_root, 'tables', 'passratio_plot_domain_audit_summary.csv'), ...
+    fullfile(baseline_root, 'tables', 'heatmap_render_mode_audit_summary.csv'), ...
+    fullfile(baseline_root, 'tables', 'semantic_domain_consistency_summary.csv'), ...
+    fullfile(fileparts(baseline_root), 'startup_audit', 'tables', 'temp_script_cleanup_summary.csv')});
 comparison_paper_ready = false;
 if ismember('right_plateau_reached_legacy', comparison_table.Properties.VariableNames) && ...
         ismember('right_plateau_reached_closed', comparison_table.Properties.VariableNames)

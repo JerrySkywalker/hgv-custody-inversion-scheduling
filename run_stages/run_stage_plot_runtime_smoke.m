@@ -111,6 +111,8 @@ summary_csv = fullfile(tab_dir, 'STAGE_headless_smoke_summary.csv');
 writetable(summary, summary_csv);
 detail_csv = fullfile(tab_dir, 'STAGE_headless_smoke_detail.csv');
 writetable(detail, detail_csv);
+notes_md = fullfile(tab_dir, 'stage_runtime_closure_notes.md');
+local_write_stage_notes_md(summary, notes_md);
 fprintf('[run_stages] Stage plot runtime smoke summary saved to %s\n', summary_csv);
 end
 
@@ -207,4 +209,41 @@ end
 if stage_name == "stage09_inverse_plot" && ~upstream_cache_missing && ~export_pass
     notes = notes + ", plot_runtime_hooked_but_plot_chain_unverified=1";
 end
+end
+
+function local_write_stage_notes_md(summary, notes_path)
+lines = strings(0, 1);
+lines(end + 1, 1) = "# Stage Runtime Closure Notes";
+lines(end + 1, 1) = "";
+for idx = 1:height(summary)
+    row = summary(idx, :);
+    lines(end + 1, 1) = "## " + row.stage_name; %#ok<AGROW>
+    lines(end + 1, 1) = "- headless_pass: " + string(row.headless_pass); %#ok<AGROW>
+    lines(end + 1, 1) = "- visible_pass: " + string(row.visible_pass); %#ok<AGROW>
+    lines(end + 1, 1) = "- export_pass: " + string(row.export_pass); %#ok<AGROW>
+    if row.upstream_cache_missing
+        lines(end + 1, 1) = "- runtime_mechanism_wired: true"; %#ok<AGROW>
+        lines(end + 1, 1) = "- business_chain_pass: false"; %#ok<AGROW>
+        lines(end + 1, 1) = "- fail_reason: " + row.fail_reason; %#ok<AGROW>
+    elseif row.export_pass
+        lines(end + 1, 1) = "- runtime_mechanism_wired: true"; %#ok<AGROW>
+        lines(end + 1, 1) = "- business_chain_pass: true"; %#ok<AGROW>
+    else
+        lines(end + 1, 1) = "- runtime_mechanism_wired: uncertain"; %#ok<AGROW>
+        lines(end + 1, 1) = "- business_chain_pass: false"; %#ok<AGROW>
+        lines(end + 1, 1) = "- fail_reason: " + row.fail_reason; %#ok<AGROW>
+    end
+    if strlength(row.notes) > 0
+        lines(end + 1, 1) = "- notes: " + row.notes; %#ok<AGROW>
+    end
+    lines(end + 1, 1) = ""; %#ok<AGROW>
+end
+
+fid = fopen(notes_path, 'w');
+if fid < 0
+    warning('MB:StageSmokeNotes', 'Unable to write stage runtime closure notes: %s', notes_path);
+    return;
+end
+cleanup_obj = onCleanup(@() fclose(fid)); %#ok<NASGU>
+fprintf(fid, '%s\n', lines);
 end
