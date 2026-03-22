@@ -133,9 +133,10 @@ for idx_ctx = 1:size(contexts, 1)
             'plot_domain_label', "history_full", ...
             'plot_domain_source', "history_full", ...
             'subtitle_text', "Cross-profile envelope from the original search-history lower bound"));
+        history_xlim = local_capture_axis_xlim(fig_pass_history);
         pass_history_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_historyFull_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass_history, pass_history_png);
-        write_mb_plot_domain_sidecar(pass_history_png, "history_full", "initial_search_domain_lower_bound", local_capture_axis_xlim(fig_pass_history), ...
+        write_mb_plot_domain_sidecar(pass_history_png, "history_full", "initial_search_domain_lower_bound", history_xlim, ...
             build_mb_passratio_view_sidecar_fields(fig_pass_history, pass_history_table, pass_history_csv, "history_full", pass_windows.history_full, pass_history_meta, struct( ...
             'figure_family', string(semantic_mode) + "_cross_profile_passratio", ...
             'expected_domain_behavior', "history_full_from_initial_ns_min_with_zero_padding", ...
@@ -147,20 +148,21 @@ for idx_ctx = 1:size(contexts, 1)
             'plot_domain_label', "effective_full_range", ...
             'plot_domain_source', "effective_full_range", ...
             'subtitle_text', "Cross-profile envelope over the final effective expanded domain"));
+        effective_xlim = local_capture_axis_xlim(fig_pass_effective);
         pass_effective_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_effectiveFullRange_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass_effective, pass_effective_png);
-        write_mb_plot_domain_sidecar(pass_effective_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
+        write_mb_plot_domain_sidecar(pass_effective_png, "effective_full_range", "effective_search_domain", effective_xlim, ...
             build_mb_passratio_view_sidecar_fields(fig_pass_effective, pass_effective_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, pass_effective_meta, struct( ...
             'figure_family', string(semantic_mode) + "_cross_profile_passratio", ...
             'expected_domain_behavior', "effective_domain_only_without_history_padding", ...
             'actual_domain_behavior', "effective_domain_view")));
         pass_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_fullRange_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass_effective, pass_alias_png);
-        write_mb_plot_domain_sidecar(pass_alias_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
+        write_mb_plot_domain_sidecar(pass_alias_png, "effective_full_range", "effective_search_domain", effective_xlim, ...
             build_mb_passratio_view_sidecar_fields(fig_pass_effective, pass_effective_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, pass_effective_meta, struct('figure_family', string(semantic_mode) + "_cross_profile_passratio")));
         legacy_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass_effective, legacy_alias_png);
-        write_mb_plot_domain_sidecar(legacy_alias_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
+        write_mb_plot_domain_sidecar(legacy_alias_png, "effective_full_range", "effective_search_domain", effective_xlim, ...
             build_mb_passratio_view_sidecar_fields(fig_pass_effective, pass_effective_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, pass_effective_meta, struct('figure_family', string(semantic_mode) + "_cross_profile_passratio")));
         close(fig_pass_effective);
 
@@ -169,14 +171,18 @@ for idx_ctx = 1:size(contexts, 1)
             'plot_domain_label', "frontier_zoom", ...
             'plot_domain_source', "frontier_zoom", ...
             'subtitle_text', "Cross-profile envelope focused on the local frontier neighborhood"));
+        zoom_xlim = local_capture_axis_xlim(fig_pass_zoom);
         pass_zoom_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_frontierZoom_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass_zoom, pass_zoom_png);
-        write_mb_plot_domain_sidecar(pass_zoom_png, "frontier_zoom", "frontier_zoom_window", local_capture_axis_xlim(fig_pass_zoom), ...
+        write_mb_plot_domain_sidecar(pass_zoom_png, "frontier_zoom", "frontier_zoom_window", zoom_xlim, ...
             build_mb_passratio_view_sidecar_fields(fig_pass_zoom, pass_zoom_table, pass_zoom_csv, "frontier_zoom", pass_windows.frontier_zoom, pass_zoom_meta, struct( ...
             'figure_family', string(semantic_mode) + "_cross_profile_passratio", ...
             'expected_domain_behavior', "frontier_zoom_local_window", ...
             'actual_domain_behavior', "frontier_zoom_view")));
         close(fig_pass_zoom);
+
+        pass_summary = local_apply_passratio_render_summary(pass_summary, pass_history_meta, history_xlim, effective_xlim, zoom_xlim);
+        milestone_common_save_table(pass_summary, pass_summary_csv);
 
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratio_%s', char(semantic_mode), context_tag))) = string(pass_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioHistory_%s', char(semantic_mode), context_tag))) = string(pass_history_csv);
@@ -598,9 +604,9 @@ end
 end
 
 function summary_table = local_normalize_summary(T, summary_kind)
-summary_table = table('Size', [height(T), 10], ...
-    'VariableTypes', {'string', 'string', 'string', 'string', 'double', 'string', 'double', 'double', 'logical', 'string'}, ...
-    'VariableNames', {'summary_kind', 'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'metric_primary', 'metric_secondary', 'status_flag', 'note'});
+summary_table = table('Size', [height(T), 15], ...
+    'VariableTypes', {'string', 'string', 'string', 'string', 'double', 'string', 'double', 'double', 'logical', 'string', 'double', 'double', 'double', 'logical', 'logical'}, ...
+    'VariableNames', {'summary_kind', 'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'metric_primary', 'metric_secondary', 'status_flag', 'note', 'history_full_rendered_min_ns', 'effective_full_rendered_min_ns', 'frontier_zoom_rendered_min_ns', 'history_padding_applied', 'domain_consistency_pass'});
 summary_table.summary_kind = repmat(string(summary_kind), height(T), 1);
 summary_table.semantic_mode = string(local_pick_or_repeat(T, 'semantic_mode', "", height(T)));
 summary_table.sensor_group = string(local_pick_or_repeat(T, 'sensor_group', "", height(T)));
@@ -608,6 +614,11 @@ summary_table.sensor_label = string(local_pick_or_repeat(T, 'sensor_label', "", 
 summary_table.h_km = double(local_pick_or_repeat(T, 'h_km', NaN, height(T)));
 summary_table.family_name = string(local_pick_or_repeat(T, 'family_name', "", height(T)));
 summary_table.note = string(local_pick_or_repeat(T, 'note', "", height(T)));
+summary_table.history_full_rendered_min_ns = double(local_pick_or_repeat(T, 'history_full_rendered_min_ns', NaN, height(T)));
+summary_table.effective_full_rendered_min_ns = double(local_pick_or_repeat(T, 'effective_full_rendered_min_ns', NaN, height(T)));
+summary_table.frontier_zoom_rendered_min_ns = double(local_pick_or_repeat(T, 'frontier_zoom_rendered_min_ns', NaN, height(T)));
+summary_table.history_padding_applied = logical(local_pick_or_repeat(T, 'history_padding_applied', false, height(T)));
+summary_table.domain_consistency_pass = logical(local_pick_or_repeat(T, 'domain_consistency_pass', false, height(T)));
 
 switch char(string(summary_kind))
     case 'passratio_overlay'
@@ -753,4 +764,30 @@ end
 
 function xlim_values = local_capture_axis_xlim(fig)
 xlim_values = capture_mb_primary_axes_xlim(fig);
+end
+
+function summary_table = local_apply_passratio_render_summary(summary_table, pass_history_meta, history_xlim, effective_xlim, zoom_xlim)
+if isempty(summary_table)
+    return;
+end
+
+history_min = local_pick_x(history_xlim, 1);
+effective_min = local_pick_x(effective_xlim, 1);
+zoom_min = local_pick_x(zoom_xlim, 1);
+initial_ns_min = double(local_getfield_or(pass_history_meta, 'initial_ns_min', NaN));
+history_padding_applied = logical(local_getfield_or(pass_history_meta, 'history_padding_applied', false));
+domain_consistency_pass = isfinite(history_min) && isfinite(initial_ns_min) && history_min <= initial_ns_min + 1.0e-9;
+
+summary_table.history_full_rendered_min_ns = repmat(history_min, height(summary_table), 1);
+summary_table.effective_full_rendered_min_ns = repmat(effective_min, height(summary_table), 1);
+summary_table.frontier_zoom_rendered_min_ns = repmat(zoom_min, height(summary_table), 1);
+summary_table.history_padding_applied = repmat(history_padding_applied, height(summary_table), 1);
+summary_table.domain_consistency_pass = repmat(domain_consistency_pass, height(summary_table), 1);
+end
+
+function value = local_pick_x(xlim_values, idx_pick)
+value = NaN;
+if isnumeric(xlim_values) && numel(xlim_values) >= idx_pick && isfinite(xlim_values(idx_pick))
+    value = xlim_values(idx_pick);
+end
 end
