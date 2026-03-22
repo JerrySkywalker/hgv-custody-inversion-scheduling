@@ -63,6 +63,29 @@ cfg_out.milestones.MB_semantic_compare.dense_local_T = reshape(profile.dense_loc
 cfg_out.milestones.MB_semantic_compare.search_profile_metadata = profile.metadata;
 cfg_out.milestones.MB_semantic_compare.search_profile_context = local_getfield_or(profile.metadata, 'context', struct());
 cfg_out.milestones.MB_semantic_compare.search_profile_override_sources = cellstr(string(local_getfield_or(profile.metadata, 'override_sources', {})));
+runtime_cfg = local_getfield_or(profile, 'runtime', struct());
+force_fresh = logical(local_getfield_or(runtime_cfg, 'force_fresh', local_getfield_or(profile.cache, 'force_fresh', local_getfield_or(cfg_out.runtime, 'force_fresh', false))));
+if force_fresh
+    cfg_out.milestones.MB_semantic_compare.cache_policy = "force_fresh";
+else
+    cfg_out.milestones.MB_semantic_compare.cache_policy = string(local_getfield_or(cfg_out.milestones.MB_semantic_compare, 'cache_policy', "all_reuse"));
+end
+cfg_out.runtime.force_fresh = force_fresh;
+cfg_out.runtime.regenerate_all_cache = logical(local_getfield_or(runtime_cfg, 'regenerate_all_cache', local_getfield_or(cfg_out.runtime, 'regenerate_all_cache', false)));
+cfg_out.runtime.regenerate_all_export = logical(local_getfield_or(runtime_cfg, 'regenerate_all_export', local_getfield_or(cfg_out.runtime, 'regenerate_all_export', false)));
+cfg_out.cache.force_fresh = force_fresh;
+cfg_out.cache.reuse_semantic = logical(local_getfield_or(profile.cache, 'reuse_semantic', local_getfield_or(profile.cache, 'reuse_semantic_eval', false)));
+cfg_out.cache.reuse_plot = logical(local_getfield_or(profile.cache, 'reuse_plot', local_getfield_or(profile.cache, 'reuse_plotting', false)));
+cfg_out.cache.reuse_truth = logical(local_getfield_or(profile.cache, 'reuse_truth', local_getfield_or(cfg_out.cache, 'reuse_truth', true)));
+cfg_out.cache.rebuild_all = logical(local_getfield_or(profile.cache, 'rebuild_all', force_fresh));
+cfg_out.milestones.MB_semantic_compare.force_fresh = force_fresh;
+cfg_out.milestones.MB_semantic_compare.regenerate_all_cache = logical(cfg_out.runtime.regenerate_all_cache);
+cfg_out.milestones.MB_semantic_compare.regenerate_all_export = logical(cfg_out.runtime.regenerate_all_export);
+cfg_out.milestones.MB_semantic_compare.runtime_profile_name = string(local_getfield_or(runtime_cfg, 'profile_name', local_getfield_or(profile, 'name', "mb_default")));
+cfg_out.milestones.MB_semantic_compare.cache_profile.force_fresh = force_fresh;
+cfg_out.milestones.MB_semantic_compare.cache_profile.rebuild_all = logical(cfg_out.cache.rebuild_all);
+cfg_out.milestones.MB_semantic_compare.cache_profile.reuse_semantic = logical(cfg_out.cache.reuse_semantic);
+cfg_out.milestones.MB_semantic_compare.cache_profile.reuse_plot = logical(cfg_out.cache.reuse_plot);
 cfg_out = apply_mb_search_domain_to_cfg(cfg_out, search_domain);
 cfg_out = apply_mb_plot_domain_to_cfg(cfg_out, plot_domain);
 end

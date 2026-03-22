@@ -83,6 +83,9 @@ closed_cfg.cache_profile = local_getfield_or(options, 'cache_profile', cfg.miles
 closed_cfg.cache_namespace = string(local_getfield_or(options, 'cache_namespace', "mb_closedD"));
 closed_cfg.heatmap_overcompute = local_getfield_or(options, 'heatmap_overcompute', local_getfield_or(meta, 'heatmap_overcompute', struct('mode', 'off')));
 closed_cfg.frontier_refinement = local_getfield_or(options, 'frontier_refinement', local_getfield_or(meta, 'frontier_refinement', struct('mode', 'off')));
+closed_cfg.force_fresh = logical(local_getfield_or(options, 'force_fresh', local_getfield_or(meta, 'force_fresh', local_getfield_or(cfg.runtime, 'force_fresh', false))));
+closed_cfg.cache_profile.force_fresh = logical(local_getfield_or(closed_cfg.cache_profile, 'force_fresh', closed_cfg.force_fresh) || closed_cfg.force_fresh);
+closed_cfg.cache_profile.rebuild_all = logical(local_getfield_or(closed_cfg.cache_profile, 'rebuild_all', local_getfield_or(cfg.cache, 'rebuild_all', false)) || closed_cfg.force_fresh);
 closed_cfg.search_domain = local_getfield_or(meta, 'search_domain', struct());
 if isstruct(local_getfield_or(options, 'search_domain', struct())) && ~isempty(fieldnames(local_getfield_or(options, 'search_domain', struct())))
     closed_cfg.search_domain = milestone_common_merge_structs(closed_cfg.search_domain, local_getfield_or(options, 'search_domain', struct()));
@@ -147,9 +150,13 @@ manifest = build_mb_cache_manifest("semantic_eval", mfilename, input_spec, struc
 cache_file = fullfile(cache_root, sprintf('mb_closedd_%s_h%d_%s_%s.mat', ...
     char(string(family_name)), round(h_km), char(string(sensor_group.name)), char(manifest.input_hash)));
 reuse_semantic_cache = logical(local_getfield_or(closed_cfg.cache_profile, 'reuse_semantic_eval', true));
+force_fresh = logical(local_getfield_or(closed_cfg.cache_profile, 'force_fresh', false) || local_getfield_or(closed_cfg, 'force_fresh', false));
+reuse_semantic_cache = reuse_semantic_cache && ~force_fresh;
 loaded = struct('reuse', false, 'reason', "cache_disabled", 'payload', struct(), 'manifest_csv', "");
 if reuse_semantic_cache
     loaded = should_reuse_mb_semantic_cache(cache_file, manifest);
+elseif force_fresh
+    loaded.reason = "force_fresh_enabled";
 end
 
 if loaded.reuse
@@ -171,7 +178,10 @@ if loaded.reuse
     return;
 end
 
-[seed_hit, seed_run, seed_cache_record] = local_find_incremental_seed(cache_root, manifest, input_spec, design_table);
+[seed_hit, seed_run, seed_cache_record] = deal(false, struct(), struct('cache_file', "", 'manifest_csv', "", 'cache_hit', false, 'reason', "force_fresh_enabled", 'family_name', "", 'h_km', NaN));
+if ~force_fresh
+    [seed_hit, seed_run, seed_cache_record] = local_find_incremental_seed(cache_root, manifest, input_spec, design_table);
+end
 if seed_hit
     incremental = evaluate_design_pool_incremental_over_ns(seed_run, design_table, ...
         @(added_designs) evaluate_design_pool_with_stage09_semantics(cfg_sensor, added_designs, family_name, struct( ...
@@ -232,12 +242,21 @@ cache_record = struct( ...
     'cache_file', string(cache_file), ...
     'manifest_csv', "", ...
     'cache_hit', false, ...
-    'reason', string(local_getfield_or(loaded, 'reason', "fresh_evaluation")), ...
+    'reason', string(local_default_fresh_reason(loaded, force_fresh)), ...
     'family_name', string(family_name), ...
     'h_km', h_km);
 artifacts = write_mb_cache_manifest(cache_file, struct('run', run), manifest);
 cache_record.manifest_csv = artifacts.manifest_csv;
 run.cache_info = cache_record;
+end
+
+function reason = local_default_fresh_reason(loaded, force_fresh)
+reason = string(local_getfield_or(loaded, 'reason', "fresh_evaluation"));
+if force_fresh
+    reason = "force_fresh_enabled";
+elseif strlength(reason) == 0 || reason == "cache_disabled"
+    reason = "fresh_evaluation";
+end
 end
 
 function run = local_empty_run()

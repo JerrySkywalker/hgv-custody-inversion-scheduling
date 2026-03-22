@@ -77,11 +77,14 @@ legacy_cfg.F_fixed = local_getfield_or(options, 'F_fixed', 1);
 legacy_cfg.family_set = local_resolve_family_set(local_getfield_or(options, 'family_set', {'nominal'}));
 legacy_cfg.use_parallel = logical(local_getfield_or(options, 'use_parallel', true));
 legacy_cfg.parallel_policy = resolve_mb_parallel_policy(local_getfield_or(options, 'parallel_policy', struct('parallel_policy', 'off')));
-legacy_cfg.force_rebuild_inputs = logical(local_getfield_or(options, 'force_rebuild_inputs', false));
 legacy_cfg.cache_profile = local_getfield_or(options, 'cache_profile', cfg.milestones.MB_semantic_compare.cache_profile);
 legacy_cfg.cache_namespace = string(local_getfield_or(options, 'cache_namespace', "mb_legacyDG"));
 legacy_cfg.heatmap_overcompute = local_getfield_or(options, 'heatmap_overcompute', local_getfield_or(meta, 'heatmap_overcompute', struct('mode', 'off')));
 legacy_cfg.frontier_refinement = local_getfield_or(options, 'frontier_refinement', local_getfield_or(meta, 'frontier_refinement', struct('mode', 'off')));
+legacy_cfg.force_fresh = logical(local_getfield_or(options, 'force_fresh', local_getfield_or(meta, 'force_fresh', local_getfield_or(cfg.runtime, 'force_fresh', false))));
+legacy_cfg.cache_profile.force_fresh = logical(local_getfield_or(legacy_cfg.cache_profile, 'force_fresh', legacy_cfg.force_fresh) || legacy_cfg.force_fresh);
+legacy_cfg.cache_profile.rebuild_all = logical(local_getfield_or(legacy_cfg.cache_profile, 'rebuild_all', local_getfield_or(cfg.cache, 'rebuild_all', false)) || legacy_cfg.force_fresh);
+legacy_cfg.force_rebuild_inputs = logical(local_getfield_or(options, 'force_rebuild_inputs', false) || legacy_cfg.force_fresh);
 legacy_cfg.search_domain = local_getfield_or(meta, 'search_domain', struct());
 if isstruct(local_getfield_or(options, 'search_domain', struct())) && ~isempty(fieldnames(local_getfield_or(options, 'search_domain', struct())))
     legacy_cfg.search_domain = milestone_common_merge_structs(legacy_cfg.search_domain, local_getfield_or(options, 'search_domain', struct()));
@@ -150,9 +153,13 @@ manifest = build_mb_cache_manifest("semantic_eval", mfilename, input_spec, struc
 cache_file = fullfile(cache_root, sprintf('mb_legacydg_%s_h%d_%s_%s.mat', ...
     char(string(family_name)), round(h_km), char(string(sensor_group.name)), char(manifest.input_hash)));
 reuse_semantic_cache = logical(local_getfield_or(legacy_cfg.cache_profile, 'reuse_semantic_eval', true));
+force_fresh = logical(local_getfield_or(legacy_cfg.cache_profile, 'force_fresh', false) || local_getfield_or(legacy_cfg, 'force_fresh', false));
+reuse_semantic_cache = reuse_semantic_cache && ~force_fresh;
 loaded = struct('reuse', false, 'reason', "cache_disabled", 'payload', struct(), 'manifest_csv', "");
 if reuse_semantic_cache
     loaded = should_reuse_mb_semantic_cache(cache_file, manifest);
+elseif force_fresh
+    loaded.reason = "force_fresh_enabled";
 end
 
 if loaded.reuse
@@ -174,7 +181,10 @@ if loaded.reuse
     return;
 end
 
-[seed_hit, seed_run, seed_cache_record] = local_find_incremental_seed(cache_root, manifest, input_spec, design_table);
+[seed_hit, seed_run, seed_cache_record] = deal(false, struct(), struct('cache_file', "", 'manifest_csv', "", 'cache_hit', false, 'reason', "force_fresh_enabled", 'family_name', "", 'h_km', NaN));
+if ~force_fresh
+    [seed_hit, seed_run, seed_cache_record] = local_find_incremental_seed(cache_root, manifest, input_spec, design_table);
+end
 if seed_hit
     incremental = evaluate_design_pool_incremental_over_ns(seed_run, design_table, ...
         @(added_designs) evaluate_design_pool_with_stage05_semantics(cfg_sensor, added_designs, family_name, semantic_inputs, struct( ...
@@ -235,12 +245,21 @@ cache_record = struct( ...
     'cache_file', string(cache_file), ...
     'manifest_csv', "", ...
     'cache_hit', false, ...
-    'reason', string(local_getfield_or(loaded, 'reason', "fresh_evaluation")), ...
+    'reason', string(local_default_fresh_reason(loaded, force_fresh)), ...
     'family_name', string(family_name), ...
     'h_km', h_km);
 artifacts = write_mb_cache_manifest(cache_file, struct('run', run), manifest);
 cache_record.manifest_csv = artifacts.manifest_csv;
 run.cache_info = cache_record;
+end
+
+function reason = local_default_fresh_reason(loaded, force_fresh)
+reason = string(local_getfield_or(loaded, 'reason', "fresh_evaluation"));
+if force_fresh
+    reason = "force_fresh_enabled";
+elseif strlength(reason) == 0 || reason == "cache_disabled"
+    reason = "fresh_evaluation";
+end
 end
 
 function semantic_inputs = local_prepare_semantic_inputs(cfg_sensor, legacy_cfg)

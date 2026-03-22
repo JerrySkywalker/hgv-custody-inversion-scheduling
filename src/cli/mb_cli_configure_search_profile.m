@@ -77,13 +77,13 @@ fprintf('\n[run_stages][CLI] ===== 配置 MB search profile =====\n');
 fprintf('[run_stages][CLI] 直接回车表示保留默认值。\n');
 
 selection.run_mode = local_ask_choice('run mode', selection.run_mode, ...
-    {'default', 'dense', 'strict_stage05_replica', 'strict_stage05_validation_only', 'compare_semantics', 'auto_plot_tune'}, ...
+    {'default', 'dense', 'strict_stage05_replica', 'strict_stage05_validation_only', 'compare_semantics', 'auto_plot_tune', 'fullnight'}, ...
     local_run_mode_labels());
 selection.profile_name = local_profile_name_from_run_mode(selection.run_mode, selection.profile_name);
 selection.enable_search_profile_manager = local_ask_yesno('enable search profile manager', selection.enable_search_profile_manager);
 selection.profile_name = local_ask_choice('profile preset', selection.profile_name, ...
-    {'mb_default', 'mb_dense_local', 'mb_heavy', 'strict_stage05_replica', 'mb_auto_plot_tune'}, ...
-    local_profile_labels(cfg, {'mb_default', 'mb_dense_local', 'mb_heavy', 'strict_stage05_replica', 'mb_auto_plot_tune'}));
+    {'mb_default', 'mb_dense_local', 'mb_heavy', 'mb_final_repair_fullnight', 'strict_stage05_replica', 'mb_auto_plot_tune'}, ...
+    local_profile_labels(cfg, {'mb_default', 'mb_dense_local', 'mb_heavy', 'mb_final_repair_fullnight', 'strict_stage05_replica', 'mb_auto_plot_tune'}));
 selection.profile_mode = local_ask_choice('profile mode', selection.profile_mode, ...
     {'expand_default', 'expand_heavy', 'paper', 'strict_replica'}, ...
     local_profile_mode_labels({'expand_default', 'expand_heavy', 'paper', 'strict_replica'}));
@@ -151,7 +151,7 @@ if ~isempty(selection.plot_xlim_ns) && strcmpi(selection.plot_domain_policy, 'da
 end
 
 selection.cache_policy = local_ask_choice('cache policy', selection.cache_policy, ...
-    {'all_reuse', 'truth_only', 'no_reuse'});
+    {'force_fresh', 'all_reuse', 'truth_only', 'no_reuse'});
 selection.cache_strict_compatibility = local_ask_yesno('cache strict compatibility check', selection.cache_strict_compatibility);
 selection.parallel_policy = local_ask_choice('parallel policy', selection.parallel_policy, ...
     {'off', 'task_bundle', 'task_plus_partition', 'outer_loop_only', 'design_block_only'}, ...
@@ -269,18 +269,46 @@ end
 
 function profile = local_apply_cache_policy(profile, cache_policy)
 switch lower(cache_policy)
+    case 'force_fresh'
+        profile.cache.enable = true;
+        profile.cache.reuse_truth = true;
+        profile.cache.reuse_semantic = false;
+        profile.cache.reuse_plot = false;
+        profile.cache.reuse_semantic_eval = false;
+        profile.cache.reuse_plotting = false;
+        profile.cache.reuse_tune_cache = false;
+        profile.cache.force_fresh = true;
+        profile.cache.rebuild_all = true;
     case 'all_reuse'
         profile.cache.enable = true;
         profile.cache.reuse_truth = true;
+        profile.cache.reuse_semantic = true;
+        profile.cache.reuse_plot = true;
         profile.cache.reuse_semantic_eval = true;
+        profile.cache.reuse_plotting = true;
+        profile.cache.reuse_tune_cache = true;
+        profile.cache.force_fresh = false;
+        profile.cache.rebuild_all = false;
     case 'truth_only'
         profile.cache.enable = true;
         profile.cache.reuse_truth = true;
+        profile.cache.reuse_semantic = false;
+        profile.cache.reuse_plot = false;
         profile.cache.reuse_semantic_eval = false;
+        profile.cache.reuse_plotting = false;
+        profile.cache.reuse_tune_cache = false;
+        profile.cache.force_fresh = false;
+        profile.cache.rebuild_all = false;
     case 'no_reuse'
         profile.cache.enable = false;
         profile.cache.reuse_truth = false;
+        profile.cache.reuse_semantic = false;
+        profile.cache.reuse_plot = false;
         profile.cache.reuse_semantic_eval = false;
+        profile.cache.reuse_plotting = false;
+        profile.cache.reuse_tune_cache = false;
+        profile.cache.force_fresh = true;
+        profile.cache.rebuild_all = true;
     otherwise
         error('Unknown MB cache policy: %s', cache_policy);
 end
@@ -320,6 +348,8 @@ switch lower(char(string(profile_name)))
         run_mode = 'strict_stage05_replica';
     case 'mb_auto_plot_tune'
         run_mode = 'auto_plot_tune';
+    case 'mb_final_repair_fullnight'
+        run_mode = 'fullnight';
     otherwise
         run_mode = 'default';
 end
@@ -339,6 +369,8 @@ switch lower(char(string(run_mode)))
         profile_name = 'mb_default';
     case 'auto_plot_tune'
         profile_name = 'mb_auto_plot_tune';
+    case 'fullnight'
+        profile_name = 'mb_final_repair_fullnight';
     otherwise
         profile_name = fallback_name;
 end
@@ -639,7 +671,8 @@ labels = { ...
     'strict_stage05_replica (locked Stage05 semantics + strict reference)', ...
     'strict_stage05_validation_only (strict replica validation export only)', ...
     'compare_semantics (legacyDG vs closedD comparison)', ...
-    'auto_plot_tune (autotune-first passratio exploration)'};
+    'auto_plot_tune (autotune-first passratio exploration)', ...
+    'fullnight (final-repair multi-height overnight fresh run)'};
 end
 
 function local_print_labeled_list(name, choices, labels)

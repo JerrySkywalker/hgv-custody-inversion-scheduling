@@ -39,5 +39,7 @@ switch token
         token = 'strict_stage05_replica';
     case {'auto_plot_tune', 'auto_tune', 'mb_auto_plot_tune'}
         token = 'mb_auto_plot_tune';
+    case {'fullnight', 'final_repair_fullnight', 'mb_final_repair_fullnight'}
+        token = 'mb_final_repair_fullnight';
 end
 end

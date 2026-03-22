@@ -28,6 +28,9 @@ switch cache_policy
     case "no_reuse"
         policy_text = "no_reuse";
         policy_detail = "disable MB cache reuse for this run";
+    case "force_fresh"
+        policy_text = "force_fresh";
+        policy_detail = "force fresh semantic recompute and full export regeneration while allowing only static truth reuse";
     otherwise
         policy_text = cache_policy;
         policy_detail = "custom cache policy";
