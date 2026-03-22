@@ -1,30 +1,36 @@
-# Cache Policy Final Round
+# MB Cache Policy Final Round
 
-## Semantic cache
-Semantic cache reuse is keyed by search semantics rather than figure styling.
-
-Included factors:
-- semantic mode
+## Semantic cache signature
+Semantic cache reuse depends on the MB semantic signature, which includes:
+- semantic mode / algorithm family
 - sensor group
-- search profile name and mode
-- searchable `N_s / P / T / i` domain
-- expansion blocks and hard max
-- schema / version tags
+- height set and family set
+- searchable domain:
+  - `Ns_initial_range`
+  - expand blocks / expand policy
+  - hard max
+  - P / T / inclination grids
+- relevant schema / version tags
+- any threshold or rule that changes feasibility, pass-ratio, frontier, or gap values
 
-## Plot-only changes
-These should not force semantic recompute:
-- `fullRange` vs `frontierZoom` export choice
-- short on-figure tags
-- paper-ready guardrail messaging
-- headless vs visible figure mode
+## Figure / export changes that do not force semantic recompute
+The following should reuse semantic cache:
+- switching `historyFull` / `effectiveFullRange` / `frontierZoom`
+- switching `local` / `globalSkeleton` heatmap views
+- changing plot labels, short tags, metadata sidecars, or delivery packaging
+- changing headless / visible runtime behavior
+- changing paper-ready guardrail or export-only logic
 
-## Semantic changes
-These must invalidate semantic cache:
-- searchable domain changes
-- expansion policy changes
-- hard max changes
-- feasibility / frontier / pass-ratio logic changes
+## Changes that must invalidate semantic cache
+The following must trigger semantic recompute:
+- changing searchable domain or expansion policy
+- changing `Ns_hard_max`
+- changing P / T / inclination grids
+- changing semantic evaluator logic
+- changing sensor-group propagation logic
+- changing schema / version tags for semantic artifacts
 
-## Final-round expectation
-- plot-only reruns should reuse semantic cache
-- search-domain changes should trigger recompute
+## Runtime notes
+- headless figure mode is runtime-only and must not invalidate semantic cache
+- plot-only reruns are expected to rebuild figures and sidecars while reusing semantic tables
+- strict replica remains isolated and must not share cache namespace with baseline / optimistic / robust semantic runs

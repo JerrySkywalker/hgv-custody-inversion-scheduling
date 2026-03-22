@@ -1,13 +1,29 @@
 # MB Final Freeze Notes
 
 ## Recommended configurations
-- main paper figures: baseline `h=1000`, default expandable profile, `fullRange` first and `frontierZoom` second
-- appendix / diagnostic: heavy profile, comparison chain, state maps, refinement and overcompute summaries
-- strict validation: `strict_stage05_replica` only
+- main paper trend figures:
+  - baseline `h=1000`
+  - default expandable profile
+  - prefer `historyFull` first and `effectiveFullRange` second
+- appendix / diagnostic:
+  - `frontierZoom`
+  - state maps
+  - comparison frontier shift
+  - heatmap provenance / overcompute / refinement summaries
+- strict validation:
+  - `strict_stage05_replica` only
 
-## Figure selection rule
-- `fullRange`: show the entire searched trend from the configured lower bound through the final expanded domain
-- `frontierZoom`: show only the local transition / frontier neighborhood and never replace `fullRange`
+## Figure semantics that should now stay fixed
+- `historyFull`
+  - original search-history lower bound to current max
+- `effectiveFullRange`
+  - final effective expanded domain only
+- `frontierZoom`
+  - local frontier / platform-formation neighborhood only
+- `local` heatmap
+  - refined / overcomputed defined surface
+- `globalSkeleton` heatmap
+  - full global coordinate frame with undefined regions kept visible
 
 ## Heavy profile usage
 - use heavy only when default profile still leaves frontier coverage weak or right plateau incomplete
@@ -18,8 +34,11 @@
 - `project_path_manager.m`
 - `project_figure_manager.m`
 - MB cache/signature helpers
-- MB export naming and `fullRange` / `frontierZoom` wiring
+- MB pass-ratio view naming and export wiring
+- MB heatmap local/globalSkeleton export wiring
 
 ## Known limits
 - baseline `h=1000` comparison remains diagnostic-only
-- some Stage smoke cases still depend on unavailable upstream cache in the current workspace
+- `closedD` frontier coverage at baseline `h=1000` is still weak relative to legacyDG
+- `stage09_inverse_plot` smoke remains blocked by missing upstream `Stage08.5` cache in this workspace
+- Stage05/06 original core files remain untouched and should continue to stay frozen
