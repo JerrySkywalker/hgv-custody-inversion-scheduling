@@ -65,7 +65,7 @@ run.aggregate.frontier_vs_i_base = base_frontier;
 run.aggregate.requirement_surface_iP = merged_surface;
 run.aggregate.frontier_vs_i = merged_frontier;
 run.aggregate.heatmap_overcompute_summary = table();
-run.aggregate.heatmap_overcompute_summary = local_build_summary_row(run, mode_name, true, true, local_getfield_or(diag_row, 'num_edge_suspect_cells', 0), height(candidate_cells), height(candidate_designs), local_count_newly_defined(base_surface, merged_surface), local_count_improved(base_surface, merged_surface), budget_hit, "heatmap/frontier locally refined near sparse right-edge cells");
+run.aggregate.heatmap_overcompute_summary = local_build_summary_row(run, mode_name, true, true, local_getfield_or(diag_row, 'num_edge_suspect_cells', 0), height(candidate_cells), height(candidate_designs), local_count_newly_defined(base_surface, merged_surface), local_count_improved(base_surface, merged_surface), budget_hit, local_build_summary_note(candidate_cells));
 run.aggregate.heatmap_overcompute_summary.num_new_feasible_designs = height(local_getfield_or(new_eval, 'feasible_table', table()));
 run.aggregate.heatmap_overcompute_candidate_cells = candidate_cells;
 run.aggregate.heatmap_overcompute_diagnostics = diag;
@@ -114,17 +114,17 @@ budget = local_merge_structs(defaults, cfg_budget);
 
 ns_max = local_getfield_or(search_domain, 'ns_search_max', NaN);
 ns_hard_max = local_getfield_or(search_domain, 'Ns_hard_max', ns_max);
-P_values = unique(reshape(local_getfield_or(search_domain, 'P_grid', design_table.P), 1, []), 'sorted');
+local_P_values = unique(reshape(local_getfield_or(search_domain, 'effective_P_grid', local_getfield_or(search_domain, 'P_grid', design_table.P)), 1, []), 'sorted');
+global_P_values = unique(reshape(local_getfield_or(search_domain, 'global_P_grid', local_P_values), 1, []), 'sorted');
 T_values = unique(reshape(local_getfield_or(search_domain, 'T_grid', design_table.T), 1, []), 'sorted');
-i_values = unique(reshape(local_getfield_or(search_domain, 'inclination_grid_deg', design_table.i_deg), 1, []), 'sorted');
-P_step = local_positive_step(P_values, 2);
-i_step = max(5, local_positive_step(i_values, 5) / 2);
+local_i_values = unique(reshape(local_getfield_or(search_domain, 'effective_inclination_grid_deg', local_getfield_or(search_domain, 'inclination_grid_deg', design_table.i_deg)), 1, []), 'sorted');
+global_i_values = unique(reshape(local_getfield_or(search_domain, 'global_inclination_grid_deg', local_i_values), 1, []), 'sorted');
 
 finite_rows = surface_table(isfinite(surface_table.minimum_feasible_Ns), :);
 if isempty(finite_rows)
     return;
 end
-right_edge = finite_rows.P >= max(P_values) - 1.0e-9;
+right_edge = finite_rows.P >= max(local_P_values) - 1.0e-9;
 near_ns_max = isfinite(ns_max) & finite_rows.minimum_feasible_Ns >= ns_max - max(1, 0.25 * local_getfield_or(search_domain, 'ns_search_step', 1));
 suspect_rows = finite_rows(right_edge | near_ns_max, :);
 if isempty(suspect_rows)
@@ -137,14 +137,25 @@ cell_cursor = 0;
 for idx = 1:height(suspect_rows)
     base_P = suspect_rows.P(idx);
     base_i = suspect_rows.i_deg(idx);
-    P_candidates = base_P + P_step * (1:budget.max_extra_P_candidates);
-    i_candidates = base_i + (-budget.max_extra_i_neighbors:budget.max_extra_i_neighbors) * i_step;
-    i_candidates = i_candidates(i_candidates >= min(i_values) & i_candidates <= max(i_values));
-    i_candidates = unique([base_i, i_candidates], 'sorted');
+    P_candidates = local_next_grid_values(global_P_values, base_P, budget.max_extra_P_candidates);
+    if isempty(P_candidates)
+        P_candidates = base_P;
+    end
+    i_candidates = local_neighbor_grid_values(global_i_values, base_i, budget.max_extra_i_neighbors);
+    if isempty(i_candidates)
+        i_candidates = base_i;
+    end
     for idx_i = 1:numel(i_candidates)
         for idx_p = 1:numel(P_candidates)
+            if abs(i_candidates(idx_i) - base_i) <= 1.0e-9 && abs(P_candidates(idx_p) - base_P) <= 1.0e-9
+                continue;
+            end
             cell_cursor = cell_cursor + 1;
-            cell_rows{cell_cursor, 1} = {local_getfield_or(run, 'h_km', NaN), i_candidates(idx_i), P_candidates(idx_p), "aesthetic_overcompute"}; %#ok<AGROW>
+            cell_rows{cell_cursor, 1} = { ...
+                local_getfield_or(run, 'h_km', NaN), ...
+                i_candidates(idx_i), ...
+                P_candidates(idx_p), ...
+                local_classify_cell_source(P_candidates(idx_p), i_candidates(idx_i), local_P_values, local_i_values)}; %#ok<AGROW>
             if cell_cursor >= budget.max_extra_cells
                 budget_hit = true;
                 break;
@@ -164,6 +175,7 @@ if cell_cursor == 0
 end
 candidate_cells = cell2table(vertcat(cell_rows{1:cell_cursor}), 'VariableNames', {'h_km', 'i_deg', 'P', 'cell_source'});
 candidate_cells = unique(candidate_cells, 'rows', 'stable');
+candidate_cells.cell_source = string(candidate_cells.cell_source);
 
 design_rows = {};
 design_cursor = 0;
@@ -201,8 +213,13 @@ if ~isempty(design_table)
     if isempty(candidate_designs)
         candidate_cells = table();
     else
+        source_lookup = candidate_cells;
         candidate_cells = unique(candidate_designs(:, {'h_km', 'i_deg', 'P'}), 'rows', 'stable');
         candidate_cells.cell_source = repmat("aesthetic_overcompute", height(candidate_cells), 1);
+        [tf_cell, loc_cell] = ismember(candidate_cells(:, {'h_km', 'i_deg', 'P'}), source_lookup(:, {'h_km', 'i_deg', 'P'}), 'rows');
+        if any(tf_cell)
+            candidate_cells.cell_source(tf_cell) = string(source_lookup.cell_source(loc_cell(tf_cell)));
+        end
     end
 end
 end
@@ -220,9 +237,15 @@ surface_table.aesthetic_overcompute_status = repmat("base_search", height(surfac
 
 [tf_touch, ~] = ismember(surface_table(:, {'h_km', 'i_deg', 'P'}), candidate_cells(:, {'h_km', 'i_deg', 'P'}), 'rows');
 surface_table.aesthetic_overcompute_touched = tf_touch;
+candidate_sources = repmat("aesthetic_overcompute", height(surface_table), 1);
+if ~isempty(candidate_cells) && ismember('cell_source', candidate_cells.Properties.VariableNames)
+    [tf_source, loc_source] = ismember(surface_table(:, {'h_km', 'i_deg', 'P'}), candidate_cells(:, {'h_km', 'i_deg', 'P'}), 'rows');
+    valid_source = tf_source & loc_source > 0;
+    candidate_sources(valid_source) = string(candidate_cells.cell_source(loc_source(valid_source)));
+end
 
 if isempty(base_table)
-    surface_table.aesthetic_overcompute_status(tf_touch) = "aesthetic_overcompute_checked";
+    surface_table.aesthetic_overcompute_status(tf_touch) = local_make_status("aesthetic_overcompute_checked", candidate_sources(tf_touch));
     annotated_surface.surface_table = surface_table;
     return;
 end
@@ -233,17 +256,17 @@ for idx = 1:height(surface_table)
         continue;
     end
     if ~tf_base(idx)
-        surface_table.aesthetic_overcompute_status(idx) = "aesthetic_overcompute_checked";
+        surface_table.aesthetic_overcompute_status(idx) = local_make_status("aesthetic_overcompute_checked", candidate_sources(idx));
         continue;
     end
     old_value = base_table.minimum_feasible_Ns(loc_base(idx));
     new_value = surface_table.minimum_feasible_Ns(idx);
     if ~isfinite(old_value) && isfinite(new_value)
-        surface_table.aesthetic_overcompute_status(idx) = "aesthetic_overcompute_newly_defined";
+        surface_table.aesthetic_overcompute_status(idx) = local_make_status("aesthetic_overcompute_newly_defined", candidate_sources(idx));
     elseif isfinite(old_value) && isfinite(new_value) && new_value < old_value - 1.0e-9
-        surface_table.aesthetic_overcompute_status(idx) = "aesthetic_overcompute_improved";
+        surface_table.aesthetic_overcompute_status(idx) = local_make_status("aesthetic_overcompute_improved", candidate_sources(idx));
     else
-        surface_table.aesthetic_overcompute_status(idx) = "aesthetic_overcompute_checked";
+        surface_table.aesthetic_overcompute_status(idx) = local_make_status("aesthetic_overcompute_checked", candidate_sources(idx));
     end
 end
 annotated_surface.surface_table = surface_table;
@@ -401,5 +424,60 @@ elseif istable(S) && ismember(field_name, S.Properties.VariableNames) && ~isempt
     value = S.(field_name)(1);
 else
     value = fallback;
+end
+end
+
+function values = local_next_grid_values(grid_values, base_value, max_count)
+grid_values = unique(reshape(grid_values, 1, []), 'sorted');
+values = grid_values(grid_values > base_value + 1.0e-9);
+if nargin >= 3 && isfinite(max_count) && max_count >= 0
+    values = values(1:min(numel(values), max_count));
+end
+end
+
+function values = local_neighbor_grid_values(grid_values, base_value, radius)
+grid_values = unique(reshape(grid_values, 1, []), 'sorted');
+if isempty(grid_values)
+    values = base_value;
+    return;
+end
+idx_match = find(abs(grid_values - base_value) <= 1.0e-9, 1, 'first');
+if isempty(idx_match)
+    [~, idx_match] = min(abs(grid_values - base_value));
+end
+idx_lo = max(1, idx_match - max(0, radius));
+idx_hi = min(numel(grid_values), idx_match + max(0, radius));
+values = unique([base_value, grid_values(idx_lo:idx_hi)], 'sorted');
+end
+
+function cell_source = local_classify_cell_source(P_value, i_value, local_P_values, local_i_values)
+is_global_extension = ~any(abs(local_P_values - P_value) <= 1.0e-9) || ~any(abs(local_i_values - i_value) <= 1.0e-9);
+if is_global_extension
+    cell_source = "aesthetic_overcompute_global_skeleton";
+else
+    cell_source = "aesthetic_overcompute";
+end
+end
+
+function status_value = local_make_status(base_status, cell_source)
+if nargin < 2
+    cell_source = "aesthetic_overcompute";
+end
+if string(cell_source) == "aesthetic_overcompute_global_skeleton"
+    status_value = replace(string(base_status), "aesthetic_overcompute", "aesthetic_overcompute_global_skeleton");
+else
+    status_value = string(base_status);
+end
+end
+
+function note_text = local_build_summary_note(candidate_cells)
+if isempty(candidate_cells) || ~ismember('cell_source', candidate_cells.Properties.VariableNames)
+    note_text = "heatmap/frontier locally refined near sparse right-edge cells";
+    return;
+end
+if any(string(candidate_cells.cell_source) == "aesthetic_overcompute_global_skeleton")
+    note_text = "heatmap/frontier refined near sparse edge cells using global-skeleton neighbors";
+else
+    note_text = "heatmap/frontier locally refined near sparse right-edge cells";
 end
 end

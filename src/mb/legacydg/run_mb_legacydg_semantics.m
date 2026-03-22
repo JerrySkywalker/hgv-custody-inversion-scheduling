@@ -662,7 +662,8 @@ if strcmpi(mode_name, 'off')
     return;
 end
 
-result = apply_mb_heatmap_aesthetic_overcompute(run, search_domain, ...
+overcompute_domain = local_prepare_heatmap_overcompute_domain(search_domain, legacy_cfg, run);
+result = apply_mb_heatmap_aesthetic_overcompute(run, overcompute_domain, ...
     @(extra_designs) evaluate_design_pool_with_stage05_semantics(cfg_sensor, extra_designs, family_name, semantic_inputs, struct( ...
         'sensor_group', sensor_group.name, ...
         'family_name', family_name, ...
@@ -675,6 +676,33 @@ result = apply_mb_heatmap_aesthetic_overcompute(run, search_domain, ...
         'semantic_mode', "legacyDG", ...
         'frontier_defined_ratio_hint', local_frontier_defined_ratio(run)));
 run = result.run;
+end
+
+function overcompute_domain = local_prepare_heatmap_overcompute_domain(search_domain, legacy_cfg, run)
+overcompute_domain = search_domain;
+configured_domain = local_getfield_or(legacy_cfg, 'search_domain', struct());
+design_table = local_getfield_or(run, 'design_table', table());
+fallback_P = [];
+fallback_i = [];
+if istable(design_table) && ismember('P', design_table.Properties.VariableNames)
+    fallback_P = unique(design_table.P, 'sorted');
+end
+if istable(design_table) && ismember('i_deg', design_table.Properties.VariableNames)
+    fallback_i = unique(design_table.i_deg, 'sorted');
+end
+
+effective_P_grid = reshape(local_getfield_or(search_domain, 'P_grid', fallback_P), 1, []);
+effective_i_grid = reshape(local_getfield_or(search_domain, 'inclination_grid_deg', fallback_i), 1, []);
+overcompute_domain.effective_P_grid = effective_P_grid;
+overcompute_domain.effective_inclination_grid_deg = effective_i_grid;
+overcompute_domain.global_P_grid = reshape(local_getfield_or(configured_domain, 'P_grid', local_getfield_or(search_domain, 'global_P_grid', effective_P_grid)), 1, []);
+overcompute_domain.global_inclination_grid_deg = reshape(local_getfield_or(configured_domain, 'inclination_grid_deg', local_getfield_or(search_domain, 'global_inclination_grid_deg', effective_i_grid)), 1, []);
+if ~isfield(overcompute_domain, 'P_grid') || isempty(overcompute_domain.P_grid)
+    overcompute_domain.P_grid = effective_P_grid;
+end
+if ~isfield(overcompute_domain, 'inclination_grid_deg') || isempty(overcompute_domain.inclination_grid_deg)
+    overcompute_domain.inclination_grid_deg = effective_i_grid;
+end
 end
 
 function run = local_apply_frontier_refinement(cfg_sensor, legacy_cfg, run, sensor_group, semantic_inputs, family_name, search_domain)
