@@ -91,3 +91,11 @@ else
     note = "raw DG envelope";
 end
 end
+
+function value = local_getfield_or(S, field_name, fallback)
+if isstruct(S) && isfield(S, field_name)
+    value = S.(field_name);
+else
+    value = fallback;
+end
+end
