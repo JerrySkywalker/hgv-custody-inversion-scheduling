@@ -11,7 +11,7 @@ switch action
         out = local_run_audit(local_resolve_root(varargin{:}));
     case 'create'
         if nargin < 2
-            cfg = struct();
+            cfg = [];
             fig_args = {};
         else
             cfg = varargin{1};

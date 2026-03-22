@@ -2,7 +2,7 @@ function fig = plot_mb_baseline_h1000_expansion_study(case_results)
 %PLOT_MB_BASELINE_H1000_EXPANSION_STUDY Plot before/after pass-ratio diagnostics for baseline h=1000 expansion.
 
 style = milestone_common_plot_style();
-fig = figure('Visible', 'off', 'Color', 'w', 'Position', [120 120 1320 860]);
+fig = create_managed_figure([], 'Color', 'w', 'Position', [120 120 1320 860]);
 tiled = tiledlayout(fig, numel(case_results), 2, 'TileSpacing', 'compact', 'Padding', 'compact');
 title(tiled, 'MB Baseline h=1000 Expansion Study: initial versus expanded domains');
 

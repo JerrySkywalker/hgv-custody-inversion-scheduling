@@ -5,7 +5,8 @@ if nargin < 3 || isempty(options)
     options = struct();
 end
 
-fig = figure('Color', 'w', 'Name', 'MB Stage05 Semantic Pareto', 'Position', [180 180 1100 700]);
+fig = create_managed_figure(local_getfield_or(options, 'cfg', []), ...
+    'Color', 'w', 'Name', 'MB Stage05 Semantic Pareto', 'Position', [180 180 1100 700]);
 ax = axes(fig);
 hold(ax, 'on');
 

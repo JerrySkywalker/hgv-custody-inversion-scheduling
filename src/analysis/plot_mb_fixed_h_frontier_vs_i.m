@@ -8,7 +8,7 @@ if nargin < 4 || isempty(options)
     options = struct();
 end
 
-fig = figure('Visible', 'off', 'Color', 'w');
+fig = create_managed_figure(local_getfield_or(options, 'cfg', []), 'Color', 'w');
 setappdata(fig, 'mb_figure_style', local_getfield_or(options, 'figure_style', struct()));
 ax = axes(fig);
 hold(ax, 'on');

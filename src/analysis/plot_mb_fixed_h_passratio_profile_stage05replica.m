@@ -10,7 +10,7 @@ if nargin < 3 || isempty(i_list)
 end
 i_list = unique(i_list, 'sorted');
 
-fig = figure('Color', 'w', 'Position', [100, 100, 980, 560], 'Visible', 'off');
+fig = create_managed_figure([], 'Color', 'w', 'Position', [100, 100, 980, 560]);
 hold on;
 grid(gca, 'on');
 box on;

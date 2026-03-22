@@ -6,7 +6,8 @@ if nargin < 3 || isempty(options)
 end
 
 i_list = unique(envelope_table.i_deg, 'sorted');
-fig = figure('Color', 'w', 'Name', 'MB Stage05 Semantic PassRatio', 'Position', [120 120 1100 700]);
+fig = create_managed_figure(local_getfield_or(options, 'cfg', []), ...
+    'Color', 'w', 'Name', 'MB Stage05 Semantic PassRatio', 'Position', [120 120 1100 700]);
 ax = axes(fig);
 hold(ax, 'on');
 
