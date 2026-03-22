@@ -65,11 +65,13 @@ for idx = 1:numel(run_output.runs)
     pass_windows = resolve_mb_passratio_plot_windows(run.aggregate.passratio_phasecurve, search_domain, struct('y_fields', "max_pass_ratio"));
 
     pass_plot_options.plot_xlim_ns = pass_windows.global_trend;
-    pass_plot_options.plot_domain_label = "global_trend";
+    pass_plot_options.plot_domain_label = "full_range";
     fig_pass = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, pass_plot_options);
-    local_retitle(fig_pass, sprintf('legacyDG Global Trend Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
-    pass_png = fullfile(paths.figures, sprintf('MB_legacyDG_passratio_globalTrend_%s_%s.png', h_label, sensor_group));
+    local_retitle(fig_pass, sprintf('legacyDG Full-Range Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
+    pass_png = fullfile(paths.figures, sprintf('MB_legacyDG_passratio_fullRange_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass, pass_png);
+    legacy_alias_png = fullfile(paths.figures, sprintf('MB_legacyDG_passratio_globalTrend_%s_%s.png', h_label, sensor_group));
+    milestone_common_save_figure(fig_pass, legacy_alias_png);
     close(fig_pass);
     legacy_zoom_options = pass_plot_options;
     legacy_zoom_options.plot_xlim_ns = pass_windows.frontier_zoom;
@@ -80,7 +82,7 @@ for idx = 1:numel(run_output.runs)
     milestone_common_save_figure(fig_pass_zoom, pass_zoom_png);
     close(fig_pass_zoom);
     local_maybe_export_paper_ready(@() plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, local_build_paper_options(pass_plot_options)), ...
-        fullfile(paths.figures, sprintf('MB_legacyDG_passratio_globalTrend_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        fullfile(paths.figures, sprintf('MB_legacyDG_passratio_fullRange_%s_%s_paperReady.png', h_label, sensor_group)), ...
         "legacyDG_passratio", diagnostics, plot_options);
 
     fig_heat = plot_mb_fixed_h_requirement_heatmap_iP(run.aggregate.requirement_surface_iP, style, struct( ...
@@ -93,6 +95,18 @@ for idx = 1:numel(run_output.runs)
     heat_png = fullfile(paths.figures, sprintf('MB_legacyDG_minimumNs_heatmap_iP_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat, heat_png);
     close(fig_heat);
+    fig_heat_state = plot_mb_fixed_h_requirement_heatmap_iP(run.aggregate.requirement_surface_iP, style, struct( ...
+        'boundary_hit_table', diagnostics.boundary_hit_table, ...
+        'heatmap_edge_table', diagnostics.heatmap_edge_table, ...
+        'search_domain_bounds', [search_domain.ns_search_min, search_domain.ns_search_max], ...
+        'domain_summary', char(string(local_getfield_or(plot_options, 'search_domain_label', ""))), ...
+        'heatmap_render_mode', "discrete_state", ...
+        'plot_domain_label', "state_map", ...
+        'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
+    local_retitle(fig_heat_state, sprintf('legacyDG Heatmap State Map over (i, P) at h = %.0f km [%s]', run.h_km, sensor_label));
+    heat_state_png = fullfile(paths.figures, sprintf('MB_legacyDG_heatmap_stateMap_%s_%s.png', h_label, sensor_group));
+    milestone_common_save_figure(fig_heat_state, heat_state_png);
+    close(fig_heat_state);
     local_maybe_export_paper_ready(@() plot_mb_fixed_h_requirement_heatmap_iP(run.aggregate.requirement_surface_iP, style, struct( ...
         'boundary_hit_table', diagnostics.boundary_hit_table, ...
         'heatmap_edge_table', diagnostics.heatmap_edge_table, ...
@@ -105,6 +119,7 @@ for idx = 1:numel(run_output.runs)
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioGlobal_%s', h_label))) = string(pass_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioZoom_%s', h_label))) = string(pass_zoom_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMap_%s', h_label))) = string(heat_state_png);
 end
 
 function local_maybe_export_paper_ready(builder_fn, file_path, figure_family, diagnostics, plot_options)

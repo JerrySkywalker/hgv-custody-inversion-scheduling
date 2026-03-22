@@ -92,6 +92,8 @@ if logical(local_getfield_or(meta, 'dry_run', false))
     search_domain_audit = build_mb_search_domain_audit_table(meta, repmat(struct(), 0, 1));
     search_domain_audit_csv = fullfile(paths.tables, 'mb_search_domain_audit.csv');
     milestone_common_save_table(search_domain_audit, search_domain_audit_csv);
+    search_domain_audit_alias_csv = fullfile(paths.tables, 'MB_search_domain_audit_table.csv');
+    milestone_common_save_table(search_domain_audit, search_domain_audit_alias_csv);
     result.tables.search_domain_audit = string(search_domain_audit_csv);
     result.summary.execution_status = "dry-run";
     files = milestone_common_export_summary(result, paths);
@@ -187,6 +189,10 @@ if ~isempty(expandable_search_summary)
     expandable_search_summary_csv = fullfile(paths.tables, 'MB_expandable_search_summary.csv');
     milestone_common_save_table(expandable_search_summary, expandable_search_summary_csv);
     result.tables.expandable_search_summary = string(expandable_search_summary_csv);
+    stop_reason_summary = local_build_search_stop_reason_summary(expandable_search_summary);
+    stop_reason_csv = fullfile(paths.tables, 'MB_search_stop_reason_summary.csv');
+    milestone_common_save_table(stop_reason_summary, stop_reason_csv);
+    result.tables.search_stop_reason_summary = string(stop_reason_csv);
 end
 cache_summary_artifacts = local_export_cache_runtime_summaries(paths, run_outputs, meta);
 if isfield(cache_summary_artifacts, 'reuse_csv') && strlength(cache_summary_artifacts.reuse_csv) > 0
@@ -215,6 +221,8 @@ end
 search_domain_audit = build_mb_search_domain_audit_table(meta, run_outputs);
 search_domain_audit_csv = fullfile(paths.tables, 'mb_search_domain_audit.csv');
 milestone_common_save_table(search_domain_audit, search_domain_audit_csv);
+search_domain_audit_alias_csv = fullfile(paths.tables, 'MB_search_domain_audit_table.csv');
+milestone_common_save_table(search_domain_audit, search_domain_audit_alias_csv);
 result.tables.search_domain_audit = string(search_domain_audit_csv);
 result.summary.output_metadata_manifest_rows = local_getfield_or(metadata_artifacts, 'manifest_row_count', 0);
 
@@ -274,6 +282,18 @@ end
 function tf = local_is_supported_artifact(path_value)
 [~, ~, ext] = fileparts(char(path_value));
 tf = any(strcmpi(ext, {'.csv', '.png', '.md', '.txt'}));
+end
+
+function summary_table = local_build_search_stop_reason_summary(expandable_search_summary)
+if isempty(expandable_search_summary)
+    summary_table = table();
+    return;
+end
+keep = intersect({'semantic_mode', 'sensor_group', 'family_name', 'height_km', ...
+    'final_ns_search_max', 'Ns_hard_max', 'expansion_iterations', 'stop_reason', ...
+    'unity_plateau_reached', 'frontier_internally_defined', 'hard_max_touched'}, ...
+    expandable_search_summary.Properties.VariableNames, 'stable');
+summary_table = expandable_search_summary(:, keep);
 end
 
 function outputs = local_execute_semantic_runs(cfg, meta, resolved_modes, sensor_groups, family_set, heights_to_run)

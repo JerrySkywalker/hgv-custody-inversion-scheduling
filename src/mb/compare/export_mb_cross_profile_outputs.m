@@ -98,8 +98,10 @@ for idx_ctx = 1:size(contexts, 1)
         milestone_common_save_table(pass_table, pass_csv);
         milestone_common_save_table(pass_summary, pass_summary_csv);
         fig_pass = plot_mb_cross_profile_passratio_overlay(pass_table, pass_summary, h_km, semantic_mode, family_name);
-        pass_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_%s.png', char(semantic_mode), context_tag));
+        pass_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_fullRange_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass, pass_png);
+        pass_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_%s.png', char(semantic_mode), context_tag));
+        milestone_common_save_figure(fig_pass, pass_alias_png);
         close(fig_pass);
 
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratio_%s', char(semantic_mode), context_tag))) = string(pass_csv);
