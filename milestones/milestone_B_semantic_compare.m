@@ -989,7 +989,7 @@ if ~any(arrayfun(@(m) logical(m.emits_gap_outputs), resolved_modes))
 end
 
 paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
-plot_options = local_semantic_plot_options(meta);
+plot_options = local_semantic_plot_options(cfg, meta);
 summary_rows = cell(numel(sensor_groups), 1);
 summary_cursor = 0;
 for idx_group = 1:numel(sensor_groups)
@@ -1017,7 +1017,7 @@ end
 function artifacts = local_export_control_outputs(cfg, meta, run_outputs)
 artifacts = struct('tables', struct(), 'figures', struct());
 paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
-plot_options = local_semantic_plot_options(meta);
+plot_options = local_semantic_plot_options(cfg, meta);
 for idx = 1:numel(run_outputs)
     if run_outputs(idx).mode ~= "legacyDG"
         continue;
