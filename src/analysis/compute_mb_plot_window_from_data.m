@@ -45,8 +45,9 @@ if numel(preferred_xlim) == 2 && all(isfinite(preferred_xlim))
     preferred_xlim = sort(preferred_xlim);
     in_pref = unique_x(unique_x >= preferred_xlim(1) & unique_x <= preferred_xlim(2));
     if numel(in_pref) >= 2
-        base_xlim = preferred_xlim;
+        info.xlim = preferred_xlim;
         info.plot_domain_source = "preferred_xlim";
+        return;
     elseif numel(unique_x) >= 2
         base_xlim = data_xlim;
         info.plot_domain_source = "guardrail_data_fallback";

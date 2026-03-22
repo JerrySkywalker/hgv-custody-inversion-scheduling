@@ -28,6 +28,10 @@ for idx = 1:numel(run_output.runs)
     diagnostics = local_build_diagnostics(run, search_domain);
 
     pass_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_%s_%s.csv', h_label, sensor_group));
+    pass_history_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_historyFull_%s_%s.csv', h_label, sensor_group));
+    pass_effective_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_effectiveFullRange_%s_%s.csv', h_label, sensor_group));
+    pass_zoom_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_frontierZoom_%s_%s.csv', h_label, sensor_group));
+    pass_padding_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_historyPadding_%s_%s.csv', h_label, sensor_group));
     heat_csv = fullfile(paths.tables, sprintf('MB_legacyDG_minimumNs_heatmap_iP_%s_%s.csv', h_label, sensor_group));
     overcompute_csv = fullfile(paths.tables, sprintf('MB_heatmap_overcompute_summary_legacyDG_%s_%s.csv', h_label, sensor_group));
     provenance_csv = fullfile(paths.tables, sprintf('MB_heatmap_provenance_map_legacyDG_%s_%s.csv', h_label, sensor_group));
@@ -46,6 +50,10 @@ for idx = 1:numel(run_output.runs)
     milestone_common_save_table(diagnostics.heatmap_edge_table, heatmap_edge_csv);
 
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_%s', h_label))) = string(pass_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_historyFull_%s', h_label))) = string(pass_history_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_effectiveFullRange_%s', h_label))) = string(pass_effective_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_frontierZoom_%s', h_label))) = string(pass_zoom_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_historyPadding_%s', h_label))) = string(pass_padding_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmap_overcompute_%s', h_label))) = string(overcompute_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmap_provenance_%s', h_label))) = string(provenance_csv);
@@ -63,41 +71,73 @@ for idx = 1:numel(run_output.runs)
     pass_plot_options.search_domain_bounds = [search_domain.ns_search_min, search_domain.ns_search_max];
     pass_plot_options.plot_domain_label = "expanded_final";
     pass_windows = resolve_mb_passratio_plot_windows(run.aggregate.passratio_phasecurve, search_domain, struct('y_fields', "max_pass_ratio"));
+    history_view_spec = struct( ...
+        'domain_view', "history_full", ...
+        'group_fields', {{'h_km', 'family_name', 'i_deg'}}, ...
+        'value_fields', {{'max_pass_ratio', 'num_feasible', 'num_total'}}, ...
+        'fill_values', struct('max_pass_ratio', 0, 'num_feasible', 0, 'num_total', 0), ...
+        'history_fill_mode', "zero", ...
+        'history_origin', "initial_ns_min", ...
+        'figure_name', sprintf('MB_legacyDG_passratio_historyFull_%s_%s.png', h_label, sensor_group));
+    [pass_history_table, pass_padding_summary, pass_history_meta] = build_mb_passratio_domain_view(run.aggregate.passratio_phasecurve, search_domain, history_view_spec);
+    milestone_common_save_table(pass_history_table, pass_history_csv);
+    milestone_common_save_table(run.aggregate.passratio_phasecurve, pass_effective_csv);
+    milestone_common_save_table(run.aggregate.passratio_phasecurve, pass_zoom_csv);
+    milestone_common_save_table(pass_padding_summary, pass_padding_csv);
 
     history_options = pass_plot_options;
     history_options.plot_xlim_ns = pass_windows.history_full;
     history_options.plot_domain_label = "history_full";
-    fig_pass_history = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, history_options);
+    history_options.plot_domain_source = "history_full";
+    fig_pass_history = plot_mb_fixed_h_passratio_phasecurve(pass_history_table, run.h_km, style, history_options);
     local_retitle(fig_pass_history, sprintf('legacyDG History-Full Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
     pass_history_png = fullfile(paths.figures, sprintf('MB_legacyDG_passratio_historyFull_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_history, pass_history_png);
-    write_mb_plot_domain_sidecar(pass_history_png, "history_full", "initial_search_domain_lower_bound", pass_windows.history_full);
+    write_mb_plot_domain_sidecar(pass_history_png, "history_full", "initial_search_domain_lower_bound", local_capture_axis_xlim(fig_pass_history), ...
+        build_mb_passratio_view_sidecar_fields(fig_pass_history, pass_history_table, pass_history_csv, "history_full", pass_windows.history_full, pass_history_meta, struct( ...
+        'figure_family', "legacyDG_passratio", ...
+        'figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")), ...
+        'expected_domain_behavior', "history_full_from_initial_ns_min_with_zero_padding", ...
+        'actual_domain_behavior', "history_full_padded_table")));
     close(fig_pass_history);
 
     effective_options = pass_plot_options;
     effective_options.plot_xlim_ns = pass_windows.effective_full_range;
     effective_options.plot_domain_label = "effective_full_range";
+    effective_options.plot_domain_source = "effective_full_range";
     fig_pass_effective = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, effective_options);
     local_retitle(fig_pass_effective, sprintf('legacyDG Effective Full-Range Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
     pass_effective_png = fullfile(paths.figures, sprintf('MB_legacyDG_passratio_effectiveFullRange_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, pass_effective_png);
-    write_mb_plot_domain_sidecar(pass_effective_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
+    write_mb_plot_domain_sidecar(pass_effective_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
+        build_mb_passratio_view_sidecar_fields(fig_pass_effective, run.aggregate.passratio_phasecurve, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, struct(), struct( ...
+        'figure_family', "legacyDG_passratio", ...
+        'figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")), ...
+        'expected_domain_behavior', "effective_domain_only_without_history_padding", ...
+        'actual_domain_behavior', "effective_domain_view")));
     pass_alias_png = fullfile(paths.figures, sprintf('MB_legacyDG_passratio_fullRange_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, pass_alias_png);
-    write_mb_plot_domain_sidecar(pass_alias_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
+    write_mb_plot_domain_sidecar(pass_alias_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
+        build_mb_passratio_view_sidecar_fields(fig_pass_effective, run.aggregate.passratio_phasecurve, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, struct(), struct('figure_family', "legacyDG_passratio")));
     legacy_alias_png = fullfile(paths.figures, sprintf('MB_legacyDG_passratio_globalTrend_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, legacy_alias_png);
-    write_mb_plot_domain_sidecar(legacy_alias_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
+    write_mb_plot_domain_sidecar(legacy_alias_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
+        build_mb_passratio_view_sidecar_fields(fig_pass_effective, run.aggregate.passratio_phasecurve, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, struct(), struct('figure_family', "legacyDG_passratio")));
     close(fig_pass_effective);
 
     legacy_zoom_options = pass_plot_options;
     legacy_zoom_options.plot_xlim_ns = pass_windows.frontier_zoom;
     legacy_zoom_options.plot_domain_label = "frontier_zoom";
+    legacy_zoom_options.plot_domain_source = "frontier_zoom";
     fig_pass_zoom = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, legacy_zoom_options);
     local_retitle(fig_pass_zoom, sprintf('legacyDG Frontier Zoom Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
     pass_zoom_png = fullfile(paths.figures, sprintf('MB_legacyDG_passratio_frontierZoom_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_zoom, pass_zoom_png);
-    write_mb_plot_domain_sidecar(pass_zoom_png, "frontier_zoom", "frontier_zoom_window", pass_windows.frontier_zoom);
+    write_mb_plot_domain_sidecar(pass_zoom_png, "frontier_zoom", "frontier_zoom_window", local_capture_axis_xlim(fig_pass_zoom), ...
+        build_mb_passratio_view_sidecar_fields(fig_pass_zoom, run.aggregate.passratio_phasecurve, pass_zoom_csv, "frontier_zoom", pass_windows.frontier_zoom, struct(), struct( ...
+        'figure_family', "legacyDG_passratio", ...
+        'expected_domain_behavior', "frontier_zoom_local_window", ...
+        'actual_domain_behavior', "frontier_zoom_view")));
     close(fig_pass_zoom);
     local_maybe_export_paper_ready(@() plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, local_build_paper_options(pass_plot_options)), ...
         fullfile(paths.figures, sprintf('MB_legacyDG_passratio_effectiveFullRange_%s_%s_paperReady.png', h_label, sensor_group)), ...
@@ -343,6 +383,10 @@ if isempty(ax)
     ax = axes(fig);
 end
 title(ax, title_text);
+end
+
+function xlim_values = local_capture_axis_xlim(fig)
+xlim_values = capture_mb_primary_axes_xlim(fig);
 end
 
 function T = local_build_heatmap_provenance_table(run)
