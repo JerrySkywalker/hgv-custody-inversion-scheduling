@@ -42,7 +42,22 @@ for idx = 1:numel(cases)
             notes = "runner returned without a verifiable export file";
         end
     catch ME
+        if case_info.stage_name == "stage09_inverse_plot" && contains(string(ME.message), "No cache matched patterns")
+            try
+                run_stage09_inverse_scan(local_cfg, false, struct());
+                export_probe = case_info.runner(local_cfg);
+                success = strlength(string(export_probe)) > 0 && isfile(char(export_probe));
+                if success
+                    notes = "export verified after validation_small scan bootstrap";
+                else
+                    notes = "scan bootstrap ran, but plot export was still not verified";
+                end
+            catch ME2
+                notes = "bootstrap_failed | " + string(ME2.identifier) + " | " + string(ME2.message);
+            end
+        else
         notes = string(ME.identifier) + " | " + string(ME.message);
+        end
     end
 
     rows(idx, :) = {case_info.stage_name, case_info.mode, success, popup_expected, ...
