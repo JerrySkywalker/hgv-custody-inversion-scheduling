@@ -44,6 +44,7 @@ cfg.runtime.figure_visibility_mode = 'headless';
 
 out = milestone_B_semantic_compare(cfg);
 paths = mb_output_paths(cfg, cfg.milestones.MB_semantic_compare.milestone_id, cfg.milestones.MB_semantic_compare.title);
+out.audit_artifacts = export_mb_final_round_audit_tables(paths.milestone_root);
 out.profile_name = string(profile.name);
 out.fresh_root = string(paths.milestone_root);
 out.tables_root = string(paths.tables);

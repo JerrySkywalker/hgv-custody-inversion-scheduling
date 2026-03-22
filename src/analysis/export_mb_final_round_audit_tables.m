@@ -42,7 +42,7 @@ end
 
 function T = local_build_passratio_plot_domain_audit_summary(figures_dir, tables_dir, cfg)
 files = dir(fullfile(figures_dir, '*passratio*.png'));
-rows = cell(0, 24);
+rows = cell(0, 31);
 for idx = 1:numel(files)
     figure_name = string(files(idx).name);
     lower_name = lower(figure_name);
@@ -56,35 +56,64 @@ for idx = 1:numel(files)
         continue;
     end
 
-    source_table = local_resolve_matching_table(tables_dir, figure_name);
-    [source_min, source_max, row_count] = local_read_ns_bounds(source_table);
+    export_chain = string(local_infer_export_chain(figure_name, meta));
+    semantic_name = string(local_infer_semantic_name(figure_name, meta));
+    height_km = double(local_resolve_height_km(meta));
+    source_table = local_resolve_source_table(meta, tables_dir, figure_name);
+    source_table_name = string(local_basename(source_table));
+    source_min = local_getdouble(meta, 'source_table_min_ns', NaN);
+    source_max = local_getdouble(meta, 'source_table_max_ns', NaN);
+    row_count = local_getdouble(meta, 'source_table_row_count', NaN);
+    if ~(isfinite(source_min) && isfinite(source_max) && isfinite(row_count))
+        [source_min, source_max, row_count] = local_read_ns_bounds(source_table);
+    end
     initial_ns_min = local_resolve_initial_ns_min(meta, cfg, source_min);
+    history_origin_mode = string(local_getfield_or(meta, 'history_origin', ""));
+    if domain_mode == "history_full" && history_origin_mode == ""
+        history_origin_mode = "initial_ns_min";
+    end
+    history_origin_min = local_resolve_history_origin_min(history_origin_mode, initial_ns_min);
     resolver_min = local_getdouble(meta, 'resolver_xlim_min', NaN);
     resolver_max = local_getdouble(meta, 'resolver_xlim_max', NaN);
     actual_min = local_getdouble(meta, 'actual_rendered_xlim_min', local_getdouble(meta, 'x_min_rendered', NaN));
     actual_max = local_getdouble(meta, 'actual_rendered_xlim_max', local_getdouble(meta, 'x_max_rendered', NaN));
     history_padding_applied = logical(local_getfield_or(meta, 'history_padding_applied', false));
     history_padding_mode = string(local_getfield_or(meta, 'history_padding_mode', ""));
-    [expected_behavior, actual_behavior, pass_fail, root_cause_tag] = local_resolve_passratio_root_cause(domain_mode, initial_ns_min, source_min, source_max, resolver_min, actual_min, actual_max, history_padding_applied, meta);
+    source_table_is_tail_only = isfinite(source_min) && isfinite(history_origin_min) && source_min > history_origin_min + 1.0e-9;
+    cache_hit = logical(local_getfield_or(meta, 'phasecurve_cache_hit', false));
+    cache_key = string(local_getfield_or(meta, 'phasecurve_cache_key', ""));
+    fallback_override_applied = logical(local_getfield_or(meta, 'fallback_override_applied', false));
+    fallback_override_source = string(local_getfield_or(meta, 'fallback_override_source', ""));
+    [expected_behavior, actual_behavior, pass_fail, root_cause_tag] = local_resolve_passratio_root_cause( ...
+        domain_mode, export_chain, source_table_is_tail_only, resolver_min, resolver_max, actual_min, actual_max, ...
+        history_padding_applied, history_origin_mode, history_origin_min, cache_hit, fallback_override_applied, meta);
+    stale_domain_semantics_reused = cache_hit && ismember(root_cause_tag, ["cache_reused_old_tail_table", "comparison_still_using_tail_gap_table"]);
 
     rows(end + 1, :) = { ... %#ok<AGROW>
         figure_name, ...
-        string(local_infer_semantic_name(figure_name, meta)), ...
-        string(local_infer_export_chain(figure_name, meta)), ...
+        semantic_name, ...
+        double(height_km), ...
+        export_chain, ...
         "passratio", ...
         domain_mode, ...
+        source_table_name, ...
         string(source_table), ...
-        logical(local_getfield_or(meta, 'phasecurve_cache_hit', false)), ...
-        string(local_getfield_or(meta, 'phasecurve_cache_key', "")), ...
         double(source_min), ...
         double(source_max), ...
         double(row_count), ...
+        logical(source_table_is_tail_only), ...
+        logical(cache_hit), ...
+        cache_key, ...
+        logical(cache_hit), ...
+        cache_key, ...
+        logical(stale_domain_semantics_reused), ...
         logical(history_padding_applied), ...
         history_padding_mode, ...
+        history_origin_mode, ...
         double(resolver_min), ...
         double(resolver_max), ...
-        logical(local_getfield_or(meta, 'fallback_override_applied', false)), ...
-        string(local_getfield_or(meta, 'fallback_override_source', "")), ...
+        logical(fallback_override_applied), ...
+        fallback_override_source, ...
         double(actual_min), ...
         double(actual_max), ...
         string(local_getfield_or(meta, 'x_domain_origin', "")), ...
@@ -95,22 +124,24 @@ for idx = 1:numel(files)
 end
 
 T = cell2table(rows, 'VariableNames', { ...
-    'figure_name', 'semantic_name', 'export_chain', 'render_mode', 'domain_mode', ...
-    'phasecurve_source_file_or_table', 'phasecurve_cache_hit', 'phasecurve_cache_key', ...
-    'source_table_min_ns', 'source_table_max_ns', 'source_table_row_count', ...
-    'history_padding_applied', 'history_padding_mode', ...
+    'figure_name', 'semantic_name', 'height_km', 'export_chain', 'render_mode', 'domain_mode', ...
+    'source_table_name', 'phasecurve_source_file_or_table', ...
+    'source_table_min_ns', 'source_table_max_ns', 'source_table_row_count', 'source_table_is_tail_only', ...
+    'cache_hit', 'cache_key', 'phasecurve_cache_hit', 'phasecurve_cache_key', 'stale_domain_semantics_reused', ...
+    'history_padding_applied', 'history_padding_mode', 'history_origin_mode', ...
     'resolver_xlim_min', 'resolver_xlim_max', ...
     'fallback_override_applied', 'fallback_override_source', ...
     'actual_rendered_xlim_min', 'actual_rendered_xlim_max', 'x_domain_origin', ...
     'expected_domain_behavior', 'actual_domain_behavior', 'pass_fail', 'root_cause_tag'});
 
 if isempty(T)
-    T = table('Size', [0, 24], ...
-        'VariableTypes', {'string','string','string','string','string','string','logical','string','double','double','double','logical','string','double','double','logical','string','double','double','string','string','string','logical','string'}, ...
-        'VariableNames', {'figure_name', 'semantic_name', 'export_chain', 'render_mode', 'domain_mode', ...
-        'phasecurve_source_file_or_table', 'phasecurve_cache_hit', 'phasecurve_cache_key', ...
-        'source_table_min_ns', 'source_table_max_ns', 'source_table_row_count', ...
-        'history_padding_applied', 'history_padding_mode', ...
+    T = table('Size', [0, 31], ...
+        'VariableTypes', {'string','string','double','string','string','string','string','string','double','double','double','logical','logical','string','logical','string','logical','logical','string','string','double','double','logical','string','double','double','string','string','string','logical','string'}, ...
+        'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'export_chain', 'render_mode', 'domain_mode', ...
+        'source_table_name', 'phasecurve_source_file_or_table', ...
+        'source_table_min_ns', 'source_table_max_ns', 'source_table_row_count', 'source_table_is_tail_only', ...
+        'cache_hit', 'cache_key', 'phasecurve_cache_hit', 'phasecurve_cache_key', 'stale_domain_semantics_reused', ...
+        'history_padding_applied', 'history_padding_mode', 'history_origin_mode', ...
         'resolver_xlim_min', 'resolver_xlim_max', ...
         'fallback_override_applied', 'fallback_override_source', ...
         'actual_rendered_xlim_min', 'actual_rendered_xlim_max', 'x_domain_origin', ...
@@ -120,14 +151,21 @@ end
 
 T.figure_name = string(T.figure_name);
 T.semantic_name = string(T.semantic_name);
+T.height_km = double(T.height_km);
 T.export_chain = string(T.export_chain);
 T.render_mode = string(T.render_mode);
 T.domain_mode = string(T.domain_mode);
+T.source_table_name = string(T.source_table_name);
 T.phasecurve_source_file_or_table = string(T.phasecurve_source_file_or_table);
+T.source_table_is_tail_only = logical(T.source_table_is_tail_only);
+T.cache_hit = logical(T.cache_hit);
+T.cache_key = string(T.cache_key);
 T.phasecurve_cache_hit = logical(T.phasecurve_cache_hit);
 T.phasecurve_cache_key = string(T.phasecurve_cache_key);
+T.stale_domain_semantics_reused = logical(T.stale_domain_semantics_reused);
 T.history_padding_applied = logical(T.history_padding_applied);
 T.history_padding_mode = string(T.history_padding_mode);
+T.history_origin_mode = string(T.history_origin_mode);
 T.fallback_override_applied = logical(T.fallback_override_applied);
 T.fallback_override_source = string(T.fallback_override_source);
 T.x_domain_origin = string(T.x_domain_origin);
@@ -135,6 +173,9 @@ T.expected_domain_behavior = string(T.expected_domain_behavior);
 T.actual_domain_behavior = string(T.actual_domain_behavior);
 T.pass_fail = logical(T.pass_fail);
 T.root_cause_tag = string(T.root_cause_tag);
+if ~isempty(T)
+    T = sortrows(T, {'height_km', 'export_chain', 'semantic_name', 'domain_mode', 'figure_name'});
+end
 end
 
 function T = local_build_passratio_history_padding_summary(tables_dir)
@@ -250,82 +291,24 @@ T.pass_fail = logical(T.pass_fail);
 T.root_cause_tag = string(T.root_cause_tag);
 end
 
-function T = local_build_plot_domain_root_cause_audit_summary(passratio_audit, heatmap_audit)
-rows = cell(0, 27);
-for idx = 1:height(passratio_audit)
-    row = passratio_audit(idx, :);
-    rows(end + 1, :) = { ... %#ok<AGROW>
-        row.figure_name(1), row.semantic_name(1), row.export_chain(1), row.render_mode(1), row.domain_mode(1), ...
-        row.phasecurve_source_file_or_table(1), row.phasecurve_cache_hit(1), row.phasecurve_cache_key(1), ...
-        row.source_table_min_ns(1), row.source_table_max_ns(1), row.source_table_row_count(1), ...
-        row.history_padding_applied(1), row.history_padding_mode(1), ...
-        row.resolver_xlim_min(1), row.resolver_xlim_max(1), ...
-        row.fallback_override_applied(1), row.fallback_override_source(1), ...
-        row.actual_rendered_xlim_min(1), row.actual_rendered_xlim_max(1), ...
-        "", false, "", "", ...
-        row.expected_domain_behavior(1), row.actual_domain_behavior(1), row.pass_fail(1), row.root_cause_tag(1)};
-end
-for idx = 1:height(heatmap_audit)
-    row = heatmap_audit(idx, :);
-    rows(end + 1, :) = { ... %#ok<AGROW>
-        row.figure_name(1), row.semantic_name(1), row.export_chain(1), row.render_mode(1), row.domain_mode(1), ...
-        "", false, "", ...
-        NaN, NaN, NaN, ...
-        false, "", ...
-        NaN, NaN, ...
-        false, "", ...
-        NaN, NaN, ...
-        row.heatmap_surface_source(1), row.heatmap_cache_hit(1), row.heatmap_cache_key(1), row.matrix_source_name(1), ...
-        row.expected_domain_behavior(1), row.actual_domain_behavior(1), row.pass_fail(1), row.root_cause_tag(1)};
+function T = local_build_plot_domain_root_cause_audit_summary(passratio_audit, ~)
+if isempty(passratio_audit)
+    T = table('Size', [0, 24], ...
+        'VariableTypes', {'string','string','double','string','string','string','double','double','double','logical','double','double','double','double','logical','string','logical','string','logical','logical','string','string','string','logical'}, ...
+        'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'domain_mode', 'export_chain', ...
+        'source_table_name', 'source_table_min_ns', 'source_table_max_ns', 'source_table_row_count', 'source_table_is_tail_only', ...
+        'resolver_xlim_min', 'resolver_xlim_max', 'actual_rendered_xlim_min', 'actual_rendered_xlim_max', ...
+        'fallback_override_applied', 'fallback_override_source', 'cache_hit', 'cache_key', 'stale_domain_semantics_reused', ...
+        'history_padding_applied', 'history_padding_mode', 'history_origin_mode', 'root_cause_tag', 'pass_fail'});
+    return;
 end
 
-T = cell2table(rows, 'VariableNames', { ...
-    'figure_name', 'semantic_name', 'export_chain', 'render_mode', 'domain_mode', ...
-    'phasecurve_source_file_or_table', 'phasecurve_cache_hit', 'phasecurve_cache_key', ...
-    'source_table_min_ns', 'source_table_max_ns', 'source_table_row_count', ...
-    'history_padding_applied', 'history_padding_mode', ...
-    'resolver_xlim_min', 'resolver_xlim_max', ...
-    'fallback_override_applied', 'fallback_override_source', ...
-    'actual_rendered_xlim_min', 'actual_rendered_xlim_max', ...
-    'heatmap_surface_source', 'heatmap_cache_hit', 'heatmap_cache_key', 'matrix_source_name', ...
-    'expected_domain_behavior', 'actual_domain_behavior', 'pass_fail', 'root_cause_tag'});
-
-if isempty(T)
-    T = table('Size', [0, 28], ...
-        'VariableTypes', {'string','string','string','string','string','string','logical','string','double','double','double','logical','string','double','double','logical','string','double','double','string','logical','string','string','string','string','logical','string'}, ...
-        'VariableNames', { ...
-        'figure_name', 'semantic_name', 'export_chain', 'render_mode', 'domain_mode', ...
-        'phasecurve_source_file_or_table', 'phasecurve_cache_hit', 'phasecurve_cache_key', ...
-        'source_table_min_ns', 'source_table_max_ns', 'source_table_row_count', ...
-        'history_padding_applied', 'history_padding_mode', ...
-        'resolver_xlim_min', 'resolver_xlim_max', ...
-        'fallback_override_applied', 'fallback_override_source', ...
-        'actual_rendered_xlim_min', 'actual_rendered_xlim_max', ...
-        'heatmap_surface_source', 'heatmap_cache_hit', 'heatmap_cache_key', 'matrix_source_name', ...
-        'expected_domain_behavior', 'actual_domain_behavior', 'pass_fail', 'root_cause_tag'});
-        return;
-end
-
-T.figure_name = string(T.figure_name);
-T.semantic_name = string(T.semantic_name);
-T.export_chain = string(T.export_chain);
-T.render_mode = string(T.render_mode);
-T.domain_mode = string(T.domain_mode);
-T.phasecurve_source_file_or_table = string(T.phasecurve_source_file_or_table);
-T.phasecurve_cache_hit = logical(T.phasecurve_cache_hit);
-T.phasecurve_cache_key = string(T.phasecurve_cache_key);
-T.history_padding_applied = logical(T.history_padding_applied);
-T.history_padding_mode = string(T.history_padding_mode);
-T.fallback_override_applied = logical(T.fallback_override_applied);
-T.fallback_override_source = string(T.fallback_override_source);
-T.heatmap_surface_source = string(T.heatmap_surface_source);
-T.heatmap_cache_hit = logical(T.heatmap_cache_hit);
-T.heatmap_cache_key = string(T.heatmap_cache_key);
-T.matrix_source_name = string(T.matrix_source_name);
-T.expected_domain_behavior = string(T.expected_domain_behavior);
-T.actual_domain_behavior = string(T.actual_domain_behavior);
-T.pass_fail = logical(T.pass_fail);
-T.root_cause_tag = string(T.root_cause_tag);
+T = passratio_audit(:, {'figure_name', 'semantic_name', 'height_km', 'domain_mode', 'export_chain', ...
+    'source_table_name', 'source_table_min_ns', 'source_table_max_ns', 'source_table_row_count', 'source_table_is_tail_only', ...
+    'resolver_xlim_min', 'resolver_xlim_max', 'actual_rendered_xlim_min', 'actual_rendered_xlim_max', ...
+    'fallback_override_applied', 'fallback_override_source', 'cache_hit', 'cache_key', 'stale_domain_semantics_reused', ...
+    'history_padding_applied', 'history_padding_mode', 'history_origin_mode', 'root_cause_tag', 'pass_fail'});
+T = sortrows(T, {'height_km', 'export_chain', 'semantic_name', 'domain_mode', 'figure_name'});
 end
 
 function T = local_build_plot_cache_domain_semantics_audit(passratio_audit, heatmap_audit)
@@ -408,7 +391,7 @@ key = replace(key, "_effectiveFullRange_", "_");
 key = replace(key, "_frontierZoom_", "_");
 end
 
-function [expected_behavior, actual_behavior, pass_fail, root_cause_tag] = local_resolve_passratio_root_cause(domain_mode, initial_ns_min, source_min, source_max, resolver_min, actual_min, actual_max, history_padding_applied, meta)
+function [expected_behavior, actual_behavior, pass_fail, root_cause_tag] = local_resolve_passratio_root_cause(domain_mode, export_chain, source_table_is_tail_only, resolver_min, resolver_max, actual_min, actual_max, history_padding_applied, history_origin_mode, history_origin_min, cache_hit, fallback_override_applied, meta)
 expected_behavior = "";
 actual_behavior = "";
 pass_fail = false;
@@ -418,39 +401,51 @@ switch string(domain_mode)
     case "history_full"
         expected_behavior = "history_full_from_initial_ns_min_with_zero_padding";
         actual_behavior = "history_full_padded_table";
-        pass_fail = isfinite(initial_ns_min) && isfinite(actual_min) && actual_min <= initial_ns_min + 1.0e-9 && logical(history_padding_applied);
+        pass_fail = isfinite(history_origin_min) && isfinite(actual_min) && actual_min <= history_origin_min + 1.0e-9 && logical(history_padding_applied);
+        if history_origin_mode == "zero"
+            pass_fail = pass_fail && abs(actual_min) < 1.0e-9;
+        end
         if pass_fail
             root_cause_tag = "correct";
+        elseif cache_hit && source_table_is_tail_only && ~logical(history_padding_applied)
+            root_cause_tag = "cache_reused_old_tail_table";
+        elseif source_table_is_tail_only && ~logical(history_padding_applied) && ismember(string(export_chain), ["comparison", "cross_profile"])
+            root_cause_tag = "comparison_still_using_tail_gap_table";
         elseif ~logical(history_padding_applied)
-            root_cause_tag = "naming_only_fix_without_data_fix";
-        elseif isfinite(source_min) && isfinite(initial_ns_min) && source_min > initial_ns_min + 1.0e-9
-            root_cause_tag = "source_table_tail_only";
-        elseif isfinite(resolver_min) && isfinite(actual_min) && isfinite(initial_ns_min) && resolver_min <= initial_ns_min + 1.0e-9 && actual_min > initial_ns_min + 1.0e-9
+            root_cause_tag = "history_padding_missing";
+        elseif logical(fallback_override_applied) || ...
+                (isfinite(resolver_min) && isfinite(actual_min) && isfinite(history_origin_min) && resolver_min <= history_origin_min + 1.0e-9 && actual_min > history_origin_min + 1.0e-9)
             root_cause_tag = "resolver_ok_but_render_override";
-        else
+        elseif source_table_is_tail_only
             root_cause_tag = "source_table_tail_only";
+        else
+            root_cause_tag = "history_padding_missing";
         end
     case "effective_full_range"
         expected_behavior = "effective_domain_window_from_effective_search_domain";
         actual_behavior = "effective_domain_view";
-        pass_fail = local_xlim_matches_resolver(resolver_min, local_getdouble(meta, 'resolver_xlim_max', NaN), actual_min, actual_max);
+        pass_fail = local_xlim_matches_resolver(resolver_min, resolver_max, actual_min, actual_max);
         if pass_fail
             root_cause_tag = "correct";
-        elseif isfinite(resolver_min) && isfinite(actual_min)
+        elseif logical(fallback_override_applied) || (isfinite(resolver_min) && isfinite(actual_min))
             root_cause_tag = "resolver_ok_but_render_override";
-        else
+        elseif cache_hit && source_table_is_tail_only
             root_cause_tag = "cache_reused_old_tail_table";
+        else
+            root_cause_tag = "source_table_tail_only";
         end
     case "frontier_zoom"
         expected_behavior = "frontier_zoom_local_window";
         actual_behavior = "frontier_zoom_view";
-        pass_fail = local_xlim_matches_resolver(resolver_min, local_getdouble(meta, 'resolver_xlim_max', NaN), actual_min, actual_max);
+        pass_fail = local_xlim_matches_resolver(resolver_min, resolver_max, actual_min, actual_max);
         if pass_fail
             root_cause_tag = "correct";
-        elseif isfinite(resolver_min) && isfinite(actual_min)
+        elseif logical(fallback_override_applied) || (isfinite(resolver_min) && isfinite(actual_min))
             root_cause_tag = "resolver_ok_but_render_override";
-        else
+        elseif cache_hit && source_table_is_tail_only
             root_cause_tag = "cache_reused_old_tail_table";
+        else
+            root_cause_tag = "source_table_tail_only";
         end
 end
 end
@@ -505,39 +500,67 @@ end
 end
 
 function semantic_name = local_infer_semantic_name(figure_name, meta)
-semantic_name = string(local_getfield_or(meta, 'semantic_mode', ""));
 lower_name = lower(char(figure_name));
-if semantic_name == ""
-    if contains(lower_name, 'legacydg')
-        semantic_name = "legacyDG";
-    elseif contains(lower_name, 'closedd')
-        semantic_name = "closedD";
-    elseif contains(lower_name, 'comparison')
-        semantic_name = "comparison";
-    elseif contains(lower_name, 'profilecompare')
-        semantic_name = "cross_profile";
-    else
-        semantic_name = "";
-    end
+if contains(lower_name, 'profilecompare_legacydg')
+    semantic_name = "legacyDG";
+elseif contains(lower_name, 'profilecompare_closedd')
+    semantic_name = "closedD";
+elseif contains(lower_name, 'legacydg')
+    semantic_name = "legacyDG";
+elseif contains(lower_name, 'closedd')
+    semantic_name = "closedD";
+elseif contains(lower_name, 'comparison')
+    semantic_name = "comparison";
+else
+    semantic_name = string(local_getfield_or(meta, 'semantic_mode', ""));
 end
 end
 
 function export_chain = local_infer_export_chain(figure_name, meta)
-export_chain = string(local_getfield_or(meta, 'figure_family', ""));
 lower_name = lower(char(figure_name));
-if export_chain == ""
-    if contains(lower_name, 'comparison')
-        export_chain = "comparison";
-    elseif contains(lower_name, 'profilecompare')
-        export_chain = "cross_profile";
-    elseif contains(lower_name, 'legacydg')
-        export_chain = "legacyDG";
-    elseif contains(lower_name, 'closedd')
-        export_chain = "closedD";
-    else
-        export_chain = "";
-    end
+if contains(lower_name, 'profilecompare')
+    export_chain = "cross_profile";
+elseif contains(lower_name, 'comparison')
+    export_chain = "comparison";
+elseif contains(lower_name, 'legacydg')
+    export_chain = "legacyDG";
+elseif contains(lower_name, 'closedd')
+    export_chain = "closedD";
+else
+    export_chain = string(local_getfield_or(meta, 'figure_family', ""));
 end
+end
+
+function source_table = local_resolve_source_table(meta, tables_dir, figure_name)
+source_table = string(local_getfield_or(meta, 'phasecurve_source_file_or_table', ""));
+if strlength(source_table) ~= 0
+    return;
+end
+source_table = string(local_resolve_matching_table(tables_dir, figure_name));
+end
+
+function value = local_resolve_height_km(meta)
+value = local_getdouble(meta, 'height_km', NaN);
+if ~isfinite(value)
+    value = local_getdouble(meta, 'h_km', NaN);
+end
+end
+
+function history_origin_min = local_resolve_history_origin_min(history_origin_mode, initial_ns_min)
+if string(history_origin_mode) == "zero"
+    history_origin_min = 0;
+else
+    history_origin_min = initial_ns_min;
+end
+end
+
+function name = local_basename(path_value)
+name = "";
+if strlength(string(path_value)) == 0
+    return;
+end
+[~, stem, ext] = fileparts(char(path_value));
+name = string(stem) + string(ext);
 end
 
 function heatmap_mode = local_resolve_heatmap_mode(meta, figure_name)
