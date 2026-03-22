@@ -52,19 +52,43 @@ for idx = 1:numel(comparison.run_pairs)
 
     pass_windows = resolve_mb_passratio_plot_windows(pair.passratio_gap_table, pair.search_domain, struct( ...
         'y_fields', ["max_pass_ratio_legacyDG"; "max_pass_ratio_closedD"]));
-    history_view_spec = struct( ...
-        'domain_view', "history_full", ...
+    semantic_view_spec = struct( ...
         'group_fields', {{'h_km', 'family_name', 'i_deg'}}, ...
-        'value_fields', {{'max_pass_ratio_legacyDG', 'max_pass_ratio_closedD', 'legacy_present', 'closed_present', 'passratio_gap'}}, ...
-        'fill_values', struct('max_pass_ratio_legacyDG', 0, 'max_pass_ratio_closedD', 0, 'legacy_present', false, 'closed_present', false, 'passratio_gap', 0), ...
+        'value_fields', {{'max_pass_ratio'}}, ...
+        'fill_values', struct('max_pass_ratio', 0), ...
         'history_fill_mode', "zero", ...
         'history_origin', "initial_ns_min", ...
-        'recompute_mode', "comparison_gap", ...
-        'figure_name', sprintf('MB_comparison_passratio_overlay_historyFull_%s_%s.png', h_label, sensor_group));
-    [pass_history_table, pass_padding_summary, pass_history_meta] = build_mb_passratio_domain_view(pair.passratio_gap_table, pair.search_domain, history_view_spec);
+        'resolver_options', struct('y_fields', "max_pass_ratio"));
+    history_view_spec = semantic_view_spec;
+    history_view_spec.domain_view = "history_full";
+    history_view_spec.figure_name = sprintf('MB_comparison_passratio_overlay_historyFull_%s_%s.png', h_label, sensor_group);
+    effective_view_spec = semantic_view_spec;
+    effective_view_spec.domain_view = "effective_full_range";
+    effective_view_spec.figure_name = sprintf('MB_comparison_passratio_overlay_effectiveFullRange_%s_%s.png', h_label, sensor_group);
+    zoom_view_spec = semantic_view_spec;
+    zoom_view_spec.domain_view = "frontier_zoom";
+    zoom_view_spec.plot_window = pass_windows.frontier_zoom;
+    zoom_view_spec.figure_name = sprintf('MB_comparison_passratio_overlay_frontierZoom_%s_%s.png', h_label, sensor_group);
+
+    [legacy_history_source, ~, legacy_history_meta] = build_mb_passratio_domain_view(pair.legacy_passratio_table, pair.search_domain, history_view_spec);
+    [closed_history_source, ~, closed_history_meta] = build_mb_passratio_domain_view(pair.closed_passratio_table, pair.search_domain, history_view_spec);
+    pass_history_table = local_build_comparison_passratio_view_table(legacy_history_source, closed_history_source);
+    pass_padding_summary = local_build_comparison_history_padding_summary(pass_history_table, pair.search_domain, sprintf('MB_comparison_passratio_overlay_historyFull_%s_%s.png', h_label, sensor_group));
+    pass_history_meta = local_build_comparison_view_meta(pair.search_domain, pair.passratio_gap_table, pass_history_table, legacy_history_meta, closed_history_meta);
+
+    [legacy_effective_source, ~, legacy_effective_meta] = build_mb_passratio_domain_view(pair.legacy_passratio_table, pair.search_domain, effective_view_spec);
+    [closed_effective_source, ~, closed_effective_meta] = build_mb_passratio_domain_view(pair.closed_passratio_table, pair.search_domain, effective_view_spec);
+    pass_effective_table = local_build_comparison_passratio_view_table(legacy_effective_source, closed_effective_source);
+    pass_effective_meta = local_build_comparison_view_meta(pair.search_domain, pair.passratio_gap_table, pass_effective_table, legacy_effective_meta, closed_effective_meta);
+
+    [legacy_zoom_source, ~, legacy_zoom_meta] = build_mb_passratio_domain_view(pair.legacy_passratio_table, pair.search_domain, zoom_view_spec);
+    [closed_zoom_source, ~, closed_zoom_meta] = build_mb_passratio_domain_view(pair.closed_passratio_table, pair.search_domain, zoom_view_spec);
+    pass_zoom_table = local_build_comparison_passratio_view_table(legacy_zoom_source, closed_zoom_source);
+    pass_zoom_meta = local_build_comparison_view_meta(pair.search_domain, pair.passratio_gap_table, pass_zoom_table, legacy_zoom_meta, closed_zoom_meta);
+
     milestone_common_save_table(pass_history_table, pass_history_csv);
-    milestone_common_save_table(pair.passratio_gap_table, pass_effective_csv);
-    milestone_common_save_table(pair.passratio_gap_table, pass_zoom_csv);
+    milestone_common_save_table(pass_effective_table, pass_effective_csv);
+    milestone_common_save_table(pass_zoom_table, pass_zoom_csv);
     milestone_common_save_table(pass_padding_summary, pass_padding_csv);
 
     fig_pass_history = plot_semantic_gap_passratio_curves(pass_history_table, pair.h_km, sensor_label, struct( ...
@@ -86,7 +110,7 @@ for idx = 1:numel(comparison.run_pairs)
         'actual_domain_behavior', "history_full_padded_table")));
     close(fig_pass_history);
 
-    fig_pass_effective = plot_semantic_gap_passratio_curves(pair.passratio_gap_table, pair.h_km, sensor_label, struct( ...
+    fig_pass_effective = plot_semantic_gap_passratio_curves(pass_effective_table, pair.h_km, sensor_label, struct( ...
         'passratio_saturation_table', pair.passratio_saturation_table, ...
         'boundary_hit_table', pair.boundary_hit_table, ...
         'search_domain_bounds', [pair.search_domain.ns_search_min, pair.search_domain.ns_search_max], ...
@@ -98,7 +122,7 @@ for idx = 1:numel(comparison.run_pairs)
     pass_effective_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_effectiveFullRange_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, pass_effective_png);
     write_mb_plot_domain_sidecar(pass_effective_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
-        build_mb_passratio_view_sidecar_fields(fig_pass_effective, pair.passratio_gap_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, struct(), struct( ...
+        build_mb_passratio_view_sidecar_fields(fig_pass_effective, pass_effective_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, pass_effective_meta, struct( ...
         'figure_family', "comparison_passratio", ...
         'figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")), ...
         'expected_domain_behavior', "effective_domain_only_without_history_padding", ...
@@ -106,14 +130,14 @@ for idx = 1:numel(comparison.run_pairs)
     pass_alias_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_fullRange_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, pass_alias_png);
     write_mb_plot_domain_sidecar(pass_alias_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
-        build_mb_passratio_view_sidecar_fields(fig_pass_effective, pair.passratio_gap_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, struct(), struct('figure_family', "comparison_passratio")));
+        build_mb_passratio_view_sidecar_fields(fig_pass_effective, pass_effective_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, pass_effective_meta, struct('figure_family', "comparison_passratio")));
     global_alias_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_globalTrend_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, global_alias_png);
     write_mb_plot_domain_sidecar(global_alias_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
-        build_mb_passratio_view_sidecar_fields(fig_pass_effective, pair.passratio_gap_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, struct(), struct('figure_family', "comparison_passratio")));
+        build_mb_passratio_view_sidecar_fields(fig_pass_effective, pass_effective_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, pass_effective_meta, struct('figure_family', "comparison_passratio")));
     close(fig_pass_effective);
 
-    fig_pass_zoom = plot_semantic_gap_passratio_curves(pair.passratio_gap_table, pair.h_km, sensor_label, struct( ...
+    fig_pass_zoom = plot_semantic_gap_passratio_curves(pass_zoom_table, pair.h_km, sensor_label, struct( ...
         'passratio_saturation_table', pair.passratio_saturation_table, ...
         'boundary_hit_table', pair.boundary_hit_table, ...
         'search_domain_bounds', [pair.search_domain.ns_search_min, pair.search_domain.ns_search_max], ...
@@ -125,7 +149,7 @@ for idx = 1:numel(comparison.run_pairs)
     pass_zoom_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_frontierZoom_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_zoom, pass_zoom_png);
     write_mb_plot_domain_sidecar(pass_zoom_png, "frontier_zoom", "frontier_zoom_window", local_capture_axis_xlim(fig_pass_zoom), ...
-        build_mb_passratio_view_sidecar_fields(fig_pass_zoom, pair.passratio_gap_table, pass_zoom_csv, "frontier_zoom", pass_windows.frontier_zoom, struct(), struct( ...
+        build_mb_passratio_view_sidecar_fields(fig_pass_zoom, pass_zoom_table, pass_zoom_csv, "frontier_zoom", pass_windows.frontier_zoom, pass_zoom_meta, struct( ...
         'figure_family', "comparison_passratio", ...
         'expected_domain_behavior', "frontier_zoom_local_window", ...
         'actual_domain_behavior', "frontier_zoom_view")));
@@ -175,7 +199,7 @@ for idx = 1:numel(comparison.run_pairs)
         'figure_style', resolve_mb_figure_style_mode('paper_ready'))), ...
         fullfile(paths.figures, sprintf('MB_comparison_gap_heatmap_iP_%s_%s_paperReady.png', h_label, sensor_group)), ...
         "comparison_heatmap", diagnostics, plot_options);
-    local_maybe_export_paper_ready(@() plot_semantic_gap_passratio_curves(pair.passratio_gap_table, pair.h_km, sensor_label, struct( ...
+    local_maybe_export_paper_ready(@() plot_semantic_gap_passratio_curves(pass_effective_table, pair.h_km, sensor_label, struct( ...
         'passratio_saturation_table', pair.passratio_saturation_table, ...
         'boundary_hit_table', pair.boundary_hit_table, ...
         'search_domain_bounds', [pair.search_domain.ns_search_min, pair.search_domain.ns_search_max], ...
@@ -278,5 +302,171 @@ function value = local_pick_x(xlim_values, idx_pick)
 value = NaN;
 if isnumeric(xlim_values) && numel(xlim_values) >= idx_pick && isfinite(xlim_values(idx_pick))
     value = xlim_values(idx_pick);
+end
+end
+
+function view_table = local_build_comparison_passratio_view_table(legacy_table, closed_table)
+legacy = legacy_table(:, intersect({'h_km', 'family_name', 'i_deg', 'Ns', 'max_pass_ratio', 'history_padded_row', 'history_fill_mode', 'history_origin'}, legacy_table.Properties.VariableNames, 'stable'));
+closed = closed_table(:, intersect({'h_km', 'family_name', 'i_deg', 'Ns', 'max_pass_ratio', 'history_padded_row', 'history_fill_mode', 'history_origin'}, closed_table.Properties.VariableNames, 'stable'));
+
+if ismember('max_pass_ratio', legacy.Properties.VariableNames)
+    legacy = renamevars(legacy, 'max_pass_ratio', 'max_pass_ratio_legacyDG');
+else
+    legacy.max_pass_ratio_legacyDG = zeros(height(legacy), 1);
+end
+if ismember('history_padded_row', legacy.Properties.VariableNames)
+    legacy = renamevars(legacy, 'history_padded_row', 'legacy_history_padded_row');
+end
+
+if ismember('max_pass_ratio', closed.Properties.VariableNames)
+    closed = renamevars(closed, 'max_pass_ratio', 'max_pass_ratio_closedD');
+else
+    closed.max_pass_ratio_closedD = zeros(height(closed), 1);
+end
+if ismember('history_padded_row', closed.Properties.VariableNames)
+    closed = renamevars(closed, 'history_padded_row', 'closed_history_padded_row');
+end
+
+view_table = outerjoin(legacy, closed, 'Keys', {'h_km', 'family_name', 'i_deg', 'Ns'}, 'MergeKeys', true, 'Type', 'full');
+view_table.legacy_present = isfinite(view_table.max_pass_ratio_legacyDG);
+view_table.closed_present = isfinite(view_table.max_pass_ratio_closedD);
+view_table.max_pass_ratio_legacyDG = local_fill_missing_numeric(view_table.max_pass_ratio_legacyDG, 0);
+view_table.max_pass_ratio_closedD = local_fill_missing_numeric(view_table.max_pass_ratio_closedD, 0);
+view_table.passratio_gap = view_table.max_pass_ratio_closedD - view_table.max_pass_ratio_legacyDG;
+
+if all(ismember({'legacy_history_padded_row', 'closed_history_padded_row'}, view_table.Properties.VariableNames))
+    legacy_pad = local_fill_missing_logical(view_table.legacy_history_padded_row, true);
+    closed_pad = local_fill_missing_logical(view_table.closed_history_padded_row, true);
+    view_table.history_padded_row = legacy_pad & closed_pad;
+    view_table.history_padding_applied = repmat(any(view_table.history_padded_row), height(view_table), 1);
+    view_table.history_fill_mode = repmat(local_pick_first_nonempty_string(view_table, {'history_fill_mode_legacy', 'history_fill_mode_closed', 'history_fill_mode_x', 'history_fill_mode_y'}, "zero"), height(view_table), 1);
+    view_table.history_origin = repmat(local_pick_first_nonempty_string(view_table, {'history_origin_legacy', 'history_origin_closed', 'history_origin_x', 'history_origin_y'}, "initial_ns_min"), height(view_table), 1);
+end
+
+view_table = sortrows(view_table, {'i_deg', 'Ns'}, {'ascend', 'ascend'});
+end
+
+function summary_table = local_build_comparison_history_padding_summary(view_table, search_domain, figure_name)
+if isempty(view_table)
+    summary_table = table('Size', [0, 12], ...
+        'VariableTypes', {'string','double','string','double','double','double','double','string','string','logical','logical','logical'}, ...
+        'VariableNames', {'figure_name', 'height_km', 'group_key', 'initial_ns_min', 'final_ns_max', 'num_original_points', 'num_padded_points', 'history_fill_mode', 'history_origin_mode', 'history_padding_applied', 'padding_applied', 'pass_fail'});
+    return;
+end
+
+group_rows = unique(view_table(:, {'h_km', 'family_name', 'i_deg'}), 'rows', 'stable');
+rows = cell(height(group_rows), 12);
+for idx = 1:height(group_rows)
+    group_row = group_rows(idx, :);
+    mask = view_table.h_km == group_row.h_km(1) & strcmp(string(view_table.family_name), string(group_row.family_name(1))) & view_table.i_deg == group_row.i_deg(1);
+    sub = view_table(mask, :);
+    padded_mask = false(height(sub), 1);
+    if ismember('history_padded_row', sub.Properties.VariableNames)
+        padded_mask = local_fill_missing_logical(sub.history_padded_row, false);
+    end
+    history_fill_mode = local_pick_first_nonempty_string(sub, {'history_fill_mode'}, "zero");
+    history_origin_mode = local_pick_first_nonempty_string(sub, {'history_origin'}, "initial_ns_min");
+    initial_ns_min = local_getfield_or(search_domain, 'history_ns_min', NaN);
+    final_ns_max = local_getfield_or(search_domain, 'history_ns_max', local_getfield_or(search_domain, 'effective_ns_max', NaN));
+    pass_fail = ~isempty(sub) && min(sub.Ns) <= initial_ns_min + 1.0e-9;
+    rows(idx, :) = { ...
+        string(figure_name), ...
+        double(group_row.h_km(1)), ...
+        "h_km=" + string(group_row.h_km(1)) + ";family_name=" + string(group_row.family_name(1)) + ";i_deg=" + string(group_row.i_deg(1)), ...
+        double(initial_ns_min), ...
+        double(final_ns_max), ...
+        double(sum(~padded_mask)), ...
+        double(sum(padded_mask)), ...
+        string(history_fill_mode), ...
+        string(history_origin_mode), ...
+        logical(any(padded_mask)), ...
+        logical(any(padded_mask)), ...
+        logical(pass_fail)};
+    end
+    summary_table = cell2table(rows, 'VariableNames', {'figure_name', 'height_km', 'group_key', 'initial_ns_min', 'final_ns_max', 'num_original_points', 'num_padded_points', 'history_fill_mode', 'history_origin_mode', 'history_padding_applied', 'padding_applied', 'pass_fail'});
+end
+
+function view_meta = local_build_comparison_view_meta(search_domain, raw_gap_table, view_table, legacy_meta, closed_meta)
+view_meta = struct();
+view_meta.domain_view = string(local_getfield_or(legacy_meta, 'domain_view', local_getfield_or(closed_meta, 'domain_view', "")));
+view_meta.history_padding_applied = logical(local_getfield_or(legacy_meta, 'history_padding_applied', false) || local_getfield_or(closed_meta, 'history_padding_applied', false));
+view_meta.history_fill_mode = string(local_getfield_or(legacy_meta, 'history_fill_mode', local_getfield_or(closed_meta, 'history_fill_mode', "")));
+view_meta.history_origin = string(local_getfield_or(legacy_meta, 'history_origin', local_getfield_or(closed_meta, 'history_origin', "")));
+view_meta.initial_ns_min = double(local_getfield_or(search_domain, 'history_ns_min', NaN));
+view_meta.effective_ns_min = double(local_getfield_or(search_domain, 'effective_ns_min', NaN));
+view_meta.final_ns_max = double(local_getfield_or(search_domain, 'history_ns_max', local_getfield_or(search_domain, 'effective_ns_max', NaN)));
+view_meta.source_table_min_ns = local_min_table_value(raw_gap_table, 'Ns');
+view_meta.source_table_max_ns = local_max_table_value(raw_gap_table, 'Ns');
+view_meta.source_table_row_count = height(raw_gap_table);
+view_meta.view_table_min_ns = local_min_table_value(view_table, 'Ns');
+view_meta.view_table_max_ns = local_max_table_value(view_table, 'Ns');
+view_meta.pass_fail = ~isempty(view_table);
+view_meta.root_cause_tag = "correct";
+end
+
+function data = local_fill_missing_numeric(data, fill_value)
+mask = isnan(data);
+data(mask) = fill_value;
+end
+
+function data = local_fill_missing_logical(data, fill_value)
+mask = false(size(data));
+if isnumeric(data)
+    mask = isnan(data);
+    data = logical(data);
+end
+if islogical(data)
+    % no-op
+elseif isstring(data)
+    mask = ismissing(data);
+    data = data == "true";
+elseif iscell(data)
+    mask = cellfun(@isempty, data);
+    data = logical(cellfun(@(x) ~isempty(x) && logical(x), data));
+end
+data(mask) = logical(fill_value);
+end
+
+function value = local_pick_first_nonempty_string(T, candidate_fields, fallback)
+value = string(fallback);
+for idx = 1:numel(candidate_fields)
+    field_name = candidate_fields{idx};
+    if ~ismember(field_name, T.Properties.VariableNames)
+        continue;
+    end
+    column = string(T.(field_name));
+    column = column(column ~= "");
+    if ~isempty(column)
+        value = string(column(1));
+        return;
+    end
+end
+end
+
+function value = local_min_table_value(T, field_name)
+if isempty(T) || ~ismember(field_name, T.Properties.VariableNames)
+    value = NaN;
+    return;
+end
+values = T.(field_name);
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = min(values);
+end
+end
+
+function value = local_max_table_value(T, field_name)
+if isempty(T) || ~ismember(field_name, T.Properties.VariableNames)
+    value = NaN;
+    return;
+end
+values = T.(field_name);
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = max(values);
 end
 end
