@@ -1,15 +1,21 @@
-function startup()
+function startup(varargin)
     %STARTUP Initialize project paths and outputs folders for Chapter 4 fresh-start project.
 
     root_dir = fileparts(mfilename('fullpath'));
-    path_state = project_path_manager('init', root_dir);
+    force_refresh = (nargin >= 1) && ~isempty(varargin{1}) && logical(varargin{1});
+    if force_refresh
+        path_state = project_path_manager('refresh', root_dir);
+    else
+        path_state = project_path_manager('init', root_dir);
+    end
     local_bootstrap_outputs(root_dir);
 
     fprintf('[startup] Project root: %s\n', root_dir);
-    fprintf('[startup] Path init: %s (%d entries, %.3f s)\n', ...
+    fprintf('[startup] Path init: %s (%d entries, %.3f s, init_count=%d)\n', ...
         char(string(path_state.status)), ...
         double(local_getfield_or(path_state, 'path_count', 0)), ...
-        double(local_getfield_or(path_state, 'elapsed_s', NaN)));
+        double(local_getfield_or(path_state, 'elapsed_s', NaN)), ...
+        double(local_getfield_or(path_state, 'init_count', 1)));
 
     % ---------------------------
     % Global graphics defaults
