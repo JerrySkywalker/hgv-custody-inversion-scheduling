@@ -36,6 +36,7 @@ for idx_family = 1:numel(legacy_cfg.family_set)
             struct('semantic_mode', "legacyDG", 'sensor_group', sensor_group.name, ...
                 'family_name', family_name, 'height_km', h_km));
         run = expansion.run;
+        run = local_apply_heatmap_overcompute(cfg_sensor, legacy_cfg, run, sensor_group, semantic_inputs, family_name, expansion.effective_search_domain);
         cache_record = local_build_expansion_cache_record(cache_root, family_name, h_km, expansion);
         cache_records(end + 1, 1) = cache_record; %#ok<AGROW>
         cache_hits = cache_hits + local_getfield_or(cache_record, 'cache_hit_count', double(local_getfield_or(cache_record, 'cache_hit', false)));
@@ -78,6 +79,7 @@ legacy_cfg.parallel_policy = resolve_mb_parallel_policy(local_getfield_or(option
 legacy_cfg.force_rebuild_inputs = logical(local_getfield_or(options, 'force_rebuild_inputs', false));
 legacy_cfg.cache_profile = local_getfield_or(options, 'cache_profile', cfg.milestones.MB_semantic_compare.cache_profile);
 legacy_cfg.cache_namespace = string(local_getfield_or(options, 'cache_namespace', "mb_legacyDG"));
+legacy_cfg.heatmap_overcompute = local_getfield_or(options, 'heatmap_overcompute', local_getfield_or(meta, 'heatmap_overcompute', struct('mode', 'off')));
 legacy_cfg.search_domain = local_getfield_or(meta, 'search_domain', struct());
 if isstruct(local_getfield_or(options, 'search_domain', struct())) && ~isempty(fieldnames(local_getfield_or(options, 'search_domain', struct())))
     legacy_cfg.search_domain = milestone_common_merge_structs(legacy_cfg.search_domain, local_getfield_or(options, 'search_domain', struct()));
@@ -86,6 +88,9 @@ legacy_cfg.search_domain.height_grid_km = reshape(legacy_cfg.heights_to_run, 1, 
 legacy_cfg.search_domain.inclination_grid_deg = reshape(legacy_cfg.i_grid_deg, 1, []);
 legacy_cfg.search_domain.P_grid = reshape(legacy_cfg.P_grid, 1, []);
 legacy_cfg.search_domain.T_grid = reshape(legacy_cfg.T_grid, 1, []);
+if strcmpi(legacy_cfg.sensor_group, 'stage05_strict_reference')
+    legacy_cfg.heatmap_overcompute.mode = 'off';
+end
 end
 
 function [run, cache_record] = local_run_or_load_cache(cfg_sensor, legacy_cfg, sensor_group, semantic_inputs, family_name, h_km, design_table, cache_root, search_domain, iteration, action, action_reason)
@@ -621,6 +626,28 @@ cache_record = struct( ...
     'fresh_evaluation_count', 0);
 if isempty(records)
     return;
+end
+
+function run = local_apply_heatmap_overcompute(cfg_sensor, legacy_cfg, run, sensor_group, semantic_inputs, family_name, search_domain)
+overcompute_cfg = local_getfield_or(legacy_cfg, 'heatmap_overcompute', struct('mode', 'off'));
+mode_name = char(string(local_getfield_or(overcompute_cfg, 'mode', 'off')));
+if strcmpi(mode_name, 'off')
+    run.aggregate.heatmap_overcompute_summary = table();
+    return;
+end
+
+result = apply_mb_heatmap_aesthetic_overcompute(run, search_domain, ...
+    @(extra_designs) evaluate_design_pool_with_stage05_semantics(cfg_sensor, extra_designs, family_name, semantic_inputs, struct( ...
+        'sensor_group', sensor_group.name, ...
+        'family_name', family_name, ...
+        'parallel_policy', legacy_cfg.parallel_policy, ...
+        'use_parallel', false)), ...
+    @(merged_eval) aggregate_stage05_semantics_results(merged_eval, run.h_km, family_name, sensor_group.name, legacy_cfg.i_grid_deg), ...
+    struct( ...
+        'mode', mode_name, ...
+        'budget', rmfield(overcompute_cfg, intersect({'mode'}, fieldnames(overcompute_cfg))), ...
+        'semantic_mode', "legacyDG"));
+run = result.run;
 end
 cache_record.manifest_csv = string(local_getfield_or(records(end), 'manifest_csv', ""));
 cache_record.cache_hit = any(arrayfun(@(r) logical(local_getfield_or(r, 'cache_hit', false)), records));

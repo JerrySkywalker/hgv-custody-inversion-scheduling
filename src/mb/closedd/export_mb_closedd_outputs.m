@@ -29,10 +29,12 @@ for idx = 1:numel(run_output.runs)
 
     pass_csv = fullfile(paths.tables, sprintf('MB_closedD_passratio_%s_%s.csv', h_label, sensor_group));
     heat_csv = fullfile(paths.tables, sprintf('MB_closedD_minimumNs_heatmap_iP_%s_%s.csv', h_label, sensor_group));
+    overcompute_csv = fullfile(paths.tables, sprintf('MB_heatmap_overcompute_summary_closedD_%s_%s.csv', h_label, sensor_group));
     incr_history_csv = fullfile(paths.tables, sprintf('MB_incremental_search_history_closedD_%s_%s.csv', h_label, sensor_group));
     incr_stop_csv = fullfile(paths.tables, sprintf('MB_incremental_search_stop_reason_closedD_%s_%s.csv', h_label, sensor_group));
     milestone_common_save_table(run.aggregate.passratio_phasecurve, pass_csv);
     milestone_common_save_table(run.aggregate.requirement_surface_iP.surface_table, heat_csv);
+    milestone_common_save_table(local_getfield_or(run.aggregate, 'heatmap_overcompute_summary', table()), overcompute_csv);
     milestone_common_save_table(run.incremental_search_history, incr_history_csv);
     milestone_common_save_table(local_build_incremental_stop_reason(run), incr_stop_csv);
     diag_artifacts = export_mb_boundary_hit_outputs(diagnostics, paths, sprintf('closedD_%s_%s', h_label, sensor_group));
@@ -41,6 +43,7 @@ for idx = 1:numel(run_output.runs)
 
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_%s', h_label))) = string(pass_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmap_overcompute_%s', h_label))) = string(overcompute_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('incremental_history_%s', h_label))) = string(incr_history_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('incremental_stop_%s', h_label))) = string(incr_stop_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('boundary_hit_%s', h_label))) = diag_artifacts.boundary_hit_csv;

@@ -35,6 +35,7 @@ for idx_family = 1:numel(closed_cfg.family_set)
             struct('semantic_mode', "closedD", 'sensor_group', sensor_group.name, ...
                 'family_name', family_name, 'height_km', h_km));
         run = expansion.run;
+        run = local_apply_heatmap_overcompute(cfg_sensor, closed_cfg, run, sensor_group, family_name, expansion.effective_search_domain);
         cache_record = local_build_expansion_cache_record(cache_root, family_name, h_km, expansion);
         cache_records(end + 1, 1) = cache_record; %#ok<AGROW>
         cache_hits = cache_hits + local_getfield_or(cache_record, 'cache_hit_count', double(local_getfield_or(cache_record, 'cache_hit', false)));
@@ -79,6 +80,7 @@ closed_cfg.parallel_policy = resolve_mb_parallel_policy(local_getfield_or(option
 closed_cfg.heading_subset_max = local_getfield_or(options, 'heading_subset_max', cfg.milestones.MB.slice_settings.heading_subset_max);
 closed_cfg.cache_profile = local_getfield_or(options, 'cache_profile', cfg.milestones.MB_semantic_compare.cache_profile);
 closed_cfg.cache_namespace = string(local_getfield_or(options, 'cache_namespace', "mb_closedD"));
+closed_cfg.heatmap_overcompute = local_getfield_or(options, 'heatmap_overcompute', local_getfield_or(meta, 'heatmap_overcompute', struct('mode', 'off')));
 closed_cfg.search_domain = local_getfield_or(meta, 'search_domain', struct());
 if isstruct(local_getfield_or(options, 'search_domain', struct())) && ~isempty(fieldnames(local_getfield_or(options, 'search_domain', struct())))
     closed_cfg.search_domain = milestone_common_merge_structs(closed_cfg.search_domain, local_getfield_or(options, 'search_domain', struct()));
@@ -411,6 +413,28 @@ cache_record = struct( ...
     'fresh_evaluation_count', 0);
 if isempty(records)
     return;
+end
+
+function run = local_apply_heatmap_overcompute(cfg_sensor, closed_cfg, run, sensor_group, family_name, search_domain)
+overcompute_cfg = local_getfield_or(closed_cfg, 'heatmap_overcompute', struct('mode', 'off'));
+mode_name = char(string(local_getfield_or(overcompute_cfg, 'mode', 'off')));
+if strcmpi(mode_name, 'off')
+    run.aggregate.heatmap_overcompute_summary = table();
+    return;
+end
+
+result = apply_mb_heatmap_aesthetic_overcompute(run, search_domain, ...
+    @(extra_designs) evaluate_design_pool_with_stage09_semantics(cfg_sensor, extra_designs, family_name, struct( ...
+        'sensor_group', sensor_group.name, ...
+        'parallel_policy', closed_cfg.parallel_policy, ...
+        'use_parallel', false, ...
+        'heading_subset_max', closed_cfg.heading_subset_max)), ...
+    @(merged_eval) aggregate_stage09_semantics_results(merged_eval, run.h_km, family_name, sensor_group.name, closed_cfg.i_grid_deg), ...
+    struct( ...
+        'mode', mode_name, ...
+        'budget', rmfield(overcompute_cfg, intersect({'mode'}, fieldnames(overcompute_cfg))), ...
+        'semantic_mode', "closedD"));
+run = result.run;
 end
 cache_record.manifest_csv = string(local_getfield_or(records(end), 'manifest_csv', ""));
 cache_record.cache_hit = any(arrayfun(@(r) double(logical(local_getfield_or(r, 'cache_hit', false))), records));
