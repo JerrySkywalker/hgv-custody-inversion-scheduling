@@ -36,6 +36,8 @@ for idx = 1:numel(run_output.runs)
     milestone_common_save_table(run.incremental_search_history, incr_history_csv);
     milestone_common_save_table(local_build_incremental_stop_reason(run), incr_stop_csv);
     diag_artifacts = export_mb_boundary_hit_outputs(diagnostics, paths, sprintf('closedD_%s_%s', h_label, sensor_group));
+    heatmap_edge_csv = fullfile(paths.tables, sprintf('MB_heatmap_edge_truncation_summary_closedD_%s_%s.csv', h_label, sensor_group));
+    milestone_common_save_table(diagnostics.heatmap_edge_table, heatmap_edge_csv);
 
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_%s', h_label))) = string(pass_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_csv);
@@ -44,6 +46,7 @@ for idx = 1:numel(run_output.runs)
     artifacts.tables.(matlab.lang.makeValidName(sprintf('boundary_hit_%s', h_label))) = diag_artifacts.boundary_hit_csv;
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_saturation_%s', h_label))) = diag_artifacts.passratio_csv;
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_truncation_%s', h_label))) = diag_artifacts.frontier_csv;
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmap_edge_%s', h_label))) = string(heatmap_edge_csv);
 
     pass_plot_options = plot_options;
     pass_plot_options.passratio_saturation_table = diagnostics.passratio_saturation_table;
@@ -146,6 +149,10 @@ diagnostics.passratio_saturation_table = build_mb_passratio_saturation_diagnosti
 diagnostics.frontier_truncation_table = build_mb_frontier_truncation_diagnostics(run.aggregate.frontier_vs_i, search_domain, struct( ...
     'value_fields', {{'minimum_feasible_Ns'}}, ...
     'semantic_labels', {{'closedD'}}, ...
+    'h_km', run.h_km, ...
+    'family_name', string(run.family_name)));
+diagnostics.heatmap_edge_table = build_mb_heatmap_edge_truncation_diagnostics(run.aggregate.requirement_surface_iP.surface_table, search_domain, struct( ...
+    'semantic_mode', 'closedD', ...
     'h_km', run.h_km, ...
     'family_name', string(run.family_name)));
 end
