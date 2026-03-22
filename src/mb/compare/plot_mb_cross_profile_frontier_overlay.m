@@ -70,19 +70,14 @@ if isempty(summary_table) || ~all(ismember({'sensor_group', 'frontier_defined_co
     return;
 end
 if numel(unique(summary_table.sensor_group)) < 2
-    note = "single-group diagnostic only";
+    note = "diag: single-group only";
     return;
 end
-messages = strings(0, 1);
 for idx = 1:height(summary_table)
     if summary_table.frontier_defined_count(idx) < summary_table.sampled_inclination_count(idx)
-        messages(end + 1, 1) = sprintf('%s: %d/%d inclinations defined', ... %#ok<AGROW>
-            char(format_mb_sensor_group_label(summary_table.sensor_group(idx), "short")), ...
-            summary_table.frontier_defined_count(idx), ...
-            summary_table.sampled_inclination_count(idx));
+        note = "diag: partial frontier coverage";
+        return;
     end
 end
-if ~isempty(messages)
-    note = "diagnostic-only: partial frontier coverage";
-end
+note = "";
 end

@@ -30,6 +30,9 @@ else
             'LineWidth', style.line_width, ...
             'MarkerSize', style.marker_size + 2, ...
             'MarkerFaceColor', style.colors(1, :));
+        text(ax, 0.50, 0.88, 'single frontier point', ...
+            'Units', 'normalized', 'HorizontalAlignment', 'center', ...
+            'VerticalAlignment', 'top', 'FontSize', 10, 'Color', [0.35 0.35 0.35]);
     else
         plot(ax, frontier_table.i_deg, frontier_table.minimum_feasible_Ns, '-o', ...
             'Color', style.colors(1, :), ...
@@ -37,7 +40,7 @@ else
             'MarkerSize', style.marker_size + 1, ...
             'MarkerFaceColor', style.colors(1, :));
     end
-    if local_show_annotations(options)
+    if local_show_annotations(options) && numel(unique(frontier_table.i_deg)) >= 2
         for idx = 1:height(frontier_table)
             text(ax, frontier_table.i_deg(idx), frontier_table.minimum_feasible_Ns(idx) + 0.8, ...
                 sprintf('%d', round(frontier_table.minimum_feasible_Ns(idx))), ...
@@ -79,9 +82,26 @@ notes = notes(strlength(notes) > 0);
 if isempty(notes)
     return;
 end
+notes = local_shorten_frontier_notes(notes);
 text(ax, 0.02, 0.90, char(strjoin(notes, newline)), ...
     'Units', 'normalized', 'VerticalAlignment', 'top', ...
     'FontSize', 9.5, 'Color', [0.55 0.15 0.15]);
+end
+
+function notes = local_shorten_frontier_notes(notes)
+for idx = 1:numel(notes)
+    note = lower(strtrim(char(notes(idx))));
+    if contains(note, 'weakly defined')
+        notes(idx) = "diag: weak frontier";
+    elseif contains(note, 'truncated')
+        notes(idx) = "diag: upper bound hit";
+    elseif contains(note, 'no feasible')
+        notes(idx) = "diag: no frontier";
+    else
+        notes(idx) = string(notes(idx));
+    end
+end
+notes = unique(notes(1:min(end, 2)), 'stable');
 end
 
 function values = local_getfield_or(T, field_name, fallback)

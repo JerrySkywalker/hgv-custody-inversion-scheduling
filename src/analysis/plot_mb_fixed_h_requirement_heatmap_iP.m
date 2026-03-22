@@ -76,10 +76,10 @@ elseif strlength(string(domain_summary)) > 0
 end
 if istable(boundary_hit_table) && ~isempty(boundary_hit_table)
     if any(logical(local_table_column(boundary_hit_table, 'is_boundary_dominated')))
-        text_lines(end + 1, 1) = "boundary-dominated result"; %#ok<AGROW>
+        text_lines(end + 1, 1) = "diag: boundary dominated"; %#ok<AGROW>
     end
     if any(logical(local_table_column(boundary_hit_table, 'search_upper_bound_likely_insufficient')))
-        text_lines(end + 1, 1) = "search upper bound likely insufficient"; %#ok<AGROW>
+        text_lines(end + 1, 1) = "diag: upper bound insufficient"; %#ok<AGROW>
     end
 end
 if isempty(text_lines)

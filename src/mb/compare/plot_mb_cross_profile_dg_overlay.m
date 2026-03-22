@@ -65,13 +65,13 @@ if isempty(summary_table) || ~ismember('right_plateau_reached', summary_table.Pr
     return;
 end
 if numel(unique(summary_table.sensor_group)) < 2
-    note = "single-group diagnostic only";
+    note = "diag: single-group only";
     return;
 end
 mask = ~summary_table.right_plateau_reached;
 if any(mask)
-    note = "diagnostic-only: unsaturated D_G envelope";
+    note = "diag: DG envelope unsaturated";
 else
-    note = "raw D_G^{min} envelope shown without normalization or clipping";
+    note = "raw DG envelope";
 end
 end
