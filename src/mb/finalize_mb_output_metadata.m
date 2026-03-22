@@ -214,21 +214,36 @@ tf = any(strcmpi(artifact_files, string(file_path)));
 end
 
 function T = local_append_metadata_columns(T, metadata)
+semantic_mode = local_scalar_string(local_getfield_or(metadata, 'semantic_mode', ""));
+sensor_group = local_scalar_string(local_getfield_or(metadata, 'sensor_group', ""));
+search_profile = local_scalar_string(local_getfield_or(metadata, 'search_profile', ""));
+search_profile_mode = local_scalar_string(local_getfield_or(metadata, 'search_profile_mode', ""));
+snapshot_stage = local_scalar_string(local_getfield_or(metadata, 'snapshot_stage', ""));
+plot_domain_mode = local_scalar_string(local_getfield_or(metadata, 'plot_domain_mode', ""));
+x_domain_origin = local_scalar_string(local_getfield_or(metadata, 'x_domain_origin', ""));
+x_min_rendered = local_scalar_double(local_getfield_or(metadata, 'x_min_rendered', NaN), NaN);
+x_max_rendered = local_scalar_double(local_getfield_or(metadata, 'x_max_rendered', NaN), NaN);
+heatmap_surface_mode = local_scalar_string(local_getfield_or(metadata, 'heatmap_surface_mode', ""));
+heatmap_value_semantics = local_scalar_string(local_getfield_or(metadata, 'heatmap_value_semantics', ""));
+figure_style_mode = local_scalar_string(local_getfield_or(metadata, 'figure_style_mode', ""));
+stage05_replica_flag = local_scalar_logical(local_getfield_or(metadata, 'stage05_replica_flag', false), false);
+auto_tuned_flag = local_scalar_logical(local_getfield_or(metadata, 'auto_tuned_flag', false), false);
+
 meta_table = table( ...
-    repmat(string(metadata.semantic_mode), height(T), 1), ...
-    repmat(string(metadata.sensor_group), height(T), 1), ...
-    repmat(string(metadata.search_profile), height(T), 1), ...
-    repmat(string(metadata.search_profile_mode), height(T), 1), ...
-    repmat(string(metadata.snapshot_stage), height(T), 1), ...
-    repmat(string(metadata.plot_domain_mode), height(T), 1), ...
-    repmat(string(local_getfield_or(metadata, 'x_domain_origin', "")), height(T), 1), ...
-    repmat(double(local_getfield_or(metadata, 'x_min_rendered', NaN)), height(T), 1), ...
-    repmat(double(local_getfield_or(metadata, 'x_max_rendered', NaN)), height(T), 1), ...
-    repmat(string(local_getfield_or(metadata, 'heatmap_surface_mode', "")), height(T), 1), ...
-    repmat(string(local_getfield_or(metadata, 'heatmap_value_semantics', "")), height(T), 1), ...
-    repmat(string(metadata.figure_style_mode), height(T), 1), ...
-    repmat(logical(metadata.stage05_replica_flag), height(T), 1), ...
-    repmat(logical(metadata.auto_tuned_flag), height(T), 1), ...
+    repmat(semantic_mode, height(T), 1), ...
+    repmat(sensor_group, height(T), 1), ...
+    repmat(search_profile, height(T), 1), ...
+    repmat(search_profile_mode, height(T), 1), ...
+    repmat(snapshot_stage, height(T), 1), ...
+    repmat(plot_domain_mode, height(T), 1), ...
+    repmat(x_domain_origin, height(T), 1), ...
+    repmat(x_min_rendered, height(T), 1), ...
+    repmat(x_max_rendered, height(T), 1), ...
+    repmat(heatmap_surface_mode, height(T), 1), ...
+    repmat(heatmap_value_semantics, height(T), 1), ...
+    repmat(figure_style_mode, height(T), 1), ...
+    repmat(stage05_replica_flag, height(T), 1), ...
+    repmat(auto_tuned_flag, height(T), 1), ...
     'VariableNames', {'semantic_mode', 'sensor_group', 'search_profile', 'search_profile_mode', 'snapshot_stage', 'plot_domain_mode', 'x_domain_origin', 'x_min_rendered', 'x_max_rendered', 'heatmap_surface_mode', 'heatmap_value_semantics', 'figure_style_mode', 'stage05_replica_flag', 'auto_tuned_flag'});
 
 meta_names = meta_table.Properties.VariableNames;
@@ -247,6 +262,49 @@ for idx = 1:numel(meta_names)
         T = addvars(T, meta_table.(var_name), 'Before', 1, 'NewVariableNames', var_name);
         added_names(end + 1, 1) = string(var_name); %#ok<AGROW>
     end
+end
+
+function value = local_scalar_string(input_value)
+value = "";
+if isempty(input_value)
+    return;
+end
+if iscell(input_value)
+    input_value = input_value{1};
+end
+input_value = string(input_value);
+if ~isempty(input_value)
+    value = input_value(1);
+end
+end
+
+function value = local_scalar_double(input_value, fallback)
+value = fallback;
+if isempty(input_value)
+    return;
+end
+if iscell(input_value)
+    input_value = input_value{1};
+end
+input_value = double(input_value);
+input_value = input_value(isfinite(input_value));
+if ~isempty(input_value)
+    value = input_value(1);
+end
+end
+
+function value = local_scalar_logical(input_value, fallback)
+value = fallback;
+if isempty(input_value)
+    return;
+end
+if iscell(input_value)
+    input_value = input_value{1};
+end
+input_value = logical(input_value);
+if ~isempty(input_value)
+    value = input_value(1);
+end
 end
 move_names = meta_names(ismember(meta_names, T.Properties.VariableNames));
 if ~isempty(move_names)
