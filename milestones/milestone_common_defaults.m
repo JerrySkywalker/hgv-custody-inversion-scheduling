@@ -25,6 +25,9 @@ end
 if ~isfield(cfg, 'runtime') || ~isstruct(cfg.runtime)
     cfg.runtime = struct();
 end
+if ~isfield(cfg.runtime, 'figure_visibility_mode') || isempty(cfg.runtime.figure_visibility_mode)
+    cfg.runtime.figure_visibility_mode = 'headless';
+end
 if ~isfield(cfg.runtime, 'plotting') || ~isstruct(cfg.runtime.plotting)
     cfg.runtime.plotting = struct();
 end
@@ -47,6 +50,16 @@ if ~isfield(cfg, 'parallel') || ~isstruct(cfg.parallel)
     cfg.parallel = struct();
 end
 cfg.parallel = milestone_common_merge_structs(cfg.runtime.parallel, cfg.parallel);
+if ~isfield(cfg, 'plot_manager') || ~isstruct(cfg.plot_manager)
+    cfg.plot_manager = struct();
+end
+cfg.plot_manager = milestone_common_merge_structs(struct( ...
+    'enable', true, ...
+    'visible', false, ...
+    'default_renderer', 'auto', ...
+    'close_after_export', true, ...
+    'reuse_existing', false, ...
+    'export_dpi', cfg.runtime.plotting.export_dpi), cfg.plot_manager);
 
 root_dir = cfg.paths.root;
 

@@ -33,7 +33,25 @@ if ~isstruct(candidate)
     return;
 end
 if isfield(candidate, 'runtime') && isstruct(candidate.runtime)
+    if isfield(candidate.runtime, 'figure_visibility_mode')
+        candidate.runtime.plotting = milestone_common_merge_structs( ...
+            local_getfield_or(candidate.runtime, 'plotting', struct()), ...
+            struct('mode', candidate.runtime.figure_visibility_mode));
+    end
     candidate = candidate.runtime;
+end
+if isfield(candidate, 'figure_visibility_mode')
+    candidate.plotting = milestone_common_merge_structs( ...
+        local_getfield_or(candidate, 'plotting', struct()), ...
+        struct('mode', candidate.figure_visibility_mode));
+end
+if isfield(candidate, 'plot_manager') && isstruct(candidate.plot_manager)
+    plot_candidate = struct();
+    plot_candidate.mode = local_bool_to_mode(local_getfield_or(candidate.plot_manager, 'visible', []));
+    plot_candidate.close_after_save = local_getfield_or(candidate.plot_manager, 'close_after_export', []);
+    plot_candidate.export_dpi = local_getfield_or(candidate.plot_manager, 'export_dpi', []);
+    plot_candidate.renderer = local_getfield_or(candidate.plot_manager, 'default_renderer', []);
+    candidate.plotting = milestone_common_merge_structs(local_getfield_or(candidate, 'plotting', struct()), plot_candidate);
 end
 if isfield(candidate, 'plotting') && isstruct(candidate.plotting)
     candidate = candidate.plotting;
@@ -46,5 +64,15 @@ if isstruct(s) && isfield(s, field_name) && ~isempty(s.(field_name))
     value = s.(field_name);
 else
     value = default_value;
+end
+end
+
+function mode = local_bool_to_mode(value)
+if isempty(value)
+    mode = [];
+elseif logical(value)
+    mode = "visible";
+else
+    mode = "headless";
 end
 end
