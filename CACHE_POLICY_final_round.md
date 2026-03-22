@@ -21,6 +21,8 @@ The following should reuse semantic cache:
 - changing headless / visible runtime behavior
 - changing paper-ready guardrail or export-only logic
 - regenerating `MB_output_inventory.csv`, `MB_output_recommended_roots.csv`, or `MB_historical_output_map.csv`
+- regenerating `passratio_plot_domain_audit_summary.csv`, `heatmap_render_mode_audit_summary.csv`, or `semantic_domain_consistency_summary.csv`
+- archiving root `temp_*.m` scripts and refreshing `temp_script_cleanup_summary.csv`
 
 ## Changes that must invalidate semantic cache
 The following must trigger semantic recompute:

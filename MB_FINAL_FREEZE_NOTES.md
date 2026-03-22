@@ -47,3 +47,7 @@
 - recommended roots: `outputs/milestones/MB_final_round_delivery/MB_output_recommended_roots.csv`
 - copied artifact inventory: `outputs/milestones/MB_final_round_delivery/MB_output_inventory.csv`
 - historical root index: `outputs/milestones/MB_final_round_delivery/MB_historical_output_map.csv`
+- canonical figures: `outputs/milestones/MB_final_round_delivery/canonical_figures`
+- canonical tables: `outputs/milestones/MB_final_round_delivery/canonical_tables`
+- stage runtime closure notes: `outputs/milestones/STAGE_plot_runtime_smoke_20260322_finalr3_stage/tables/stage_runtime_closure_notes.md`
+- temp script cleanup summary: `outputs/milestones/startup_audit/tables/temp_script_cleanup_summary.csv`

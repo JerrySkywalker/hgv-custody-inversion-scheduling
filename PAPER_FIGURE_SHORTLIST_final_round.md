@@ -34,6 +34,9 @@
 - `historyFull` is the preferred global figure when the paper needs the full evolution from the original search-domain lower bound
 - `effectiveFullRange` is the effective-domain companion figure
 - `frontierZoom` is supplemental and must not replace the global trend figure
+- `globalSkeleton` numeric heatmaps show minimum feasible `N_s` in the full P-i frame
+- `globalSkeleton` state maps show coverage status only; they are explanatory companions, not substitutes for numeric requirement heatmaps
 - recommended figure/root lookup is centralized in:
   - `outputs/milestones/MB_final_round_delivery/MB_recommended_figure_index.csv`
   - `outputs/milestones/MB_final_round_delivery/MB_output_recommended_roots.csv`
+  - `outputs/milestones/MB_final_round_delivery/canonical_figures`

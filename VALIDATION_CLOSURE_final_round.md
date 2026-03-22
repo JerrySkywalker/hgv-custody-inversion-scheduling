@@ -12,6 +12,8 @@
   - `full_refresh = 0.5621355 s`
   - `same_session_reuse = 0 s`
 - runtime summary file: `outputs/milestones/startup_audit/tables/runtime_mode_summary.csv`
+- temp cleanup summary:
+  - `outputs/milestones/startup_audit/tables/temp_script_cleanup_summary.csv`
 
 ## Baseline h=1000 final fresh
 - result file: `outputs/milestones/MB_20260322_finalr3_baseline/tables/MB_comparison_summary_h1000_baseline.csv`
@@ -32,9 +34,15 @@
 - heatmap:
   - `local`: refined / overcomputed defined surface
   - `globalSkeleton`: global P-i frame with undefined cells preserved
+- audit tables:
+  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/passratio_plot_domain_audit_summary.csv`
+  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/heatmap_render_mode_audit_summary.csv`
+  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/semantic_domain_consistency_summary.csv`
 
 ## Stage figure runtime smoke
 - summary file: `outputs/milestones/STAGE_plot_runtime_smoke_20260322_finalr3_stage/tables/STAGE_headless_smoke_summary.csv`
+- closure notes:
+  - `outputs/milestones/STAGE_plot_runtime_smoke_20260322_finalr3_stage/tables/stage_runtime_closure_notes.md`
 - `stage01_scenario_disk`: headless and visible export both pass
 - `stage09_inverse_plot`: still does not pass in this workspace because upstream `Stage08.5` cache is missing
 - interpretation:

@@ -24,6 +24,21 @@ This package is the final MB closure handoff for the MATLAB project.
 - inventory/index:
   - `outputs/milestones/MB_final_round_delivery/MB_output_inventory.csv`
   - `outputs/milestones/MB_final_round_delivery/MB_historical_output_map.csv`
+  - `outputs/milestones/MB_final_round_delivery/MB_recommended_figure_index.csv`
+- canonical copies:
+  - `outputs/milestones/MB_final_round_delivery/canonical_figures`
+  - `outputs/milestones/MB_final_round_delivery/canonical_tables`
+
+## Audit tables
+- plot-domain audit:
+  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/passratio_plot_domain_audit_summary.csv`
+- heatmap render-mode audit:
+  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/heatmap_render_mode_audit_summary.csv`
+- semantic-domain consistency audit:
+  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/semantic_domain_consistency_summary.csv`
+- temp script audit / cleanup:
+  - `outputs/milestones/startup_audit/tables/temp_script_audit_summary.csv`
+  - `outputs/milestones/startup_audit/tables/temp_script_cleanup_summary.csv`
 
 ## Paper vs diagnostic
 - primary paper-candidate pass-ratio figures should prefer `historyFull` first and `effectiveFullRange` second
@@ -36,3 +51,4 @@ This package is the final MB closure handoff for the MATLAB project.
 - strict replica still matches the Stage05 reference with zero curve difference
 - plot-only / export-only changes remain separated from semantic cache invalidation
 - `historyFull` / `effectiveFullRange` / `frontierZoom` now have explicit metadata sidecars with domain-origin fields
+- root `temp_*.m` scripts were removed from the repository root and conservatively archived under `sandbox/temp_scripts_archive/mb_final_round/`
