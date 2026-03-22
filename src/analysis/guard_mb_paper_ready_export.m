@@ -16,6 +16,8 @@ require_internal_frontier = logical(local_getfield_or(options, 'require_internal
 boundary_table = local_getfield_or(diagnostics, 'boundary_hit_table', table());
 passratio_table = local_getfield_or(diagnostics, 'passratio_saturation_table', table());
 frontier_table = local_getfield_or(diagnostics, 'frontier_truncation_table', table());
+heatmap_edge_table = local_getfield_or(diagnostics, 'heatmap_edge_table', table());
+overcompute_table = local_getfield_or(diagnostics, 'heatmap_overcompute_summary', table());
 
 guard = struct( ...
     'figure_family', string(figure_family), ...
@@ -26,7 +28,9 @@ guard = struct( ...
     'boundary_dominated', false, ...
     'right_unity_reached', true, ...
     'frontier_truncated', false, ...
-    'frontier_weakly_defined', false);
+    'frontier_weakly_defined', false, ...
+    'heatmap_needs_overcompute', false, ...
+    'overcompute_budget_hit', false);
 
 if istable(boundary_table) && ~isempty(boundary_table)
     boundary_dominated = any(logical(local_table_column(boundary_table, 'is_boundary_dominated')));
@@ -56,9 +60,25 @@ if istable(frontier_table) && ~isempty(frontier_table)
     guard.frontier_weakly_defined = any(logical(local_table_column(frontier_table, 'frontier_weakly_defined')));
 end
 
+if istable(heatmap_edge_table) && ~isempty(heatmap_edge_table)
+    guard.heatmap_needs_overcompute = any(logical(local_table_column(heatmap_edge_table, 'should_overcompute'))) || ...
+        any(logical(local_table_column(heatmap_edge_table, 'right_edge_only_pattern')));
+end
+if istable(overcompute_table) && ~isempty(overcompute_table)
+    guard.overcompute_budget_hit = any(logical(local_table_column(overcompute_table, 'budget_hit')));
+end
+
 if contains(family_name, 'heatmap')
     if guard.boundary_dominated
         guard = local_block(guard, "blocked_boundary_dominated", "Paper-ready heatmap export refused because the current minimum-N_s map is still boundary dominated.");
+        return;
+    end
+    if guard.heatmap_needs_overcompute
+        guard = local_block(guard, "blocked_heatmap_sparse_frontier", "Paper-ready heatmap export refused because the current feasible region still looks edge-truncated or too sparse.");
+        return;
+    end
+    if guard.overcompute_budget_hit
+        guard = local_block(guard, "blocked_heatmap_overcompute_budget_hit", "Paper-ready heatmap export refused because the aesthetic overcompute budget was exhausted before the heatmap interior stabilized.");
         return;
     end
 end
@@ -92,6 +112,10 @@ if contains(family_name, 'comparison')
     end
     if require_right_unity && ~guard.right_unity_reached
         guard = local_block(guard, "blocked_unity_plateau_not_reached", "Paper-ready comparison export refused because at least one semantic branch has not reached its unity plateau.");
+        return;
+    end
+    if guard.frontier_truncated || guard.frontier_weakly_defined
+        guard = local_block(guard, "blocked_frontier_weakly_defined", "Paper-ready comparison export refused because the frontier shift is still weakly defined under the expanded-final search domain.");
         return;
     end
 end

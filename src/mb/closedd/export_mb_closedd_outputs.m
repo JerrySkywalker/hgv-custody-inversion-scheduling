@@ -158,6 +158,7 @@ diagnostics.heatmap_edge_table = build_mb_heatmap_edge_truncation_diagnostics(ru
     'semantic_mode', 'closedD', ...
     'h_km', run.h_km, ...
     'family_name', string(run.family_name)));
+diagnostics.heatmap_overcompute_summary = local_getfield_or(run.aggregate, 'heatmap_overcompute_summary', table());
 end
 
 function value = local_min_or_nan(T, field_name)
