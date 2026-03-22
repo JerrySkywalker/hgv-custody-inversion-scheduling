@@ -26,6 +26,7 @@ meta = cfg.milestones.MB_semantic_compare;
 paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 paths.summary_report = fullfile(paths.tables, 'MB_run_manifest.md');
 paths.summary_mat = fullfile(paths.tables, 'MB_semantic_compare_summary.mat');
+paths.cache_key_audit_csv = fullfile(paths.tables, 'cache_key_audit_summary.csv');
 
 resolved_modes = mb_modes(local_getfield_or(meta, 'mode', 'comparison'));
 resolved_sensor_groups = resolve_sensor_param_groups(local_getfield_or(meta, 'sensor_groups', {'baseline'}));
@@ -38,6 +39,7 @@ sensor_manifest_csv = fullfile(paths.tables, 'MB_sensor_group_manifest.csv');
 run_manifest_csv = fullfile(paths.tables, 'MB_run_manifest.csv');
 milestone_common_save_table(sensor_manifest, sensor_manifest_csv);
 milestone_common_save_table(run_manifest, run_manifest_csv);
+milestone_common_save_table(build_mb_cache_key_audit_summary(), paths.cache_key_audit_csv);
 local_write_run_manifest(paths.summary_report, resolved_modes, resolved_sensor_groups, resolved_families, resolved_heights, meta);
 
 result = struct();
@@ -52,7 +54,8 @@ result.reused_modules = { ...
     'Sensor parameter group manager'};
 result.tables = struct( ...
     'sensor_group_manifest', string(sensor_manifest_csv), ...
-    'run_manifest', string(run_manifest_csv));
+    'run_manifest', string(run_manifest_csv), ...
+    'cache_key_audit_summary', string(paths.cache_key_audit_csv));
 result.figures = struct();
 result.artifacts = struct( ...
     'summary_report', string(paths.summary_report), ...

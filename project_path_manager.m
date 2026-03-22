@@ -268,8 +268,12 @@ end
 end
 
 function tf = local_is_blacklisted_path(path_value)
-tokens = ["outputs", "cache", "figures", "tables", "logs", "archive", "snapshots", "worktree", ".git", ".github", "temp", "tmp", "old", "backup", "docs"];
 path_lc = lower(char(path_value));
+if contains(path_lc, [filesep 'src' filesep 'cache']) || contains(path_lc, '/src/cache')
+    tf = false;
+    return;
+end
+tokens = ["outputs", "cache", "figures", "tables", "logs", "archive", "snapshots", "worktree", ".git", ".github", "temp", "tmp", "old", "backup", "docs"];
 tf = false;
 for idx = 1:numel(tokens)
     token = char(tokens(idx));
