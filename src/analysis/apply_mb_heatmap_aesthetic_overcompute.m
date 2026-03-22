@@ -28,7 +28,9 @@ surface_table = local_getfield_or(surface, 'surface_table', table());
 diag = build_mb_heatmap_edge_truncation_diagnostics(surface_table, search_domain, struct( ...
     'semantic_mode', local_getfield_or(options, 'semantic_mode', "unknown"), ...
     'h_km', local_getfield_or(run, 'h_km', NaN), ...
-    'family_name', string(local_getfield_or(run, 'family_name', ""))));
+    'family_name', string(local_getfield_or(run, 'family_name', "")), ...
+    'frontier_defined_ratio_hint', local_getfield_or(options, 'frontier_defined_ratio_hint', NaN), ...
+    'comparison_gap_infinite_suspected', local_getfield_or(options, 'comparison_gap_infinite_suspected', false)));
 diag_row = table2struct(diag(1, :), 'ToScalar', true);
 if ~logical(local_getfield_or(diag_row, 'should_overcompute', false))
     summary_table(1, :) = local_build_summary_row(run, mode_name, true, false, local_getfield_or(diag_row, 'num_edge_suspect_cells', 0), 0, 0, 0, 0, false, string(local_getfield_or(diag_row, 'diagnostic_note', "")));
@@ -67,11 +69,26 @@ run.aggregate.heatmap_overcompute_summary = local_build_summary_row(run, mode_na
 run.aggregate.heatmap_overcompute_summary.num_new_feasible_designs = height(local_getfield_or(new_eval, 'feasible_table', table()));
 run.aggregate.heatmap_overcompute_candidate_cells = candidate_cells;
 run.aggregate.heatmap_overcompute_diagnostics = diag;
+run.expansion_state = local_update_effective_domain(local_getfield_or(run, 'expansion_state', struct()), merged_design_table);
 
 result.run = run;
 result.summary_table = run.aggregate.heatmap_overcompute_summary;
 result.applied = true;
 result.candidate_design_table = candidate_designs;
+end
+
+function expansion_state = local_update_effective_domain(expansion_state, design_table)
+effective = local_getfield_or(expansion_state, 'effective_search_domain', struct());
+if isempty(design_table)
+    expansion_state.effective_search_domain = effective;
+    return;
+end
+effective.ns_search_min = min(local_getfield_or(effective, 'ns_search_min', inf), min(design_table.Ns, [], 'omitnan'));
+effective.ns_search_max = max(local_getfield_or(effective, 'ns_search_max', -inf), max(design_table.Ns, [], 'omitnan'));
+effective.P_grid = unique(design_table.P, 'sorted').';
+effective.T_grid = unique(design_table.T, 'sorted').';
+effective.inclination_grid_deg = unique(design_table.i_deg, 'sorted').';
+expansion_state.effective_search_domain = effective;
 end
 
 function [candidate_cells, candidate_designs, budget_hit] = local_propose_candidate_designs(run, search_domain, options)

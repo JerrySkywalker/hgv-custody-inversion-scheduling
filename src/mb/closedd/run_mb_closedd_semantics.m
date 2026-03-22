@@ -36,6 +36,7 @@ for idx_family = 1:numel(closed_cfg.family_set)
                 'family_name', family_name, 'height_km', h_km));
         run = expansion.run;
         run = local_apply_heatmap_overcompute(cfg_sensor, closed_cfg, run, sensor_group, family_name, expansion.effective_search_domain);
+        run = local_apply_frontier_refinement(cfg_sensor, closed_cfg, run, sensor_group, family_name, expansion.effective_search_domain);
         cache_record = local_build_expansion_cache_record(cache_root, family_name, h_km, expansion);
         cache_records(end + 1, 1) = cache_record; %#ok<AGROW>
         cache_hits = cache_hits + local_getfield_or(cache_record, 'cache_hit_count', double(local_getfield_or(cache_record, 'cache_hit', false)));
@@ -81,6 +82,7 @@ closed_cfg.heading_subset_max = local_getfield_or(options, 'heading_subset_max',
 closed_cfg.cache_profile = local_getfield_or(options, 'cache_profile', cfg.milestones.MB_semantic_compare.cache_profile);
 closed_cfg.cache_namespace = string(local_getfield_or(options, 'cache_namespace', "mb_closedD"));
 closed_cfg.heatmap_overcompute = local_getfield_or(options, 'heatmap_overcompute', local_getfield_or(meta, 'heatmap_overcompute', struct('mode', 'off')));
+closed_cfg.frontier_refinement = local_getfield_or(options, 'frontier_refinement', local_getfield_or(meta, 'frontier_refinement', struct('mode', 'off')));
 closed_cfg.search_domain = local_getfield_or(meta, 'search_domain', struct());
 if isstruct(local_getfield_or(options, 'search_domain', struct())) && ~isempty(fieldnames(local_getfield_or(options, 'search_domain', struct())))
     closed_cfg.search_domain = milestone_common_merge_structs(closed_cfg.search_domain, local_getfield_or(options, 'search_domain', struct()));
@@ -428,6 +430,25 @@ if strcmpi(mode_name, 'off')
     return;
 end
 
+function run = local_apply_frontier_refinement(cfg_sensor, closed_cfg, run, sensor_group, family_name, search_domain)
+refine_cfg = local_getfield_or(closed_cfg, 'frontier_refinement', struct('mode', 'off'));
+mode_name = char(string(local_getfield_or(refine_cfg, 'mode', 'off')));
+if strcmpi(mode_name, 'off')
+    run.aggregate.frontier_refinement_summary = table();
+    return;
+end
+
+result = refine_mb_frontier_local_neighborhood(run, search_domain, ...
+    @(extra_designs) evaluate_design_pool_with_stage09_semantics(cfg_sensor, extra_designs, family_name, struct( ...
+        'sensor_group', sensor_group.name, ...
+        'parallel_policy', closed_cfg.parallel_policy, ...
+        'use_parallel', false, ...
+        'heading_subset_max', closed_cfg.heading_subset_max)), ...
+    @(merged_eval) aggregate_stage09_semantics_results(merged_eval, run.h_km, family_name, sensor_group.name, closed_cfg.i_grid_deg), ...
+    rmfield(refine_cfg, intersect({'mode'}, fieldnames(refine_cfg))));
+run = result.run;
+end
+
 result = apply_mb_heatmap_aesthetic_overcompute(run, search_domain, ...
     @(extra_designs) evaluate_design_pool_with_stage09_semantics(cfg_sensor, extra_designs, family_name, struct( ...
         'sensor_group', sensor_group.name, ...
@@ -438,7 +459,8 @@ result = apply_mb_heatmap_aesthetic_overcompute(run, search_domain, ...
     struct( ...
         'mode', mode_name, ...
         'budget', rmfield(overcompute_cfg, intersect({'mode'}, fieldnames(overcompute_cfg))), ...
-        'semantic_mode', "closedD"));
+        'semantic_mode', "closedD", ...
+        'frontier_defined_ratio_hint', local_frontier_defined_ratio(run)));
 run = result.run;
 end
 
@@ -449,6 +471,21 @@ if any(strcmp(tokens, 'all'))
     family_set = {'nominal', 'heading', 'critical'};
 else
     family_set = unique(tokens, 'stable');
+end
+
+function ratio = local_frontier_defined_ratio(run)
+design_table = local_getfield_or(run, 'design_table', table());
+frontier = local_getfield_or(local_getfield_or(run, 'aggregate', struct()), 'frontier_vs_i', table());
+if isempty(design_table) || ~ismember('i_deg', design_table.Properties.VariableNames)
+    ratio = NaN;
+    return;
+end
+sampled = numel(unique(design_table.i_deg, 'sorted'));
+if sampled == 0 || isempty(frontier) || ~ismember('minimum_feasible_Ns', frontier.Properties.VariableNames)
+    ratio = 0;
+    return;
+end
+ratio = sum(isfinite(frontier.minimum_feasible_Ns)) / sampled;
 end
 end
 
