@@ -16,7 +16,7 @@
   - `outputs/milestones/startup_audit/tables/temp_script_cleanup_summary.csv`
 
 ## Baseline h=1000 final fresh
-- result file: `outputs/milestones/MB_20260322_finalr3_baseline/tables/MB_comparison_summary_h1000_baseline.csv`
+- result file: `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/MB_comparison_summary_h1000_baseline.csv`
 - snapshot stage: `expanded_final`
 - profile: `mb_default / expand_default`
 - legacy frontier defined count: `8`
@@ -35,9 +35,17 @@
   - `local`: refined / overcomputed defined surface
   - `globalSkeleton`: global P-i frame with undefined cells preserved
 - audit tables:
-  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/passratio_plot_domain_audit_summary.csv`
-  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/heatmap_render_mode_audit_summary.csv`
-  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/semantic_domain_consistency_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/passratio_plot_domain_audit_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/plot_domain_root_cause_audit_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/passratio_history_padding_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/plot_cache_domain_semantics_audit.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/heatmap_render_mode_audit_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/semantic_domain_consistency_summary.csv`
+ - current audit outcome:
+  - `historyFull` rendered min = `16`
+  - `effectiveFullRange` rendered min = `56`
+  - `frontierZoom` rendered min = `324`
+  - all audited pass-ratio views currently `pass_fail = 1`
 
 ## Stage figure runtime smoke
 - summary file: `outputs/milestones/STAGE_plot_runtime_smoke_20260322_finalr3_stage/tables/STAGE_headless_smoke_summary.csv`
@@ -50,7 +58,7 @@
   - the stage09 business chain is not marked as passed
 
 ## Final closure table
-- `outputs/milestones/MB_20260322_finalr3_baseline/tables/MB_validation_closure_round_final.csv`
+- `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/MB_validation_closure_round_final.csv`
 - current closure flags additionally confirm:
   - `full_history_export_pass = 1`
   - `heatmap_state_map_separation_pass = 1`

@@ -51,3 +51,4 @@
 - canonical tables: `outputs/milestones/MB_final_round_delivery/canonical_tables`
 - stage runtime closure notes: `outputs/milestones/STAGE_plot_runtime_smoke_20260322_finalr3_stage/tables/stage_runtime_closure_notes.md`
 - temp script cleanup summary: `outputs/milestones/startup_audit/tables/temp_script_cleanup_summary.csv`
+- canonical audited baseline root: `outputs/milestones/MB_20260322_plotdomain_finalfix`

@@ -24,6 +24,18 @@ The following should reuse semantic cache:
 - regenerating `passratio_plot_domain_audit_summary.csv`, `heatmap_render_mode_audit_summary.csv`, or `semantic_domain_consistency_summary.csv`
 - archiving root `temp_*.m` scripts and refreshing `temp_script_cleanup_summary.csv`
 
+## Plot-domain semantics now included in figure/export cache
+Pass-ratio and heatmap export signatures now explicitly include:
+- `domain_view = history_full / effective_full_range / frontier_zoom`
+- `history_padding_applied`
+- `history_fill_mode`
+- `history_origin`
+- `heatmap_view = numeric_requirement / state_map`
+- `heatmap_domain_view = local / globalSkeleton`
+- `matrix_source_type = numeric_requirement / discrete_state`
+
+This prevents stale tail-only sidecars or numeric/state heatmap semantics from being silently reused after export-logic fixes.
+
 ## Changes that must invalidate semantic cache
 The following must trigger semantic recompute:
 - changing searchable domain or expansion policy

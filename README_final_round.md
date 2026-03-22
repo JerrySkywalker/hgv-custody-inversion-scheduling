@@ -17,7 +17,7 @@ This package is the final MB closure handoff for the MATLAB project.
 
 ## Final-round roots
 - strict replica fresh root: `outputs/milestones/MB_20260322_finalr3_strict`
-- baseline fresh root: `outputs/milestones/MB_20260322_finalr3_baseline`
+- baseline canonical root: `outputs/milestones/MB_20260322_plotdomain_finalfix`
 - stage smoke root: `outputs/milestones/STAGE_plot_runtime_smoke_20260322_finalr3_stage`
 - delivery bundle: `outputs/milestones/MB_final_round_delivery`
 - canonical root manifest: `outputs/milestones/MB_final_round_delivery/MB_output_recommended_roots.csv`
@@ -31,11 +31,14 @@ This package is the final MB closure handoff for the MATLAB project.
 
 ## Audit tables
 - plot-domain audit:
-  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/passratio_plot_domain_audit_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/passratio_plot_domain_audit_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/plot_domain_root_cause_audit_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/passratio_history_padding_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/plot_cache_domain_semantics_audit.csv`
 - heatmap render-mode audit:
-  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/heatmap_render_mode_audit_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/heatmap_render_mode_audit_summary.csv`
 - semantic-domain consistency audit:
-  - `outputs/milestones/MB_20260322_finalr3_baseline/tables/semantic_domain_consistency_summary.csv`
+  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/semantic_domain_consistency_summary.csv`
 - temp script audit / cleanup:
   - `outputs/milestones/startup_audit/tables/temp_script_audit_summary.csv`
   - `outputs/milestones/startup_audit/tables/temp_script_cleanup_summary.csv`
@@ -51,4 +54,5 @@ This package is the final MB closure handoff for the MATLAB project.
 - strict replica still matches the Stage05 reference with zero curve difference
 - plot-only / export-only changes remain separated from semantic cache invalidation
 - `historyFull` / `effectiveFullRange` / `frontierZoom` now have explicit metadata sidecars with domain-origin fields
+- `historyFull` figures are padded from the initial Ns lower bound and no longer reuse tail-only phasecurve tables
 - root `temp_*.m` scripts were removed from the repository root and conservatively archived under `sandbox/temp_scripts_archive/mb_final_round/`

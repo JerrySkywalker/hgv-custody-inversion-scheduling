@@ -40,3 +40,7 @@
   - `outputs/milestones/MB_final_round_delivery/MB_recommended_figure_index.csv`
   - `outputs/milestones/MB_final_round_delivery/MB_output_recommended_roots.csv`
   - `outputs/milestones/MB_final_round_delivery/canonical_figures`
+
+## Canonical audited baseline root
+- `outputs/milestones/MB_20260322_plotdomain_finalfix`
+  - this root contains the corrected `historyFull / effectiveFullRange / frontierZoom` exports and the final plot-domain audit tables

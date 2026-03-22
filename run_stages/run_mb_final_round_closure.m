@@ -13,8 +13,8 @@ milestone_root = fullfile(cfg0.paths.outputs, 'milestones');
 strict_id = "MB_" + tag + "_strict";
 baseline_id = "MB_" + tag + "_baseline";
 delivery_id = "MB_final_round_delivery";
-strict_root = fullfile(milestone_root, strict_id);
-baseline_root = fullfile(milestone_root, baseline_id);
+strict_root = local_resolve_existing_root(fullfile(milestone_root, strict_id), milestone_root, "MB_*_strict");
+baseline_root = local_resolve_baseline_root(milestone_root, tag);
 strict_summary_csv = fullfile(strict_root, 'tables', 'MB_stage05_strictReplica_validation_summary.csv');
 baseline_summary_csv = fullfile(baseline_root, 'tables', 'MB_comparison_summary_h1000_baseline.csv');
 
@@ -50,14 +50,15 @@ else
     baseline_result = milestone_B_semantic_compare(baseline_cfg);
 end
 
-stage_smoke_csv = fullfile(cfg0.paths.outputs, 'milestones', "STAGE_plot_runtime_smoke_" + tag + "_stage", 'tables', 'STAGE_headless_smoke_summary.csv');
-stage_notes_md = fullfile(cfg0.paths.outputs, 'milestones', "STAGE_plot_runtime_smoke_" + tag + "_stage", 'tables', 'stage_runtime_closure_notes.md');
+stage_root = local_resolve_existing_root(fullfile(cfg0.paths.outputs, 'milestones', "STAGE_plot_runtime_smoke_" + tag + "_stage"), fullfile(cfg0.paths.outputs, 'milestones'), "STAGE_plot_runtime_smoke_*_stage");
+stage_smoke_csv = fullfile(stage_root, 'tables', 'STAGE_headless_smoke_summary.csv');
+stage_notes_md = fullfile(stage_root, 'tables', 'stage_runtime_closure_notes.md');
 if isfile(char(stage_smoke_csv)) && isfile(char(stage_notes_md))
     stage_smoke = struct('reused_existing_root', true);
 else
     stage_smoke = run_stage_plot_runtime_smoke(tag + "_stage");
 end
-stage_csv = fullfile(cfg0.paths.outputs, 'milestones', "STAGE_plot_runtime_smoke_" + tag + "_stage", 'tables', 'STAGE_headless_smoke_summary.csv');
+stage_csv = fullfile(stage_root, 'tables', 'STAGE_headless_smoke_summary.csv');
 audit_artifacts = export_mb_final_round_audit_tables(baseline_root);
 temp_artifacts = audit_root_temp_scripts(cfg0.paths.root, "mb_final_round");
 validation_csv = fullfile(baseline_root, 'tables', 'MB_validation_closure_round_final.csv');
@@ -180,4 +181,44 @@ end
 
 function tf = local_all_files_exist(paths)
 tf = all(cellfun(@(p) exist(p, 'file') == 2, paths));
+end
+
+function root = local_resolve_existing_root(preferred_root, milestone_root, patterns)
+if exist(preferred_root, 'dir') == 7
+    root = preferred_root;
+    return;
+end
+
+if ischar(patterns) || isstring(patterns)
+    patterns = cellstr(string(patterns));
+end
+
+best_root = "";
+best_datenum = -inf;
+for idx = 1:numel(patterns)
+    dirs = dir(fullfile(milestone_root, patterns{idx}));
+    dirs = dirs([dirs.isdir]);
+    for jdx = 1:numel(dirs)
+        candidate_root = fullfile(dirs(jdx).folder, dirs(jdx).name);
+        if dirs(jdx).datenum > best_datenum
+            best_datenum = dirs(jdx).datenum;
+            best_root = candidate_root;
+        end
+    end
+    if best_root ~= ""
+        root = char(best_root);
+        return;
+    end
+end
+
+root = preferred_root;
+end
+
+function root = local_resolve_baseline_root(milestone_root, tag)
+preferred_plotdomain = local_resolve_existing_root("", milestone_root, "MB_*plotdomain_finalfix*");
+if strlength(string(preferred_plotdomain)) > 0 && exist(preferred_plotdomain, 'dir') == 7
+    root = preferred_plotdomain;
+    return;
+end
+root = local_resolve_existing_root(fullfile(milestone_root, "MB_" + string(tag) + "_baseline"), milestone_root, "MB_*_baseline");
 end
