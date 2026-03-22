@@ -627,6 +627,11 @@ cache_record = struct( ...
 if isempty(records)
     return;
 end
+cache_record.manifest_csv = string(local_getfield_or(records(end), 'manifest_csv', ""));
+cache_record.cache_hit = any(arrayfun(@(r) logical(local_getfield_or(r, 'cache_hit', false)), records));
+cache_record.cache_hit_count = sum(arrayfun(@(r) double(logical(local_getfield_or(r, 'cache_hit', false))), records));
+cache_record.fresh_evaluation_count = numel(records) - cache_record.cache_hit_count;
+end
 
 function run = local_apply_heatmap_overcompute(cfg_sensor, legacy_cfg, run, sensor_group, semantic_inputs, family_name, search_domain)
 overcompute_cfg = local_getfield_or(legacy_cfg, 'heatmap_overcompute', struct('mode', 'off'));
@@ -648,11 +653,6 @@ result = apply_mb_heatmap_aesthetic_overcompute(run, search_domain, ...
         'budget', rmfield(overcompute_cfg, intersect({'mode'}, fieldnames(overcompute_cfg))), ...
         'semantic_mode', "legacyDG"));
 run = result.run;
-end
-cache_record.manifest_csv = string(local_getfield_or(records(end), 'manifest_csv', ""));
-cache_record.cache_hit = any(arrayfun(@(r) logical(local_getfield_or(r, 'cache_hit', false)), records));
-cache_record.cache_hit_count = sum(arrayfun(@(r) double(logical(local_getfield_or(r, 'cache_hit', false))), records));
-cache_record.fresh_evaluation_count = numel(records) - cache_record.cache_hit_count;
 end
 
 function value = local_getfield_or(S, field_name, fallback)
