@@ -223,7 +223,7 @@ end
 
 function T = local_build_heatmap_render_mode_audit_summary(figures_dir)
 files = dir(fullfile(figures_dir, '*heatmap*.png'));
-rows = cell(0, 18);
+rows = cell(0, 19);
 for idx = 1:numel(files)
     figure_name = string(files(idx).name);
     lower_name = lower(figure_name);
@@ -232,57 +232,62 @@ for idx = 1:numel(files)
     end
 
     meta = local_read_sidecar(fullfile(files(idx).folder, files(idx).name));
+    height_km = double(local_resolve_height_km_with_figure(meta, figure_name));
     heatmap_mode = local_resolve_heatmap_mode(meta, figure_name);
     domain_mode = local_resolve_heatmap_domain_mode(meta, figure_name);
-    matrix_value_type = local_resolve_matrix_value_type(heatmap_mode);
-    annotation_mode = local_resolve_heatmap_annotation_mode(heatmap_mode);
-    pass_fail = local_heatmap_semantics_pass(heatmap_mode, matrix_value_type, annotation_mode);
-    root_cause_tag = "correct";
-    if ~pass_fail
-        root_cause_tag = "state_map_derived_from_numeric_surface";
-    end
+    matrix_source_name = string(local_resolve_heatmap_matrix_source_name(meta, heatmap_mode));
+    matrix_value_type = local_resolve_matrix_value_type(meta, heatmap_mode);
+    uses_discrete_state_matrix = logical(local_getfield_or(meta, 'uses_discrete_state_matrix', heatmap_mode == "state_map"));
+    uses_numeric_requirement_matrix = logical(local_getfield_or(meta, 'uses_numeric_requirement_matrix', heatmap_mode == "numeric_requirement"));
+    annotation_mode = local_resolve_heatmap_annotation_mode(meta, heatmap_mode);
+    [pass_fail, root_cause_tag] = local_heatmap_semantics_pass( ...
+        heatmap_mode, domain_mode, matrix_source_name, matrix_value_type, uses_discrete_state_matrix, uses_numeric_requirement_matrix, annotation_mode);
+    cache_hit = logical(local_getfield_or(meta, 'cache_hit', local_getfield_or(meta, 'heatmap_cache_hit', false)));
+    cache_key = string(local_getfield_or(meta, 'cache_key', local_getfield_or(meta, 'heatmap_cache_key', "")));
     cache_key = build_mb_figure_signature(struct( ...
         'figure_family', "heatmap", ...
         'heatmap_view', heatmap_mode, ...
         'heatmap_domain_view', domain_mode, ...
         'matrix_source_type', matrix_value_type));
+    if strlength(string(local_getfield_or(meta, 'heatmap_cache_key', ""))) > 0
+        cache_key = string(local_getfield_or(meta, 'heatmap_cache_key', ""));
+    end
 
     rows(end + 1, :) = { ... %#ok<AGROW>
         figure_name, ...
         string(local_infer_semantic_name(figure_name, meta)), ...
         string(local_infer_export_chain(figure_name, meta)), ...
+        double(height_km), ...
         "heatmap", ...
         domain_mode, ...
         string(heatmap_mode), ...
-        string(local_getfield_or(meta, 'heatmap_surface_mode', "")), ...
-        false, ...
+        string(local_getfield_or(meta, 'heatmap_surface_source', local_getfield_or(meta, 'heatmap_surface_mode', ""))), ...
+        logical(cache_hit), ...
         string(cache_key), ...
-        string(local_resolve_heatmap_matrix_source_name(heatmap_mode)), ...
+        matrix_source_name, ...
         string(matrix_value_type), ...
-        string(heatmap_mode), ...
-        string(domain_mode), ...
+        logical(uses_discrete_state_matrix), ...
+        logical(uses_numeric_requirement_matrix), ...
         string(annotation_mode), ...
         string(local_expected_heatmap_behavior(heatmap_mode)), ...
-        string(local_actual_heatmap_behavior(heatmap_mode, matrix_value_type, annotation_mode)), ...
+        string(local_actual_heatmap_behavior(heatmap_mode, domain_mode, matrix_source_name, matrix_value_type, annotation_mode)), ...
         logical(pass_fail), ...
         string(root_cause_tag)};
 end
 
 T = cell2table(rows, 'VariableNames', { ...
-    'figure_name', 'semantic_name', 'export_chain', 'render_mode', 'domain_mode', ...
-    'heatmap_mode', 'heatmap_surface_source', 'heatmap_cache_hit', 'heatmap_cache_key', ...
-    'matrix_source_name', 'matrix_value_type', 'numeric_or_state', ...
-    'local_or_globalSkeleton', 'annotation_mode', ...
+    'figure_name', 'semantic_name', 'export_chain', 'height_km', 'render_mode', 'domain_mode', ...
+    'heatmap_mode', 'heatmap_surface_source', 'cache_hit', 'cache_key', ...
+    'matrix_source_name', 'matrix_value_type', 'uses_discrete_state_matrix', 'uses_numeric_requirement_matrix', 'annotation_mode', ...
     'expected_domain_behavior', 'actual_domain_behavior', 'pass_fail', 'root_cause_tag'});
 
 if isempty(T)
-    T = table('Size', [0, 18], ...
-        'VariableTypes', {'string','string','string','string','string','string','string','logical','string','string','string','string','string','string','string','string','logical','string'}, ...
+    T = table('Size', [0, 19], ...
+        'VariableTypes', {'string','string','string','double','string','string','string','string','logical','string','string','string','logical','logical','string','string','string','logical','string'}, ...
         'VariableNames', { ...
-        'figure_name', 'semantic_name', 'export_chain', 'render_mode', 'domain_mode', ...
-        'heatmap_mode', 'heatmap_surface_source', 'heatmap_cache_hit', 'heatmap_cache_key', ...
-        'matrix_source_name', 'matrix_value_type', 'numeric_or_state', ...
-        'local_or_globalSkeleton', 'annotation_mode', ...
+        'figure_name', 'semantic_name', 'export_chain', 'height_km', 'render_mode', 'domain_mode', ...
+        'heatmap_mode', 'heatmap_surface_source', 'cache_hit', 'cache_key', ...
+        'matrix_source_name', 'matrix_value_type', 'uses_discrete_state_matrix', 'uses_numeric_requirement_matrix', 'annotation_mode', ...
         'expected_domain_behavior', 'actual_domain_behavior', 'pass_fail', 'root_cause_tag'});
         return;
 end
@@ -290,16 +295,17 @@ end
 T.figure_name = string(T.figure_name);
 T.semantic_name = string(T.semantic_name);
 T.export_chain = string(T.export_chain);
+T.height_km = double(T.height_km);
 T.render_mode = string(T.render_mode);
 T.domain_mode = string(T.domain_mode);
 T.heatmap_mode = string(T.heatmap_mode);
 T.heatmap_surface_source = string(T.heatmap_surface_source);
-T.heatmap_cache_hit = logical(T.heatmap_cache_hit);
-T.heatmap_cache_key = string(T.heatmap_cache_key);
+T.cache_hit = logical(T.cache_hit);
+T.cache_key = string(T.cache_key);
 T.matrix_source_name = string(T.matrix_source_name);
 T.matrix_value_type = string(T.matrix_value_type);
-T.numeric_or_state = string(T.numeric_or_state);
-T.local_or_globalSkeleton = string(T.local_or_globalSkeleton);
+T.uses_discrete_state_matrix = logical(T.uses_discrete_state_matrix);
+T.uses_numeric_requirement_matrix = logical(T.uses_numeric_requirement_matrix);
 T.annotation_mode = string(T.annotation_mode);
 T.expected_domain_behavior = string(T.expected_domain_behavior);
 T.actual_domain_behavior = string(T.actual_domain_behavior);
@@ -337,7 +343,7 @@ end
 for idx = 1:height(heatmap_audit)
     row = heatmap_audit(idx, :);
     signature_fields = "heatmap_view=" + row.heatmap_mode + ";domain_view=" + row.domain_mode + ";matrix=" + row.matrix_value_type;
-    rows(end + 1, :) = {row.figure_name(1), "heatmap_view", row.heatmap_cache_key(1), signature_fields, row.heatmap_cache_hit(1), row.root_cause_tag(1) ~= "correct", row.pass_fail(1)}; %#ok<AGROW>
+    rows(end + 1, :) = {row.figure_name(1), "heatmap_view", row.cache_key(1), signature_fields, row.cache_hit(1), row.root_cause_tag(1) ~= "correct", row.pass_fail(1)}; %#ok<AGROW>
 end
 T = cell2table(rows, 'VariableNames', {'artifact_name', 'cache_type', 'cache_key', 'semantic_signature_fields', 'cache_hit', 'reused_old_domain_semantics', 'pass_fail'});
 if isempty(T)
@@ -562,6 +568,19 @@ if ~isfinite(value)
 end
 end
 
+function value = local_resolve_height_km_with_figure(meta, figure_name)
+value = local_resolve_height_km(meta);
+if isfinite(value)
+    return;
+end
+tokens = regexp(char(figure_name), '_h(\d+)', 'tokens', 'once');
+if isempty(tokens)
+    value = NaN;
+else
+    value = str2double(tokens{1});
+end
+end
+
 function history_origin_min = local_resolve_history_origin_min(history_origin_mode, initial_ns_min)
 if string(history_origin_mode) == "zero"
     history_origin_min = 0;
@@ -595,6 +614,7 @@ end
 
 function domain_mode = local_resolve_heatmap_domain_mode(meta, figure_name)
 domain_mode = string(local_getfield_or(meta, 'heatmap_surface_mode', ""));
+domain_mode = local_normalize_heatmap_domain_mode(domain_mode);
 if domain_mode ~= ""
     return;
 end
@@ -604,9 +624,23 @@ if contains(lower_name, 'globalskeleton')
 else
     domain_mode = "local";
 end
+
+function domain_mode = local_normalize_heatmap_domain_mode(domain_mode)
+domain_mode = string(domain_mode);
+switch lower(char(domain_mode))
+    case 'global_skeleton'
+        domain_mode = "globalSkeleton";
+    case 'local_defined_surface'
+        domain_mode = "local";
+end
+end
 end
 
-function matrix_value_type = local_resolve_matrix_value_type(heatmap_mode)
+function matrix_value_type = local_resolve_matrix_value_type(meta, heatmap_mode)
+matrix_value_type = string(local_getfield_or(meta, 'matrix_value_type', ""));
+if matrix_value_type ~= ""
+    return;
+end
 if string(heatmap_mode) == "numeric_requirement"
     matrix_value_type = "numeric_requirement";
 else
@@ -614,7 +648,11 @@ else
 end
 end
 
-function annotation_mode = local_resolve_heatmap_annotation_mode(heatmap_mode)
+function annotation_mode = local_resolve_heatmap_annotation_mode(meta, heatmap_mode)
+annotation_mode = string(local_getfield_or(meta, 'annotation_mode', ""));
+if annotation_mode ~= ""
+    return;
+end
 if string(heatmap_mode) == "numeric_requirement"
     annotation_mode = "numeric_labels";
 else
@@ -622,15 +660,30 @@ else
 end
 end
 
-function tf = local_heatmap_semantics_pass(heatmap_mode, matrix_value_type, annotation_mode)
+function [tf, root_cause_tag] = local_heatmap_semantics_pass(heatmap_mode, domain_mode, matrix_source_name, matrix_value_type, uses_discrete_state_matrix, uses_numeric_requirement_matrix, annotation_mode)
+root_cause_tag = "correct";
 if string(heatmap_mode) == "numeric_requirement"
-    tf = string(matrix_value_type) == "numeric_requirement" && string(annotation_mode) == "numeric_labels";
+    tf = string(matrix_value_type) == "numeric_requirement" && logical(uses_numeric_requirement_matrix) && string(annotation_mode) == "numeric_labels";
+    if ~tf
+        root_cause_tag = "numeric_heatmap_semantics_mismatch";
+    end
 else
-    tf = string(matrix_value_type) == "discrete_state" && string(annotation_mode) ~= "numeric_labels";
+    tf = string(matrix_value_type) == "discrete_state" && logical(uses_discrete_state_matrix) && string(annotation_mode) ~= "numeric_labels";
+    if ~tf
+        root_cause_tag = "state_map_derived_from_numeric_surface";
+    end
+end
+if tf && string(domain_mode) == "globalSkeleton" && ~contains(lower(string(matrix_source_name)), "global")
+    tf = false;
+    root_cause_tag = "global_skeleton_using_local_matrix_source";
 end
 end
 
-function source_name = local_resolve_heatmap_matrix_source_name(heatmap_mode)
+function source_name = local_resolve_heatmap_matrix_source_name(meta, heatmap_mode)
+source_name = string(local_getfield_or(meta, 'matrix_source_name', ""));
+if source_name ~= ""
+    return;
+end
 if string(heatmap_mode) == "numeric_requirement"
     source_name = "minimum_feasible_ns_matrix";
 else
@@ -646,8 +699,8 @@ else
 end
 end
 
-function text_value = local_actual_heatmap_behavior(heatmap_mode, matrix_value_type, annotation_mode)
-text_value = string(heatmap_mode) + ":" + string(matrix_value_type) + ":" + string(annotation_mode);
+function text_value = local_actual_heatmap_behavior(heatmap_mode, domain_mode, matrix_source_name, matrix_value_type, annotation_mode)
+text_value = string(heatmap_mode) + ":" + string(domain_mode) + ":" + string(matrix_source_name) + ":" + string(matrix_value_type) + ":" + string(annotation_mode);
 end
 
 function meta = local_read_sidecar(file_path)

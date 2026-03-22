@@ -10,8 +10,8 @@ end
 
 surface_out = surface_in;
 surface_table = local_getfield_or(surface_in, 'surface_table', table());
-x_values = local_resolve_axis_values(search_domain, surface_in, 'P_grid', 'x_values', 'P');
-y_values = local_resolve_axis_values(search_domain, surface_in, 'inclination_grid_deg', 'y_values', 'i_deg');
+x_values = local_resolve_axis_values(search_domain, surface_in, 'global_P_grid', 'P_grid', 'x_values', 'P');
+y_values = local_resolve_axis_values(search_domain, surface_in, 'global_inclination_grid_deg', 'inclination_grid_deg', 'y_values', 'i_deg');
 if isempty(x_values) || isempty(y_values)
     return;
 end
@@ -21,12 +21,22 @@ surface_out.surface_table = full_table;
 surface_out.x_values = x_values(:);
 surface_out.y_values = y_values(:);
 surface_out.value_matrix = local_build_value_matrix(full_table, x_values, y_values, 'minimum_feasible_Ns');
+surface_out.numeric_requirement_matrix = surface_out.value_matrix;
 surface_out.margin_matrix = local_build_value_matrix(full_table, x_values, y_values, 'best_joint_margin_at_min');
 surface_out.surface_name = string(local_getfield_or(surface_in, 'surface_name', "requirement_surface")) + "_globalSkeleton";
+surface_out.heatmap_surface_mode = "globalSkeleton";
+surface_out.matrix_domain_source = "global_i_p_skeleton";
+surface_out.global_skeleton_applied = true;
 end
 
-function axis_values = local_resolve_axis_values(search_domain, surface_in, search_field, surface_field, table_field)
-axis_values = reshape(local_getfield_or(search_domain, search_field, []), 1, []);
+function axis_values = local_resolve_axis_values(search_domain, surface_in, primary_search_field, secondary_search_field, surface_field, table_field)
+axis_values = reshape(local_getfield_or(search_domain, primary_search_field, []), 1, []);
+axis_values = axis_values(isfinite(axis_values));
+if ~isempty(axis_values)
+    axis_values = unique(axis_values, 'sorted');
+    return;
+end
+axis_values = reshape(local_getfield_or(search_domain, secondary_search_field, []), 1, []);
 axis_values = axis_values(isfinite(axis_values));
 if ~isempty(axis_values)
     axis_values = unique(axis_values, 'sorted');
@@ -74,11 +84,6 @@ if isempty(surface_table)
 end
 
 for idx = 1:height(surface_table)
-    p_hit = find(abs(full_table.P - surface_table.P(idx)) < 1.0e-9, 1, 'first');
-    i_hit = find(abs(full_table.i_deg - surface_table.i_deg(idx)) < 1.0e-9, 1, 'first');
-    if isempty(p_hit) || isempty(i_hit)
-        continue;
-    end
     row_hit = find(abs(full_table.P - surface_table.P(idx)) < 1.0e-9 & abs(full_table.i_deg - surface_table.i_deg(idx)) < 1.0e-9, 1, 'first');
     if isempty(row_hit)
         continue;
@@ -87,7 +92,7 @@ for idx = 1:height(surface_table)
     for idx_field = 1:numel(copy_fields)
         full_table.(copy_fields{idx_field})(row_hit) = surface_table.(copy_fields{idx_field})(idx);
     end
-  end
+end
 end
 
 function row = local_default_row(fields, h_km, family_name, p_value, i_value)
