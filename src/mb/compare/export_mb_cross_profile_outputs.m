@@ -163,7 +163,7 @@ for idx_ctx = 1:size(contexts, 1)
         continue;
     end
 
-    [dg_table, dg_summary] = local_build_dg_overlay_table(context_runs, h_km, family_name);
+    [dg_table, dg_summary, dg_table_normalized] = local_build_dg_overlay_table(context_runs, h_km, family_name);
     if isempty(dg_table)
         continue;
     end
@@ -177,10 +177,22 @@ for idx_ctx = 1:size(contexts, 1)
     dg_png = fullfile(paths.figures, sprintf('MB_profileCompare_legacyDG_DG_envelope_%s.png', context_tag));
     milestone_common_save_figure(fig_dg, dg_png);
     close(fig_dg);
+    dg_norm_csv = fullfile(paths.tables, sprintf('MB_profileCompare_legacyDG_DG_envelopeNormalized_%s.csv', context_tag));
+    milestone_common_save_table(dg_table_normalized, dg_norm_csv);
+    fig_dg_norm = plot_mb_cross_profile_dg_overlay(dg_table_normalized, dg_summary, h_km, family_name, struct( ...
+        'value_field', 'overlay_D_G_min_normalized', ...
+        'y_label', 'normalized max D_G^{min} over i', ...
+        'title_prefix', 'legacyDG cross-profile normalized D_G envelope', ...
+        'note_override', 'normalized DG candidate'));
+    dg_norm_png = fullfile(paths.figures, sprintf('MB_profileCompare_legacyDG_DG_envelopeNormalized_%s.png', context_tag));
+    milestone_common_save_figure(fig_dg_norm, dg_norm_png);
+    close(fig_dg_norm);
 
     artifacts.tables.(matlab.lang.makeValidName(sprintf('legacyDG_DG_envelope_%s', context_tag))) = string(dg_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('legacyDG_DG_envelopeNormalized_%s', context_tag))) = string(dg_norm_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('legacyDG_DG_summary_%s', context_tag))) = string(dg_summary_csv);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('legacyDG_DG_envelope_%s', context_tag))) = string(dg_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('legacyDG_DG_envelopeNormalized_%s', context_tag))) = string(dg_norm_png);
     summary_cursor = summary_cursor + 1;
     summary_chunks{summary_cursor, 1} = local_normalize_summary(dg_summary, "DG_envelope"); %#ok<AGROW>
     grade_cursor = grade_cursor + 1;
@@ -287,20 +299,20 @@ for idx = 1:numel(context_runs)
     summary_cursor = summary_cursor + 1;
     summary_rows{summary_cursor, 1} = { ...
         string(semantic_mode), string(sensor_group), string(sensor_label), h_km, string(family_name), ...
-        numel(i_values), defined_count, defined_count > 0, summary_note}; %#ok<AGROW>
+        numel(i_values), defined_count, local_safe_ratio(defined_count, max(numel(i_values), 1)), defined_count > 0, defined_count <= 1, summary_note}; %#ok<AGROW>
 end
 
 frontier_table = local_cell_rows_to_table(rows, ...
     {'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'i_deg', 'minimum_feasible_Ns', 'frontier_status', 'note'}, ...
     {'string', 'string', 'string', 'double', 'string', 'double', 'double', 'string', 'string'});
 summary_table = local_cell_rows_to_table(summary_rows, ...
-    {'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'sampled_inclination_count', 'frontier_defined_count', 'frontier_any_defined', 'note'}, ...
-    {'string', 'string', 'string', 'double', 'string', 'double', 'double', 'logical', 'string'});
+    {'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'sampled_inclination_count', 'frontier_defined_count', 'frontier_coverage_ratio', 'frontier_any_defined', 'frontier_single_point_only', 'note'}, ...
+    {'string', 'string', 'string', 'double', 'string', 'double', 'double', 'double', 'logical', 'logical', 'string'});
 summary_table = local_sort_sensor_groups(summary_table);
 frontier_table = local_sort_sensor_groups(frontier_table);
 end
 
-function [dg_table, summary_table] = local_build_dg_overlay_table(context_runs, h_km, family_name)
+function [dg_table, summary_table, dg_table_normalized] = local_build_dg_overlay_table(context_runs, h_km, family_name)
 rows = {};
 summary_rows = {};
 cursor = 0;
@@ -335,17 +347,23 @@ for idx = 1:numel(context_runs)
     summary_cursor = summary_cursor + 1;
     summary_rows{summary_cursor, 1} = { ...
         "legacyDG", string(sensor_group), string(sensor_label), h_km, string(family_name), ...
-        env.Ns(end), env.overlay_D_G_min(end), env.overlay_pass_ratio(end), plateau_reached, note}; %#ok<AGROW>
+        env.Ns(end), max(env.overlay_D_G_min), env.overlay_D_G_min(end), env.overlay_pass_ratio(end), plateau_reached, note}; %#ok<AGROW>
 end
 
 dg_table = local_cell_rows_to_table(rows, ...
     {'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'Ns', 'overlay_D_G_min', 'overlay_pass_ratio'}, ...
     {'string', 'string', 'string', 'double', 'string', 'double', 'double', 'double'});
 summary_table = local_cell_rows_to_table(summary_rows, ...
-    {'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'search_ns_max', 'final_overlay_D_G_min', 'final_pass_ratio', 'right_plateau_reached', 'note'}, ...
-    {'string', 'string', 'string', 'double', 'string', 'double', 'double', 'double', 'logical', 'string'});
+    {'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'search_ns_max', 'max_raw_D_G', 'final_overlay_D_G_min', 'final_pass_ratio', 'right_plateau_reached', 'note'}, ...
+    {'string', 'string', 'string', 'double', 'string', 'double', 'double', 'double', 'double', 'logical', 'string'});
 summary_table = local_sort_sensor_groups(summary_table);
 dg_table = local_sort_sensor_groups(dg_table);
+dg_table_normalized = dg_table;
+global_max = max(dg_table.overlay_D_G_min, [], 'omitnan');
+if ~isfinite(global_max) || global_max <= 0
+    global_max = 1;
+end
+dg_table_normalized.overlay_D_G_min_normalized = dg_table.overlay_D_G_min ./ global_max;
 end
 
 function contexts = local_collect_contexts(mode_runs)
@@ -485,10 +503,10 @@ switch char(string(summary_kind))
         summary_table.status_flag = logical(local_pick_or_repeat(T, 'right_plateau_reached', false, height(T)));
     case 'frontier_summary'
         summary_table.metric_primary = double(local_pick_or_repeat(T, 'frontier_defined_count', NaN, height(T)));
-        summary_table.metric_secondary = double(local_pick_or_repeat(T, 'sampled_inclination_count', NaN, height(T)));
+        summary_table.metric_secondary = double(local_pick_or_repeat(T, 'frontier_coverage_ratio', NaN, height(T)));
         summary_table.status_flag = logical(local_pick_or_repeat(T, 'frontier_any_defined', false, height(T)));
     case 'DG_envelope'
-        summary_table.metric_primary = double(local_pick_or_repeat(T, 'final_overlay_D_G_min', NaN, height(T)));
+        summary_table.metric_primary = double(local_pick_or_repeat(T, 'max_raw_D_G', NaN, height(T)));
         summary_table.metric_secondary = double(local_pick_or_repeat(T, 'final_pass_ratio', NaN, height(T)));
         summary_table.status_flag = logical(local_pick_or_repeat(T, 'right_plateau_reached', false, height(T)));
     otherwise
@@ -514,8 +532,8 @@ switch char(string(summary_kind))
         end
     case 'frontier_summary'
         defined_counts = double(local_pick_or_repeat(summary_table, 'frontier_defined_count', 0, height(summary_table)));
-        sampled_counts = double(local_pick_or_repeat(summary_table, 'sampled_inclination_count', 0, height(summary_table)));
-        frontier_ok = all(defined_counts == sampled_counts & defined_counts > 1);
+        coverage_ratio = double(local_pick_or_repeat(summary_table, 'frontier_coverage_ratio', 0, height(summary_table)));
+        frontier_ok = all(coverage_ratio >= 0.75 & defined_counts > 1);
         paper_candidate = (~single_group_only) && frontier_ok;
         note = "";
         if single_group_only
@@ -565,5 +583,13 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function value = local_safe_ratio(a, b)
+if b == 0
+    value = 0;
+else
+    value = a / b;
 end
 end
