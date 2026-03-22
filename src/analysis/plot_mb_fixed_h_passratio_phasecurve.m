@@ -104,13 +104,13 @@ end
 if isfield(options, 'passratio_saturation_table') && istable(options.passratio_saturation_table) && ~isempty(options.passratio_saturation_table)
     sat_table = options.passratio_saturation_table;
     if ismember('is_search_domain_unsaturated', sat_table.Properties.VariableNames) && any(logical(sat_table.is_search_domain_unsaturated))
-        text_parts(end + 1, 1) = "unity plateau not reached within current search domain"; %#ok<AGROW>
+        text_parts(end + 1, 1) = "diag: unity plateau not reached"; %#ok<AGROW>
     end
 end
 if isfield(options, 'boundary_hit_table') && istable(options.boundary_hit_table) && ~isempty(options.boundary_hit_table)
     boundary_table = options.boundary_hit_table;
     if ismember('is_boundary_dominated', boundary_table.Properties.VariableNames) && any(logical(boundary_table.is_boundary_dominated))
-        text_parts(end + 1, 1) = "boundary-dominated heatmap context"; %#ok<AGROW>
+        text_parts(end + 1, 1) = "diag: boundary-dominated"; %#ok<AGROW>
     end
 end
 if isempty(text_parts)

@@ -49,15 +49,18 @@ if strlength(info.diagnostic_text) > 0
     note_lines(end + 1, 1) = string(info.diagnostic_text); %#ok<AGROW>
 end
 plot_domain_source = char(string(local_getfield_or(options, 'plot_domain_source', info.plot_domain_source)));
-stop_reason = char(string(local_getfield_or(options, 'stop_reason', "")));
 if ~isempty(strtrim(plot_domain_source))
     note_lines(end + 1, 1) = string(sprintf('plot-domain: %s', plot_domain_source)); %#ok<AGROW>
 end
-if ~isempty(strtrim(stop_reason))
-    note_lines(end + 1, 1) = string(sprintf('stop-reason: %s', stop_reason)); %#ok<AGROW>
+if logical(local_getfield_or(options, 'show_stop_reason', false))
+    stop_reason = char(string(local_getfield_or(options, 'stop_reason', "")));
+    if ~isempty(strtrim(stop_reason))
+        note_lines(end + 1, 1) = string(sprintf('stop: %s', stop_reason)); %#ok<AGROW>
+    end
 end
 
 if show_annotations && ~isempty(note_lines)
+    note_lines = note_lines(1:min(end, 2));
     text(ax, 0.02, 0.96, strjoin(cellstr(note_lines), newline), ...
         'Units', 'normalized', 'FontSize', 9.5, 'Color', [0.30 0.30 0.30], ...
         'VerticalAlignment', 'top');
