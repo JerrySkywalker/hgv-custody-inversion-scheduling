@@ -1,5 +1,5 @@
 function [view_table, padding_summary, view_meta] = build_mb_passratio_domain_view(source_table, search_domain, options)
-%BUILD_MB_PASSRATIO_DOMAIN_VIEW Build history/effective/zoom data views for pass-ratio exports.
+%BUILD_MB_PASSRATIO_DOMAIN_VIEW Build data-layer history/effective/frontier views for pass-ratio exports.
 
 if nargin < 2 || isempty(search_domain)
     search_domain = struct();
@@ -17,23 +17,21 @@ recompute_mode = string(local_getfield_or(options, 'recompute_mode', "none"));
 history_fill_mode = string(local_getfield_or(options, 'history_fill_mode', "zero"));
 history_origin = string(local_getfield_or(options, 'history_origin', "initial_ns_min"));
 figure_name = string(local_getfield_or(options, 'figure_name', ""));
+plot_window = reshape(local_getfield_or(options, 'plot_window', []), 1, []);
+resolver_options = local_getfield_or(options, 'resolver_options', struct());
 
 initial_range = reshape(local_getfield_or(search_domain, 'Ns_initial_range', [NaN, NaN, NaN]), 1, []);
-initial_ns_min = local_first_finite(local_getfield_or(search_domain, 'history_ns_min', NaN), local_pick_initial(initial_range, 1));
-effective_ns_min = local_first_finite(local_getfield_or(search_domain, 'effective_ns_min', NaN), local_getfield_or(search_domain, 'ns_search_min', NaN));
-final_ns_max = local_first_finite(local_getfield_or(search_domain, 'history_ns_max', NaN), local_getfield_or(search_domain, 'effective_ns_max', NaN), local_getfield_or(search_domain, 'ns_search_max', NaN));
-ns_step = local_first_finite_positive(local_getfield_or(search_domain, 'ns_search_step', NaN), local_pick_initial(initial_range, 2), local_min_spacing(source_table, ns_field), 4);
-
 source_ns = local_get_column(source_table, ns_field);
 source_ns = unique(source_ns(isfinite(source_ns)), 'sorted');
-if ~isfinite(initial_ns_min)
-    initial_ns_min = local_min_or_nan(source_ns);
-end
-if ~isfinite(effective_ns_min)
-    effective_ns_min = local_min_or_nan(source_ns);
-end
-if ~isfinite(final_ns_max)
-    final_ns_max = local_max_or_nan(source_ns);
+
+initial_ns_min = local_first_finite(local_getfield_or(search_domain, 'history_ns_min', NaN), local_pick_initial(initial_range, 1), local_min_or_nan(source_ns));
+effective_ns_min = local_first_finite(local_getfield_or(search_domain, 'effective_ns_min', NaN), local_getfield_or(search_domain, 'ns_search_min', NaN), local_min_or_nan(source_ns));
+effective_ns_max = local_first_finite(local_getfield_or(search_domain, 'effective_ns_max', NaN), local_getfield_or(search_domain, 'ns_search_max', NaN), local_max_or_nan(source_ns));
+final_ns_max = local_first_finite(local_getfield_or(search_domain, 'history_ns_max', NaN), effective_ns_max, local_pick_initial(initial_range, 3), local_max_or_nan(source_ns));
+ns_step = local_first_finite_positive(local_getfield_or(search_domain, 'ns_search_step', NaN), local_pick_initial(initial_range, 2), local_min_spacing(source_table, ns_field), 4);
+history_origin_min = initial_ns_min;
+if history_origin == "zero"
+    history_origin_min = 0;
 end
 
 view_table = source_table;
@@ -43,29 +41,56 @@ view_meta = struct( ...
     'history_padding_applied', false, ...
     'history_fill_mode', "", ...
     'history_origin', "", ...
+    'history_origin_min', history_origin_min, ...
     'initial_ns_min', initial_ns_min, ...
     'effective_ns_min', effective_ns_min, ...
+    'effective_ns_max', effective_ns_max, ...
     'final_ns_max', final_ns_max, ...
     'source_table_min_ns', local_min_or_nan(source_ns), ...
     'source_table_max_ns', local_max_or_nan(source_ns), ...
     'source_table_row_count', height(source_table), ...
+    'view_table_min_ns', local_min_or_nan(source_ns), ...
+    'view_table_max_ns', local_max_or_nan(source_ns), ...
+    'pass_fail', false, ...
     'root_cause_tag', "correct");
 
-if domain_view ~= "history_full" || isempty(source_table)
-    return;
-end
-
-if ~isfinite(initial_ns_min) || ~isfinite(final_ns_max) || ~isfinite(ns_step)
+if isempty(source_table)
     view_meta.root_cause_tag = "source_table_tail_only";
     return;
 end
 
-history_min = initial_ns_min;
-if history_origin == "zero"
-    history_min = 0;
+switch domain_view
+    case "history_full"
+        [view_table, padding_summary, view_meta] = local_build_history_view( ...
+            source_table, ns_field, group_fields, value_fields, fill_values, recompute_mode, ...
+            history_fill_mode, history_origin, history_origin_min, initial_ns_min, final_ns_max, ns_step, figure_name, view_meta);
+    case "effective_full_range"
+        effective_window = [effective_ns_min, effective_ns_max];
+        [view_table, view_meta] = local_build_windowed_view( ...
+            source_table, ns_field, group_fields, recompute_mode, effective_window, view_meta, "correct");
+    case "frontier_zoom"
+        if ~local_has_valid_window(plot_window)
+            windows = resolve_mb_passratio_plot_windows(source_table, search_domain, resolver_options);
+            plot_window = reshape(local_getfield_or(windows, 'frontier_zoom', []), 1, []);
+        end
+        [view_table, view_meta] = local_build_windowed_view( ...
+            source_table, ns_field, group_fields, recompute_mode, plot_window, view_meta, "correct");
+    otherwise
+        error('build_mb_passratio_domain_view:UnsupportedDomainView', ...
+            'Unsupported domain_view: %s', char(domain_view));
+end
 end
 
-ns_grid = local_make_ns_grid(history_min, final_ns_max, ns_step);
+function [view_table, padding_summary, view_meta] = local_build_history_view(source_table, ns_field, group_fields, value_fields, fill_values, recompute_mode, history_fill_mode, history_origin, history_origin_min, initial_ns_min, final_ns_max, ns_step, figure_name, view_meta)
+padding_summary = local_empty_padding_summary();
+view_table = source_table;
+
+if ~isfinite(history_origin_min) || ~isfinite(final_ns_max) || ~isfinite(ns_step)
+    view_meta.root_cause_tag = "source_table_tail_only";
+    return;
+end
+
+ns_grid = local_make_ns_grid(history_origin_min, final_ns_max, ns_step);
 if isempty(ns_grid)
     view_meta.root_cause_tag = "source_table_tail_only";
     return;
@@ -88,6 +113,7 @@ end
 row_chunks = cell(height(group_rows), 1);
 summary_rows = cell(height(group_rows), 1);
 padding_applied = false;
+group_pass = true(height(group_rows), 1);
 for idx_group = 1:height(group_rows)
     group_row = group_rows(idx_group, :);
     sub = local_filter_group_rows(source_table, group_row, group_fields);
@@ -107,11 +133,14 @@ for idx_group = 1:height(group_rows)
 
     row_chunks{idx_group} = joined;
     padding_applied = padding_applied || any(padded_mask);
-    summary_rows{idx_group} = local_build_padding_summary_row(figure_name, group_row, group_fields, initial_ns_min, final_ns_max, numel(original_ns), sum(padded_mask), history_fill_mode, any(padded_mask));
+    group_pass(idx_group) = ~isempty(joined) && local_min_or_nan(joined.(ns_field)) <= history_origin_min + 1.0e-9;
+    summary_rows{idx_group} = local_build_padding_summary_row( ...
+        figure_name, local_group_height_km(joined), group_row, group_fields, initial_ns_min, final_ns_max, ...
+        numel(original_ns), sum(padded_mask), history_fill_mode, history_origin, any(padded_mask), group_pass(idx_group));
 end
 
 view_table = vertcat(row_chunks{:});
-view_table = sortrows(view_table, [group_fields, {ns_field}]);
+view_table = local_sort_view_table(view_table, group_fields, ns_field);
 padding_summary = vertcat(summary_rows{:});
 
 if ismember('group_id_tmp', view_table.Properties.VariableNames)
@@ -121,7 +150,37 @@ end
 view_meta.history_padding_applied = padding_applied;
 view_meta.history_fill_mode = history_fill_mode;
 view_meta.history_origin = history_origin;
+view_meta.view_table_min_ns = local_min_or_nan(local_get_column(view_table, ns_field));
+view_meta.view_table_max_ns = local_max_or_nan(local_get_column(view_table, ns_field));
+view_meta.pass_fail = ~isempty(view_table) && all(group_pass);
 view_meta.root_cause_tag = "correct";
+end
+
+function [view_table, view_meta] = local_build_windowed_view(source_table, ns_field, group_fields, recompute_mode, window, view_meta, success_tag)
+view_table = local_filter_ns_window(source_table, ns_field, window);
+view_table = local_apply_recompute_mode(view_table, recompute_mode);
+view_table = local_sort_view_table(view_table, group_fields, ns_field);
+view_meta.view_table_min_ns = local_min_or_nan(local_get_column(view_table, ns_field));
+view_meta.view_table_max_ns = local_max_or_nan(local_get_column(view_table, ns_field));
+view_meta.pass_fail = ~isempty(view_table);
+if view_meta.pass_fail
+    view_meta.root_cause_tag = success_tag;
+else
+    view_meta.root_cause_tag = "source_table_tail_only";
+end
+end
+
+function filtered = local_filter_ns_window(T, ns_field, window)
+filtered = T;
+if isempty(T) || ~local_has_valid_window(window) || ~ismember(ns_field, T.Properties.VariableNames)
+    return;
+end
+mask = isfinite(T.(ns_field)) & T.(ns_field) >= window(1) & T.(ns_field) <= window(2);
+filtered = T(mask, :);
+end
+
+function tf = local_has_valid_window(window)
+tf = isnumeric(window) && numel(window) >= 2 && all(isfinite(window(1:2))) && window(1) <= window(2);
 end
 
 function joined = local_fill_missing_columns(joined, value_fields, fill_values, padded_mask, history_fill_mode)
@@ -150,6 +209,9 @@ end
 end
 
 function joined = local_apply_recompute_mode(joined, recompute_mode)
+if isempty(joined)
+    return;
+end
 switch recompute_mode
     case "comparison_gap"
         if all(ismember({'legacy_present', 'closed_present', 'max_pass_ratio_legacyDG', 'max_pass_ratio_closedD', 'passratio_gap'}, joined.Properties.VariableNames))
@@ -162,17 +224,38 @@ switch recompute_mode
 end
 end
 
-function summary_row = local_build_padding_summary_row(figure_name, group_row, group_fields, initial_ns_min, final_ns_max, num_original_points, num_padded_points, history_fill_mode, padding_applied)
+function summary_row = local_build_padding_summary_row(figure_name, height_km, group_row, group_fields, initial_ns_min, final_ns_max, num_original_points, num_padded_points, history_fill_mode, history_origin_mode, history_padding_applied, pass_fail)
 summary_row = table( ...
     string(figure_name), ...
+    double(height_km), ...
     string(local_group_key(group_row, group_fields)), ...
     double(initial_ns_min), ...
     double(final_ns_max), ...
     double(num_original_points), ...
     double(num_padded_points), ...
     string(history_fill_mode), ...
-    logical(padding_applied), ...
-    'VariableNames', {'figure_name', 'group_key', 'initial_ns_min', 'final_ns_max', 'num_original_points', 'num_padded_points', 'history_fill_mode', 'padding_applied'});
+    string(history_origin_mode), ...
+    logical(history_padding_applied), ...
+    logical(history_padding_applied), ...
+    logical(pass_fail), ...
+    'VariableNames', {'figure_name', 'height_km', 'group_key', 'initial_ns_min', 'final_ns_max', 'num_original_points', 'num_padded_points', 'history_fill_mode', 'history_origin_mode', 'history_padding_applied', 'padding_applied', 'pass_fail'});
+end
+
+function height_km = local_group_height_km(T)
+height_km = NaN;
+if isempty(T)
+    return;
+end
+if ismember('h_km', T.Properties.VariableNames)
+    values = T.h_km(isfinite(T.h_km));
+elseif ismember('height_km', T.Properties.VariableNames)
+    values = T.height_km(isfinite(T.height_km));
+else
+    values = [];
+end
+if ~isempty(values)
+    height_km = values(1);
+end
 end
 
 function key = local_group_key(group_row, group_fields)
@@ -216,6 +299,18 @@ for idx = 1:numel(group_fields)
     end
 end
 skeleton.(ns_field) = ns_grid(:);
+end
+
+function T = local_sort_view_table(T, group_fields, ns_field)
+if isempty(T)
+    return;
+end
+sort_fields = [{ns_field}];
+if ~isempty(group_fields)
+    sort_fields = [group_fields(:).', {ns_field}];
+end
+sort_fields = unique(sort_fields, 'stable');
+T = sortrows(T, sort_fields);
 end
 
 function filled = local_fill_missing(data, fill_value, padded_mask)
@@ -349,7 +444,7 @@ end
 end
 
 function T = local_empty_padding_summary()
-T = table('Size', [0, 8], ...
-    'VariableTypes', {'string', 'string', 'double', 'double', 'double', 'double', 'string', 'logical'}, ...
-    'VariableNames', {'figure_name', 'group_key', 'initial_ns_min', 'final_ns_max', 'num_original_points', 'num_padded_points', 'history_fill_mode', 'padding_applied'});
+T = table('Size', [0, 12], ...
+    'VariableTypes', {'string', 'double', 'string', 'double', 'double', 'double', 'double', 'string', 'string', 'logical', 'logical', 'logical'}, ...
+    'VariableNames', {'figure_name', 'height_km', 'group_key', 'initial_ns_min', 'final_ns_max', 'num_original_points', 'num_padded_points', 'history_fill_mode', 'history_origin_mode', 'history_padding_applied', 'padding_applied', 'pass_fail'});
 end

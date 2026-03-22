@@ -187,21 +187,37 @@ for idx = 1:numel(files)
     if ~ismember('figure_name', T_this.Properties.VariableNames)
         T_this.figure_name = repmat(string(strrep(files(idx).name, '.csv', '.png')), height(T_this), 1);
     end
+    if ~ismember('height_km', T_this.Properties.VariableNames)
+        T_this.height_km = NaN(height(T_this), 1);
+    end
+    if ~ismember('history_origin_mode', T_this.Properties.VariableNames)
+        T_this.history_origin_mode = repmat("", height(T_this), 1);
+    end
+    if ~ismember('history_padding_applied', T_this.Properties.VariableNames)
+        T_this.history_padding_applied = false(height(T_this), 1);
+    end
     if ~ismember('padding_applied', T_this.Properties.VariableNames)
-        T_this.padding_applied = false(height(T_this), 1);
+        T_this.padding_applied = T_this.history_padding_applied;
+    end
+    if ~ismember('pass_fail', T_this.Properties.VariableNames)
+        T_this.pass_fail = false(height(T_this), 1);
     end
     chunks{end + 1, 1} = T_this; %#ok<AGROW>
 end
 if isempty(chunks)
-    T = table('Size', [0, 8], ...
-        'VariableTypes', {'string','string','double','double','double','double','string','logical'}, ...
-        'VariableNames', {'figure_name', 'group_key', 'initial_ns_min', 'final_ns_max', 'num_original_points', 'num_padded_points', 'history_fill_mode', 'padding_applied'});
+    T = table('Size', [0, 12], ...
+        'VariableTypes', {'string','double','string','double','double','double','double','string','string','logical','logical','logical'}, ...
+        'VariableNames', {'figure_name', 'height_km', 'group_key', 'initial_ns_min', 'final_ns_max', 'num_original_points', 'num_padded_points', 'history_fill_mode', 'history_origin_mode', 'history_padding_applied', 'padding_applied', 'pass_fail'});
 else
     T = vertcat(chunks{:});
     T.figure_name = string(T.figure_name);
+    T.height_km = double(T.height_km);
     T.group_key = string(T.group_key);
     T.history_fill_mode = string(T.history_fill_mode);
+    T.history_origin_mode = string(T.history_origin_mode);
+    T.history_padding_applied = logical(T.history_padding_applied);
     T.padding_applied = logical(T.padding_applied);
+    T.pass_fail = logical(T.pass_fail);
 end
 end
 
