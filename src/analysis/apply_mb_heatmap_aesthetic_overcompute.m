@@ -209,25 +209,18 @@ if isempty(base_table)
     annotated_surface.surface_table = surface_table;
     return;
 end
-
-joined = outerjoin(surface_table(:, {'h_km', 'i_deg', 'P', 'minimum_feasible_Ns', 'aesthetic_overcompute_touched'}), ...
-    base_table(:, {'h_km', 'i_deg', 'P', 'minimum_feasible_Ns'}), ...
-    'Keys', {'h_km', 'i_deg', 'P'}, 'MergeKeys', true, 'Type', 'left', ...
-    'LeftVariables', {'minimum_feasible_Ns', 'aesthetic_overcompute_touched'}, ...
-    'RightVariables', {'minimum_feasible_Ns'});
-joined = local_standardize_joined_surface_columns(joined, 'minimum_feasible_Ns_new', 'minimum_feasible_Ns_base');
+[tf_base, loc_base] = ismember(surface_table(:, {'h_km', 'i_deg', 'P'}), base_table(:, {'h_km', 'i_deg', 'P'}), 'rows');
 
 for idx = 1:height(surface_table)
     if ~surface_table.aesthetic_overcompute_touched(idx)
         continue;
     end
-    hit = joined.h_km == surface_table.h_km(idx) & joined.i_deg == surface_table.i_deg(idx) & joined.P == surface_table.P(idx);
-    if ~any(hit)
+    if ~tf_base(idx)
         surface_table.aesthetic_overcompute_status(idx) = "aesthetic_overcompute_checked";
         continue;
     end
-    old_value = joined.minimum_feasible_Ns_base(find(hit, 1));
-    new_value = joined.minimum_feasible_Ns_new(find(hit, 1));
+    old_value = base_table.minimum_feasible_Ns(loc_base(idx));
+    new_value = surface_table.minimum_feasible_Ns(idx);
     if ~isfinite(old_value) && isfinite(new_value)
         surface_table.aesthetic_overcompute_status(idx) = "aesthetic_overcompute_newly_defined";
     elseif isfinite(old_value) && isfinite(new_value) && new_value < old_value - 1.0e-9
@@ -246,11 +239,10 @@ merged_table = local_getfield_or(merged_surface, 'surface_table', table());
 if isempty(merged_table)
     return;
 end
-joined = outerjoin(merged_table(:, {'h_km', 'i_deg', 'P', 'minimum_feasible_Ns'}), base_table(:, {'h_km', 'i_deg', 'P', 'minimum_feasible_Ns'}), ...
-    'Keys', {'h_km', 'i_deg', 'P'}, 'MergeKeys', true, 'Type', 'left', ...
-    'LeftVariables', {'minimum_feasible_Ns'}, 'RightVariables', {'minimum_feasible_Ns'});
-joined = local_standardize_joined_surface_columns(joined, 'new_value', 'old_value');
-count = sum(~isfinite(joined.old_value) & isfinite(joined.new_value));
+[tf_base, loc_base] = ismember(merged_table(:, {'h_km', 'i_deg', 'P'}), base_table(:, {'h_km', 'i_deg', 'P'}), 'rows');
+old_values = nan(height(merged_table), 1);
+old_values(tf_base) = base_table.minimum_feasible_Ns(loc_base(tf_base));
+count = sum(~isfinite(old_values) & isfinite(merged_table.minimum_feasible_Ns));
 end
 
 function count = local_count_improved(base_surface, merged_surface)
@@ -260,10 +252,13 @@ merged_table = local_getfield_or(merged_surface, 'surface_table', table());
 if isempty(base_table) || isempty(merged_table)
     return;
 end
-joined = innerjoin(merged_table(:, {'h_km', 'i_deg', 'P', 'minimum_feasible_Ns'}), base_table(:, {'h_km', 'i_deg', 'P', 'minimum_feasible_Ns'}), ...
-    'Keys', {'h_km', 'i_deg', 'P'}, 'LeftVariables', {'minimum_feasible_Ns'}, 'RightVariables', {'minimum_feasible_Ns'});
-joined = local_standardize_joined_surface_columns(joined, 'new_value', 'old_value');
-count = sum(isfinite(joined.new_value) & isfinite(joined.old_value) & joined.new_value < joined.old_value - 1.0e-9);
+[tf_base, loc_base] = ismember(merged_table(:, {'h_km', 'i_deg', 'P'}), base_table(:, {'h_km', 'i_deg', 'P'}), 'rows');
+if ~any(tf_base)
+    return;
+end
+new_values = merged_table.minimum_feasible_Ns(tf_base);
+old_values = base_table.minimum_feasible_Ns(loc_base(tf_base));
+count = sum(isfinite(new_values) & isfinite(old_values) & new_values < old_values - 1.0e-9);
 end
 
 function feasible_table = local_pick_feasible_rows(eval_table)
@@ -379,19 +374,6 @@ merged = base;
 fields = fieldnames(override);
 for idx = 1:numel(fields)
     merged.(fields{idx}) = override.(fields{idx});
-end
-end
-
-function joined = local_standardize_joined_surface_columns(joined, left_name, right_name)
-vars = joined.Properties.VariableNames;
-min_vars = vars(contains(vars, 'minimum_feasible_Ns'));
-if numel(min_vars) >= 1
-    joined.Properties.VariableNames{strcmp(vars, min_vars{1})} = left_name;
-end
-vars = joined.Properties.VariableNames;
-remaining = vars(contains(vars, 'minimum_feasible_Ns'));
-if numel(remaining) >= 1
-    joined.Properties.VariableNames{strcmp(vars, remaining{1})} = right_name;
 end
 end
 
