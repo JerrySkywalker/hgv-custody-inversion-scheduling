@@ -62,7 +62,7 @@ for idx = 1:numel(cases)
 
     detail_rows(idx, :) = {case_info.stage_name, case_info.mode, success, popup_expected, ...
         string(get(groot, 'DefaultFigureVisible')), string(export_probe), ...
-        local_detect_upstream_cache_missing(notes), local_extract_fail_reason(notes, success)};
+        local_detect_upstream_cache_missing(notes), local_extract_fail_reason(case_info.stage_name, notes, success)};
 end
 
 detail = cell2table(detail_rows, 'VariableNames', { ...
@@ -78,7 +78,7 @@ detail.upstream_cache_missing = logical(detail.upstream_cache_missing);
 detail.fail_reason = string(detail.fail_reason);
 
 stage_names = unique(detail.stage_name, 'stable');
-rows = cell(numel(stage_names), 7);
+rows = cell(numel(stage_names), 10);
 for idx = 1:numel(stage_names)
     stage_name = stage_names(idx);
     stage_rows = detail(detail.stage_name == stage_name, :);
@@ -89,22 +89,28 @@ for idx = 1:numel(stage_names)
     export_pass = any(stage_rows.figure_export_success);
     upstream_cache_missing = any(stage_rows.upstream_cache_missing);
     fail_reason = strjoin(unique(stage_rows.fail_reason(stage_rows.fail_reason ~= "")), " || ");
+    runtime_mechanism_wired = local_runtime_mechanism_wired(export_pass, upstream_cache_missing, fail_reason);
+    business_chain_smoke = export_pass;
+    reason = local_stage_reason(stage_name, export_pass, upstream_cache_missing, fail_reason);
     notes = "headless=" + string(headless_pass) + ...
         ", visible=" + string(visible_pass) + ...
         ", probes=" + strjoin(unique(stage_rows.export_probe(stage_rows.export_probe ~= "")), " | ");
     notes = local_build_stage_notes(stage_name, headless_pass, visible_pass, export_pass, upstream_cache_missing, fail_reason, stage_rows);
-    rows(idx, :) = {stage_name, headless_pass, visible_pass, export_pass, upstream_cache_missing, fail_reason, notes};
+    rows(idx, :) = {stage_name, headless_pass, visible_pass, export_pass, upstream_cache_missing, fail_reason, runtime_mechanism_wired, business_chain_smoke, reason, notes};
 end
 
 summary = cell2table(rows, 'VariableNames', { ...
     'stage_name', 'headless_pass', 'visible_pass', 'export_pass', ...
-    'upstream_cache_missing', 'fail_reason', 'notes'});
+    'upstream_cache_missing', 'fail_reason', 'runtime_mechanism_wired', 'business_chain_smoke', 'reason', 'notes'});
 summary.stage_name = string(summary.stage_name);
 summary.headless_pass = logical(summary.headless_pass);
 summary.visible_pass = logical(summary.visible_pass);
 summary.export_pass = logical(summary.export_pass);
 summary.upstream_cache_missing = logical(summary.upstream_cache_missing);
 summary.fail_reason = string(summary.fail_reason);
+summary.runtime_mechanism_wired = logical(summary.runtime_mechanism_wired);
+summary.business_chain_smoke = logical(summary.business_chain_smoke);
+summary.reason = string(summary.reason);
 summary.notes = string(summary.notes);
 
 summary_csv = fullfile(tab_dir, 'STAGE_headless_smoke_summary.csv');
@@ -169,13 +175,15 @@ tf = contains(note_text, 'no cache matched patterns') || ...
     contains(note_text, 'stage08.5') || contains(note_text, 'cache');
 end
 
-function fail_reason = local_extract_fail_reason(notes, success)
+function fail_reason = local_extract_fail_reason(stage_name, notes, success)
 if success
     fail_reason = "";
     return;
 end
 note_text = string(notes);
-if contains(lower(note_text), 'stage08.5')
+if string(stage_name) == "stage09_inverse_plot" && local_detect_upstream_cache_missing(note_text)
+    fail_reason = "missing_stage08_5_cache";
+elseif contains(lower(note_text), 'stage08.5')
     fail_reason = "missing_stage08_5_cache";
 elseif contains(lower(note_text), 'no cache matched patterns')
     fail_reason = "missing_upstream_cache";
@@ -185,6 +193,25 @@ elseif contains(lower(note_text), 'iostream stream error') || contains(lower(not
     fail_reason = "batch_visible_output_stream_instability";
 else
     fail_reason = note_text;
+end
+end
+
+function tf = local_runtime_mechanism_wired(export_pass, upstream_cache_missing, fail_reason)
+fail_reason = string(fail_reason);
+tf = logical(export_pass) || logical(upstream_cache_missing) || fail_reason == "batch_visible_output_stream_instability";
+end
+
+function reason = local_stage_reason(stage_name, export_pass, upstream_cache_missing, fail_reason)
+if export_pass
+    reason = "";
+    return;
+end
+if string(stage_name) == "stage09_inverse_plot" && logical(upstream_cache_missing)
+    reason = "missing_stage08_5_cache";
+elseif string(stage_name) == "stage09_inverse_plot" && contains(string(fail_reason), "missing_stage08_5_cache")
+    reason = "missing_stage08_5_cache";
+else
+    reason = string(fail_reason);
 end
 end
 
@@ -221,17 +248,10 @@ for idx = 1:height(summary)
     lines(end + 1, 1) = "- headless_pass: " + string(row.headless_pass); %#ok<AGROW>
     lines(end + 1, 1) = "- visible_pass: " + string(row.visible_pass); %#ok<AGROW>
     lines(end + 1, 1) = "- export_pass: " + string(row.export_pass); %#ok<AGROW>
-    if row.upstream_cache_missing
-        lines(end + 1, 1) = "- runtime_mechanism_wired: true"; %#ok<AGROW>
-        lines(end + 1, 1) = "- business_chain_pass: false"; %#ok<AGROW>
-        lines(end + 1, 1) = "- fail_reason: " + row.fail_reason; %#ok<AGROW>
-    elseif row.export_pass
-        lines(end + 1, 1) = "- runtime_mechanism_wired: true"; %#ok<AGROW>
-        lines(end + 1, 1) = "- business_chain_pass: true"; %#ok<AGROW>
-    else
-        lines(end + 1, 1) = "- runtime_mechanism_wired: uncertain"; %#ok<AGROW>
-        lines(end + 1, 1) = "- business_chain_pass: false"; %#ok<AGROW>
-        lines(end + 1, 1) = "- fail_reason: " + row.fail_reason; %#ok<AGROW>
+    lines(end + 1, 1) = "- runtime_mechanism_wired: " + string(row.runtime_mechanism_wired); %#ok<AGROW>
+    lines(end + 1, 1) = "- business_chain_smoke: " + string(row.business_chain_smoke); %#ok<AGROW>
+    if strlength(row.reason) > 0
+        lines(end + 1, 1) = "- reason: " + row.reason; %#ok<AGROW>
     end
     if strlength(row.notes) > 0
         lines(end + 1, 1) = "- notes: " + row.notes; %#ok<AGROW>
