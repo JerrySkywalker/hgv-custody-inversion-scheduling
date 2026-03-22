@@ -21,17 +21,28 @@ if isempty(surface) || ~isfield(surface, 'value_matrix') || isempty(surface.valu
         'plot_domain_source', "no_heatmap_cell", ...
         'figure_style', local_getfield_or(options, 'figure_style', struct())));
 else
-    imagesc(ax, surface.x_values, surface.y_values, surface.value_matrix);
-    set(ax, 'YDir', 'normal');
-    cmin = min(surface.value_matrix(:), [], 'omitnan');
-    cmax = max(surface.value_matrix(:), [], 'omitnan');
-    if isfinite(cmin) && isfinite(cmax) && cmax > cmin
-        clim(ax, [cmin, cmax]);
+    render_mode = local_resolve_render_mode(surface, options);
+    if render_mode == "discrete_state"
+        [state_matrix, state_labels] = local_build_state_matrix(surface, local_getfield_or(options, 'search_domain_bounds', []));
+        imagesc(ax, surface.x_values, surface.y_values, state_matrix);
+        set(ax, 'YDir', 'normal');
+        colormap(ax, [0.92 0.92 0.92; 0.96 0.70 0.25; 0.19 0.55 0.91; 0.12 0.68 0.38]);
+        clim(ax, [-0.5, 3.5]);
+        cb = colorbar(ax, 'Ticks', 0:3, 'TickLabels', cellstr(state_labels));
+        cb.Label.String = 'Heatmap state';
+    else
+        imagesc(ax, surface.x_values, surface.y_values, surface.value_matrix);
+        set(ax, 'YDir', 'normal');
+        cmin = min(surface.value_matrix(:), [], 'omitnan');
+        cmax = max(surface.value_matrix(:), [], 'omitnan');
+        if isfinite(cmin) && isfinite(cmax) && cmax > cmin
+            clim(ax, [cmin, cmax]);
+        end
+        colormap(ax, parula);
+        cb = colorbar(ax);
+        cb.Label.String = 'Minimum feasible N_s';
+        local_overlay_labels(ax, surface.x_values, surface.y_values, surface.value_matrix);
     end
-    colormap(ax, parula);
-    cb = colorbar(ax);
-    cb.Label.String = 'Minimum feasible N_s';
-    local_overlay_labels(ax, surface.x_values, surface.y_values, surface.value_matrix);
 end
 
 xlabel(ax, 'P');
@@ -40,6 +51,78 @@ title(ax, sprintf('Minimum Feasible Constellation Requirement over (i, P) at h =
 local_add_diagnostics(ax, local_getfield_or(options, 'boundary_hit_table', table()), local_getfield_or(options, 'domain_summary', ""), options);
 grid(ax, 'on');
 hold(ax, 'off');
+end
+
+function render_mode = local_resolve_render_mode(surface, options)
+render_mode = string(local_getfield_or(options, 'heatmap_render_mode', "auto"));
+if render_mode == "discrete_state" || render_mode == "continuous"
+    return;
+end
+render_mode = "continuous";
+edge_table = local_getfield_or(options, 'heatmap_edge_table', table());
+surface_table = local_getfield_or(surface, 'surface_table', table());
+if istable(edge_table) && ~isempty(edge_table)
+    sparse_pattern = any(logical(local_table_column(edge_table, 'right_edge_only_pattern'))) || ...
+        any(logical(local_table_column(edge_table, 'top_edge_coverage_insufficient'))) || ...
+        any(logical(local_table_column(edge_table, 'frontier_coverage_low')));
+    if sparse_pattern
+        render_mode = "discrete_state";
+        return;
+    end
+end
+if istable(surface_table) && ~isempty(surface_table) && ismember('minimum_feasible_Ns', surface_table.Properties.VariableNames)
+    feasible_ratio = mean(isfinite(surface_table.minimum_feasible_Ns));
+    if feasible_ratio <= 0.35
+        render_mode = "discrete_state";
+    end
+end
+end
+
+function [state_matrix, state_labels] = local_build_state_matrix(surface, search_domain_bounds)
+x_values = surface.x_values;
+y_values = surface.y_values;
+value_matrix = surface.value_matrix;
+state_matrix = zeros(size(value_matrix));
+state_matrix(~isfinite(value_matrix)) = 0;
+state_matrix(isfinite(value_matrix)) = 2;
+state_labels = ["undefined", "boundary suspect", "defined internal", "refined/overcompute"];
+
+ns_max = NaN;
+if isnumeric(search_domain_bounds) && numel(search_domain_bounds) == 2
+    ns_max = max(search_domain_bounds);
+end
+tol = max(4, 0.03 * max(1, ns_max));
+for iy = 1:numel(y_values)
+    for ix = 1:numel(x_values)
+        if ~isfinite(value_matrix(iy, ix))
+            continue;
+        end
+        if ix == numel(x_values) || (isfinite(ns_max) && value_matrix(iy, ix) >= ns_max - tol)
+            state_matrix(iy, ix) = 1;
+        end
+    end
+end
+
+surface_table = local_getfield_or(surface, 'surface_table', table());
+if istable(surface_table) && ~isempty(surface_table)
+    for idx = 1:height(surface_table)
+        p_idx = find(abs(x_values - surface_table.P(idx)) < 1.0e-9, 1, 'first');
+        i_idx = find(abs(y_values - surface_table.i_deg(idx)) < 1.0e-9, 1, 'first');
+        if isempty(p_idx) || isempty(i_idx)
+            continue;
+        end
+        touched = false;
+        if ismember('aesthetic_overcompute_touched', surface_table.Properties.VariableNames)
+            touched = touched || logical(surface_table.aesthetic_overcompute_touched(idx));
+        end
+        if ismember('frontier_refinement_touched', surface_table.Properties.VariableNames)
+            touched = touched || logical(surface_table.frontier_refinement_touched(idx));
+        end
+        if touched && isfinite(value_matrix(i_idx, p_idx))
+            state_matrix(i_idx, p_idx) = 3;
+        end
+    end
+end
 end
 
 function local_overlay_labels(ax, x_values, y_values, value_matrix)
