@@ -144,6 +144,32 @@ end
 if contains(lower_name, 'paperready')
     metadata.figure_style_mode = "paper_ready";
 end
+if contains(lower_name, 'historyfull')
+    metadata.plot_domain_mode = "history_full";
+    metadata.x_domain_origin = "initial_search_domain_lower_bound";
+elseif contains(lower_name, 'effectivefullrange') || contains(lower_name, 'fullrange') || contains(lower_name, 'globaltrend')
+    metadata.plot_domain_mode = "effective_full_range";
+    metadata.x_domain_origin = "effective_search_domain";
+elseif contains(lower_name, 'frontierzoom')
+    metadata.plot_domain_mode = "frontier_zoom";
+    metadata.x_domain_origin = "frontier_zoom_window";
+elseif contains(lower_name, 'globalskeleton')
+    metadata.plot_domain_mode = "global_skeleton_surface";
+elseif contains(lower_name, 'local')
+    metadata.plot_domain_mode = "local_defined_surface";
+end
+if contains(lower_name, 'minimumns_heatmap')
+    metadata.heatmap_value_semantics = "minimum_feasible_ns";
+elseif contains(lower_name, 'statemap')
+    metadata.heatmap_value_semantics = "state_map_discrete";
+elseif contains(lower_name, 'gap_heatmap')
+    metadata.heatmap_value_semantics = "semantic_gap";
+end
+if contains(lower_name, 'globalskeleton')
+    metadata.heatmap_surface_mode = "global_skeleton";
+elseif contains(lower_name, 'local')
+    metadata.heatmap_surface_mode = "local";
+end
 if contains(lower_name, 'strictreplica') || contains(lower_name, 'strict_replica')
     metadata.snapshot_stage = "strict_replica";
 end
@@ -195,10 +221,15 @@ meta_table = table( ...
     repmat(string(metadata.search_profile_mode), height(T), 1), ...
     repmat(string(metadata.snapshot_stage), height(T), 1), ...
     repmat(string(metadata.plot_domain_mode), height(T), 1), ...
+    repmat(string(local_getfield_or(metadata, 'x_domain_origin', "")), height(T), 1), ...
+    repmat(double(local_getfield_or(metadata, 'x_min_rendered', NaN)), height(T), 1), ...
+    repmat(double(local_getfield_or(metadata, 'x_max_rendered', NaN)), height(T), 1), ...
+    repmat(string(local_getfield_or(metadata, 'heatmap_surface_mode', "")), height(T), 1), ...
+    repmat(string(local_getfield_or(metadata, 'heatmap_value_semantics', "")), height(T), 1), ...
     repmat(string(metadata.figure_style_mode), height(T), 1), ...
     repmat(logical(metadata.stage05_replica_flag), height(T), 1), ...
     repmat(logical(metadata.auto_tuned_flag), height(T), 1), ...
-    'VariableNames', {'semantic_mode', 'sensor_group', 'search_profile', 'search_profile_mode', 'snapshot_stage', 'plot_domain_mode', 'figure_style_mode', 'stage05_replica_flag', 'auto_tuned_flag'});
+    'VariableNames', {'semantic_mode', 'sensor_group', 'search_profile', 'search_profile_mode', 'snapshot_stage', 'plot_domain_mode', 'x_domain_origin', 'x_min_rendered', 'x_max_rendered', 'heatmap_surface_mode', 'heatmap_value_semantics', 'figure_style_mode', 'stage05_replica_flag', 'auto_tuned_flag'});
 
 meta_names = meta_table.Properties.VariableNames;
 added_names = strings(0, 1);
@@ -280,6 +311,11 @@ row.search_profile = string(metadata.search_profile);
 row.search_profile_mode = string(metadata.search_profile_mode);
 row.snapshot_stage = string(metadata.snapshot_stage);
 row.plot_domain_mode = string(metadata.plot_domain_mode);
+row.x_domain_origin = string(local_getfield_or(metadata, 'x_domain_origin', ""));
+row.x_min_rendered = local_getfield_or(metadata, 'x_min_rendered', NaN);
+row.x_max_rendered = local_getfield_or(metadata, 'x_max_rendered', NaN);
+row.heatmap_surface_mode = string(local_getfield_or(metadata, 'heatmap_surface_mode', ""));
+row.heatmap_value_semantics = string(local_getfield_or(metadata, 'heatmap_value_semantics', ""));
 row.figure_style_mode = string(metadata.figure_style_mode);
 row.stage05_replica_flag = logical(metadata.stage05_replica_flag);
 row.auto_tuned_flag = logical(metadata.auto_tuned_flag);
@@ -306,6 +342,11 @@ row = struct( ...
     'search_profile_mode', "", ...
     'snapshot_stage', "", ...
     'plot_domain_mode', "", ...
+    'x_domain_origin', "", ...
+    'x_min_rendered', NaN, ...
+    'x_max_rendered', NaN, ...
+    'heatmap_surface_mode', "", ...
+    'heatmap_value_semantics', "", ...
     'figure_style_mode', "", ...
     'stage05_replica_flag', false, ...
     'auto_tuned_flag', false, ...
@@ -367,6 +408,11 @@ metadata.stage05_replica_flag = logical(local_getfield_or(local_getfield_or(meta
 metadata.auto_tuned_flag = logical(local_getfield_or(meta, 'auto_tuned_flag', false));
 metadata.snapshot_stage = "expanded_final";
 metadata.plot_domain_mode = string(local_getfield_or(meta, 'plot_domain_policy', local_getfield_or(meta, 'plot_xlim_mode', "data_range")));
+metadata.x_domain_origin = "";
+metadata.x_min_rendered = NaN;
+metadata.x_max_rendered = NaN;
+metadata.heatmap_surface_mode = "";
+metadata.heatmap_value_semantics = "";
 metadata.search_domain_ns = local_stringify(local_getfield_or(meta, 'Ns_initial_range', []));
 metadata.search_domain_p = local_stringify(local_getfield_or(meta, 'P_grid', []));
 metadata.search_domain_t = local_stringify(local_getfield_or(meta, 'T_grid', []));

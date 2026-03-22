@@ -71,6 +71,7 @@ for idx = 1:numel(run_output.runs)
     local_retitle(fig_pass_history, sprintf('closedD History-Full Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
     pass_history_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_historyFull_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_history, pass_history_png);
+    write_mb_plot_domain_sidecar(pass_history_png, "history_full", "initial_search_domain_lower_bound", pass_windows.history_full);
     close(fig_pass_history);
 
     effective_options = pass_plot_options;
@@ -80,10 +81,13 @@ for idx = 1:numel(run_output.runs)
     local_retitle(fig_pass_effective, sprintf('closedD Effective Full-Range Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
     pass_effective_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_effectiveFullRange_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, pass_effective_png);
+    write_mb_plot_domain_sidecar(pass_effective_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
     pass_alias_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_fullRange_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, pass_alias_png);
+    write_mb_plot_domain_sidecar(pass_alias_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
     closed_alias_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_globalTrend_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, closed_alias_png);
+    write_mb_plot_domain_sidecar(closed_alias_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
     close(fig_pass_effective);
     closed_zoom_options = pass_plot_options;
     closed_zoom_options.plot_xlim_ns = pass_windows.frontier_zoom;
@@ -92,6 +96,7 @@ for idx = 1:numel(run_output.runs)
     local_retitle(fig_pass_zoom, sprintf('closedD Frontier Zoom Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
     pass_zoom_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_frontierZoom_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_zoom, pass_zoom_png);
+    write_mb_plot_domain_sidecar(pass_zoom_png, "frontier_zoom", "frontier_zoom_window", pass_windows.frontier_zoom);
     close(fig_pass_zoom);
     local_maybe_export_paper_ready(@() plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, local_build_paper_options(pass_plot_options)), ...
         fullfile(paths.figures, sprintf('MB_closedD_passratio_effectiveFullRange_%s_%s_paperReady.png', h_label, sensor_group)), ...
@@ -110,8 +115,10 @@ for idx = 1:numel(run_output.runs)
     local_retitle(fig_heat, sprintf('closedD Local Minimum Feasible Constellation Heatmap at h = %.0f km [%s]', run.h_km, sensor_label));
     heat_local_png = fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_local_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat, heat_local_png);
+    write_mb_plot_domain_sidecar(heat_local_png, "local_defined_surface", "current_defined_surface", [], struct('heatmap_surface_mode', "local", 'heatmap_value_semantics', "minimum_feasible_ns"));
     heat_png = fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_iP_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat, heat_png);
+    write_mb_plot_domain_sidecar(heat_png, "local_defined_surface", "current_defined_surface", [], struct('heatmap_surface_mode', "local", 'heatmap_value_semantics', "minimum_feasible_ns"));
     close(fig_heat);
 
     fig_heat_global = plot_mb_fixed_h_requirement_heatmap_iP(global_surface, style, struct( ...
@@ -124,6 +131,7 @@ for idx = 1:numel(run_output.runs)
     local_retitle(fig_heat_global, sprintf('closedD Global-Skeleton Minimum Feasible Constellation Heatmap at h = %.0f km [%s]', run.h_km, sensor_label));
     heat_global_png = fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_globalSkeleton_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat_global, heat_global_png);
+    write_mb_plot_domain_sidecar(heat_global_png, "global_skeleton_surface", "global_i_p_skeleton", [], struct('heatmap_surface_mode', "global_skeleton", 'heatmap_value_semantics', "minimum_feasible_ns"));
     close(fig_heat_global);
 
     fig_heat_state = plot_mb_fixed_h_requirement_heatmap_iP(local_surface, style, struct( ...
@@ -137,8 +145,10 @@ for idx = 1:numel(run_output.runs)
     local_retitle(fig_heat_state, sprintf('closedD Local Heatmap State Map at h = %.0f km [%s]', run.h_km, sensor_label));
     heat_state_local_png = fullfile(paths.figures, sprintf('MB_closedD_heatmap_stateMap_local_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat_state, heat_state_local_png);
+    write_mb_plot_domain_sidecar(heat_state_local_png, "local_defined_surface", "current_defined_surface", [], struct('heatmap_surface_mode', "local", 'heatmap_value_semantics', "state_map_discrete"));
     heat_state_png = fullfile(paths.figures, sprintf('MB_closedD_heatmap_stateMap_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat_state, heat_state_png);
+    write_mb_plot_domain_sidecar(heat_state_png, "local_defined_surface", "current_defined_surface", [], struct('heatmap_surface_mode', "local", 'heatmap_value_semantics', "state_map_discrete"));
     close(fig_heat_state);
 
     fig_heat_state_global = plot_mb_fixed_h_requirement_heatmap_iP(global_surface, style, struct( ...
@@ -152,6 +162,7 @@ for idx = 1:numel(run_output.runs)
     local_retitle(fig_heat_state_global, sprintf('closedD Global-Skeleton Heatmap State Map at h = %.0f km [%s]', run.h_km, sensor_label));
     heat_state_global_png = fullfile(paths.figures, sprintf('MB_closedD_heatmap_stateMap_globalSkeleton_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat_state_global, heat_state_global_png);
+    write_mb_plot_domain_sidecar(heat_state_global_png, "global_skeleton_surface", "global_i_p_skeleton", [], struct('heatmap_surface_mode', "global_skeleton", 'heatmap_value_semantics', "state_map_discrete"));
     close(fig_heat_state_global);
     local_maybe_export_paper_ready(@() plot_mb_fixed_h_requirement_heatmap_iP(run.aggregate.requirement_surface_iP, style, struct( ...
         'boundary_hit_table', diagnostics.boundary_hit_table, ...

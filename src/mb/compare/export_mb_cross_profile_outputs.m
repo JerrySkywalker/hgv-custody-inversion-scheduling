@@ -106,6 +106,7 @@ for idx_ctx = 1:size(contexts, 1)
             'subtitle_text', "Cross-profile envelope from the original search-history lower bound"));
         pass_history_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_historyFull_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass_history, pass_history_png);
+        write_mb_plot_domain_sidecar(pass_history_png, "history_full", "initial_search_domain_lower_bound", pass_windows.history_full);
         close(fig_pass_history);
 
         fig_pass_effective = plot_mb_cross_profile_passratio_overlay(pass_table, pass_summary, h_km, semantic_mode, family_name, struct( ...
@@ -114,10 +115,13 @@ for idx_ctx = 1:size(contexts, 1)
             'subtitle_text', "Cross-profile envelope over the final effective expanded domain"));
         pass_effective_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_effectiveFullRange_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass_effective, pass_effective_png);
+        write_mb_plot_domain_sidecar(pass_effective_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
         pass_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_fullRange_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass_effective, pass_alias_png);
+        write_mb_plot_domain_sidecar(pass_alias_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
         legacy_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass_effective, legacy_alias_png);
+        write_mb_plot_domain_sidecar(legacy_alias_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
         close(fig_pass_effective);
 
         fig_pass_zoom = plot_mb_cross_profile_passratio_overlay(pass_table, pass_summary, h_km, semantic_mode, family_name, struct( ...
@@ -126,6 +130,7 @@ for idx_ctx = 1:size(contexts, 1)
             'subtitle_text', "Cross-profile envelope focused on the local frontier neighborhood"));
         pass_zoom_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_frontierZoom_%s.png', char(semantic_mode), context_tag));
         milestone_common_save_figure(fig_pass_zoom, pass_zoom_png);
+        write_mb_plot_domain_sidecar(pass_zoom_png, "frontier_zoom", "frontier_zoom_window", pass_windows.frontier_zoom);
         close(fig_pass_zoom);
 
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratio_%s', char(semantic_mode), context_tag))) = string(pass_csv);

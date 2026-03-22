@@ -60,6 +60,7 @@ for idx = 1:numel(comparison.run_pairs)
         'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     pass_history_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_historyFull_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_history, pass_history_png);
+    write_mb_plot_domain_sidecar(pass_history_png, "history_full", "initial_search_domain_lower_bound", pass_windows.history_full);
     close(fig_pass_history);
 
     fig_pass_effective = plot_semantic_gap_passratio_curves(pair.passratio_gap_table, pair.h_km, sensor_label, struct( ...
@@ -72,10 +73,13 @@ for idx = 1:numel(comparison.run_pairs)
         'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     pass_effective_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_effectiveFullRange_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, pass_effective_png);
+    write_mb_plot_domain_sidecar(pass_effective_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
     pass_alias_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_fullRange_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, pass_alias_png);
+    write_mb_plot_domain_sidecar(pass_alias_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
     global_alias_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_globalTrend_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_effective, global_alias_png);
+    write_mb_plot_domain_sidecar(global_alias_png, "effective_full_range", "effective_search_domain", pass_windows.effective_full_range);
     close(fig_pass_effective);
 
     fig_pass_zoom = plot_semantic_gap_passratio_curves(pair.passratio_gap_table, pair.h_km, sensor_label, struct( ...
@@ -88,6 +92,7 @@ for idx = 1:numel(comparison.run_pairs)
         'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
     pass_zoom_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_frontierZoom_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass_zoom, pass_zoom_png);
+    write_mb_plot_domain_sidecar(pass_zoom_png, "frontier_zoom", "frontier_zoom_window", pass_windows.frontier_zoom);
     close(fig_pass_zoom);
 
     fig_frontier = plot_semantic_gap_frontier_shift(pair.frontier_gap_table, pair.h_km, sensor_label, struct( ...
