@@ -64,15 +64,27 @@ for idx = 1:numel(run_output.runs)
     pass_plot_options.plot_domain_label = "expanded_final";
     pass_windows = resolve_mb_passratio_plot_windows(run.aggregate.passratio_phasecurve, search_domain, struct('y_fields', "max_pass_ratio"));
 
-    pass_plot_options.plot_xlim_ns = pass_windows.global_trend;
-    pass_plot_options.plot_domain_label = "full_range";
-    fig_pass = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, pass_plot_options);
-    local_retitle(fig_pass, sprintf('closedD Full-Range Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
-    pass_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_fullRange_%s_%s.png', h_label, sensor_group));
-    milestone_common_save_figure(fig_pass, pass_png);
+    history_options = pass_plot_options;
+    history_options.plot_xlim_ns = pass_windows.history_full;
+    history_options.plot_domain_label = "history_full";
+    fig_pass_history = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, history_options);
+    local_retitle(fig_pass_history, sprintf('closedD History-Full Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
+    pass_history_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_historyFull_%s_%s.png', h_label, sensor_group));
+    milestone_common_save_figure(fig_pass_history, pass_history_png);
+    close(fig_pass_history);
+
+    effective_options = pass_plot_options;
+    effective_options.plot_xlim_ns = pass_windows.effective_full_range;
+    effective_options.plot_domain_label = "effective_full_range";
+    fig_pass_effective = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, effective_options);
+    local_retitle(fig_pass_effective, sprintf('closedD Effective Full-Range Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
+    pass_effective_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_effectiveFullRange_%s_%s.png', h_label, sensor_group));
+    milestone_common_save_figure(fig_pass_effective, pass_effective_png);
+    pass_alias_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_fullRange_%s_%s.png', h_label, sensor_group));
+    milestone_common_save_figure(fig_pass_effective, pass_alias_png);
     closed_alias_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_globalTrend_%s_%s.png', h_label, sensor_group));
-    milestone_common_save_figure(fig_pass, closed_alias_png);
-    close(fig_pass);
+    milestone_common_save_figure(fig_pass_effective, closed_alias_png);
+    close(fig_pass_effective);
     closed_zoom_options = pass_plot_options;
     closed_zoom_options.plot_xlim_ns = pass_windows.frontier_zoom;
     closed_zoom_options.plot_domain_label = "frontier_zoom";
@@ -82,7 +94,7 @@ for idx = 1:numel(run_output.runs)
     milestone_common_save_figure(fig_pass_zoom, pass_zoom_png);
     close(fig_pass_zoom);
     local_maybe_export_paper_ready(@() plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, local_build_paper_options(pass_plot_options)), ...
-        fullfile(paths.figures, sprintf('MB_closedD_passratio_fullRange_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        fullfile(paths.figures, sprintf('MB_closedD_passratio_effectiveFullRange_%s_%s_paperReady.png', h_label, sensor_group)), ...
         "closedD_passratio", diagnostics, plot_options);
 
     fig_heat = plot_mb_fixed_h_requirement_heatmap_iP(run.aggregate.requirement_surface_iP, style, struct( ...
@@ -116,7 +128,8 @@ for idx = 1:numel(run_output.runs)
         fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_iP_%s_%s_paperReady.png', h_label, sensor_group)), ...
         "closedD_heatmap", diagnostics, plot_options);
 
-    artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioGlobal_%s', h_label))) = string(pass_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioHistory_%s', h_label))) = string(pass_history_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioEffective_%s', h_label))) = string(pass_effective_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioZoom_%s', h_label))) = string(pass_zoom_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMap_%s', h_label))) = string(heat_state_png);
@@ -167,12 +180,19 @@ end
 
 function search_domain = local_build_search_domain(run_output, run)
 effective_domain = local_getfield_or(local_getfield_or(run, 'expansion_state', struct()), 'effective_search_domain', struct());
+history_domain = local_getfield_or(local_getfield_or(run_output, 'options', struct()), 'search_domain', struct());
+initial_range = reshape(local_getfield_or(history_domain, 'Ns_initial_range', local_getfield_or(run_output.options, 'Ns_initial_range', [])), 1, []);
 search_domain = struct( ...
     'ns_search_min', local_getfield_or(effective_domain, 'ns_search_min', local_min_or_nan(run.design_table, 'Ns')), ...
     'ns_search_max', local_getfield_or(effective_domain, 'ns_search_max', local_max_or_nan(run.design_table, 'Ns')), ...
     'ns_search_step', local_getfield_or(effective_domain, 'ns_search_step', local_min_spacing(run.design_table, 'Ns')), ...
     'P_grid', reshape(local_getfield_or(effective_domain, 'P_grid', unique(run.design_table.P, 'sorted')), 1, []), ...
-    'T_grid', reshape(local_getfield_or(effective_domain, 'T_grid', unique(run.design_table.T, 'sorted')), 1, []));
+    'T_grid', reshape(local_getfield_or(effective_domain, 'T_grid', unique(run.design_table.T, 'sorted')), 1, []), ...
+    'Ns_initial_range', initial_range, ...
+    'history_ns_min', local_getfield_or(history_domain, 'ns_search_min', local_pick_initial(initial_range, 1)), ...
+    'history_ns_max', max([local_getfield_or(effective_domain, 'ns_search_max', NaN), local_pick_initial(initial_range, 3)], [], 'omitnan'), ...
+    'effective_ns_min', local_getfield_or(effective_domain, 'ns_search_min', local_min_or_nan(run.design_table, 'Ns')), ...
+    'effective_ns_max', local_getfield_or(effective_domain, 'ns_search_max', local_max_or_nan(run.design_table, 'Ns')));
 end
 
 function diagnostics = local_build_diagnostics(run, search_domain)
@@ -238,6 +258,14 @@ if numel(values) < 2
     value = NaN;
 else
     value = min(diff(values));
+end
+end
+
+function value = local_pick_initial(initial_range, idx_pick)
+if numel(initial_range) >= idx_pick && isfinite(initial_range(idx_pick))
+    value = initial_range(idx_pick);
+else
+    value = NaN;
 end
 end
 

@@ -1,5 +1,5 @@
 function windows = resolve_mb_passratio_plot_windows(curve_table, search_domain, options)
-%RESOLVE_MB_PASSRATIO_PLOT_WINDOWS Build global/zoom x-limits for pass-ratio plots.
+%RESOLVE_MB_PASSRATIO_PLOT_WINDOWS Build history/effective/zoom x-limits for pass-ratio plots.
 
 if nargin < 2 || isempty(search_domain)
     search_domain = struct();
@@ -11,21 +11,43 @@ end
 ns_values = local_get_column(curve_table, 'Ns');
 ns_values = unique(ns_values(isfinite(ns_values)));
 
-global_min = local_getfield_or(search_domain, 'ns_search_min', NaN);
-global_max = local_getfield_or(search_domain, 'ns_search_max', NaN);
-if ~isfinite(global_min) && ~isempty(ns_values)
-    global_min = min(ns_values);
+initial_range = reshape(local_getfield_or(search_domain, 'Ns_initial_range', [NaN, NaN, NaN]), 1, []);
+effective_min = local_first_finite( ...
+    local_getfield_or(search_domain, 'effective_ns_min', NaN), ...
+    local_getfield_or(search_domain, 'ns_search_min', NaN), ...
+    local_min_or_nan(ns_values));
+effective_max = local_first_finite( ...
+    local_getfield_or(search_domain, 'effective_ns_max', NaN), ...
+    local_getfield_or(search_domain, 'ns_search_max', NaN), ...
+    local_max_or_nan(ns_values));
+history_min = local_first_finite( ...
+    local_getfield_or(search_domain, 'history_ns_min', NaN), ...
+    local_pick_initial(initial_range, 1), ...
+    effective_min, ...
+    local_min_or_nan(ns_values));
+history_max = local_first_finite( ...
+    local_getfield_or(search_domain, 'history_ns_max', NaN), ...
+    effective_max, ...
+    local_pick_initial(initial_range, 3), ...
+    local_max_or_nan(ns_values));
+
+effective_window = local_build_window(effective_min, effective_max, ns_values);
+history_window = local_build_window(history_min, history_max, ns_values);
+if ~all(isfinite(effective_window))
+    effective_window = history_window;
 end
-if ~isfinite(global_max) && ~isempty(ns_values)
-    global_max = max(ns_values);
+if ~all(isfinite(history_window))
+    history_window = effective_window;
 end
 
 windows = struct();
-windows.global_trend = [global_min, global_max];
-windows.frontier_zoom = windows.global_trend;
-windows.status_tag = "global_only";
+windows.history_full = history_window;
+windows.effective_full_range = effective_window;
+windows.global_trend = windows.effective_full_range; % compatibility alias
+windows.frontier_zoom = windows.effective_full_range;
+windows.status_tag = "effective_only";
 
-if isempty(ns_values) || ~all(isfinite(windows.global_trend))
+if isempty(ns_values) || ~all(isfinite(windows.effective_full_range))
     return;
 end
 
@@ -49,15 +71,15 @@ if isempty(transition_ns) && isempty(plateau_ns)
     if numel(ns_values) >= 4
         tail_count = min(ceil(0.35 * numel(ns_values)), numel(ns_values));
         zoom_ns = ns_values(max(1, numel(ns_values) - tail_count + 1):end);
-        windows.frontier_zoom = local_expand_window(zoom_ns, windows.global_trend);
+        windows.frontier_zoom = local_expand_window(zoom_ns, windows.effective_full_range);
         windows.status_tag = "tail_focus";
     end
     return;
 end
 
 anchor_ns = unique([transition_ns; plateau_ns]);
-windows.frontier_zoom = local_expand_window(anchor_ns, windows.global_trend);
-windows.status_tag = "frontier_zoom";
+windows.frontier_zoom = local_expand_window(anchor_ns, windows.effective_full_range);
+windows.status_tag = "history_effective_zoom";
 end
 
 function fields = local_resolve_y_fields(curve_table, options)
@@ -113,11 +135,78 @@ if window(1) == window(2)
 end
 end
 
+function window = local_build_window(min_value, max_value, ns_values)
+window = [min_value, max_value];
+if ~all(isfinite(window))
+    if isempty(ns_values)
+        return;
+    end
+    window = [min(ns_values), max(ns_values)];
+end
+if window(1) > window(2)
+    window = fliplr(window);
+end
+if window(1) == window(2)
+    step = max(4, local_min_spacing(ns_values));
+    window(2) = window(1) + step;
+end
+window = round(window / 4) * 4;
+end
+
 function values = local_get_column(T, field_name)
 if istable(T) && ismember(field_name, T.Properties.VariableNames)
     values = T.(field_name);
 else
     values = [];
+end
+end
+
+function value = local_first_finite(varargin)
+value = NaN;
+for idx = 1:nargin
+    candidate = varargin{idx};
+    if isempty(candidate)
+        continue;
+    end
+    if isnumeric(candidate) && isscalar(candidate) && isfinite(candidate)
+        value = candidate;
+        return;
+    end
+end
+end
+
+function value = local_min_or_nan(values)
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = min(values);
+end
+end
+
+function value = local_max_or_nan(values)
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = max(values);
+end
+end
+
+function value = local_pick_initial(initial_range, idx_pick)
+if numel(initial_range) >= idx_pick && isfinite(initial_range(idx_pick))
+    value = initial_range(idx_pick);
+else
+    value = NaN;
+end
+end
+
+function step = local_min_spacing(values)
+values = unique(values(isfinite(values)));
+if numel(values) < 2
+    step = NaN;
+else
+    step = min(diff(values));
 end
 end
 
