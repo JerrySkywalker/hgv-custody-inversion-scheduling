@@ -62,13 +62,25 @@ for idx = 1:numel(run_output.runs)
     pass_plot_options.boundary_hit_table = diagnostics.boundary_hit_table;
     pass_plot_options.search_domain_bounds = [search_domain.ns_search_min, search_domain.ns_search_max];
     pass_plot_options.plot_domain_label = "expanded_final";
+    pass_windows = resolve_mb_passratio_plot_windows(run.aggregate.passratio_phasecurve, search_domain, struct('y_fields', "max_pass_ratio"));
+
+    pass_plot_options.plot_xlim_ns = pass_windows.global_trend;
+    pass_plot_options.plot_domain_label = "global_trend";
     fig_pass = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, pass_plot_options);
-    local_retitle(fig_pass, sprintf('closedD Pass-Ratio Profile versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
-    pass_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_%s_%s.png', h_label, sensor_group));
+    local_retitle(fig_pass, sprintf('closedD Global Trend Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
+    pass_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_globalTrend_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_pass, pass_png);
     close(fig_pass);
+    closed_zoom_options = pass_plot_options;
+    closed_zoom_options.plot_xlim_ns = pass_windows.frontier_zoom;
+    closed_zoom_options.plot_domain_label = "frontier_zoom";
+    fig_pass_zoom = plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, closed_zoom_options);
+    local_retitle(fig_pass_zoom, sprintf('closedD Frontier Zoom Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
+    pass_zoom_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_frontierZoom_%s_%s.png', h_label, sensor_group));
+    milestone_common_save_figure(fig_pass_zoom, pass_zoom_png);
+    close(fig_pass_zoom);
     local_maybe_export_paper_ready(@() plot_mb_fixed_h_passratio_phasecurve(run.aggregate.passratio_phasecurve, run.h_km, style, local_build_paper_options(pass_plot_options)), ...
-        fullfile(paths.figures, sprintf('MB_closedD_passratio_%s_%s_paperReady.png', h_label, sensor_group)), ...
+        fullfile(paths.figures, sprintf('MB_closedD_passratio_globalTrend_%s_%s_paperReady.png', h_label, sensor_group)), ...
         "closedD_passratio", diagnostics, plot_options);
 
     fig_heat = plot_mb_fixed_h_requirement_heatmap_iP(run.aggregate.requirement_surface_iP, style, struct( ...
@@ -86,7 +98,8 @@ for idx = 1:numel(run_output.runs)
         fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_iP_%s_%s_paperReady.png', h_label, sensor_group)), ...
         "closedD_heatmap", diagnostics, plot_options);
 
-    artifacts.figures.(matlab.lang.makeValidName(sprintf('passratio_%s', h_label))) = string(pass_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioGlobal_%s', h_label))) = string(pass_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioZoom_%s', h_label))) = string(pass_zoom_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_png);
 end
 
