@@ -20,6 +20,7 @@ The following should reuse semantic cache:
 - changing plot labels, short tags, metadata sidecars, or delivery packaging
 - changing headless / visible runtime behavior
 - changing paper-ready guardrail or export-only logic
+- regenerating `MB_output_inventory.csv`, `MB_output_recommended_roots.csv`, or `MB_historical_output_map.csv`
 
 ## Changes that must invalidate semantic cache
 The following must trigger semantic recompute:

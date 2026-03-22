@@ -42,3 +42,8 @@
 - `closedD` frontier coverage at baseline `h=1000` is still weak relative to legacyDG
 - `stage09_inverse_plot` smoke remains blocked by missing upstream `Stage08.5` cache in this workspace
 - Stage05/06 original core files remain untouched and should continue to stay frozen
+
+## Canonical lookup files
+- recommended roots: `outputs/milestones/MB_final_round_delivery/MB_output_recommended_roots.csv`
+- copied artifact inventory: `outputs/milestones/MB_final_round_delivery/MB_output_inventory.csv`
+- historical root index: `outputs/milestones/MB_final_round_delivery/MB_historical_output_map.csv`

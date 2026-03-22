@@ -16,10 +16,14 @@ This package is the final MB closure handoff for the MATLAB project.
 - strict Stage05 replica remains the validation anchor
 
 ## Final-round roots
-- strict replica fresh root: `outputs/milestones/MB_20260322_finalr2_strict`
-- baseline fresh root: `outputs/milestones/MB_20260322_finalr2_baseline`
-- stage smoke root: `outputs/milestones/STAGE_plot_runtime_smoke_20260322_finalr2_stage`
+- strict replica fresh root: `outputs/milestones/MB_20260322_finalr3_strict`
+- baseline fresh root: `outputs/milestones/MB_20260322_finalr3_baseline`
+- stage smoke root: `outputs/milestones/STAGE_plot_runtime_smoke_20260322_finalr3_stage`
 - delivery bundle: `outputs/milestones/MB_final_round_delivery`
+- canonical root manifest: `outputs/milestones/MB_final_round_delivery/MB_output_recommended_roots.csv`
+- inventory/index:
+  - `outputs/milestones/MB_final_round_delivery/MB_output_inventory.csv`
+  - `outputs/milestones/MB_final_round_delivery/MB_historical_output_map.csv`
 
 ## Paper vs diagnostic
 - primary paper-candidate pass-ratio figures should prefer `historyFull` first and `effectiveFullRange` second
@@ -31,3 +35,4 @@ This package is the final MB closure handoff for the MATLAB project.
 - Stage05/06 original core files were not modified
 - strict replica still matches the Stage05 reference with zero curve difference
 - plot-only / export-only changes remain separated from semantic cache invalidation
+- `historyFull` / `effectiveFullRange` / `frontierZoom` now have explicit metadata sidecars with domain-origin fields

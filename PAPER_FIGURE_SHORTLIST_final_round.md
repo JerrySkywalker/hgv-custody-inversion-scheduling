@@ -34,3 +34,6 @@
 - `historyFull` is the preferred global figure when the paper needs the full evolution from the original search-domain lower bound
 - `effectiveFullRange` is the effective-domain companion figure
 - `frontierZoom` is supplemental and must not replace the global trend figure
+- recommended figure/root lookup is centralized in:
+  - `outputs/milestones/MB_final_round_delivery/MB_recommended_figure_index.csv`
+  - `outputs/milestones/MB_final_round_delivery/MB_output_recommended_roots.csv`
