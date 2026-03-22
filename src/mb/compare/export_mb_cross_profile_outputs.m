@@ -97,16 +97,42 @@ for idx_ctx = 1:size(contexts, 1)
         pass_summary_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratioSummary_%s.csv', char(semantic_mode), context_tag));
         milestone_common_save_table(pass_table, pass_csv);
         milestone_common_save_table(pass_summary, pass_summary_csv);
-        fig_pass = plot_mb_cross_profile_passratio_overlay(pass_table, pass_summary, h_km, semantic_mode, family_name);
-        pass_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_fullRange_%s.png', char(semantic_mode), context_tag));
-        milestone_common_save_figure(fig_pass, pass_png);
-        pass_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_%s.png', char(semantic_mode), context_tag));
-        milestone_common_save_figure(fig_pass, pass_alias_png);
-        close(fig_pass);
+        search_domain = local_build_cross_profile_search_domain(context_runs, pass_table);
+        pass_windows = resolve_mb_passratio_plot_windows(pass_table, search_domain, struct('y_fields', "overlay_pass_ratio"));
+
+        fig_pass_history = plot_mb_cross_profile_passratio_overlay(pass_table, pass_summary, h_km, semantic_mode, family_name, struct( ...
+            'plot_xlim_ns', pass_windows.history_full, ...
+            'plot_domain_label', "history_full", ...
+            'subtitle_text', "Cross-profile envelope from the original search-history lower bound"));
+        pass_history_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_historyFull_%s.png', char(semantic_mode), context_tag));
+        milestone_common_save_figure(fig_pass_history, pass_history_png);
+        close(fig_pass_history);
+
+        fig_pass_effective = plot_mb_cross_profile_passratio_overlay(pass_table, pass_summary, h_km, semantic_mode, family_name, struct( ...
+            'plot_xlim_ns', pass_windows.effective_full_range, ...
+            'plot_domain_label', "effective_full_range", ...
+            'subtitle_text', "Cross-profile envelope over the final effective expanded domain"));
+        pass_effective_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_effectiveFullRange_%s.png', char(semantic_mode), context_tag));
+        milestone_common_save_figure(fig_pass_effective, pass_effective_png);
+        pass_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_fullRange_%s.png', char(semantic_mode), context_tag));
+        milestone_common_save_figure(fig_pass_effective, pass_alias_png);
+        legacy_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_%s.png', char(semantic_mode), context_tag));
+        milestone_common_save_figure(fig_pass_effective, legacy_alias_png);
+        close(fig_pass_effective);
+
+        fig_pass_zoom = plot_mb_cross_profile_passratio_overlay(pass_table, pass_summary, h_km, semantic_mode, family_name, struct( ...
+            'plot_xlim_ns', pass_windows.frontier_zoom, ...
+            'plot_domain_label', "frontier_zoom", ...
+            'subtitle_text', "Cross-profile envelope focused on the local frontier neighborhood"));
+        pass_zoom_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_frontierZoom_%s.png', char(semantic_mode), context_tag));
+        milestone_common_save_figure(fig_pass_zoom, pass_zoom_png);
+        close(fig_pass_zoom);
 
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratio_%s', char(semantic_mode), context_tag))) = string(pass_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioSummary_%s', char(semantic_mode), context_tag))) = string(pass_summary_csv);
-        artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratio_%s', char(semantic_mode), context_tag))) = string(pass_png);
+        artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioHistory_%s', char(semantic_mode), context_tag))) = string(pass_history_png);
+        artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioEffective_%s', char(semantic_mode), context_tag))) = string(pass_effective_png);
+        artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioZoom_%s', char(semantic_mode), context_tag))) = string(pass_zoom_png);
         summary_cursor = summary_cursor + 1;
         summary_chunks{summary_cursor, 1} = local_normalize_summary(pass_summary, "passratio_overlay"); %#ok<AGROW>
         grade_cursor = grade_cursor + 1;
@@ -240,18 +266,24 @@ for idx = 1:numel(context_runs)
     if ~plateau_reached
         note = "search domain may still be insufficient for full saturation";
     end
+    initial_range = local_getfield_or(context_runs(idx), 'initial_range', []);
+    history_ns_min = local_pick_initial(initial_range, 1);
+    if ~isfinite(history_ns_min)
+        history_ns_min = env.Ns(1);
+    end
     summary_cursor = summary_cursor + 1;
     summary_rows{summary_cursor, 1} = { ...
         string(semantic_mode), string(sensor_group), string(sensor_label), h_km, string(family_name), ...
-        env.Ns(1), env.Ns(end), env.overlay_pass_ratio(end), max(env.overlay_pass_ratio), plateau_reached, note}; %#ok<AGROW>
+        env.Ns(1), env.Ns(end), env.overlay_pass_ratio(end), max(env.overlay_pass_ratio), plateau_reached, note, ...
+        "effective_full_range", "effective_search_domain", history_ns_min, env.Ns(end)}; %#ok<AGROW>
 end
 
 overlay_table = local_cell_rows_to_table(rows, ...
     {'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'Ns', 'overlay_pass_ratio'}, ...
     {'string', 'string', 'string', 'double', 'string', 'double', 'double'});
 summary_table = local_cell_rows_to_table(summary_rows, ...
-    {'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'search_ns_min', 'search_ns_max', 'final_pass_ratio', 'peak_pass_ratio', 'right_plateau_reached', 'note'}, ...
-    {'string', 'string', 'string', 'double', 'string', 'double', 'double', 'double', 'double', 'logical', 'string'});
+    {'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name', 'search_ns_min', 'search_ns_max', 'final_pass_ratio', 'peak_pass_ratio', 'right_plateau_reached', 'note', 'plot_domain_mode', 'x_domain_origin', 'x_min_rendered', 'x_max_rendered'}, ...
+    {'string', 'string', 'string', 'double', 'string', 'double', 'double', 'double', 'double', 'logical', 'string', 'string', 'string', 'double', 'double'});
 summary_table = local_sort_sensor_groups(summary_table);
 overlay_table = local_sort_sensor_groups(overlay_table);
 end
@@ -388,7 +420,7 @@ contexts = sortrows(contexts, [1, 2]);
 end
 
 function context_runs = local_pick_runs(mode_runs, h_km, family_name)
-context_runs = struct('sensor_group', {}, 'sensor_label', {}, 'run', {});
+context_runs = struct('sensor_group', {}, 'sensor_label', {}, 'run', {}, 'initial_range', {});
 cursor = 0;
 for idx = 1:numel(mode_runs)
     wrapper = mode_runs(idx);
@@ -401,6 +433,8 @@ for idx = 1:numel(mode_runs)
         context_runs(cursor, 1).sensor_group = char(string(wrapper.run_output.sensor_group.name)); %#ok<AGROW>
         context_runs(cursor, 1).sensor_label = char(format_mb_sensor_group_label(wrapper.run_output.sensor_group, "short"));
         context_runs(cursor, 1).run = run;
+        context_runs(cursor, 1).initial_range = reshape(local_getfield_or(local_getfield_or(wrapper.run_output, 'options', struct()), 'Ns_initial_range', ...
+            local_getfield_or(local_getfield_or(local_getfield_or(wrapper.run_output, 'options', struct()), 'search_domain', struct()), 'Ns_initial_range', [])), 1, []);
         break;
     end
 end
@@ -416,6 +450,29 @@ family_names = string(contexts(:, 2));
 if numel(unique(family_names)) > 1
     tag = sprintf('%s_%s', tag, matlab.lang.makeValidName(char(string(family_name))));
 end
+end
+
+function search_domain = local_build_cross_profile_search_domain(context_runs, overlay_table)
+initial_candidates = [];
+effective_max_candidates = [];
+effective_min_candidates = [];
+for idx = 1:numel(context_runs)
+    run = context_runs(idx).run;
+    expansion_state = local_getfield_or(run, 'expansion_state', struct());
+    effective_domain = local_getfield_or(expansion_state, 'effective_search_domain', struct());
+    effective_min_candidates(end + 1) = local_getfield_or(effective_domain, 'ns_search_min', NaN); %#ok<AGROW>
+    effective_max_candidates(end + 1) = local_getfield_or(effective_domain, 'ns_search_max', NaN); %#ok<AGROW>
+    initial_range = reshape(local_getfield_or(context_runs(idx), 'initial_range', []), 1, []);
+    if numel(initial_range) >= 1 && isfinite(initial_range(1))
+        initial_candidates(end + 1) = initial_range(1); %#ok<AGROW>
+    end
+end
+search_domain = struct();
+search_domain.Ns_initial_range = [local_non_nan_min(initial_candidates), NaN, local_non_nan_max(effective_max_candidates)];
+search_domain.history_ns_min = local_non_nan_min(initial_candidates);
+search_domain.history_ns_max = local_non_nan_max(effective_max_candidates);
+search_domain.effective_ns_min = local_non_nan_min([effective_min_candidates, local_min_vector(overlay_table.Ns)]);
+search_domain.effective_ns_max = local_non_nan_max([effective_max_candidates, local_max_vector(overlay_table.Ns)]);
 end
 
 function groups = local_collect_sensor_groups(run_outputs, semantic_mode)
@@ -593,5 +650,49 @@ if b == 0
     value = 0;
 else
     value = a / b;
+end
+end
+
+function value = local_non_nan_min(values)
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = min(values);
+end
+end
+
+function value = local_non_nan_max(values)
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = max(values);
+end
+end
+
+function value = local_min_vector(values)
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = min(values);
+end
+end
+
+function value = local_max_vector(values)
+values = values(isfinite(values));
+if isempty(values)
+    value = NaN;
+else
+    value = max(values);
+end
+end
+
+function value = local_pick_initial(initial_range, idx_pick)
+if numel(initial_range) >= idx_pick && isfinite(initial_range(idx_pick))
+    value = initial_range(idx_pick);
+else
+    value = NaN;
 end
 end

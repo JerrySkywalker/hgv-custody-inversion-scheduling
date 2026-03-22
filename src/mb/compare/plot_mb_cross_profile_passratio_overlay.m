@@ -1,8 +1,11 @@
-function fig = plot_mb_cross_profile_passratio_overlay(overlay_table, summary_table, h_km, semantic_mode, family_name)
+function fig = plot_mb_cross_profile_passratio_overlay(overlay_table, summary_table, h_km, semantic_mode, family_name, options)
 %PLOT_MB_CROSS_PROFILE_PASSRATIO_OVERLAY Plot sensor-group overlays of pass-ratio envelopes.
 
 if nargin < 5 || strlength(string(family_name)) == 0
     family_name = "nominal";
+end
+if nargin < 6 || isempty(options)
+    options = struct();
 end
 
 fig = create_managed_figure(struct(), 'Color', 'w', 'Position', [140 140 1100 720]);
@@ -45,16 +48,20 @@ end
 xlabel(ax, 'total satellites N_s');
 ylabel(ax, 'max pass ratio over i');
 title(ax, sprintf('%s sensor-group pass-ratio overlay at h = %.0f km [%s]', char(string(semantic_mode)), h_km, char(string(family_name))));
-subtitle(ax, 'Each curve is the best-inclination envelope over the current search domain');
+subtitle(ax, char(local_getfield_or(options, 'subtitle_text', "Each curve is the best-inclination envelope over the current search domain")));
 grid(ax, 'on');
 box(ax, 'on');
 legend(ax, 'Location', 'eastoutside');
 set(ax, 'FontSize', 13);
 
 diagnostic = local_saturation_note(summary_table);
+plot_xlim = local_getfield_or(options, 'plot_xlim_ns', []);
+if isnumeric(plot_xlim) && numel(plot_xlim) == 2 && all(isfinite(plot_xlim))
+    xlim(ax, plot_xlim);
+end
 apply_mb_plot_domain_guardrail(ax, overlay_table.Ns, overlay_table.overlay_pass_ratio, struct( ...
     'ylim', [0, 1.05], ...
-    'plot_domain_source', "cross_profile_sensor_overlay", ...
+    'plot_domain_source', string(local_getfield_or(options, 'plot_domain_label', "cross_profile_sensor_overlay")), ...
     'domain_summary', char(diagnostic)));
 if strlength(diagnostic) > 0
     text(ax, 0.02, 0.88, char(diagnostic), 'Units', 'normalized', ...
@@ -78,5 +85,13 @@ end
 mask = ~summary_table.right_plateau_reached;
 if any(mask)
     note = "diag: overlay unsaturated";
+end
+end
+
+function value = local_getfield_or(S, field_name, fallback)
+if isstruct(S) && isfield(S, field_name)
+    value = S.(field_name);
+else
+    value = fallback;
 end
 end
