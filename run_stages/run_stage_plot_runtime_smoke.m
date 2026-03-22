@@ -19,7 +19,7 @@ cases = {
     struct('stage_name', "stage09_inverse_plot", 'mode', "visible", 'runner', @local_run_stage09_plot)
     };
 
-rows = cell(numel(cases), 7);
+detail_rows = cell(numel(cases), 8);
 for idx = 1:numel(cases)
     case_info = cases{idx};
     local_cfg = default_params();
@@ -60,23 +60,56 @@ for idx = 1:numel(cases)
         end
     end
 
-    rows(idx, :) = {case_info.stage_name, case_info.mode, success, popup_expected, ...
-        string(get(groot, 'DefaultFigureVisible')), string(export_probe), notes};
+    detail_rows(idx, :) = {case_info.stage_name, case_info.mode, success, popup_expected, ...
+        string(get(groot, 'DefaultFigureVisible')), string(export_probe), ...
+        local_detect_upstream_cache_missing(notes), local_extract_fail_reason(notes, success)};
+end
+
+detail = cell2table(detail_rows, 'VariableNames', { ...
+    'stage_name', 'mode', 'figure_export_success', 'popup_observed_expected', ...
+    'default_figure_visible', 'export_probe', 'upstream_cache_missing', 'fail_reason'});
+detail.figure_export_success = logical(detail.figure_export_success);
+detail.popup_observed_expected = logical(detail.popup_observed_expected);
+detail.stage_name = string(detail.stage_name);
+detail.mode = string(detail.mode);
+detail.default_figure_visible = string(detail.default_figure_visible);
+detail.export_probe = string(detail.export_probe);
+detail.upstream_cache_missing = logical(detail.upstream_cache_missing);
+detail.fail_reason = string(detail.fail_reason);
+
+stage_names = unique(detail.stage_name, 'stable');
+rows = cell(numel(stage_names), 7);
+for idx = 1:numel(stage_names)
+    stage_name = stage_names(idx);
+    stage_rows = detail(detail.stage_name == stage_name, :);
+    headless_rows = stage_rows(stage_rows.mode == "headless", :);
+    visible_rows = stage_rows(stage_rows.mode == "visible", :);
+    headless_pass = ~isempty(headless_rows) && all(headless_rows.figure_export_success);
+    visible_pass = ~isempty(visible_rows) && all(visible_rows.figure_export_success);
+    export_pass = any(stage_rows.figure_export_success);
+    upstream_cache_missing = any(stage_rows.upstream_cache_missing);
+    fail_reason = strjoin(unique(stage_rows.fail_reason(stage_rows.fail_reason ~= "")), " || ");
+    notes = "headless=" + string(headless_pass) + ...
+        ", visible=" + string(visible_pass) + ...
+        ", probes=" + strjoin(unique(stage_rows.export_probe(stage_rows.export_probe ~= "")), " | ");
+    rows(idx, :) = {stage_name, headless_pass, visible_pass, export_pass, upstream_cache_missing, fail_reason, notes};
 end
 
 summary = cell2table(rows, 'VariableNames', { ...
-    'stage_name', 'mode', 'figure_export_success', 'popup_observed_expected', ...
-    'default_figure_visible', 'export_probe', 'notes'});
-summary.figure_export_success = logical(summary.figure_export_success);
-summary.popup_observed_expected = logical(summary.popup_observed_expected);
+    'stage_name', 'headless_pass', 'visible_pass', 'export_pass', ...
+    'upstream_cache_missing', 'fail_reason', 'notes'});
 summary.stage_name = string(summary.stage_name);
-summary.mode = string(summary.mode);
-summary.default_figure_visible = string(summary.default_figure_visible);
-summary.export_probe = string(summary.export_probe);
+summary.headless_pass = logical(summary.headless_pass);
+summary.visible_pass = logical(summary.visible_pass);
+summary.export_pass = logical(summary.export_pass);
+summary.upstream_cache_missing = logical(summary.upstream_cache_missing);
+summary.fail_reason = string(summary.fail_reason);
 summary.notes = string(summary.notes);
 
 summary_csv = fullfile(tab_dir, 'STAGE_headless_smoke_summary.csv');
 writetable(summary, summary_csv);
+detail_csv = fullfile(tab_dir, 'STAGE_headless_smoke_detail.csv');
+writetable(detail, detail_csv);
 fprintf('[run_stages] Stage plot runtime smoke summary saved to %s\n', summary_csv);
 end
 
@@ -124,5 +157,28 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function tf = local_detect_upstream_cache_missing(notes)
+note_text = lower(char(string(notes)));
+tf = contains(note_text, 'no cache matched patterns') || ...
+    contains(note_text, 'stage08.5') || contains(note_text, 'cache');
+end
+
+function fail_reason = local_extract_fail_reason(notes, success)
+if success
+    fail_reason = "";
+    return;
+end
+note_text = string(notes);
+if contains(lower(note_text), 'stage08.5')
+    fail_reason = "missing_stage08_5_cache";
+elseif contains(lower(note_text), 'no cache matched patterns')
+    fail_reason = "missing_upstream_cache";
+elseif contains(lower(note_text), 'bootstrap_failed')
+    fail_reason = "bootstrap_failed";
+else
+    fail_reason = note_text;
 end
 end
