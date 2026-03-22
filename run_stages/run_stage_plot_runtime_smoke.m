@@ -92,6 +92,7 @@ for idx = 1:numel(stage_names)
     notes = "headless=" + string(headless_pass) + ...
         ", visible=" + string(visible_pass) + ...
         ", probes=" + strjoin(unique(stage_rows.export_probe(stage_rows.export_probe ~= "")), " | ");
+    notes = local_build_stage_notes(stage_name, headless_pass, visible_pass, export_pass, upstream_cache_missing, fail_reason, stage_rows);
     rows(idx, :) = {stage_name, headless_pass, visible_pass, export_pass, upstream_cache_missing, fail_reason, notes};
 end
 
@@ -178,7 +179,32 @@ elseif contains(lower(note_text), 'no cache matched patterns')
     fail_reason = "missing_upstream_cache";
 elseif contains(lower(note_text), 'bootstrap_failed')
     fail_reason = "bootstrap_failed";
+elseif contains(lower(note_text), 'iostream stream error') || contains(lower(note_text), 'badbit')
+    fail_reason = "batch_visible_output_stream_instability";
 else
     fail_reason = note_text;
+end
+end
+
+function notes = local_build_stage_notes(stage_name, headless_pass, visible_pass, export_pass, upstream_cache_missing, fail_reason, stage_rows)
+probes = strjoin(unique(stage_rows.export_probe(stage_rows.export_probe ~= "")), " | ");
+notes = "headless=" + string(headless_pass) + ", visible=" + string(visible_pass);
+if export_pass
+    notes = notes + ", export_verified=1";
+else
+    notes = notes + ", export_verified=0";
+end
+if strlength(probes) > 0
+    notes = notes + ", probes=" + probes;
+end
+if upstream_cache_missing
+    notes = notes + ", mechanism_configured=1, blocked_by_upstream_cache=1";
+elseif fail_reason == "batch_visible_output_stream_instability"
+    notes = notes + ", mechanism_configured=1, visible_batch_gui_unstable=1";
+elseif export_pass
+    notes = notes + ", mechanism_configured=1";
+end
+if stage_name == "stage09_inverse_plot" && ~upstream_cache_missing && ~export_pass
+    notes = notes + ", plot_runtime_hooked_but_plot_chain_unverified=1";
 end
 end
