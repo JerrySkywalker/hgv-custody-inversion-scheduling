@@ -89,6 +89,10 @@ result.summary = struct( ...
     'baseline_validation_only', isequal(resolved_sensor_groups, {'baseline'}));
 
 if logical(local_getfield_or(meta, 'dry_run', false))
+    search_domain_audit = build_mb_search_domain_audit_table(meta, repmat(struct(), 0, 1));
+    search_domain_audit_csv = fullfile(paths.tables, 'mb_search_domain_audit.csv');
+    milestone_common_save_table(search_domain_audit, search_domain_audit_csv);
+    result.tables.search_domain_audit = string(search_domain_audit_csv);
     result.summary.execution_status = "dry-run";
     files = milestone_common_export_summary(result, paths);
     result.artifacts.summary_report = files.report_md;
@@ -202,6 +206,10 @@ end
 if isfield(metadata_artifacts, 'autotune_csv') && strlength(metadata_artifacts.autotune_csv) > 0
     result.tables.autotune_summary = metadata_artifacts.autotune_csv;
 end
+search_domain_audit = build_mb_search_domain_audit_table(meta, run_outputs);
+search_domain_audit_csv = fullfile(paths.tables, 'mb_search_domain_audit.csv');
+milestone_common_save_table(search_domain_audit, search_domain_audit_csv);
+result.tables.search_domain_audit = string(search_domain_audit_csv);
 result.summary.output_metadata_manifest_rows = local_getfield_or(metadata_artifacts, 'manifest_row_count', 0);
 
 files = milestone_common_export_summary(result, paths);
