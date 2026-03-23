@@ -81,12 +81,14 @@ scene_best_table = local_vertcat_tables(all_scene_best_rows);
 scene_agg_table = local_vertcat_tables(all_agg_rows);
 scene_case_table = local_vertcat_tables(case_rows);
 scene_agg_table = mb_vgeom_make_envelope(scene_agg_table, cfg_run.vgeom);
+scene_audit_table = local_build_case_audit(scene_case_table, scene_best_table, scene_agg_table, cfg_run.vgeom);
 fprintf('[MB][vgeom] assembled case_count=%d scene_best_rows=%d scene_eval_rows=%d\n', ...
     height(scene_case_table), height(scene_best_table), height(scene_design_eval_table));
 
 scene_best_csv = fullfile(paths.tables, 'MB_vgeom_scene_best_table.csv');
 scene_agg_csv = fullfile(paths.tables, 'MB_vgeom_scene_agg_table.csv');
 scene_case_csv = fullfile(paths.tables, 'MB_vgeom_case_manifest.csv');
+scene_audit_csv = fullfile(paths.tables, 'MB_vgeom_case_audit.csv');
 closure_csv = fullfile(paths.tables, 'MB_vgeom_closure_summary.csv');
 if cfg_run.vgeom.save_scene_eval_table
     scene_eval_csv = fullfile(paths.tables, 'MB_vgeom_scene_design_eval_table.csv');
@@ -97,6 +99,7 @@ end
 milestone_common_save_table(scene_best_table, scene_best_csv);
 milestone_common_save_table(scene_agg_table, scene_agg_csv);
 milestone_common_save_table(scene_case_table, scene_case_csv);
+milestone_common_save_table(scene_audit_table, scene_audit_csv);
 
 fprintf('[MB][vgeom] plotting_bundle_start\n');
 figure_map = mb_vgeom_plot_bundle(scene_best_table, scene_agg_table, paths, cfg_run.vgeom);
@@ -116,11 +119,12 @@ closure_summary = table( ...
     cfg_run.vgeom.raan_bins, ...
     cfg_run.vgeom.phase_bins, ...
     string(source_summary_mat), ...
+    string(scene_audit_csv), ...
     string(summary_md), ...
     "pass", ...
     'VariableNames', {'height_km', 'sensor_group', 'semantic_count', 'case_count', 'scene_best_row_count', ...
     'scene_eval_row_count', 'use_fundamental_domain', 'reuse_design_pool', 'raan_bins', 'phase_bins', ...
-    'source_summary_mat', 'summary_markdown', 'final_status'});
+    'source_summary_mat', 'case_audit_csv', 'summary_markdown', 'final_status'});
 milestone_common_save_table(closure_summary, closure_csv);
 
 result = struct();
@@ -131,6 +135,7 @@ result.tables = struct( ...
     'scene_best_table', string(scene_best_csv), ...
     'scene_agg_table', string(scene_agg_csv), ...
     'scene_case_table', string(scene_case_csv), ...
+    'scene_audit_table', string(scene_audit_csv), ...
     'scene_design_eval_table', string(scene_eval_csv), ...
     'closure_summary', string(closure_csv));
 result.figures = figure_map;
@@ -280,6 +285,56 @@ if isstruct(S) && isfield(S, field_name)
 else
     value = fallback;
 end
+end
+
+function audit_table = local_build_case_audit(scene_case_table, scene_best_table, scene_agg_table, cfg_vgeom)
+if isempty(scene_case_table)
+    audit_table = table();
+    return;
+end
+
+row_bank = cell(height(scene_case_table), 1);
+expected_scene_count = double(local_getfield_or(cfg_vgeom, 'raan_bins', 6)) * double(local_getfield_or(cfg_vgeom, 'phase_bins', 6));
+for idx = 1:height(scene_case_table)
+    row_case = scene_case_table(idx, :);
+    mask_best = string(scene_best_table.semantic) == string(row_case.semantic) & ...
+        abs(double(scene_best_table.inclination_deg) - double(row_case.inclination_deg)) < 1e-9 & ...
+        abs(double(scene_best_table.Ns) - double(row_case.Ns)) < 1e-9;
+    sub_best = scene_best_table(mask_best, :);
+    mask_agg = string(scene_agg_table.semantic) == string(row_case.semantic) & ...
+        abs(double(scene_agg_table.inclination_deg) - double(row_case.inclination_deg)) < 1e-9 & ...
+        abs(double(scene_agg_table.Ns) - double(row_case.Ns)) < 1e-9;
+    sub_agg = scene_agg_table(mask_agg, :);
+
+    row = struct();
+    row.height_km = 1000;
+    row.inclination_deg = double(row_case.inclination_deg);
+    row.Ns = double(row_case.Ns);
+    row.semantic = string(row_case.semantic);
+    row.design_count = double(row_case.design_count);
+    row.scene_count_expected = expected_scene_count;
+    row.scene_count_actual = height(sub_best);
+    row.design_pool_reused = logical(local_getfield_or(cfg_vgeom, 'reuse_design_pool', true));
+    row.use_fundamental_domain = logical(local_getfield_or(cfg_vgeom, 'use_fundamental_domain', true));
+    row.raan_bins = double(local_getfield_or(cfg_vgeom, 'raan_bins', 6));
+    row.phase_bins = double(local_getfield_or(cfg_vgeom, 'phase_bins', 6));
+    if isempty(sub_best)
+        row.raan_fundamental_deg_min = NaN;
+        row.raan_fundamental_deg_max = NaN;
+        row.best_num_planes_min = NaN;
+        row.best_num_planes_max = NaN;
+    else
+        row.raan_fundamental_deg_min = min(double(sub_best.raan_fundamental_deg), [], 'omitnan');
+        row.raan_fundamental_deg_max = max(double(sub_best.raan_fundamental_deg), [], 'omitnan');
+        row.best_num_planes_min = min(double(sub_best.best_num_planes), [], 'omitnan');
+        row.best_num_planes_max = max(double(sub_best.best_num_planes), [], 'omitnan');
+    end
+    agg_ok = ~isempty(sub_agg) && abs(double(sub_agg.num_scenes(1)) - height(sub_best)) < 1e-9;
+    row.case_pass = row.design_count > 0 && height(sub_best) == expected_scene_count && agg_ok;
+    row_bank{idx} = struct2table(row, 'AsArray', true);
+end
+
+audit_table = vertcat(row_bank{:});
 end
 
 function values = local_normalize_string_list(values_in)
