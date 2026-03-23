@@ -22,6 +22,7 @@ else
 end
 cfg.milestones.MB_semantic_compare.resolved_search_profile = string(resolved_profile.name);
 cfg.milestones.MB_semantic_compare.resolved_search_profile_description = string(resolved_profile.description);
+cfg = local_apply_force_rebuild_cache_policy(cfg);
 meta = cfg.milestones.MB_semantic_compare;
 paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
 paths.summary_report = fullfile(paths.tables, 'MB_run_manifest.md');
@@ -88,6 +89,7 @@ result.summary = struct( ...
     'run_dense_local', logical(local_getfield_or(meta, 'run_dense_local', false)), ...
     'baseline_validation_only', isequal(resolved_sensor_groups, {'baseline'}), ...
     'force_fresh', logical(local_getfield_or(meta, 'force_fresh', false)), ...
+    'force_rebuild_all_cache', logical(local_getfield_or(meta, 'force_rebuild_all_cache', false)), ...
     'regenerate_all_cache', logical(local_getfield_or(meta, 'regenerate_all_cache', false)), ...
     'regenerate_all_export', logical(local_getfield_or(meta, 'regenerate_all_export', false)), ...
     'runtime_profile_name', string(local_getfield_or(meta, 'runtime_profile_name', local_getfield_or(meta, 'resolved_search_profile', ""))));
@@ -885,6 +887,7 @@ allowed = { ...
     'stage05_replica', ...
     'run_dense_local', ...
     'force_fresh', ...
+    'force_rebuild_all_cache', ...
     'regenerate_all_cache', ...
     'regenerate_all_export', ...
     'runtime_profile_name', ...
@@ -897,6 +900,33 @@ for idx = 1:numel(allowed)
         overrides.(field_name) = meta.(field_name);
     end
 end
+end
+
+function cfg = local_apply_force_rebuild_cache_policy(cfg)
+meta = cfg.milestones.MB_semantic_compare;
+if ~logical(local_getfield_or(meta, 'force_rebuild_all_cache', false))
+    return;
+end
+
+cfg.runtime.force_fresh = true;
+cfg.runtime.regenerate_all_cache = true;
+cfg.runtime.regenerate_all_export = true;
+cfg.cache.force_fresh = true;
+cfg.cache.reuse_semantic = false;
+cfg.cache.reuse_plot = false;
+cfg.cache.rebuild_all = true;
+
+cfg.milestones.MB_semantic_compare.force_fresh = true;
+cfg.milestones.MB_semantic_compare.regenerate_all_cache = true;
+cfg.milestones.MB_semantic_compare.regenerate_all_export = true;
+cfg.milestones.MB_semantic_compare.cache_policy = 'force_fresh';
+cfg.milestones.MB_semantic_compare.cache_profile.force_fresh = true;
+cfg.milestones.MB_semantic_compare.cache_profile.rebuild_all = true;
+cfg.milestones.MB_semantic_compare.cache_profile.reuse_semantic = false;
+cfg.milestones.MB_semantic_compare.cache_profile.reuse_plot = false;
+cfg.milestones.MB_semantic_compare.cache_profile.reuse_semantic_eval = false;
+cfg.milestones.MB_semantic_compare.cache_profile.reuse_plotting = false;
+cfg.milestones.MB_semantic_compare.cache_profile.reuse_tune_cache = false;
 end
 
 function cfg = local_refresh_domain_state(cfg, resolved_profile)
