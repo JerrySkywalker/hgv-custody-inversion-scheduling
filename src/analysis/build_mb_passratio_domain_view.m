@@ -8,7 +8,7 @@ if nargin < 3 || isempty(options)
     options = struct();
 end
 
-domain_view = string(local_getfield_or(options, 'domain_view', "effective_full_range"));
+domain_view = local_normalize_domain_view(local_getfield_or(options, 'domain_view', "effective_full_range"));
 ns_field = char(string(local_getfield_or(options, 'ns_field', 'Ns')));
 group_fields = cellstr(string(local_getfield_or(options, 'group_fields', {})));
 value_fields = cellstr(string(local_getfield_or(options, 'value_fields', {})));
@@ -86,11 +86,11 @@ switch domain_view
         [view_table, view_meta] = local_build_frontier_zoom_view( ...
             source_table, raw_eval_table, effective_dense_table, search_domain, ns_field, group_fields, recompute_mode, ...
             [effective_ns_min, effective_ns_max], plot_window, ns_step, options, view_meta, zoom_policy);
-    case "global_full_dense"
+    case "global_full_replay"
         global_policy = resolve_mb_plot_data_policy(runtime_cfg, struct( ...
             'plot_mode_profile', plot_mode_profile, ...
-            'passratio_mode', "globalFullDense"));
-        [view_table, view_meta] = local_build_global_full_dense_view( ...
+            'passratio_mode', "globalFullReplay"));
+        [view_table, view_meta] = local_build_global_full_replay_view( ...
             source_table, raw_eval_table, search_domain, ns_field, group_fields, recompute_mode, ...
             initial_ns_min, final_ns_max, ns_step, options, view_meta, global_policy);
     otherwise
@@ -228,7 +228,7 @@ else
 end
 end
 
-function [view_table, view_meta] = local_build_global_full_dense_view(source_table, raw_eval_table, search_domain, ns_field, group_fields, recompute_mode, initial_ns_min, final_ns_max, ns_step, options, view_meta, policy)
+function [view_table, view_meta] = local_build_global_full_replay_view(source_table, raw_eval_table, search_domain, ns_field, group_fields, recompute_mode, initial_ns_min, final_ns_max, ns_step, options, view_meta, policy)
 grid_options = struct( ...
     'initial_ns_min', initial_ns_min, ...
     'final_ns_max', final_ns_max, ...
@@ -251,10 +251,10 @@ dense_options = struct( ...
 view_table = local_apply_recompute_mode(view_table, recompute_mode);
 view_table = local_sort_view_table(view_table, group_fields, ns_field);
 view_meta = local_apply_dense_meta(view_meta, dense_meta, policy);
-view_meta.domain_view = "global_full_dense";
-view_meta.view_table_min_ns = local_min_or_nan(local_get_column(view_table, ns_field));
-view_meta.view_table_max_ns = local_max_or_nan(local_get_column(view_table, ns_field));
-view_meta.history_padding_applied = false;
+    view_meta.domain_view = "global_full_replay";
+    view_meta.view_table_min_ns = local_min_or_nan(local_get_column(view_table, ns_field));
+    view_meta.view_table_max_ns = local_max_or_nan(local_get_column(view_table, ns_field));
+    view_meta.history_padding_applied = false;
 view_meta.pass_fail = logical(local_getfield_or(dense_meta, 'pass_fail', false));
 if view_meta.pass_fail
     view_meta.root_cause_tag = "correct";
@@ -584,6 +584,23 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function domain_view = local_normalize_domain_view(domain_view)
+domain_view = string(domain_view);
+switch lower(strrep(strrep(char(domain_view), '-', '_'), ' ', '_'))
+    case {'history_full', 'history'}
+        domain_view = "history_full";
+    case {'effective_full_range', 'effective', 'effective_range'}
+        domain_view = "effective_full_range";
+    case {'frontier_zoom', 'zoom'}
+        domain_view = "frontier_zoom";
+    case {'global_full_replay', 'global_replay', 'global_full_dense', 'global_dense'}
+        domain_view = "global_full_replay";
+    otherwise
+        error('build_mb_passratio_domain_view:InvalidDomainView', ...
+            'Unsupported domain_view: %s', char(domain_view));
 end
 end
 

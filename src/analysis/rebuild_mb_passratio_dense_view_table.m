@@ -35,6 +35,7 @@ rebuild_meta = struct( ...
     'target_ns_count', 0, ...
     'num_unique_ns_plotted', 0, ...
     'num_nonzero_rows', 0, ...
+    'base_grid_step', NaN, ...
     'missing_target_row_count', 0, ...
     'pass_fail', false);
 
@@ -53,6 +54,7 @@ rebuild_meta.target_ns_count = numel(target_ns_grid);
 rebuild_meta.dense_grid_min_ns = rebuild_meta.target_ns_min;
 rebuild_meta.dense_grid_max_ns = rebuild_meta.target_ns_max;
 rebuild_meta.dense_grid_step = local_min_spacing(target_ns_grid);
+rebuild_meta.base_grid_step = rebuild_meta.dense_grid_step;
 
 if ~isempty(raw_eval_table)
     rebuild_meta.source_table_kind = "raw_eval_table_dense_rebuild";
@@ -86,7 +88,7 @@ row_chunks = cell(height(group_rows), 1);
 missing_rows = 0;
 for idx_group = 1:height(group_rows)
     group_row = group_rows(idx_group, :);
-    row_chunks{idx_group} = local_build_group_dense_rows(source_table, raw_eval_table, group_row, group_fields, target_ns_grid, ns_field, output_value_field, raw_value_field);
+    row_chunks{idx_group} = local_build_group_dense_rows(source_table, raw_eval_table, group_row, group_fields, target_ns_grid, ns_field, output_value_field, raw_value_field, rebuild_scope, rebuild_meta.dense_grid_step);
     missing_rows = missing_rows + sum(~logical(local_pick_column(row_chunks{idx_group}, 'point_evaluated', false)));
 end
 
@@ -107,24 +109,24 @@ rebuild_meta.num_nonzero_rows = sum(isfinite(value_column) & abs(value_column) >
 rebuild_meta.pass_fail = ~isempty(dense_table) && any(isfinite(value_column));
 end
 
-function group_table = local_build_group_dense_rows(source_table, raw_eval_table, group_row, group_fields, target_ns_grid, ns_field, output_value_field, raw_value_field)
+function group_table = local_build_group_dense_rows(source_table, raw_eval_table, group_row, group_fields, target_ns_grid, ns_field, output_value_field, raw_value_field, rebuild_scope, dense_grid_step)
 row_count = numel(target_ns_grid);
-base_fields = [group_fields, {ns_field, output_value_field, 'num_feasible', 'num_total', 'point_evaluated', 'dense_rebuild_missing'}];
+base_fields = [group_fields, {ns_field, output_value_field, 'num_feasible', 'num_total', 'point_evaluated', 'dense_rebuild_missing', 'is_defined', 'is_evaluated', 'is_interpolated', 'is_replayed', 'source_kind', 'base_grid_step'}];
 rows = cell(row_count, numel(base_fields));
 source_sub = local_filter_group_rows(source_table, group_row, group_fields);
 raw_sub = local_filter_group_rows(raw_eval_table, group_row, group_fields);
 
 for idx = 1:row_count
     ns_value = target_ns_grid(idx);
-    rows(idx, :) = local_build_dense_row(source_sub, raw_sub, group_row, group_fields, ns_field, ns_value, output_value_field, raw_value_field);
+    rows(idx, :) = local_build_dense_row(source_sub, raw_sub, group_row, group_fields, ns_field, ns_value, output_value_field, raw_value_field, rebuild_scope, dense_grid_step);
 end
 
 group_table = cell2table(rows, 'VariableNames', base_fields);
 group_table = local_cast_dense_table(group_table);
 end
 
-function row = local_build_dense_row(source_sub, raw_sub, group_row, group_fields, ns_field, ns_value, output_value_field, raw_value_field)
-row = cell(1, numel(group_fields) + 6);
+function row = local_build_dense_row(source_sub, raw_sub, group_row, group_fields, ns_field, ns_value, output_value_field, raw_value_field, rebuild_scope, dense_grid_step)
+row = cell(1, numel(group_fields) + 12);
 cursor = 0;
 for idx = 1:numel(group_fields)
     cursor = cursor + 1;
@@ -143,24 +145,44 @@ if isempty(raw_hit) && ~isempty(source_sub) && ismember(ns_field, source_sub.Pro
 end
 
 if ~isempty(raw_hit) && ismember(raw_value_field, raw_hit.Properties.VariableNames)
-    row{cursor + 1} = max(raw_hit.(raw_value_field), [], 'omitnan');
-    row{cursor + 2} = local_sum_feasible(raw_hit);
-    row{cursor + 3} = height(raw_hit);
-    row{cursor + 4} = true;
-    row{cursor + 5} = false;
-elseif ~isempty(source_hit)
-    row{cursor + 1} = local_pick_numeric(source_hit, output_value_field, NaN);
-    row{cursor + 2} = local_pick_numeric(source_hit, 'num_feasible', NaN);
-    row{cursor + 3} = local_pick_numeric(source_hit, 'num_total', NaN);
-    row{cursor + 4} = true;
-    row{cursor + 5} = false;
-else
-    row{cursor + 1} = NaN;
-    row{cursor + 2} = 0;
-    row{cursor + 3} = 0;
-    row{cursor + 4} = false;
-    row{cursor + 5} = true;
-end
+        pass_ratio_value = max(raw_hit.(raw_value_field), [], 'omitnan');
+        row{cursor + 1} = pass_ratio_value;
+        row{cursor + 2} = local_sum_feasible(raw_hit);
+        row{cursor + 3} = height(raw_hit);
+        row{cursor + 4} = true;
+        row{cursor + 5} = false;
+        row{cursor + 6} = isfinite(pass_ratio_value);
+        row{cursor + 7} = true;
+        row{cursor + 8} = false;
+        row{cursor + 9} = rebuild_scope == "global_full";
+        row{cursor + 10} = "raw_eval";
+        row{cursor + 11} = dense_grid_step;
+    elseif ~isempty(source_hit)
+        pass_ratio_value = local_pick_numeric(source_hit, output_value_field, NaN);
+        row{cursor + 1} = pass_ratio_value;
+        row{cursor + 2} = local_pick_numeric(source_hit, 'num_feasible', NaN);
+        row{cursor + 3} = local_pick_numeric(source_hit, 'num_total', NaN);
+        row{cursor + 4} = true;
+        row{cursor + 5} = false;
+        row{cursor + 6} = isfinite(pass_ratio_value);
+        row{cursor + 7} = true;
+        row{cursor + 8} = false;
+        row{cursor + 9} = rebuild_scope == "global_full";
+        row{cursor + 10} = "aggregated_real";
+        row{cursor + 11} = dense_grid_step;
+    else
+        row{cursor + 1} = NaN;
+        row{cursor + 2} = 0;
+        row{cursor + 3} = 0;
+        row{cursor + 4} = false;
+        row{cursor + 5} = true;
+        row{cursor + 6} = false;
+        row{cursor + 7} = false;
+        row{cursor + 8} = false;
+        row{cursor + 9} = rebuild_scope == "global_full";
+        row{cursor + 10} = "missing_target";
+        row{cursor + 11} = dense_grid_step;
+    end
 end
 
 function value = local_sum_feasible(T)
@@ -195,8 +217,9 @@ end
 end
 
 function T = local_cast_dense_table(T)
-string_fields = {};
+string_fields = {'source_kind'};
 logical_fields = {'point_evaluated', 'dense_rebuild_missing'};
+logical_fields = [logical_fields, {'is_defined', 'is_evaluated', 'is_interpolated', 'is_replayed'}];
 for idx = 1:numel(T.Properties.VariableNames)
     field_name = T.Properties.VariableNames{idx};
     column = T.(field_name);
