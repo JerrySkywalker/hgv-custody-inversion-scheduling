@@ -54,12 +54,33 @@ extra_fields.actual_rendered_xlim_max = double(local_pick_x(actual_xlim, 2));
 extra_fields.expected_domain_behavior = string(local_getfield_or(spec, 'expected_domain_behavior', ""));
 extra_fields.actual_domain_behavior = string(local_getfield_or(spec, 'actual_domain_behavior', ""));
 extra_fields.root_cause_tag = string(local_getfield_or(view_meta, 'root_cause_tag', "correct"));
+extra_fields.source_table_kind = string(local_getfield_or(view_meta, 'source_table_kind', ""));
+extra_fields.dense_rebuild_used = logical(local_getfield_or(view_meta, 'dense_rebuild_used', false));
+extra_fields.inherited_from_effective_dense = logical(local_getfield_or(view_meta, 'inherited_from_effective_dense', false));
+extra_fields.zero_padding_used = logical(local_getfield_or(view_meta, 'zero_padding_used', logical(local_getfield_or(view_meta, 'history_padding_applied', false))));
+extra_fields.sparse_projection_used = logical(local_getfield_or(view_meta, 'sparse_projection_used', false));
+extra_fields.num_unique_ns_plotted = double(local_getfield_or(view_meta, 'num_unique_ns_plotted', numel(unique(local_getfield_or(source_table, 'Ns', [])))));
+extra_fields.num_nonzero_rows = double(local_getfield_or(view_meta, 'num_nonzero_rows', local_count_nonzero_rows(source_table)));
 extra_fields.plot_primary_mode = string(local_getfield_or(spec, 'primary_plot_mode', ""));
 extra_fields.canonical_primary_mode = string(local_getfield_or(spec, 'canonical_primary_mode', ""));
 extra_fields.current_plot_mode = string(local_getfield_or(spec, 'current_mode', ""));
 extra_fields.is_primary_mode = logical(local_getfield_or(spec, 'is_primary_selection', false));
 extra_fields.is_canonical_selection = logical(local_getfield_or(spec, 'is_canonical_selection', false));
 extra_fields.canonical_figure_file = string(local_getfield_or(spec, 'canonical_figure_file', ""));
+end
+
+function count = local_count_nonzero_rows(T)
+count = 0;
+if ~istable(T)
+    return;
+end
+for field_name = ["max_pass_ratio", "overlay_pass_ratio", "max_pass_ratio_legacyDG", "max_pass_ratio_closedD"]
+    if ismember(field_name, string(T.Properties.VariableNames))
+        values = T.(char(field_name));
+        count = sum(isfinite(values) & abs(values) > 0);
+        return;
+    end
+end
 end
 
 function value = local_pick_x(xlim_values, idx_pick)

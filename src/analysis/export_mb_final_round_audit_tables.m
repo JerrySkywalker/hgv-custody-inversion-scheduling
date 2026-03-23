@@ -11,33 +11,125 @@ tables_dir = fullfile(baseline_root, 'tables');
 cfg = milestone_common_defaults();
 
 passratio_audit = local_build_passratio_plot_domain_audit_summary(figures_dir, tables_dir, cfg);
+passratio_source_audit = local_build_passratio_source_semantics_audit_summary(figures_dir, tables_dir);
 history_padding = local_build_passratio_history_padding_summary(tables_dir);
 heatmap_audit = local_build_heatmap_render_mode_audit_summary(figures_dir);
+heatmap_source_audit = local_build_heatmap_source_semantics_audit_summary(figures_dir);
 root_cause_audit = local_build_plot_domain_root_cause_audit_summary(passratio_audit, heatmap_audit);
 cache_semantics = local_build_plot_cache_domain_semantics_audit(passratio_audit, heatmap_audit);
 consistency_audit = local_build_semantic_domain_consistency_summary(passratio_audit);
 
 passratio_csv = fullfile(tables_dir, 'passratio_plot_domain_audit_summary.csv');
+passratio_source_csv = fullfile(tables_dir, 'passratio_source_semantics_audit_summary.csv');
 padding_csv = fullfile(tables_dir, 'passratio_history_padding_summary.csv');
 heatmap_csv = fullfile(tables_dir, 'heatmap_render_mode_audit_summary.csv');
+heatmap_source_csv = fullfile(tables_dir, 'heatmap_source_semantics_audit_summary.csv');
 root_cause_csv = fullfile(tables_dir, 'plot_domain_root_cause_audit_summary.csv');
 cache_csv = fullfile(tables_dir, 'plot_cache_domain_semantics_audit.csv');
 consistency_csv = fullfile(tables_dir, 'semantic_domain_consistency_summary.csv');
 
 milestone_common_save_table(passratio_audit, passratio_csv);
+milestone_common_save_table(passratio_source_audit, passratio_source_csv);
 milestone_common_save_table(history_padding, padding_csv);
 milestone_common_save_table(heatmap_audit, heatmap_csv);
+milestone_common_save_table(heatmap_source_audit, heatmap_source_csv);
 milestone_common_save_table(root_cause_audit, root_cause_csv);
 milestone_common_save_table(cache_semantics, cache_csv);
 milestone_common_save_table(consistency_audit, consistency_csv);
 
 artifacts = struct();
 artifacts.passratio_plot_domain_audit_csv = string(passratio_csv);
+artifacts.passratio_source_semantics_audit_csv = string(passratio_source_csv);
 artifacts.passratio_history_padding_csv = string(padding_csv);
 artifacts.heatmap_render_mode_audit_csv = string(heatmap_csv);
+artifacts.heatmap_source_semantics_audit_csv = string(heatmap_source_csv);
 artifacts.plot_domain_root_cause_audit_csv = string(root_cause_csv);
 artifacts.plot_cache_domain_semantics_audit_csv = string(cache_csv);
 artifacts.semantic_domain_consistency_csv = string(consistency_csv);
+end
+
+function T = local_build_passratio_source_semantics_audit_summary(figures_dir, tables_dir)
+files = dir(fullfile(figures_dir, '*passratio*.png'));
+rows = cell(0, 1);
+for idx = 1:numel(files)
+    figure_name = string(files(idx).name);
+    meta = local_read_sidecar(fullfile(files(idx).folder, files(idx).name));
+    mode_name = string(local_getfield_or(meta, 'current_plot_mode', local_infer_passratio_mode(figure_name)));
+    if ~ismember(mode_name, ["historyFull", "effectiveFullRange", "frontierZoom"])
+        continue;
+    end
+    source_table = local_resolve_source_table(meta, tables_dir, figure_name);
+    source_kind = string(local_getfield_or(meta, 'source_table_kind', ""));
+    dense_rebuild_used = logical(local_getfield_or(meta, 'dense_rebuild_used', false));
+    inherited_from_effective_dense = logical(local_getfield_or(meta, 'inherited_from_effective_dense', false));
+    zero_padding_used = logical(local_getfield_or(meta, 'zero_padding_used', false));
+    sparse_projection_used = logical(local_getfield_or(meta, 'sparse_projection_used', false));
+    [ns_min_plotted, ns_max_plotted, num_unique_ns_plotted, num_nonzero_rows] = local_read_passratio_plot_counts(source_table, meta);
+    expected_semantics_match = local_passratio_semantics_match(mode_name, dense_rebuild_used, inherited_from_effective_dense, zero_padding_used, sparse_projection_used);
+    rows{end + 1, 1} = { ... %#ok<AGROW>
+        figure_name, ...
+        string(local_infer_semantic_name(figure_name, meta)), ...
+        double(local_resolve_height_km(meta)), ...
+        mode_name, ...
+        source_kind, ...
+        logical(dense_rebuild_used), ...
+        logical(inherited_from_effective_dense), ...
+        logical(zero_padding_used), ...
+        logical(sparse_projection_used), ...
+        double(ns_min_plotted), ...
+        double(ns_max_plotted), ...
+        double(num_unique_ns_plotted), ...
+        double(num_nonzero_rows), ...
+        logical(expected_semantics_match)};
+end
+
+if isempty(rows)
+    T = table('Size', [0, 14], ...
+        'VariableTypes', {'string','string','double','string','string','logical','logical','logical','logical','double','double','double','double','logical'}, ...
+        'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'mode_name', 'source_table_kind', 'dense_rebuild_used', 'inherited_from_effective_dense', 'zero_padding_used', 'sparse_projection_used', 'ns_min_plotted', 'ns_max_plotted', 'num_unique_ns_plotted', 'num_nonzero_rows', 'expected_semantics_match'});
+    return;
+end
+
+T = cell2table(vertcat(rows{:}), 'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'mode_name', 'source_table_kind', 'dense_rebuild_used', 'inherited_from_effective_dense', 'zero_padding_used', 'sparse_projection_used', 'ns_min_plotted', 'ns_max_plotted', 'num_unique_ns_plotted', 'num_nonzero_rows', 'expected_semantics_match'});
+end
+
+function T = local_build_heatmap_source_semantics_audit_summary(figures_dir)
+files = dir(fullfile(figures_dir, '*heatmap*.png'));
+rows = cell(0, 1);
+for idx = 1:numel(files)
+    figure_name = string(files(idx).name);
+    meta = local_read_sidecar(fullfile(files(idx).folder, files(idx).name));
+    value_mode = local_resolve_heatmap_mode(meta, figure_name);
+    domain_mode = local_resolve_heatmap_domain_mode(meta, figure_name);
+    if ~ismember(value_mode, ["numeric_requirement", "state_map"])
+        continue;
+    end
+    used_global_rebuild = logical(local_getfield_or(meta, 'used_global_rebuild', false));
+    used_skeleton_projection = logical(local_getfield_or(meta, 'used_skeleton_projection', domain_mode == "globalSkeleton" && ~used_global_rebuild));
+    num_defined_cells = double(local_getfield_or(meta, 'num_defined_cells', NaN));
+    num_nan_cells = double(local_getfield_or(meta, 'num_nan_cells', NaN));
+    semantics_match = local_heatmap_source_semantics_match(value_mode, domain_mode, used_global_rebuild, used_skeleton_projection);
+    rows{end + 1, 1} = { ... %#ok<AGROW>
+        figure_name, ...
+        string(local_infer_semantic_name(figure_name, meta)), ...
+        double(local_resolve_height_km_with_figure(meta, figure_name)), ...
+        value_mode, ...
+        domain_mode, ...
+        logical(used_global_rebuild), ...
+        logical(used_skeleton_projection), ...
+        double(num_defined_cells), ...
+        double(num_nan_cells), ...
+        logical(semantics_match)};
+end
+
+if isempty(rows)
+    T = table('Size', [0, 10], ...
+        'VariableTypes', {'string','string','double','string','string','logical','logical','double','double','logical'}, ...
+        'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'value_mode', 'domain_mode', 'used_global_rebuild', 'used_skeleton_projection', 'num_defined_cells', 'num_nan_cells', 'semantics_match'});
+    return;
+end
+
+T = cell2table(vertcat(rows{:}), 'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'value_mode', 'domain_mode', 'used_global_rebuild', 'used_skeleton_projection', 'num_defined_cells', 'num_nan_cells', 'semantics_match'});
 end
 
 function T = local_build_passratio_plot_domain_audit_summary(figures_dir, tables_dir, cfg)
@@ -736,5 +828,76 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function mode_name = local_infer_passratio_mode(figure_name)
+figure_name = lower(string(figure_name));
+if contains(figure_name, "historyfull")
+    mode_name = "historyFull";
+elseif contains(figure_name, "frontierzoom")
+    mode_name = "frontierZoom";
+else
+    mode_name = "effectiveFullRange";
+end
+end
+
+function [ns_min_plotted, ns_max_plotted, num_unique_ns_plotted, num_nonzero_rows] = local_read_passratio_plot_counts(source_table_path, meta)
+ns_min_plotted = NaN;
+ns_max_plotted = NaN;
+num_unique_ns_plotted = double(local_getfield_or(meta, 'num_unique_ns_plotted', NaN));
+num_nonzero_rows = double(local_getfield_or(meta, 'num_nonzero_rows', NaN));
+if exist(source_table_path, 'file') ~= 2
+    return;
+end
+try
+    T = readtable(source_table_path, 'TextType', 'string');
+catch
+    return;
+end
+if ismember('Ns', T.Properties.VariableNames)
+    ns_values = T.Ns(isfinite(T.Ns));
+    if ~isempty(ns_values)
+        ns_min_plotted = min(ns_values);
+        ns_max_plotted = max(ns_values);
+        if ~isfinite(num_unique_ns_plotted)
+            num_unique_ns_plotted = numel(unique(ns_values));
+        end
+    end
+end
+if ~isfinite(num_nonzero_rows)
+    for field_name = ["max_pass_ratio", "overlay_pass_ratio", "max_pass_ratio_legacyDG", "max_pass_ratio_closedD"]
+        if ismember(field_name, string(T.Properties.VariableNames))
+            values = T.(char(field_name));
+            num_nonzero_rows = sum(isfinite(values) & abs(values) > 0);
+            break;
+        end
+    end
+end
+end
+
+function tf = local_passratio_semantics_match(mode_name, dense_rebuild_used, inherited_from_effective_dense, zero_padding_used, sparse_projection_used)
+mode_name = string(mode_name);
+switch mode_name
+    case "historyFull"
+        tf = ~logical(zero_padding_used);
+    case "effectiveFullRange"
+        tf = logical(dense_rebuild_used) && ~logical(sparse_projection_used) && ~logical(zero_padding_used);
+    case "frontierZoom"
+        tf = (logical(dense_rebuild_used) || logical(inherited_from_effective_dense)) && ~logical(sparse_projection_used) && ~logical(zero_padding_used);
+    otherwise
+        tf = false;
+end
+end
+
+function tf = local_heatmap_source_semantics_match(value_mode, domain_mode, used_global_rebuild, used_skeleton_projection)
+value_mode = string(value_mode);
+domain_mode = string(domain_mode);
+if value_mode == "numeric_requirement" && domain_mode == "globalSkeleton"
+    tf = logical(used_global_rebuild) && ~logical(used_skeleton_projection);
+elseif value_mode == "state_map" && domain_mode == "globalSkeleton"
+    tf = true;
+else
+    tf = true;
 end
 end

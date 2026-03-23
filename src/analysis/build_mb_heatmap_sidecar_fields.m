@@ -38,6 +38,10 @@ extra_fields.matrix_value_type = matrix_value_type;
 extra_fields.uses_discrete_state_matrix = logical(uses_discrete_state_matrix);
 extra_fields.uses_numeric_requirement_matrix = logical(uses_numeric_requirement_matrix);
 extra_fields.annotation_mode = annotation_mode;
+extra_fields.used_global_rebuild = logical(local_getfield_or(surface, 'used_global_rebuild', false));
+extra_fields.used_skeleton_projection = logical(local_getfield_or(surface, 'used_skeleton_projection', domain_mode == "globalSkeleton"));
+extra_fields.num_defined_cells = double(local_getfield_or(surface, 'num_defined_cells', local_count_defined_cells(surface, heatmap_mode)));
+extra_fields.num_nan_cells = double(local_getfield_or(surface, 'num_nan_cells', local_count_nan_cells(surface, heatmap_mode)));
 extra_fields.height_km = double(local_getfield_or(surface, 'h_km', NaN));
 extra_fields.h_km = double(local_getfield_or(surface, 'h_km', NaN));
 extra_fields.heatmap_cache_hit = false;
@@ -48,6 +52,36 @@ extra_fields.heatmap_primary_value_mode = string(local_getfield_or(extra_fields,
 extra_fields.heatmap_primary_domain_mode = string(local_getfield_or(extra_fields, 'heatmap_primary_domain_mode', ""));
 extra_fields.heatmap_is_primary_selection = logical(local_getfield_or(extra_fields, 'heatmap_is_primary_selection', false));
 extra_fields.canonical_heatmap_selection_key = string(local_getfield_or(extra_fields, 'canonical_heatmap_selection_key', ""));
+end
+
+function count = local_count_defined_cells(surface, heatmap_mode)
+count = 0;
+if heatmap_mode == "state_map"
+    values = local_getfield_or(surface, 'state_matrix', []);
+    if ~isempty(values)
+        count = sum(values(:) > 0);
+    end
+else
+    values = local_getfield_or(surface, 'numeric_requirement_matrix', local_getfield_or(surface, 'value_matrix', []));
+    if ~isempty(values)
+        count = sum(isfinite(values(:)));
+    end
+end
+end
+
+function count = local_count_nan_cells(surface, heatmap_mode)
+count = 0;
+if heatmap_mode == "state_map"
+    values = local_getfield_or(surface, 'state_matrix', []);
+    if ~isempty(values)
+        count = sum(values(:) == 0);
+    end
+else
+    values = local_getfield_or(surface, 'numeric_requirement_matrix', local_getfield_or(surface, 'value_matrix', []));
+    if ~isempty(values)
+        count = sum(~isfinite(values(:)));
+    end
+end
 end
 
 function value = local_getfield_or(S, field_name, fallback)

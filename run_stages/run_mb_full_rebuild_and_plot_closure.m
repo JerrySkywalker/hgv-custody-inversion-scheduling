@@ -38,6 +38,15 @@ baseline_out = milestone_B_semantic_compare(baseline_cfg);
 
 strict_paths = mb_output_paths(strict_cfg, strict_cfg.milestones.MB_semantic_compare.milestone_id, strict_cfg.milestones.MB_semantic_compare.title);
 baseline_paths = mb_output_paths(baseline_cfg, baseline_cfg.milestones.MB_semantic_compare.milestone_id, baseline_cfg.milestones.MB_semantic_compare.title);
+audit_artifacts = export_mb_final_round_audit_tables(baseline_paths.milestone_root);
+fullnight_summary = build_mb_fullnight_run_summary(baseline_paths.milestone_root, profile.name, true);
+fullnight_summary_csv = fullfile(baseline_paths.tables, 'MB_fullnight_run_summary.csv');
+if ~isempty(fullnight_summary)
+    milestone_common_save_table(fullnight_summary, fullnight_summary_csv);
+end
+closure_summary = build_mb_full_rebuild_closure_summary(strict_paths.milestone_root, baseline_paths.milestone_root);
+closure_summary_csv = fullfile(baseline_paths.tables, 'MB_full_rebuild_closure_summary.csv');
+milestone_common_save_table(closure_summary, closure_summary_csv);
 
 out = struct();
 out.tag = tag;
@@ -46,4 +55,7 @@ out.baseline_root = string(baseline_paths.milestone_root);
 out.strict = strict_out;
 out.baseline = baseline_out;
 out.profile_name = string(profile.name);
+out.audit_artifacts = audit_artifacts;
+out.fullnight_run_summary_csv = string(fullnight_summary_csv);
+out.closure_summary_csv = string(closure_summary_csv);
 end
