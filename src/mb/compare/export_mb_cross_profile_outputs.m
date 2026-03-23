@@ -112,9 +112,11 @@ for idx_ctx = 1:size(contexts, 1)
             'group_fields', {{'semantic_mode', 'sensor_group', 'sensor_label', 'h_km', 'family_name'}}, ...
             'value_fields', {{'overlay_pass_ratio'}}, ...
             'fill_values', struct('overlay_pass_ratio', 0), ...
-            'history_fill_mode', "zero", ...
+            'history_fill_mode', "none", ...
             'history_origin', "initial_ns_min", ...
-            'resolver_options', struct('y_fields', "overlay_pass_ratio"));
+            'resolver_options', struct('y_fields', "overlay_pass_ratio"), ...
+            'runtime', local_getfield_or(plot_options, 'runtime', struct()), ...
+            'plot_mode_profile', plot_mode_profile);
         history_view_spec = pass_view_spec;
         history_view_spec.domain_view = "history_full";
         history_view_spec.figure_name = sprintf('MB_profileCompare_%s_passratio_historyFull_%s.png', char(semantic_mode), context_tag);
@@ -127,6 +129,7 @@ for idx_ctx = 1:size(contexts, 1)
         zoom_view_spec.figure_name = sprintf('MB_profileCompare_%s_passratio_frontierZoom_%s.png', char(semantic_mode), context_tag);
         [pass_history_table, pass_padding_summary, pass_history_meta] = build_mb_passratio_domain_view(pass_table, search_domain, history_view_spec);
         [pass_effective_table, ~, pass_effective_meta] = build_mb_passratio_domain_view(pass_table, search_domain, effective_view_spec);
+        zoom_view_spec.effective_dense_table = pass_effective_table;
         [pass_zoom_table, ~, pass_zoom_meta] = build_mb_passratio_domain_view(pass_table, search_domain, zoom_view_spec);
         milestone_common_save_table(pass_history_table, pass_history_csv);
         milestone_common_save_table(pass_effective_table, pass_effective_csv);
@@ -149,8 +152,8 @@ for idx_ctx = 1:size(contexts, 1)
             'current_mode', "historyFull", ...
             'is_primary_selection', plot_mode_profile.cross_profile_primary_mode == "historyFull", ...
             'is_canonical_selection', plot_mode_profile.canonical_primary_mode == "historyFull", ...
-            'expected_domain_behavior', "history_full_from_initial_ns_min_with_zero_padding", ...
-            'actual_domain_behavior', "history_full_padded_table")));
+            'expected_domain_behavior', "history_full_true_computed_points_only", ...
+            'actual_domain_behavior', "true_history_points_no_zero_padding")));
         close(fig_pass_history);
 
         fig_pass_effective = plot_mb_cross_profile_passratio_overlay(pass_effective_table, pass_summary, h_km, semantic_mode, family_name, struct( ...
@@ -169,8 +172,8 @@ for idx_ctx = 1:size(contexts, 1)
             'current_mode', "effectiveFullRange", ...
             'is_primary_selection', plot_mode_profile.cross_profile_primary_mode == "effectiveFullRange", ...
             'is_canonical_selection', plot_mode_profile.canonical_primary_mode == "effectiveFullRange", ...
-            'expected_domain_behavior', "effective_domain_only_without_history_padding", ...
-            'actual_domain_behavior', "effective_domain_view")));
+            'expected_domain_behavior', "effective_full_range_dense_rebuild", ...
+            'actual_domain_behavior', "dense_effective_view_from_overlay_source")));
         close(fig_pass_effective);
 
         fig_pass_zoom = plot_mb_cross_profile_passratio_overlay(pass_zoom_table, pass_summary, h_km, semantic_mode, family_name, struct( ...
@@ -190,7 +193,7 @@ for idx_ctx = 1:size(contexts, 1)
             'is_primary_selection', plot_mode_profile.cross_profile_primary_mode == "frontierZoom", ...
             'is_canonical_selection', plot_mode_profile.canonical_primary_mode == "frontierZoom", ...
             'expected_domain_behavior', "frontier_zoom_local_window", ...
-            'actual_domain_behavior', "frontier_zoom_view")));
+            'actual_domain_behavior', "frontier_zoom_from_effective_dense_view")));
         close(fig_pass_zoom);
 
         primary_mode = plot_mode_profile.cross_profile_primary_mode;
@@ -202,10 +205,6 @@ for idx_ctx = 1:size(contexts, 1)
         milestone_common_save_table(primary_pass.table, pass_primary_csv);
         pass_primary_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_primary_%s.png', char(semantic_mode), context_tag));
         local_copy_figure_with_sidecar(primary_pass.png, string(pass_primary_png));
-        pass_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_fullRange_%s.png', char(semantic_mode), context_tag));
-        local_copy_figure_with_sidecar(primary_pass.png, string(pass_alias_png));
-        legacy_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_%s.png', char(semantic_mode), context_tag));
-        local_copy_figure_with_sidecar(primary_pass.png, string(legacy_alias_png));
 
         pass_summary = local_apply_passratio_render_summary(pass_summary, pass_history_meta, history_xlim, effective_xlim, zoom_xlim);
         pass_summary.primary_plot_mode = repmat(plot_mode_profile.cross_profile_primary_mode, height(pass_summary), 1);
@@ -337,12 +336,18 @@ for idx = 1:numel(context_runs)
     sensor_group = context_runs(idx).sensor_group;
     sensor_label = context_runs(idx).sensor_label;
     phasecurve = local_getfield_or(run.aggregate, 'passratio_phasecurve', table());
-    if isempty(phasecurve) || ~all(ismember({'Ns', 'max_pass_ratio'}, phasecurve.Properties.VariableNames))
+    eval_table = local_getfield_or(run, 'eval_table', table());
+    if isempty(eval_table) && (isempty(phasecurve) || ~all(ismember({'Ns', 'max_pass_ratio'}, phasecurve.Properties.VariableNames)))
         continue;
     end
 
-    env = groupsummary(phasecurve(:, {'Ns', 'max_pass_ratio'}), 'Ns', 'max', 'max_pass_ratio');
-    env.Properties.VariableNames{'max_max_pass_ratio'} = 'overlay_pass_ratio';
+    if ~isempty(eval_table) && all(ismember({'Ns', 'pass_ratio'}, eval_table.Properties.VariableNames))
+        env = groupsummary(eval_table(:, {'Ns', 'pass_ratio'}), 'Ns', 'max', 'pass_ratio');
+        env.Properties.VariableNames{'max_pass_ratio'} = 'overlay_pass_ratio';
+    else
+        env = groupsummary(phasecurve(:, {'Ns', 'max_pass_ratio'}), 'Ns', 'max', 'max_pass_ratio');
+        env.Properties.VariableNames{'max_max_pass_ratio'} = 'overlay_pass_ratio';
+    end
     env = sortrows(env, 'Ns');
 
     for idx_row = 1:height(env)

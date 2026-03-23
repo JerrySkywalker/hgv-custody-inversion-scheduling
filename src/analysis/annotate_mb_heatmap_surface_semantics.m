@@ -18,9 +18,14 @@ surface_out.x_values = x_values(:);
 surface_out.y_values = y_values(:);
 surface_out.heatmap_surface_mode = domain_mode;
 if domain_mode == "globalSkeleton"
-    surface_out.matrix_domain_source = "global_i_p_skeleton";
-    surface_out.numeric_matrix_source_name = "global_skeleton_numeric_requirement_matrix";
-    surface_out.state_matrix_source_name = "global_skeleton_discrete_state_matrix";
+    surface_out.matrix_domain_source = string(local_getfield_or(surface_in, 'matrix_domain_source', "global_i_p_skeleton"));
+    if contains(surface_out.matrix_domain_source, "requirement_rebuild")
+        surface_out.numeric_matrix_source_name = "global_rebuild_numeric_requirement_matrix";
+        surface_out.state_matrix_source_name = "global_rebuild_discrete_state_matrix";
+    else
+        surface_out.numeric_matrix_source_name = "global_skeleton_numeric_requirement_matrix";
+        surface_out.state_matrix_source_name = "global_skeleton_discrete_state_matrix";
+    end
 else
     surface_out.matrix_domain_source = "current_defined_surface";
     surface_out.numeric_matrix_source_name = "local_numeric_requirement_matrix";
@@ -35,6 +40,8 @@ surface_out.uses_discrete_state_matrix = true;
 surface_out.annotation_mode_numeric = "numeric_labels";
 surface_out.annotation_mode_state = "state_only";
 surface_out.global_skeleton_applied = domain_mode == "globalSkeleton";
+surface_out.used_global_rebuild = logical(local_getfield_or(surface_in, 'used_global_rebuild', false));
+surface_out.used_skeleton_projection = logical(local_getfield_or(surface_in, 'used_skeleton_projection', domain_mode == "globalSkeleton"));
 
 [state_matrix, state_labels, state_table] = build_mb_heatmap_state_matrix(surface_out, search_domain, struct( ...
     'domain_mode', domain_mode, ...
