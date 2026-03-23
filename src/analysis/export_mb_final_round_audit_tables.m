@@ -599,14 +599,13 @@ for idx = 1:height(T)
         otherwise
             T.view_scope(idx) = "frontier_zoom";
         end
-    end
 end
 end
 
 function T = local_build_heatmap_view_scope_audit_summary(heatmap_audit, heatmap_source_audit)
 if isempty(heatmap_audit)
     T = table('Size', [0, 11], ...
-        'VariableTypes', {'string','string','double','string','string','string','logical','double','double','logical','logical'}, ...
+        'VariableTypes', {'string','string','double','string','string','string','logical','double','double','double','logical'}, ...
         'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'heatmap_mode', 'heatmap_scope', 'heatmap_numeric_source', 'heatmap_is_tail_only', 'heatmap_global_grid_coverage_ratio', 'num_defined_cells', 'num_nan_cells', 'scope_match'});
     return;
 end
@@ -654,7 +653,7 @@ end
 
 function T = local_build_passratio_tail_oscillation_audit_summary(figures_dir, tables_dir)
 files = dir(fullfile(figures_dir, '*passratio*.png'));
-rows = cell(0, 10);
+rows = cell(0, 11);
 for idx = 1:numel(files)
     figure_name = string(files(idx).name);
     meta = local_read_sidecar(fullfile(files(idx).folder, files(idx).name));
@@ -718,7 +717,7 @@ if isempty(rows)
         'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'mode_name', 'num_tail_defined_points', 'num_tail_direction_changes', 'first_reach_unity_ns', 'post_unity_min_value', 'post_unity_drop_magnitude', 'source_is_real_eval_only', 'source_contains_dense_rebuild'});
     return;
 end
-T = cell2table(vertcat(rows{:}), 'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'mode_name', 'num_tail_defined_points', 'num_tail_direction_changes', 'first_reach_unity_ns', 'post_unity_min_value', 'post_unity_drop_magnitude', 'source_is_real_eval_only', 'source_contains_dense_rebuild'});
+T = cell2table(rows, 'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'mode_name', 'num_tail_defined_points', 'num_tail_direction_changes', 'first_reach_unity_ns', 'post_unity_min_value', 'post_unity_drop_magnitude', 'source_is_real_eval_only', 'source_contains_dense_rebuild'});
 end
 
 function key = local_passratio_group_key(figure_name)
@@ -955,6 +954,7 @@ if contains(lower_name, 'globalskeleton')
 else
     domain_mode = "local";
 end
+end
 
 function domain_mode = local_normalize_heatmap_domain_mode(domain_mode)
 domain_mode = string(domain_mode);
@@ -965,7 +965,6 @@ switch lower(char(domain_mode))
         domain_mode = "globalReplay";
     case 'local_defined_surface'
         domain_mode = "local";
-end
 end
 end
 
