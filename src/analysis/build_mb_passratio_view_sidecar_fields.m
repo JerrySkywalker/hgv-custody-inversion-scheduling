@@ -54,6 +54,12 @@ extra_fields.actual_rendered_xlim_max = double(local_pick_x(actual_xlim, 2));
 extra_fields.expected_domain_behavior = string(local_getfield_or(spec, 'expected_domain_behavior', ""));
 extra_fields.actual_domain_behavior = string(local_getfield_or(spec, 'actual_domain_behavior', ""));
 extra_fields.root_cause_tag = string(local_getfield_or(view_meta, 'root_cause_tag', "correct"));
+extra_fields.plot_primary_mode = string(local_getfield_or(spec, 'primary_plot_mode', ""));
+extra_fields.canonical_primary_mode = string(local_getfield_or(spec, 'canonical_primary_mode', ""));
+extra_fields.current_plot_mode = string(local_getfield_or(spec, 'current_mode', ""));
+extra_fields.is_primary_mode = logical(local_getfield_or(spec, 'is_primary_selection', false));
+extra_fields.is_canonical_selection = logical(local_getfield_or(spec, 'is_canonical_selection', false));
+extra_fields.canonical_figure_file = string(local_getfield_or(spec, 'canonical_figure_file', ""));
 end
 
 function value = local_pick_x(xlim_values, idx_pick)

@@ -44,6 +44,10 @@ extra_fields.heatmap_cache_hit = false;
 extra_fields.heatmap_cache_key = string(cache_key);
 extra_fields.cache_hit = false;
 extra_fields.cache_key = string(cache_key);
+extra_fields.heatmap_primary_value_mode = string(local_getfield_or(extra_fields, 'heatmap_primary_value_mode', ""));
+extra_fields.heatmap_primary_domain_mode = string(local_getfield_or(extra_fields, 'heatmap_primary_domain_mode', ""));
+extra_fields.heatmap_is_primary_selection = logical(local_getfield_or(extra_fields, 'heatmap_is_primary_selection', false));
+extra_fields.canonical_heatmap_selection_key = string(local_getfield_or(extra_fields, 'canonical_heatmap_selection_key', ""));
 end
 
 function value = local_getfield_or(S, field_name, fallback)

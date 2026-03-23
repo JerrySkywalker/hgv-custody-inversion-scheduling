@@ -91,6 +91,15 @@ result.summary = struct( ...
     'regenerate_all_cache', logical(local_getfield_or(meta, 'regenerate_all_cache', false)), ...
     'regenerate_all_export', logical(local_getfield_or(meta, 'regenerate_all_export', false)), ...
     'runtime_profile_name', string(local_getfield_or(meta, 'runtime_profile_name', local_getfield_or(meta, 'resolved_search_profile', ""))));
+plot_mode_profile = resolve_mb_plot_mode_profile(cfg);
+result.summary.passratio_primary_mode = plot_mode_profile.passratio_primary_mode;
+result.summary.comparison_primary_mode = plot_mode_profile.comparison_primary_mode;
+result.summary.cross_profile_primary_mode = plot_mode_profile.cross_profile_primary_mode;
+result.summary.heatmap_primary_value_mode = plot_mode_profile.heatmap_primary_value_mode;
+result.summary.heatmap_primary_domain_mode = plot_mode_profile.heatmap_primary_domain_mode;
+result.summary.canonical_primary_mode = plot_mode_profile.canonical_primary_mode;
+result.summary.export_all_passratio_modes = plot_mode_profile.export_all_passratio_modes;
+result.summary.export_all_heatmap_modes = plot_mode_profile.export_all_heatmap_modes;
 
 if logical(local_getfield_or(meta, 'dry_run', false))
     search_domain_audit = build_mb_search_domain_audit_table(meta, repmat(struct(), 0, 1));
