@@ -32,6 +32,7 @@ for idx = 1:numel(run_output.runs)
     pass_primary_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_primary_%s_%s.csv', h_label, sensor_group));
     pass_history_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_historyFull_%s_%s.csv', h_label, sensor_group));
     pass_effective_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_effectiveFullRange_%s_%s.csv', h_label, sensor_group));
+    pass_global_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_globalFullDense_%s_%s.csv', h_label, sensor_group));
     pass_zoom_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_frontierZoom_%s_%s.csv', h_label, sensor_group));
     pass_padding_csv = fullfile(paths.tables, sprintf('MB_legacyDG_passratio_historyPadding_%s_%s.csv', h_label, sensor_group));
     heat_csv = fullfile(paths.tables, sprintf('MB_legacyDG_minimumNs_heatmap_iP_%s_%s.csv', h_label, sensor_group));
@@ -60,6 +61,7 @@ for idx = 1:numel(run_output.runs)
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_%s', h_label))) = string(pass_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_historyFull_%s', h_label))) = string(pass_history_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_effectiveFullRange_%s', h_label))) = string(pass_effective_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_globalFullDense_%s', h_label))) = string(pass_global_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_frontierZoom_%s', h_label))) = string(pass_zoom_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_historyPadding_%s', h_label))) = string(pass_padding_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmap_overcompute_%s', h_label))) = string(overcompute_csv);
@@ -94,16 +96,21 @@ for idx = 1:numel(run_output.runs)
     effective_view_spec = pass_view_spec;
     effective_view_spec.domain_view = "effective_full_range";
     effective_view_spec.figure_name = sprintf('MB_legacyDG_passratio_effectiveFullRange_%s_%s.png', h_label, sensor_group);
+    global_view_spec = pass_view_spec;
+    global_view_spec.domain_view = "global_full_dense";
+    global_view_spec.figure_name = sprintf('MB_legacyDG_passratio_globalFullDense_%s_%s.png', h_label, sensor_group);
     zoom_view_spec = pass_view_spec;
     zoom_view_spec.domain_view = "frontier_zoom";
     zoom_view_spec.plot_window = pass_windows.frontier_zoom;
     zoom_view_spec.figure_name = sprintf('MB_legacyDG_passratio_frontierZoom_%s_%s.png', h_label, sensor_group);
     [pass_history_table, pass_padding_summary, pass_history_meta] = build_mb_passratio_domain_view(run.aggregate.passratio_phasecurve, search_domain, history_view_spec);
     [pass_effective_table, ~, pass_effective_meta] = build_mb_passratio_domain_view(run.aggregate.passratio_phasecurve, search_domain, effective_view_spec);
+    [pass_global_table, ~, pass_global_meta] = build_mb_passratio_domain_view(run.aggregate.passratio_phasecurve, search_domain, global_view_spec);
     zoom_view_spec.effective_dense_table = pass_effective_table;
     [pass_zoom_table, ~, pass_zoom_meta] = build_mb_passratio_domain_view(run.aggregate.passratio_phasecurve, search_domain, zoom_view_spec);
     milestone_common_save_table(pass_history_table, pass_history_csv);
     milestone_common_save_table(pass_effective_table, pass_effective_csv);
+    milestone_common_save_table(pass_global_table, pass_global_csv);
     milestone_common_save_table(pass_zoom_table, pass_zoom_csv);
     milestone_common_save_table(pass_padding_summary, pass_padding_csv);
 
@@ -148,6 +155,27 @@ for idx = 1:numel(run_output.runs)
         'expected_domain_behavior', "effective_full_range_dense_rebuild", ...
         'actual_domain_behavior', "dense_effective_view_from_raw_eval")));
     close(fig_pass_effective);
+
+    global_options = pass_plot_options;
+    global_options.plot_xlim_ns = pass_windows.global_full_dense;
+    global_options.plot_domain_label = "global_full_dense";
+    global_options.plot_domain_source = "global_full_dense";
+    fig_pass_global = plot_mb_fixed_h_passratio_phasecurve(pass_global_table, run.h_km, style, global_options);
+    local_retitle(fig_pass_global, sprintf('legacyDG Global Full-Dense Pass-Ratio versus N_s at h = %.0f km [%s]', run.h_km, sensor_label));
+    pass_global_png = fullfile(paths.figures, sprintf('MB_legacyDG_passratio_globalFullDense_%s_%s.png', h_label, sensor_group));
+    milestone_common_save_figure(fig_pass_global, pass_global_png);
+    write_mb_plot_domain_sidecar(pass_global_png, "global_full_dense", "full_search_domain", local_capture_axis_xlim(fig_pass_global), ...
+        build_mb_passratio_view_sidecar_fields(fig_pass_global, pass_global_table, pass_global_csv, "global_full_dense", pass_windows.global_full_dense, pass_global_meta, struct( ...
+        'figure_family', "legacyDG_passratio", ...
+        'figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")), ...
+        'primary_plot_mode', plot_mode_profile.passratio_primary_mode, ...
+        'canonical_primary_mode', plot_mode_profile.canonical_primary_mode, ...
+        'current_mode', "globalFullDense", ...
+        'is_primary_selection', plot_mode_profile.passratio_primary_mode == "globalFullDense", ...
+        'is_canonical_selection', plot_mode_profile.canonical_primary_mode == "globalFullDense", ...
+        'expected_domain_behavior', "global_full_dense_rebuild", ...
+        'actual_domain_behavior', "dense_global_view_from_raw_eval")));
+    close(fig_pass_global);
 
     legacy_zoom_options = pass_plot_options;
     legacy_zoom_options.plot_xlim_ns = pass_windows.frontier_zoom;
@@ -277,6 +305,7 @@ for idx = 1:numel(run_output.runs)
     pass_mode_files = struct( ...
         'historyFull', struct('csv', string(pass_history_csv), 'png', string(pass_history_png), 'table', pass_history_table), ...
         'effectiveFullRange', struct('csv', string(pass_effective_csv), 'png', string(pass_effective_png), 'table', pass_effective_table), ...
+        'globalFullDense', struct('csv', string(pass_global_csv), 'png', string(pass_global_png), 'table', pass_global_table), ...
         'frontierZoom', struct('csv', string(pass_zoom_csv), 'png', string(pass_zoom_png), 'table', pass_zoom_table));
     primary_pass = pass_mode_files.(char(plot_mode_profile.passratio_primary_mode));
     milestone_common_save_table(primary_pass.table, pass_primary_csv);
@@ -315,6 +344,7 @@ for idx = 1:numel(run_output.runs)
 
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioHistory_%s', h_label))) = string(pass_history_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioEffective_%s', h_label))) = string(pass_effective_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioGlobalFullDense_%s', h_label))) = string(pass_global_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioZoom_%s', h_label))) = string(pass_zoom_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioPrimary_%s', h_label))) = string(pass_primary_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_local_%s', h_label))) = string(heat_local_png);
