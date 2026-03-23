@@ -93,7 +93,12 @@ end
 end
 
 function label = local_group_label(sensor_group)
-label = format_mb_sensor_group_label(char(string(sensor_group)), "short");
+sensor_group = string(sensor_group);
+if ismissing(sensor_group) || strlength(sensor_group) == 0
+    label = "unlabeled";
+    return;
+end
+label = format_mb_sensor_group_label(char(sensor_group), "short");
 end
 
 function note = local_saturation_note(summary_table)
