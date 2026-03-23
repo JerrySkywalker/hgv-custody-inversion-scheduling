@@ -463,6 +463,7 @@ plot_options.figure_style_mode = string(plot_options.figure_style.name);
 plot_options.export_paper_ready = logical(local_getfield_or(meta, 'export_paper_ready', false));
 plot_options.paper_ready_guardrail = local_getfield_or(meta, 'paper_ready_guardrail', struct());
 plot_options.runtime = cfg;
+plot_options.plot_mode_profile = resolve_mb_plot_mode_profile(cfg);
 diagnostic_text = local_resolve_autotune_diagnostic(meta);
 if strlength(diagnostic_text) > 0
     plot_options.diagnostic_text = diagnostic_text;
