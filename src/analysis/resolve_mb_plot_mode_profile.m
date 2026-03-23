@@ -20,7 +20,7 @@ profile.canonical_primary_mode = local_normalize_passratio_mode( ...
     local_getfield_or(plotting_cfg, 'canonical_primary_mode', profile.passratio_primary_mode));
 profile.diagnostic_export_full_bundle = logical(local_getfield_or(plotting_cfg, 'diagnostic_export_full_bundle', true));
 
-profile.supported_passratio_modes = ["historyFull", "effectiveFullRange", "frontierZoom"];
+profile.supported_passratio_modes = ["historyFull", "effectiveFullRange", "frontierZoom", "globalFullDense"];
 profile.supported_heatmap_value_modes = ["numeric_requirement", "state_map"];
 profile.supported_heatmap_domain_modes = ["local", "globalSkeleton"];
 profile.passratio_export_modes = local_resolve_export_modes(profile.supported_passratio_modes, ...
@@ -40,7 +40,8 @@ profile.manager_version = "mb-plot-mode-v1";
 profile.passratio_domain_view_map = struct( ...
     'historyFull', "history_full", ...
     'effectiveFullRange', "effective_full_range", ...
-    'frontierZoom', "frontier_zoom");
+    'frontierZoom', "frontier_zoom", ...
+    'globalFullDense', "global_full_dense");
 end
 
 function plotting_cfg = local_extract_plotting_cfg(cfg_or_meta)
@@ -69,6 +70,8 @@ switch lower(strrep(strrep(char(mode), '_', ''), '-', ''))
         mode = "effectiveFullRange";
     case {'frontierzoom', 'zoom', 'frontier'}
         mode = "frontierZoom";
+    case {'globalfulldense', 'globalfull', 'globaldense', 'fullsearchdomain'}
+        mode = "globalFullDense";
     otherwise
         error('resolve_mb_plot_mode_profile:InvalidPassratioMode', ...
             'Unsupported MB passratio/comparison mode: %s', char(mode));

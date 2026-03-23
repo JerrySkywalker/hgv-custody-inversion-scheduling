@@ -37,6 +37,8 @@ policy.allow_sparse_projection = policy.allow_sparse_projection;
 policy.require_dense_rebuild = false;
 policy.inherit_effective_dense = false;
 policy.use_true_history_points_only = false;
+policy.dense_domain = "";
+policy.primary_candidate = false;
 policy.used_global_rebuild_required = false;
 policy.used_skeleton_projection_allowed = false;
 policy.policy_label = "";
@@ -50,6 +52,7 @@ if strlength(passratio_mode) > 0
             policy.require_dense_rebuild = false;
             policy.inherit_effective_dense = false;
             policy.use_true_history_points_only = true;
+            policy.dense_domain = "history_points_only";
             policy.policy_label = "history_true_points_only";
             policy.policy_reason = "Plot true computed history points only; never synthesize zero-padded rows.";
         case "effectiveFullRange"
@@ -57,6 +60,7 @@ if strlength(passratio_mode) > 0
             policy.allow_sparse_projection = false;
             policy.require_dense_rebuild = true;
             policy.inherit_effective_dense = false;
+            policy.dense_domain = "effective_search_domain";
             policy.policy_label = "effective_dense_full_range";
             policy.policy_reason = "Rebuild a dense pass-ratio table on the effective search domain; sparse window projection is disallowed.";
         case "frontierZoom"
@@ -64,8 +68,19 @@ if strlength(passratio_mode) > 0
             policy.allow_sparse_projection = false;
             policy.require_dense_rebuild = true;
             policy.inherit_effective_dense = true;
+            policy.dense_domain = "effective_search_domain";
             policy.policy_label = "frontier_zoom_from_dense_effective";
             policy.policy_reason = "Reuse or rebuild the dense effective-full-range table, then crop to the frontier zoom window.";
+        case "globalFullDense"
+            policy.allow_zero_padding = false;
+            policy.allow_sparse_projection = false;
+            policy.require_dense_rebuild = true;
+            policy.inherit_effective_dense = false;
+            policy.use_true_history_points_only = false;
+            policy.dense_domain = "full_search_domain";
+            policy.primary_candidate = true;
+            policy.policy_label = "global_full_dense_rebuild";
+            policy.policy_reason = "Rebuild a dense pass-ratio table from the original search-domain lower bound through the final Ns max.";
     end
 end
 
@@ -121,6 +136,8 @@ switch lower(strrep(strrep(char(mode), '_', ''), '-', ''))
         mode = "effectiveFullRange";
     case {'frontierzoom', 'zoom', 'frontier'}
         mode = "frontierZoom";
+    case {'globalfulldense', 'globalfull', 'globaldense', 'fullsearchdomain'}
+        mode = "globalFullDense";
     otherwise
         error('resolve_mb_plot_data_policy:InvalidPassratioMode', ...
             'Unsupported MB passratio mode: %s', char(mode));
