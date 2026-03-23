@@ -1012,6 +1012,7 @@ elseif value_mode == "state_map" && domain_mode == "globalSkeleton"
 else
     tf = true;
 end
+end
 
 function value = local_first_finite(varargin)
 value = NaN;
@@ -1021,6 +1022,5 @@ for idx = 1:nargin
         value = candidate;
         return;
     end
-end
 end
 end
