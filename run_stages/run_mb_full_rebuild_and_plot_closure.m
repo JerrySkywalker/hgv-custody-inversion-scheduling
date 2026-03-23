@@ -4,7 +4,7 @@ function out = run_mb_full_rebuild_and_plot_closure(tag)
 mb_safe_startup();
 
 if nargin < 1 || strlength(string(tag)) == 0
-    tag = "20260323_globalfulldense";
+    tag = "20260324_globalfullreplay";
 end
 tag = string(tag);
 
@@ -33,10 +33,10 @@ baseline_cfg.milestones.MB_semantic_compare.force_fresh = true;
 baseline_cfg.milestones.MB_semantic_compare.regenerate_all_cache = true;
 baseline_cfg.milestones.MB_semantic_compare.regenerate_all_export = true;
 baseline_cfg.milestones.MB_semantic_compare.runtime_profile_name = string(profile.name);
-baseline_cfg.milestones.MB_plotting.passratio_primary_mode = 'globalFullDense';
-baseline_cfg.milestones.MB_plotting.comparison_primary_mode = 'globalFullDense';
-baseline_cfg.milestones.MB_plotting.cross_profile_primary_mode = 'globalFullDense';
-baseline_cfg.milestones.MB_plotting.canonical_primary_mode = 'globalFullDense';
+baseline_cfg.milestones.MB_plotting.passratio_primary_mode = 'globalFullReplay';
+baseline_cfg.milestones.MB_plotting.comparison_primary_mode = 'globalFullReplay';
+baseline_cfg.milestones.MB_plotting.cross_profile_primary_mode = 'globalFullReplay';
+baseline_cfg.milestones.MB_plotting.canonical_primary_mode = 'globalFullReplay';
 baseline_cfg.runtime.figure_visibility_mode = 'headless';
 baseline_out = milestone_B_semantic_compare(baseline_cfg);
 

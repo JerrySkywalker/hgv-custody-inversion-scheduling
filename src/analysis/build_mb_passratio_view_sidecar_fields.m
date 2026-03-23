@@ -66,15 +66,42 @@ extra_fields.dense_grid_step = double(local_getfield_or(view_meta, 'dense_grid_s
 extra_fields.num_dense_rows = double(local_getfield_or(view_meta, 'num_dense_rows', NaN));
 extra_fields.num_raw_rows = double(local_getfield_or(view_meta, 'num_raw_rows', NaN));
 extra_fields.num_recomputed_rows = double(local_getfield_or(view_meta, 'num_recomputed_rows', NaN));
-extra_fields.global_full_dense_used = string(local_getfield_or(spec, 'current_mode', "")) == "globalFullDense";
+current_mode = string(local_getfield_or(spec, 'current_mode', ""));
+extra_fields.global_full_replay_used = current_mode == "globalFullReplay";
 extra_fields.num_unique_ns_plotted = double(local_getfield_or(view_meta, 'num_unique_ns_plotted', numel(unique(local_getfield_or(source_table, 'Ns', [])))));
 extra_fields.num_nonzero_rows = double(local_getfield_or(view_meta, 'num_nonzero_rows', local_count_nonzero_rows(source_table)));
 extra_fields.plot_primary_mode = string(local_getfield_or(spec, 'primary_plot_mode', ""));
 extra_fields.canonical_primary_mode = string(local_getfield_or(spec, 'canonical_primary_mode', ""));
-extra_fields.current_plot_mode = string(local_getfield_or(spec, 'current_mode', ""));
+extra_fields.current_plot_mode = current_mode;
 extra_fields.is_primary_mode = logical(local_getfield_or(spec, 'is_primary_selection', false));
 extra_fields.is_canonical_selection = logical(local_getfield_or(spec, 'is_canonical_selection', false));
 extra_fields.canonical_figure_file = string(local_getfield_or(spec, 'canonical_figure_file', ""));
+extra_fields.x_min_effective = double(local_getfield_or(view_meta, 'effective_ns_min', local_pick_x(resolved_xlim, 1)));
+extra_fields.x_max_effective = double(local_getfield_or(view_meta, 'effective_ns_max', local_pick_x(resolved_xlim, 2)));
+extra_fields.x_min_global_candidate = double(local_getfield_or(view_meta, 'initial_ns_min', local_getfield_or(view_meta, 'dense_grid_min_ns', extra_fields.source_table_min_ns)));
+extra_fields.x_max_global_candidate = double(local_getfield_or(view_meta, 'final_ns_max', local_getfield_or(view_meta, 'dense_grid_max_ns', extra_fields.source_table_max_ns)));
+switch current_mode
+    case "historyFull"
+        extra_fields.view_scope = "history_real_points";
+        extra_fields.is_global_view = false;
+        extra_fields.effective_domain_only = false;
+        extra_fields.not_global_domain = true;
+    case "effectiveFullRange"
+        extra_fields.view_scope = "effective_only";
+        extra_fields.is_global_view = false;
+        extra_fields.effective_domain_only = true;
+        extra_fields.not_global_domain = true;
+    case "globalFullReplay"
+        extra_fields.view_scope = "global_replay";
+        extra_fields.is_global_view = true;
+        extra_fields.effective_domain_only = false;
+        extra_fields.not_global_domain = false;
+    otherwise
+        extra_fields.view_scope = "frontier_zoom";
+        extra_fields.is_global_view = false;
+        extra_fields.effective_domain_only = false;
+        extra_fields.not_global_domain = true;
+end
 end
 
 function count = local_count_nonzero_rows(T)

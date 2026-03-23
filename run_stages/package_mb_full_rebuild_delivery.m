@@ -4,7 +4,7 @@ function out = package_mb_full_rebuild_delivery(tag)
 mb_safe_startup();
 
 if nargin < 1 || strlength(string(tag)) == 0
-    tag = "20260323_globalfulldense";
+    tag = "20260324_globalfullreplay";
 end
 tag = string(tag);
 
@@ -127,7 +127,7 @@ end
 end
 
 function items = local_append_passratio_items(items, root_dir, height_km, prefix_key, rel_dir, baseline_suffix)
-domain_tags = {'historyFull', 'effectiveFullRange', 'globalFullDense', 'frontierZoom'};
+domain_tags = {'historyFull', 'effectiveFullRange', 'globalFullReplay', 'frontierZoom'};
 for idx = 1:numel(domain_tags)
     tag = domain_tags{idx};
     if baseline_suffix
@@ -142,8 +142,8 @@ end
 function items = local_append_heatmap_items(items, root_dir, height_km, semantic_name)
 figure_names = { ...
     sprintf('MB_%s_minimumNs_heatmap_local_h%d_baseline.png', semantic_name, height_km), ...
-    sprintf('MB_%s_minimumNs_heatmap_globalSkeleton_h%d_baseline.png', semantic_name, height_km), ...
-    sprintf('MB_%s_heatmap_stateMap_globalSkeleton_h%d_baseline.png', semantic_name, height_km)};
+    sprintf('MB_%s_minimumNs_heatmap_globalReplay_h%d_baseline.png', semantic_name, height_km), ...
+    sprintf('MB_%s_heatmap_stateMap_globalReplay_h%d_baseline.png', semantic_name, height_km)};
 
 for idx = 1:numel(figure_names)
     file_name = figure_names{idx};
@@ -170,7 +170,7 @@ notes = repmat("full rebuild figure bundle", numel(paths), 1);
 
 for idx = 1:numel(paths)
     rel = paths(idx);
-    if contains(rel, "globalFullDense")
+    if contains(rel, "globalFullReplay")
         status(idx) = "paper_primary";
         notes(idx) = "default primary pass-ratio mode rebuilt across the full search domain";
     elseif contains(rel, "effectiveFullRange")
@@ -182,12 +182,12 @@ for idx = 1:numel(paths)
     elseif contains(rel, "frontierZoom")
         status(idx) = "diagnostic_support";
         notes(idx) = "frontier-local zoom derived from dense effective-domain rebuild";
-    elseif contains(rel, "minimumNs_heatmap_globalSkeleton")
+    elseif contains(rel, "minimumNs_heatmap_globalReplay")
         status(idx) = "paper_primary";
-        notes(idx) = "global numeric requirement surface rebuilt on full i-P grid";
-    elseif contains(rel, "heatmap_stateMap_globalSkeleton")
+        notes(idx) = "global replay numeric requirement surface rebuilt on full i-P grid";
+    elseif contains(rel, "heatmap_stateMap_globalReplay")
         status(idx) = "paper_supporting";
-        notes(idx) = "global skeleton state coverage map with discrete semantics";
+        notes(idx) = "global replay state coverage map with discrete semantics";
     elseif contains(rel, "minimumNs_heatmap_local")
         status(idx) = "supplemental";
         notes(idx) = "local numeric heatmap retained for focused diagnostics";

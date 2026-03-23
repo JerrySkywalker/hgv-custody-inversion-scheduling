@@ -39,7 +39,7 @@ for idx = 1:numel(modes)
         logical(strcmp(char(string(local_getfield_or(comparison_meta, 'current_plot_mode', ""))), char(primary_mode))), ...
         logical(strcmp(char(string(local_getfield_or(cross_meta, 'current_plot_mode', ""))), char(primary_mode))), ...
         logical(strcmp(char(string(local_getfield_or(heatmap_meta, 'heatmap_primary_value_mode', ""))), 'numeric_requirement')), ...
-        logical(strcmp(char(string(local_getfield_or(heatmap_meta, 'heatmap_primary_domain_mode', ""))), 'globalSkeleton')), ...
+        logical(strcmp(char(string(local_getfield_or(heatmap_meta, 'heatmap_primary_domain_mode', ""))), 'globalReplay')), ...
         string(fullfile(cfg.paths.outputs, 'milestones', char(smoke_id)))};
 end
 
@@ -150,7 +150,7 @@ cfg.milestones.MB_plotting.passratio_primary_mode = char(primary_mode);
 cfg.milestones.MB_plotting.comparison_primary_mode = char(primary_mode);
 cfg.milestones.MB_plotting.cross_profile_primary_mode = char(primary_mode);
 cfg.milestones.MB_plotting.heatmap_primary_value_mode = 'numeric_requirement';
-cfg.milestones.MB_plotting.heatmap_primary_domain_mode = 'globalSkeleton';
+cfg.milestones.MB_plotting.heatmap_primary_domain_mode = 'globalReplay';
 cfg.milestones.MB_plotting.export_all_passratio_modes = true;
 cfg.milestones.MB_plotting.export_all_heatmap_modes = true;
 cfg.milestones.MB_plotting.canonical_primary_mode = char(primary_mode);

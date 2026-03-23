@@ -150,11 +150,14 @@ if contains(lower_name, 'historyfull')
 elseif contains(lower_name, 'effectivefullrange') || contains(lower_name, 'fullrange') || contains(lower_name, 'globaltrend')
     metadata.plot_domain_mode = "effective_full_range";
     metadata.x_domain_origin = "effective_search_domain";
+elseif contains(lower_name, 'globalfullreplay') || contains(lower_name, 'globalfulldense')
+    metadata.plot_domain_mode = "global_full_replay";
+    metadata.x_domain_origin = "initial_search_domain_lower_bound";
 elseif contains(lower_name, 'frontierzoom')
     metadata.plot_domain_mode = "frontier_zoom";
     metadata.x_domain_origin = "frontier_zoom_window";
-elseif contains(lower_name, 'globalskeleton')
-    metadata.plot_domain_mode = "global_skeleton_surface";
+elseif contains(lower_name, 'globalreplay') || contains(lower_name, 'globalskeleton')
+    metadata.plot_domain_mode = "global_replay_surface";
 elseif contains(lower_name, 'local')
     metadata.plot_domain_mode = "local_defined_surface";
 end
@@ -165,8 +168,8 @@ elseif contains(lower_name, 'statemap')
 elseif contains(lower_name, 'gap_heatmap')
     metadata.heatmap_value_semantics = "semantic_gap";
 end
-if contains(lower_name, 'globalskeleton')
-    metadata.heatmap_surface_mode = "global_skeleton";
+if contains(lower_name, 'globalreplay') || contains(lower_name, 'globalskeleton')
+    metadata.heatmap_surface_mode = "global_replay";
 elseif contains(lower_name, 'local')
     metadata.heatmap_surface_mode = "local";
 end

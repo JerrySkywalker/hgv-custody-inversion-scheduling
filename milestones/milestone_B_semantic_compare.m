@@ -105,7 +105,7 @@ result.summary.export_all_heatmap_modes = plot_mode_profile.export_all_heatmap_m
 result.summary.export_history_full = logical(local_getfield_or(local_getfield_or(cfg.milestones, 'MB_plotting', struct()), 'export_history_full', true));
 result.summary.export_effective_full_range = logical(local_getfield_or(local_getfield_or(cfg.milestones, 'MB_plotting', struct()), 'export_effective_full_range', true));
 result.summary.export_frontier_zoom = logical(local_getfield_or(local_getfield_or(cfg.milestones, 'MB_plotting', struct()), 'export_frontier_zoom', true));
-result.summary.export_global_full_dense = logical(local_getfield_or(local_getfield_or(cfg.milestones, 'MB_plotting', struct()), 'export_global_full_dense', true));
+result.summary.export_global_full_replay = logical(local_getfield_or(local_getfield_or(cfg.milestones, 'MB_plotting', struct()), 'export_global_full_replay', true));
 
 if logical(local_getfield_or(meta, 'dry_run', false))
     search_domain_audit = build_mb_search_domain_audit_table(meta, repmat(struct(), 0, 1));
