@@ -1,65 +1,25 @@
 # Validation Closure Final Round
 
 ## Strict replica
-- result file: `outputs/milestones/MB_20260322_finalr3_strict/tables/MB_stage05_strictReplica_validation_summary.csv`
-- expected outcome remains true:
-  - `max_abs_diff_over_curve = 0`
-  - `max_abs_diff = 0`
+- file: `outputs/milestones/MB_20260324_globalfullreplay_strict/tables/MB_stage05_strictReplica_validation_summary.csv`
+- expected: `max_abs_diff_over_curve = 0`, `max_abs_diff = 0`
 
-## Startup / runtime
-- startup timing file: `outputs/milestones/startup_audit/tables/startup_timing_before_after.csv`
-- current reuse result:
-  - `full_refresh = 0.5621355 s`
-  - `same_session_reuse = 0 s`
-- runtime summary file: `outputs/milestones/startup_audit/tables/runtime_mode_summary.csv`
-- temp cleanup summary:
-  - `outputs/milestones/startup_audit/tables/temp_script_cleanup_summary.csv`
+## Pass-ratio semantics
+- `historyFull`: real points only, no zero padding, no gap bridging
+- `effectiveFullRange`: effective-domain dense rebuild, clearly marked `effective_only`
+- `globalFullReplay`: full-domain replay, gaps remain broken, no tail-only aliasing
+- `frontierZoom`: local zoom cut from dense effective replay
 
-## Baseline h=1000 final fresh
-- result file: `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/MB_comparison_summary_h1000_baseline.csv`
-- snapshot stage: `expanded_final`
-- profile: `mb_default / expand_default`
-- legacy frontier defined count: `8`
-- closedD frontier defined count: `3`
-- comparison remains `diagnostic_only`
-- right plateau remains incomplete on both semantic branches:
-  - `right_plateau_reached_legacy = 0`
-  - `right_plateau_reached_closed = 0`
+## Heatmap semantics
+- `local`: effective/local defined surface only
+- `globalReplay`: full-frame replay with undefined cells preserved
+- numeric and state matrices are audited separately
 
-## New figure semantics
-- pass-ratio:
-  - `historyFull`: original search-history lower bound through current max
-  - `effectiveFullRange`: final effective expanded domain
-  - `frontierZoom`: local frontier neighborhood only
-- heatmap:
-  - `local`: refined / overcomputed defined surface
-  - `globalSkeleton`: global P-i frame with undefined cells preserved
-- audit tables:
-  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/passratio_plot_domain_audit_summary.csv`
-  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/plot_domain_root_cause_audit_summary.csv`
-  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/passratio_history_padding_summary.csv`
-  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/plot_cache_domain_semantics_audit.csv`
-  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/heatmap_render_mode_audit_summary.csv`
-  - `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/semantic_domain_consistency_summary.csv`
- - current audit outcome:
-  - `historyFull` rendered min = `16`
-  - `effectiveFullRange` rendered min = `56`
-  - `frontierZoom` rendered min = `324`
-  - all audited pass-ratio views currently `pass_fail = 1`
-
-## Stage figure runtime smoke
-- summary file: `outputs/milestones/STAGE_plot_runtime_smoke_20260322_finalr3_stage/tables/STAGE_headless_smoke_summary.csv`
-- closure notes:
-  - `outputs/milestones/STAGE_plot_runtime_smoke_20260322_finalr3_stage/tables/stage_runtime_closure_notes.md`
-- `stage01_scenario_disk`: headless and visible export both pass
-- `stage09_inverse_plot`: still does not pass in this workspace because upstream `Stage08.5` cache is missing
-- interpretation:
-  - plot runtime mechanism is wired in
-  - the stage09 business chain is not marked as passed
-
-## Final closure table
-- `outputs/milestones/MB_20260322_plotdomain_finalfix/tables/MB_validation_closure_round_final.csv`
-- current closure flags additionally confirm:
-  - `full_history_export_pass = 1`
-  - `heatmap_state_map_separation_pass = 1`
-  - `output_organization_pass = 1`
+## Required closure tables
+- `outputs/milestones/MB_20260324_globalfullreplay_baseline/tables/passratio_source_semantics_audit_summary.csv`
+- `outputs/milestones/MB_20260324_globalfullreplay_baseline/tables/passratio_view_scope_audit_summary.csv`
+- `outputs/milestones/MB_20260324_globalfullreplay_baseline/tables/passratio_tail_oscillation_audit.csv`
+- `outputs/milestones/MB_20260324_globalfullreplay_baseline/tables/heatmap_source_semantics_audit_summary.csv`
+- `outputs/milestones/MB_20260324_globalfullreplay_baseline/tables/heatmap_view_scope_audit_summary.csv`
+- `outputs/milestones/MB_20260324_globalfullreplay_baseline/tables/plot_domain_root_cause_audit_summary.csv`
+- `outputs/milestones/MB_20260324_globalfullreplay_baseline/tables/MB_full_rebuild_closure_summary.csv`
