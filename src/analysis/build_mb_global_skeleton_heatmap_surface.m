@@ -21,7 +21,7 @@ plot_mode_profile = local_getfield_or(options, 'plot_mode_profile', struct());
 policy = resolve_mb_plot_data_policy(runtime_cfg, struct( ...
     'plot_mode_profile', plot_mode_profile, ...
     'heatmap_value_mode', "numeric_requirement", ...
-    'heatmap_domain_mode', "globalSkeleton"));
+    'heatmap_domain_mode', "globalReplay"));
 
 if logical(local_getfield_or(policy, 'used_global_rebuild_required', false))
     [surface_out, rebuild_meta] = rebuild_mb_requirement_surface_for_heatmap(surface_in, search_domain, struct( ...
@@ -40,8 +40,8 @@ else
     surface_out.value_matrix = local_build_value_matrix(full_table, x_values, y_values, 'minimum_feasible_Ns');
     surface_out.numeric_requirement_matrix = surface_out.value_matrix;
     surface_out.margin_matrix = local_build_value_matrix(full_table, x_values, y_values, 'best_joint_margin_at_min');
-    surface_out.surface_name = string(local_getfield_or(surface_in, 'surface_name', "requirement_surface")) + "_globalSkeleton";
-    surface_out.heatmap_surface_mode = "globalSkeleton";
+    surface_out.surface_name = string(local_getfield_or(surface_in, 'surface_name', "requirement_surface")) + "_globalReplay";
+    surface_out.heatmap_surface_mode = "globalReplay";
     surface_out.matrix_domain_source = "global_i_p_skeleton";
     surface_out.global_skeleton_applied = true;
     surface_out.used_global_rebuild = false;

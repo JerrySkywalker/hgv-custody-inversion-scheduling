@@ -7,6 +7,9 @@ end
 
 heatmap_mode = string(heatmap_mode);
 domain_mode = string(domain_mode);
+if domain_mode == "globalSkeleton"
+    domain_mode = "globalReplay";
+end
 if heatmap_mode == "state_map"
     matrix_source_name = string(local_getfield_or(surface, 'state_matrix_source_name', "discrete_state_matrix"));
     matrix_value_type = "discrete_state";
@@ -39,7 +42,7 @@ extra_fields.uses_discrete_state_matrix = logical(uses_discrete_state_matrix);
 extra_fields.uses_numeric_requirement_matrix = logical(uses_numeric_requirement_matrix);
 extra_fields.annotation_mode = annotation_mode;
 extra_fields.used_global_rebuild = logical(local_getfield_or(surface, 'used_global_rebuild', false));
-extra_fields.used_skeleton_projection = logical(local_getfield_or(surface, 'used_skeleton_projection', domain_mode == "globalSkeleton"));
+extra_fields.used_skeleton_projection = logical(local_getfield_or(surface, 'used_skeleton_projection', domain_mode == "globalReplay"));
 extra_fields.num_defined_cells = double(local_getfield_or(surface, 'num_defined_cells', local_count_defined_cells(surface, heatmap_mode)));
 extra_fields.num_nan_cells = double(local_getfield_or(surface, 'num_nan_cells', local_count_nan_cells(surface, heatmap_mode)));
 extra_fields.height_km = double(local_getfield_or(surface, 'h_km', NaN));
@@ -52,6 +55,15 @@ extra_fields.heatmap_primary_value_mode = string(local_getfield_or(extra_fields,
 extra_fields.heatmap_primary_domain_mode = string(local_getfield_or(extra_fields, 'heatmap_primary_domain_mode', ""));
 extra_fields.heatmap_is_primary_selection = logical(local_getfield_or(extra_fields, 'heatmap_is_primary_selection', false));
 extra_fields.canonical_heatmap_selection_key = string(local_getfield_or(extra_fields, 'canonical_heatmap_selection_key', ""));
+if domain_mode == "globalReplay"
+    extra_fields.heatmap_scope = "global_replay";
+    extra_fields.heatmap_numeric_source = "global_rebuild";
+else
+    extra_fields.heatmap_scope = "local";
+    extra_fields.heatmap_numeric_source = "effective_submatrix";
+end
+extra_fields.heatmap_is_tail_only = false;
+extra_fields.heatmap_global_grid_coverage_ratio = double(local_getfield_or(surface, 'heatmap_global_grid_coverage_ratio', local_safe_ratio(extra_fields.num_defined_cells, extra_fields.num_defined_cells + extra_fields.num_nan_cells)));
 end
 
 function count = local_count_defined_cells(surface, heatmap_mode)
@@ -90,4 +102,12 @@ if isstruct(S) && isfield(S, field_name)
 else
     value = fallback;
 end
+end
+
+function value = local_safe_ratio(num, den)
+if ~(isnumeric(num) && isnumeric(den)) || ~isscalar(num) || ~isscalar(den) || den <= 0
+    value = NaN;
+    return;
+end
+value = double(num) / double(den);
 end

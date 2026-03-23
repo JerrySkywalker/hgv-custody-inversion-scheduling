@@ -48,8 +48,8 @@ surface_out.y_values = y_values(:);
 surface_out.value_matrix = local_build_value_matrix(full_table, x_values, y_values, 'minimum_feasible_Ns');
 surface_out.numeric_requirement_matrix = surface_out.value_matrix;
 surface_out.margin_matrix = local_build_value_matrix(full_table, x_values, y_values, 'best_joint_margin_at_min');
-surface_out.surface_name = string(local_getfield_or(surface_in, 'surface_name', "requirement_surface")) + "_globalSkeleton";
-surface_out.heatmap_surface_mode = "globalSkeleton";
+surface_out.surface_name = string(local_getfield_or(surface_in, 'surface_name', "requirement_surface")) + "_globalReplay";
+surface_out.heatmap_surface_mode = "globalReplay";
 surface_out.matrix_domain_source = "global_i_p_requirement_rebuild";
 surface_out.global_skeleton_applied = true;
 surface_out.used_global_rebuild = rebuild_meta.used_global_rebuild;
@@ -61,6 +61,7 @@ rebuild_meta.num_defined_cells = sum(defined_mask(:));
 rebuild_meta.num_nan_cells = sum(~defined_mask(:));
 surface_out.num_defined_cells = rebuild_meta.num_defined_cells;
 surface_out.num_nan_cells = rebuild_meta.num_nan_cells;
+surface_out.heatmap_global_grid_coverage_ratio = local_safe_ratio(rebuild_meta.num_defined_cells, rebuild_meta.num_defined_cells + rebuild_meta.num_nan_cells);
 end
 
 function axis_values = local_resolve_axis_values(search_domain, surface_in, primary_search_field, secondary_search_field, surface_field, table_field)
@@ -244,4 +245,12 @@ if isstruct(S) && isfield(S, field_name)
 else
     value = fallback;
 end
+end
+
+function value = local_safe_ratio(num, den)
+if ~(isnumeric(num) && isnumeric(den)) || ~isscalar(num) || ~isscalar(den) || den <= 0
+    value = NaN;
+    return;
+end
+value = double(num) / double(den);
 end

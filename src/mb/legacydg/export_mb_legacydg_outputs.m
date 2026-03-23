@@ -39,11 +39,11 @@ for idx = 1:numel(run_output.runs)
     heat_csv = fullfile(paths.tables, sprintf('MB_legacyDG_minimumNs_heatmap_iP_%s_%s.csv', h_label, sensor_group));
     heat_primary_csv = fullfile(paths.tables, sprintf('MB_legacyDG_minimumNs_heatmap_primary_%s_%s.csv', h_label, sensor_group));
     heat_local_csv = fullfile(paths.tables, sprintf('MB_legacyDG_minimumNs_heatmap_local_%s_%s.csv', h_label, sensor_group));
-    heat_global_csv = fullfile(paths.tables, sprintf('MB_legacyDG_minimumNs_heatmap_globalSkeleton_%s_%s.csv', h_label, sensor_group));
+    heat_global_csv = fullfile(paths.tables, sprintf('MB_legacyDG_minimumNs_heatmap_globalReplay_%s_%s.csv', h_label, sensor_group));
     heat_state_csv = fullfile(paths.tables, sprintf('MB_legacyDG_heatmap_stateMap_%s_%s.csv', h_label, sensor_group));
     heat_state_primary_csv = fullfile(paths.tables, sprintf('MB_legacyDG_heatmap_stateMap_primary_%s_%s.csv', h_label, sensor_group));
     heat_state_local_csv = fullfile(paths.tables, sprintf('MB_legacyDG_heatmap_stateMap_local_%s_%s.csv', h_label, sensor_group));
-    heat_state_global_csv = fullfile(paths.tables, sprintf('MB_legacyDG_heatmap_stateMap_globalSkeleton_%s_%s.csv', h_label, sensor_group));
+    heat_state_global_csv = fullfile(paths.tables, sprintf('MB_legacyDG_heatmap_stateMap_globalReplay_%s_%s.csv', h_label, sensor_group));
     overcompute_csv = fullfile(paths.tables, sprintf('MB_heatmap_overcompute_summary_legacyDG_%s_%s.csv', h_label, sensor_group));
     provenance_csv = fullfile(paths.tables, sprintf('MB_heatmap_provenance_map_legacyDG_%s_%s.csv', h_label, sensor_group));
     refinement_csv = fullfile(paths.tables, sprintf('MB_frontier_refinement_summary_legacyDG_%s_%s.csv', h_label, sensor_group));
@@ -220,7 +220,7 @@ for idx = 1:numel(run_output.runs)
         'runtime', local_getfield_or(plot_options, 'runtime', struct()), ...
         'plot_mode_profile', plot_mode_profile, ...
         'plot_data_policy', local_getfield_or(plot_options, 'plot_data_policy', struct())));
-    global_surface = annotate_mb_heatmap_surface_semantics(global_surface, search_domain, struct('domain_mode', "globalSkeleton"));
+    global_surface = annotate_mb_heatmap_surface_semantics(global_surface, search_domain, struct('domain_mode', "globalReplay"));
     milestone_common_save_table(local_getfield_or(local_surface, 'surface_table', table()), heat_local_csv);
     milestone_common_save_table(local_getfield_or(global_surface, 'surface_table', table()), heat_global_csv);
     milestone_common_save_table(local_getfield_or(local_surface, 'surface_table', table()), heat_state_local_csv);
@@ -252,17 +252,18 @@ for idx = 1:numel(run_output.runs)
         'search_domain_bounds', [search_domain.history_ns_min, search_domain.history_ns_max], ...
         'domain_summary', char(string(local_getfield_or(plot_options, 'search_domain_label', ""))), ...
         'heatmap_render_mode', "numeric_requirement", ...
-        'plot_domain_label', "global_skeleton_surface", ...
+        'plot_domain_label', "global_replay_surface", ...
+        'scope_annotation_text', "status: global replay grid, undefined cells preserved", ...
         'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
-    local_retitle(fig_heat_global, sprintf('legacyDG Global-Skeleton Minimum Feasible Constellation Heatmap at h = %.0f km [%s]', run.h_km, sensor_label));
-    heat_global_png = fullfile(paths.figures, sprintf('MB_legacyDG_minimumNs_heatmap_globalSkeleton_%s_%s.png', h_label, sensor_group));
+    local_retitle(fig_heat_global, sprintf('legacyDG Global Replay Minimum Feasible Constellation Heatmap at h = %.0f km [%s]', run.h_km, sensor_label));
+    heat_global_png = fullfile(paths.figures, sprintf('MB_legacyDG_minimumNs_heatmap_globalReplay_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat_global, heat_global_png);
-    write_mb_plot_domain_sidecar(heat_global_png, "global_skeleton_surface", "global_i_p_requirement_rebuild", [], ...
-        build_mb_heatmap_sidecar_fields(global_surface, "numeric_requirement", "globalSkeleton", struct( ...
+    write_mb_plot_domain_sidecar(heat_global_png, "global_replay_surface", "global_i_p_requirement_rebuild", [], ...
+        build_mb_heatmap_sidecar_fields(global_surface, "numeric_requirement", "globalReplay", struct( ...
         'figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")), ...
         'heatmap_primary_value_mode', plot_mode_profile.heatmap_primary_value_mode, ...
         'heatmap_primary_domain_mode', plot_mode_profile.heatmap_primary_domain_mode, ...
-        'heatmap_is_primary_selection', plot_mode_profile.heatmap_primary_value_mode == "numeric_requirement" && plot_mode_profile.heatmap_primary_domain_mode == "globalSkeleton", ...
+        'heatmap_is_primary_selection', plot_mode_profile.heatmap_primary_value_mode == "numeric_requirement" && plot_mode_profile.heatmap_primary_domain_mode == "globalReplay", ...
         'canonical_heatmap_selection_key', plot_mode_profile.heatmap_primary_selection.selection_key)));
     close(fig_heat_global);
 
@@ -292,17 +293,18 @@ for idx = 1:numel(run_output.runs)
         'search_domain_bounds', [search_domain.history_ns_min, search_domain.history_ns_max], ...
         'domain_summary', char(string(local_getfield_or(plot_options, 'search_domain_label', ""))), ...
         'heatmap_render_mode', "state_map", ...
-        'plot_domain_label', "state_map_global_skeleton", ...
+        'plot_domain_label', "state_map_global_replay", ...
+        'scope_annotation_text', "status: global replay state coverage, undefined cells preserved", ...
         'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
-    local_retitle(fig_heat_state_global, sprintf('legacyDG Global-Skeleton Heatmap State Map at h = %.0f km [%s]', run.h_km, sensor_label));
-    heat_state_global_png = fullfile(paths.figures, sprintf('MB_legacyDG_heatmap_stateMap_globalSkeleton_%s_%s.png', h_label, sensor_group));
+    local_retitle(fig_heat_state_global, sprintf('legacyDG Global Replay Heatmap State Map at h = %.0f km [%s]', run.h_km, sensor_label));
+    heat_state_global_png = fullfile(paths.figures, sprintf('MB_legacyDG_heatmap_stateMap_globalReplay_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat_state_global, heat_state_global_png);
-    write_mb_plot_domain_sidecar(heat_state_global_png, "global_skeleton_surface", string(local_getfield_or(global_surface, 'matrix_domain_source', "global_i_p_requirement_rebuild")), [], ...
-        build_mb_heatmap_sidecar_fields(global_surface, "state_map", "globalSkeleton", struct( ...
+    write_mb_plot_domain_sidecar(heat_state_global_png, "global_replay_surface", string(local_getfield_or(global_surface, 'matrix_domain_source', "global_i_p_requirement_rebuild")), [], ...
+        build_mb_heatmap_sidecar_fields(global_surface, "state_map", "globalReplay", struct( ...
         'figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")), ...
         'heatmap_primary_value_mode', plot_mode_profile.heatmap_primary_value_mode, ...
         'heatmap_primary_domain_mode', plot_mode_profile.heatmap_primary_domain_mode, ...
-        'heatmap_is_primary_selection', plot_mode_profile.heatmap_primary_value_mode == "state_map" && plot_mode_profile.heatmap_primary_domain_mode == "globalSkeleton", ...
+        'heatmap_is_primary_selection', plot_mode_profile.heatmap_primary_value_mode == "state_map" && plot_mode_profile.heatmap_primary_domain_mode == "globalReplay", ...
         'canonical_heatmap_selection_key', plot_mode_profile.heatmap_primary_selection.selection_key)));
     close(fig_heat_state_global);
     local_maybe_export_paper_ready(@() plot_mb_fixed_h_requirement_heatmap_iP(run.aggregate.requirement_surface_iP, style, struct( ...
@@ -327,7 +329,7 @@ for idx = 1:numel(run_output.runs)
     numeric_primary_surface = local_surface;
     numeric_primary_png = string(heat_local_png);
     numeric_primary_csv = string(heat_local_csv);
-    if plot_mode_profile.heatmap_primary_domain_mode == "globalSkeleton"
+    if plot_mode_profile.heatmap_primary_domain_mode == "globalReplay"
         numeric_primary_surface = global_surface;
         numeric_primary_png = string(heat_global_png);
         numeric_primary_csv = string(heat_global_csv);
@@ -342,7 +344,7 @@ for idx = 1:numel(run_output.runs)
     state_primary_surface = local_surface;
     state_primary_png = string(heat_state_local_png);
     state_primary_csv = string(heat_state_local_csv);
-    if plot_mode_profile.heatmap_primary_domain_mode == "globalSkeleton"
+    if plot_mode_profile.heatmap_primary_domain_mode == "globalReplay"
         state_primary_surface = global_surface;
         state_primary_png = string(heat_state_global_png);
         state_primary_csv = string(heat_state_global_csv);
@@ -360,22 +362,22 @@ for idx = 1:numel(run_output.runs)
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioZoom_%s', h_label))) = string(pass_zoom_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioPrimary_%s', h_label))) = string(pass_primary_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_local_%s', h_label))) = string(heat_local_png);
-    artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_globalSkeleton_%s', h_label))) = string(heat_global_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_globalReplay_%s', h_label))) = string(heat_global_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_primary_%s', h_label))) = string(heat_primary_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMapLocal_%s', h_label))) = string(heat_state_local_png);
-    artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMapGlobalSkeleton_%s', h_label))) = string(heat_state_global_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMapGlobalReplay_%s', h_label))) = string(heat_state_global_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMap_%s', h_label))) = string(heat_state_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMapPrimary_%s', h_label))) = string(heat_state_primary_png);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_primary_%s', h_label))) = string(pass_primary_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_primary_%s', h_label))) = string(heat_primary_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_local_%s', h_label))) = string(heat_local_csv);
-    artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_globalSkeleton_%s', h_label))) = string(heat_global_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_globalReplay_%s', h_label))) = string(heat_global_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmapStateMap_%s', h_label))) = string(heat_state_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmapStateMap_primary_%s', h_label))) = string(heat_state_primary_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmapStateMapLocal_%s', h_label))) = string(heat_state_local_csv);
-    artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmapStateMapGlobalSkeleton_%s', h_label))) = string(heat_state_global_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmapStateMapGlobalReplay_%s', h_label))) = string(heat_state_global_csv);
 end
 
 function local_maybe_export_paper_ready(builder_fn, file_path, figure_family, diagnostics, plot_options)

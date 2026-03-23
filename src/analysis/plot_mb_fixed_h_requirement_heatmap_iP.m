@@ -164,6 +164,10 @@ if istable(boundary_hit_table) && ~isempty(boundary_hit_table)
         text_lines(end + 1, 1) = "diag: upper bound insufficient"; %#ok<AGROW>
     end
 end
+scope_annotation = string(local_getfield_or(options, 'scope_annotation_text', ""));
+if strlength(scope_annotation) > 0
+    text_lines(end + 1, 1) = scope_annotation; %#ok<AGROW>
+end
 if isempty(text_lines)
     return;
 end
