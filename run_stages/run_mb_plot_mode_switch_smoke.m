@@ -88,8 +88,8 @@ try
     strict_root = fullfile(strict_cfg.paths.outputs, 'milestones', char(strict_id));
     strict_csv = fullfile(strict_root, 'tables', 'MB_stage05_strictReplica_validation_summary.csv');
     strict_table = readtable(strict_csv, 'TextType', 'string');
-    strict_max_curve = max(strict_table.max_abs_diff_over_curve);
-    strict_max_abs = max(strict_table.max_abs_diff);
+    strict_max_curve = local_pick_table_max(strict_table, {'max_abs_diff_over_curve'});
+    strict_max_abs = local_pick_table_max(strict_table, {'max_abs_diff', 'abs_diff'});
     strict_pass = strict_max_curve == 0 && strict_max_abs == 0;
 catch err
     warning('MB:PlotModeSmokeStrictReplica', '%s', err.message);
@@ -172,5 +172,23 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function value = local_pick_table_max(T, candidate_names)
+value = NaN;
+for idx = 1:numel(candidate_names)
+    name = candidate_names{idx};
+    if ~ismember(name, T.Properties.VariableNames)
+        continue;
+    end
+    values = T.(name);
+    values = values(isfinite(values));
+    if isempty(values)
+        value = NaN;
+    else
+        value = max(values);
+    end
+    return;
 end
 end
