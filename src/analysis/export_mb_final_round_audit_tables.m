@@ -178,6 +178,7 @@ for idx = 1:numel(files)
     actual_max = local_getdouble(meta, 'actual_rendered_xlim_max', local_getdouble(meta, 'x_max_rendered', NaN));
     history_padding_applied = logical(local_getfield_or(meta, 'history_padding_applied', false));
     history_padding_mode = string(local_getfield_or(meta, 'history_padding_mode', ""));
+    zero_padding_used = logical(local_getfield_or(meta, 'zero_padding_used', false));
     source_table_is_tail_only = isfinite(source_min) && isfinite(history_origin_min) && source_min > history_origin_min + 1.0e-9;
     cache_hit = logical(local_getfield_or(meta, 'phasecurve_cache_hit', false));
     cache_key = string(local_getfield_or(meta, 'phasecurve_cache_key', ""));
@@ -185,7 +186,7 @@ for idx = 1:numel(files)
     fallback_override_source = string(local_getfield_or(meta, 'fallback_override_source', ""));
     [expected_behavior, actual_behavior, pass_fail, root_cause_tag] = local_resolve_passratio_root_cause( ...
         domain_mode, export_chain, source_table_is_tail_only, resolver_min, resolver_max, actual_min, actual_max, ...
-        history_padding_applied, history_origin_mode, history_origin_min, cache_hit, fallback_override_applied, meta);
+        history_padding_applied, history_padding_mode, history_origin_mode, history_origin_min, cache_hit, fallback_override_applied, zero_padding_used, meta);
     stale_domain_semantics_reused = cache_hit && ismember(root_cause_tag, ["cache_reused_old_tail_table", "comparison_still_using_tail_gap_table"]);
 
     rows(end + 1, :) = { ... %#ok<AGROW>
@@ -512,7 +513,7 @@ key = replace(key, "_effectiveFullRange_", "_");
 key = replace(key, "_frontierZoom_", "_");
 end
 
-function [expected_behavior, actual_behavior, pass_fail, root_cause_tag] = local_resolve_passratio_root_cause(domain_mode, export_chain, source_table_is_tail_only, resolver_min, resolver_max, actual_min, actual_max, history_padding_applied, history_origin_mode, history_origin_min, cache_hit, fallback_override_applied, meta)
+function [expected_behavior, actual_behavior, pass_fail, root_cause_tag] = local_resolve_passratio_root_cause(domain_mode, export_chain, source_table_is_tail_only, resolver_min, resolver_max, actual_min, actual_max, history_padding_applied, history_padding_mode, history_origin_mode, history_origin_min, cache_hit, fallback_override_applied, zero_padding_used, meta)
 expected_behavior = "";
 actual_behavior = "";
 pass_fail = false;
@@ -520,27 +521,27 @@ root_cause_tag = string(local_getfield_or(meta, 'root_cause_tag', ""));
 
 switch string(domain_mode)
     case "history_full"
-        expected_behavior = "history_full_from_initial_ns_min_with_zero_padding";
-        actual_behavior = "history_full_padded_table";
-        pass_fail = isfinite(history_origin_min) && isfinite(actual_min) && actual_min <= history_origin_min + 1.0e-9 && logical(history_padding_applied);
+        expected_behavior = "history_full_true_computed_points_only_no_zero_padding";
+        actual_behavior = "history_full_true_history_points";
+        pass_fail = isfinite(history_origin_min) && isfinite(actual_min) && actual_min <= history_origin_min + 1.0e-9 && ~logical(zero_padding_used);
         if history_origin_mode == "zero"
             pass_fail = pass_fail && abs(actual_min) < 1.0e-9;
         end
         if pass_fail
             root_cause_tag = "correct";
-        elseif cache_hit && source_table_is_tail_only && ~logical(history_padding_applied)
+        elseif logical(zero_padding_used) || string(history_padding_mode) == "zero"
+            root_cause_tag = "history_zero_padding_used";
+        elseif cache_hit && source_table_is_tail_only
             root_cause_tag = "cache_reused_old_tail_table";
-        elseif source_table_is_tail_only && ~logical(history_padding_applied) && ismember(string(export_chain), ["comparison", "cross_profile"])
+        elseif source_table_is_tail_only && ismember(string(export_chain), ["comparison", "cross_profile"])
             root_cause_tag = "comparison_still_using_tail_gap_table";
-        elseif ~logical(history_padding_applied)
-            root_cause_tag = "history_padding_missing";
         elseif logical(fallback_override_applied) || ...
                 (isfinite(resolver_min) && isfinite(actual_min) && isfinite(history_origin_min) && resolver_min <= history_origin_min + 1.0e-9 && actual_min > history_origin_min + 1.0e-9)
             root_cause_tag = "resolver_ok_but_render_override";
         elseif source_table_is_tail_only
             root_cause_tag = "source_table_tail_only";
         else
-            root_cause_tag = "history_padding_missing";
+            root_cause_tag = "history_source_truncated";
         end
     case "effective_full_range"
         expected_behavior = "effective_domain_window_from_effective_search_domain";
