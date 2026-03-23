@@ -77,6 +77,23 @@ for idx = 1:numel(files)
     num_recomputed_rows = double(local_getfield_or(meta, 'num_recomputed_rows', NaN));
     global_full_dense_used = logical(local_getfield_or(meta, 'global_full_dense_used', mode_name == "globalFullDense"));
     [ns_min_plotted, ns_max_plotted, num_unique_ns_plotted, num_nonzero_rows] = local_read_passratio_plot_counts(source_table, meta);
+    [dense_table_min_ns, dense_table_max_ns, dense_table_recomputed_rows] = local_read_dense_table_metadata(source_table);
+    if rebuild_scope == ""
+        if mode_name == "globalFullDense"
+            rebuild_scope = "global_full";
+        elseif ismember(mode_name, ["effectiveFullRange", "frontierZoom"])
+            rebuild_scope = "effective";
+        end
+    end
+    if ~isfinite(dense_grid_min_ns)
+        dense_grid_min_ns = local_first_finite(dense_table_min_ns, ns_min_plotted);
+    end
+    if ~isfinite(dense_grid_max_ns)
+        dense_grid_max_ns = local_first_finite(dense_table_max_ns, ns_max_plotted);
+    end
+    if ~isfinite(num_recomputed_rows)
+        num_recomputed_rows = dense_table_recomputed_rows;
+    end
     expected_semantics_match = local_passratio_semantics_match(mode_name, dense_rebuild_used, inherited_from_effective_dense, zero_padding_used, sparse_projection_used, rebuild_scope, global_full_dense_used);
     rows{end + 1, 1} = { ... %#ok<AGROW>
         figure_name, ...
@@ -933,6 +950,36 @@ if ~isfinite(num_nonzero_rows)
 end
 end
 
+function [dense_grid_min_ns, dense_grid_max_ns, num_recomputed_rows] = local_read_dense_table_metadata(source_table_path)
+dense_grid_min_ns = NaN;
+dense_grid_max_ns = NaN;
+num_recomputed_rows = NaN;
+if exist(source_table_path, 'file') ~= 2
+    return;
+end
+try
+    T = readtable(source_table_path, 'TextType', 'string');
+catch
+    return;
+end
+if ismember('Ns', T.Properties.VariableNames)
+    ns_values = T.Ns(isfinite(T.Ns));
+    if ~isempty(ns_values)
+        dense_grid_min_ns = min(ns_values);
+        dense_grid_max_ns = max(ns_values);
+    end
+end
+if ismember('point_evaluated', T.Properties.VariableNames)
+    num_recomputed_rows = sum(logical(T.point_evaluated));
+elseif ismember('max_pass_ratio', T.Properties.VariableNames)
+    values = T.max_pass_ratio;
+    num_recomputed_rows = sum(isfinite(values));
+elseif ismember('overlay_pass_ratio', T.Properties.VariableNames)
+    values = T.overlay_pass_ratio;
+    num_recomputed_rows = sum(isfinite(values));
+end
+end
+
 function tf = local_passratio_semantics_match(mode_name, dense_rebuild_used, inherited_from_effective_dense, zero_padding_used, sparse_projection_used, rebuild_scope, global_full_dense_used)
 mode_name = string(mode_name);
 switch mode_name
@@ -964,5 +1011,16 @@ elseif value_mode == "state_map" && domain_mode == "globalSkeleton"
     tf = true;
 else
     tf = true;
+end
+
+function value = local_first_finite(varargin)
+value = NaN;
+for idx = 1:nargin
+    candidate = varargin{idx};
+    if isnumeric(candidate) && isscalar(candidate) && isfinite(candidate)
+        value = candidate;
+        return;
+    end
+end
 end
 end
