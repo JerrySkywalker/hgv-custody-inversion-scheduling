@@ -71,7 +71,7 @@ if strlength(passratio_mode) > 0
             policy.dense_domain = "effective_search_domain";
             policy.policy_label = "frontier_zoom_from_dense_effective";
             policy.policy_reason = "Reuse or rebuild the dense effective-full-range table, then crop to the frontier zoom window.";
-        case "globalFullDense"
+        case "globalFullReplay"
             policy.allow_zero_padding = false;
             policy.allow_sparse_projection = false;
             policy.require_dense_rebuild = true;
@@ -79,27 +79,27 @@ if strlength(passratio_mode) > 0
             policy.use_true_history_points_only = false;
             policy.dense_domain = "full_search_domain";
             policy.primary_candidate = true;
-            policy.policy_label = "global_full_dense_rebuild";
-            policy.policy_reason = "Rebuild a dense pass-ratio table from the original search-domain lower bound through the final Ns max.";
+            policy.policy_label = "global_full_replay_rebuild";
+            policy.policy_reason = "Replay the full search-domain dense grid from the original search-domain lower bound through the final Ns max without zero padding or gap bridging.";
     end
 end
 
 if strlength(heatmap_value_mode) > 0 || strlength(heatmap_domain_mode) > 0
-    if heatmap_value_mode == "numeric_requirement" && heatmap_domain_mode == "globalSkeleton"
+    if heatmap_value_mode == "numeric_requirement" && heatmap_domain_mode == "globalReplay"
         policy.used_global_rebuild_required = true;
         policy.used_skeleton_projection_allowed = false;
-        policy.policy_label = "numeric_global_true_rebuild";
-        policy.policy_reason = "A numeric globalSkeleton heatmap must come from a rebuilt full requirement surface, not a sparse skeleton projection.";
+        policy.policy_label = "numeric_global_replay_true_rebuild";
+        policy.policy_reason = "A numeric globalReplay heatmap must come from a rebuilt full requirement surface, not a sparse skeleton projection.";
     elseif heatmap_value_mode == "numeric_requirement" && heatmap_domain_mode == "local"
         policy.used_global_rebuild_required = false;
         policy.used_skeleton_projection_allowed = false;
         policy.policy_label = "numeric_local_surface";
         policy.policy_reason = "A numeric local heatmap may use the currently defined local requirement surface.";
-    elseif heatmap_value_mode == "state_map" && heatmap_domain_mode == "globalSkeleton"
+    elseif heatmap_value_mode == "state_map" && heatmap_domain_mode == "globalReplay"
         policy.used_global_rebuild_required = false;
         policy.used_skeleton_projection_allowed = true;
-        policy.policy_label = "state_global_coverage";
-        policy.policy_reason = "A globalSkeleton state map may use skeleton coverage logic, but it must preserve defined-vs-uncomputed semantics.";
+        policy.policy_label = "state_global_replay_coverage";
+        policy.policy_reason = "A globalReplay state map may use skeleton coverage logic, but it must preserve defined-vs-uncomputed semantics.";
     elseif heatmap_value_mode == "state_map" && heatmap_domain_mode == "local"
         policy.used_global_rebuild_required = false;
         policy.used_skeleton_projection_allowed = false;
@@ -136,8 +136,8 @@ switch lower(strrep(strrep(char(mode), '_', ''), '-', ''))
         mode = "effectiveFullRange";
     case {'frontierzoom', 'zoom', 'frontier'}
         mode = "frontierZoom";
-    case {'globalfulldense', 'globalfull', 'globaldense', 'fullsearchdomain'}
-        mode = "globalFullDense";
+    case {'globalfullreplay', 'globalreplay', 'globalfulldense', 'globalfull', 'globaldense', 'globaltrend', 'fullsearchdomain'}
+        mode = "globalFullReplay";
     otherwise
         error('resolve_mb_plot_data_policy:InvalidPassratioMode', ...
             'Unsupported MB passratio mode: %s', char(mode));
@@ -168,8 +168,8 @@ end
 switch lower(strrep(strrep(char(mode), '_', ''), '-', ''))
     case {'local'}
         mode = "local";
-    case {'globalskeleton', 'global'}
-        mode = "globalSkeleton";
+    case {'globalreplay', 'globalskeleton', 'global'}
+        mode = "globalReplay";
     otherwise
         error('resolve_mb_plot_data_policy:InvalidHeatmapDomainMode', ...
             'Unsupported MB heatmap domain mode: %s', char(mode));

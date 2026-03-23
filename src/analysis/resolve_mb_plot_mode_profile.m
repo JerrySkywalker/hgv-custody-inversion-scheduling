@@ -5,7 +5,7 @@ plotting_cfg = local_extract_plotting_cfg(cfg_or_meta);
 
 profile = struct();
 profile.passratio_primary_mode = local_normalize_passratio_mode( ...
-    local_getfield_or(plotting_cfg, 'passratio_primary_mode', "globalFullDense"));
+    local_getfield_or(plotting_cfg, 'passratio_primary_mode', local_getfield_or(plotting_cfg, 'primary_passratio_view', "globalFullReplay")));
 profile.comparison_primary_mode = local_normalize_passratio_mode( ...
     local_getfield_or(plotting_cfg, 'comparison_primary_mode', profile.passratio_primary_mode));
 profile.cross_profile_primary_mode = local_normalize_passratio_mode( ...
@@ -13,16 +13,16 @@ profile.cross_profile_primary_mode = local_normalize_passratio_mode( ...
 profile.heatmap_primary_value_mode = local_normalize_heatmap_value_mode( ...
     local_getfield_or(plotting_cfg, 'heatmap_primary_value_mode', "numeric_requirement"));
 profile.heatmap_primary_domain_mode = local_normalize_heatmap_domain_mode( ...
-    local_getfield_or(plotting_cfg, 'heatmap_primary_domain_mode', "globalSkeleton"));
+    local_getfield_or(plotting_cfg, 'heatmap_primary_domain_mode', local_getfield_or(plotting_cfg, 'primary_heatmap_scope', "globalReplay")));
 profile.export_all_passratio_modes = logical(local_getfield_or(plotting_cfg, 'export_all_passratio_modes', true));
 profile.export_all_heatmap_modes = logical(local_getfield_or(plotting_cfg, 'export_all_heatmap_modes', true));
 profile.canonical_primary_mode = local_normalize_passratio_mode( ...
     local_getfield_or(plotting_cfg, 'canonical_primary_mode', profile.passratio_primary_mode));
 profile.diagnostic_export_full_bundle = logical(local_getfield_or(plotting_cfg, 'diagnostic_export_full_bundle', true));
 
-profile.supported_passratio_modes = ["historyFull", "effectiveFullRange", "frontierZoom", "globalFullDense"];
+profile.supported_passratio_modes = ["historyFull", "effectiveFullRange", "frontierZoom", "globalFullReplay"];
 profile.supported_heatmap_value_modes = ["numeric_requirement", "state_map"];
-profile.supported_heatmap_domain_modes = ["local", "globalSkeleton"];
+profile.supported_heatmap_domain_modes = ["local", "globalReplay"];
 profile.passratio_export_modes = local_resolve_export_modes(profile.supported_passratio_modes, ...
     profile.passratio_primary_mode, profile.export_all_passratio_modes || profile.diagnostic_export_full_bundle);
 profile.comparison_export_modes = local_resolve_export_modes(profile.supported_passratio_modes, ...
@@ -41,7 +41,7 @@ profile.passratio_domain_view_map = struct( ...
     'historyFull', "history_full", ...
     'effectiveFullRange', "effective_full_range", ...
     'frontierZoom', "frontier_zoom", ...
-    'globalFullDense', "global_full_dense");
+    'globalFullReplay', "global_full_replay");
 end
 
 function plotting_cfg = local_extract_plotting_cfg(cfg_or_meta)
@@ -70,8 +70,8 @@ switch lower(strrep(strrep(char(mode), '_', ''), '-', ''))
         mode = "effectiveFullRange";
     case {'frontierzoom', 'zoom', 'frontier'}
         mode = "frontierZoom";
-    case {'globalfulldense', 'globalfull', 'globaldense', 'fullsearchdomain'}
-        mode = "globalFullDense";
+    case {'globalfullreplay', 'globalreplay', 'globalfulldense', 'globalfull', 'globaldense', 'globaltrend', 'fullsearchdomain'}
+        mode = "globalFullReplay";
     otherwise
         error('resolve_mb_plot_mode_profile:InvalidPassratioMode', ...
             'Unsupported MB passratio/comparison mode: %s', char(mode));
@@ -96,8 +96,8 @@ mode = string(mode);
 switch lower(strrep(strrep(char(mode), '_', ''), '-', ''))
     case {'local'}
         mode = "local";
-    case {'globalskeleton', 'global'}
-        mode = "globalSkeleton";
+    case {'globalreplay', 'globalskeleton', 'global'}
+        mode = "globalReplay";
     otherwise
         error('resolve_mb_plot_mode_profile:InvalidHeatmapDomainMode', ...
             'Unsupported MB heatmap domain mode: %s', char(mode));

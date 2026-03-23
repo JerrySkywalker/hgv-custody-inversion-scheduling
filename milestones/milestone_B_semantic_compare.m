@@ -480,6 +480,7 @@ plot_options.paper_ready_guardrail = local_getfield_or(meta, 'paper_ready_guardr
 plot_options.runtime = cfg;
 plot_options.plot_mode_profile = resolve_mb_plot_mode_profile(cfg);
 plot_options.plot_data_policy = resolve_mb_plot_data_policy(cfg, struct('plot_mode_profile', plot_options.plot_mode_profile));
+plot_options.export_plot_plan = resolve_mb_export_plot_plan(cfg);
 diagnostic_text = local_resolve_autotune_diagnostic(meta);
 if strlength(diagnostic_text) > 0
     plot_options.diagnostic_text = diagnostic_text;
