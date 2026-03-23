@@ -178,7 +178,7 @@ for idx = 1:numel(files)
     end
 
     meta = local_read_sidecar(fullfile(files(idx).folder, files(idx).name));
-    domain_mode = string(local_getfield_or(meta, 'plot_domain_mode', ""));
+    domain_mode = local_resolve_passratio_domain_mode(meta, figure_name);
     if ~ismember(domain_mode, ["history_full", "effective_full_range", "global_full_dense", "frontier_zoom"])
         continue;
     end
@@ -913,6 +913,29 @@ elseif contains(figure_name, "frontierzoom")
     mode_name = "frontierZoom";
 else
     mode_name = "effectiveFullRange";
+end
+end
+
+function domain_mode = local_resolve_passratio_domain_mode(meta, figure_name)
+domain_mode = string(local_getfield_or(meta, 'plot_domain_mode', ""));
+if ismember(domain_mode, ["history_full", "effective_full_range", "global_full_dense", "frontier_zoom"])
+    return;
+end
+mode_name = string(local_getfield_or(meta, 'current_plot_mode', ""));
+if mode_name == ""
+    mode_name = local_infer_passratio_mode(figure_name);
+end
+switch mode_name
+    case "historyFull"
+        domain_mode = "history_full";
+    case "effectiveFullRange"
+        domain_mode = "effective_full_range";
+    case "globalFullDense"
+        domain_mode = "global_full_dense";
+    case "frontierZoom"
+        domain_mode = "frontier_zoom";
+    otherwise
+        domain_mode = string(local_getfield_or(meta, 'plot_domain_mode', ""));
 end
 end
 
