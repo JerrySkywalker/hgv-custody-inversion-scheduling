@@ -65,7 +65,7 @@ mode = string(mode);
 switch lower(strrep(strrep(char(mode), '_', ''), '-', ''))
     case {'historyfull', 'history'}
         mode = "historyFull";
-    case {'effectivefullrange', 'effective', 'fullrange', 'globaltrend'}
+    case {'effectivefullrange', 'effective', 'fullrange'}
         mode = "effectiveFullRange";
     case {'frontierzoom', 'zoom', 'frontier'}
         mode = "frontierZoom";

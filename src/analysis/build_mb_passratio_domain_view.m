@@ -19,6 +19,10 @@ history_origin = string(local_getfield_or(options, 'history_origin', "initial_ns
 figure_name = string(local_getfield_or(options, 'figure_name', ""));
 plot_window = reshape(local_getfield_or(options, 'plot_window', []), 1, []);
 resolver_options = local_getfield_or(options, 'resolver_options', struct());
+runtime_cfg = local_getfield_or(options, 'runtime', struct());
+plot_mode_profile = local_getfield_or(options, 'plot_mode_profile', struct());
+raw_eval_table = local_getfield_or(options, 'raw_eval_table', table());
+effective_dense_table = local_getfield_or(options, 'effective_dense_table', table());
 
 initial_range = reshape(local_getfield_or(search_domain, 'Ns_initial_range', [NaN, NaN, NaN]), 1, []);
 source_ns = local_get_column(source_table, ns_field);
@@ -66,15 +70,22 @@ switch domain_view
             history_fill_mode, history_origin, history_origin_min, initial_ns_min, final_ns_max, ns_step, figure_name, view_meta);
     case "effective_full_range"
         effective_window = [effective_ns_min, effective_ns_max];
-        [view_table, view_meta] = local_build_windowed_view( ...
-            source_table, ns_field, group_fields, recompute_mode, effective_window, view_meta, "correct");
+        dense_policy = resolve_mb_plot_data_policy(runtime_cfg, struct( ...
+            'plot_mode_profile', plot_mode_profile, ...
+            'passratio_mode', "effectiveFullRange"));
+        [view_table, view_meta] = local_build_dense_effective_view( ...
+            source_table, raw_eval_table, search_domain, ns_field, group_fields, recompute_mode, effective_window, ns_step, options, view_meta, dense_policy);
     case "frontier_zoom"
         if ~local_has_valid_window(plot_window)
             windows = resolve_mb_passratio_plot_windows(source_table, search_domain, resolver_options);
             plot_window = reshape(local_getfield_or(windows, 'frontier_zoom', []), 1, []);
         end
-        [view_table, view_meta] = local_build_windowed_view( ...
-            source_table, ns_field, group_fields, recompute_mode, plot_window, view_meta, "correct");
+        zoom_policy = resolve_mb_plot_data_policy(runtime_cfg, struct( ...
+            'plot_mode_profile', plot_mode_profile, ...
+            'passratio_mode', "frontierZoom"));
+        [view_table, view_meta] = local_build_frontier_zoom_view( ...
+            source_table, raw_eval_table, effective_dense_table, search_domain, ns_field, group_fields, recompute_mode, ...
+            [effective_ns_min, effective_ns_max], plot_window, ns_step, options, view_meta, zoom_policy);
     otherwise
         error('build_mb_passratio_domain_view:UnsupportedDomainView', ...
             'Unsupported domain_view: %s', char(domain_view));
@@ -162,6 +173,92 @@ if view_meta.pass_fail
 else
     view_meta.root_cause_tag = "source_table_tail_only";
 end
+end
+
+function [view_table, view_meta] = local_build_dense_effective_view(source_table, raw_eval_table, search_domain, ns_field, group_fields, recompute_mode, effective_window, ns_step, options, view_meta, policy)
+target_ns_grid = local_make_ns_grid(effective_window(1), effective_window(2), ns_step);
+dense_options = struct( ...
+    'raw_eval_table', raw_eval_table, ...
+    'ns_field', ns_field, ...
+    'group_fields', {group_fields}, ...
+    'target_ns_grid', target_ns_grid, ...
+    'output_value_field', local_detect_output_value_field(source_table, options), ...
+    'raw_value_field', char(string(local_getfield_or(options, 'raw_value_field', 'pass_ratio'))));
+[view_table, dense_meta] = rebuild_mb_passratio_dense_view_table(source_table, search_domain, dense_options);
+view_table = local_apply_recompute_mode(view_table, recompute_mode);
+view_table = local_sort_view_table(view_table, group_fields, ns_field);
+view_meta = local_apply_dense_meta(view_meta, dense_meta, policy);
+view_meta.view_table_min_ns = local_min_or_nan(local_get_column(view_table, ns_field));
+view_meta.view_table_max_ns = local_max_or_nan(local_get_column(view_table, ns_field));
+view_meta.pass_fail = logical(local_getfield_or(dense_meta, 'pass_fail', false));
+if view_meta.pass_fail
+    view_meta.root_cause_tag = "correct";
+else
+    view_meta.root_cause_tag = "source_table_tail_only";
+end
+end
+
+function [view_table, view_meta] = local_build_frontier_zoom_view(source_table, raw_eval_table, effective_dense_table, search_domain, ns_field, group_fields, recompute_mode, effective_window, plot_window, ns_step, options, view_meta, policy)
+effective_meta = struct();
+if ~isempty(effective_dense_table)
+    dense_table = effective_dense_table;
+    effective_meta = struct('dense_rebuild_used', true, 'inherited_from_effective_dense', true, 'zero_padding_used', false, 'sparse_projection_used', false, 'source_table_kind', "effective_dense_table", 'pass_fail', true);
+else
+    [dense_table, effective_meta] = local_build_dense_effective_view( ...
+        source_table, raw_eval_table, search_domain, ns_field, group_fields, recompute_mode, effective_window, ns_step, options, view_meta, policy);
+end
+view_table = local_filter_ns_window(dense_table, ns_field, plot_window);
+view_table = local_sort_view_table(view_table, group_fields, ns_field);
+view_meta = local_apply_dense_meta(view_meta, effective_meta, policy);
+view_meta.view_table_min_ns = local_min_or_nan(local_get_column(view_table, ns_field));
+view_meta.view_table_max_ns = local_max_or_nan(local_get_column(view_table, ns_field));
+view_meta.pass_fail = ~isempty(view_table) && any(isfinite(local_get_primary_passratio_column(view_table)));
+view_meta.inherited_from_effective_dense = ~isempty(effective_dense_table) || logical(local_getfield_or(effective_meta, 'inherited_from_effective_dense', false));
+if view_meta.pass_fail
+    view_meta.root_cause_tag = "correct";
+else
+    view_meta.root_cause_tag = "source_table_tail_only";
+end
+end
+
+function view_meta = local_apply_dense_meta(view_meta, dense_meta, policy)
+view_meta.history_padding_applied = false;
+view_meta.history_fill_mode = "none";
+view_meta.zero_padding_used = logical(local_getfield_or(dense_meta, 'zero_padding_used', false));
+view_meta.sparse_projection_used = logical(local_getfield_or(dense_meta, 'sparse_projection_used', false));
+view_meta.dense_rebuild_used = logical(local_getfield_or(dense_meta, 'dense_rebuild_used', false));
+view_meta.inherited_from_effective_dense = logical(local_getfield_or(dense_meta, 'inherited_from_effective_dense', false));
+view_meta.source_table_kind = string(local_getfield_or(dense_meta, 'source_table_kind', ""));
+view_meta.num_unique_ns_plotted = double(local_getfield_or(dense_meta, 'num_unique_ns_plotted', NaN));
+view_meta.num_nonzero_rows = double(local_getfield_or(dense_meta, 'num_nonzero_rows', NaN));
+view_meta.allow_sparse_projection = logical(local_getfield_or(policy, 'allow_sparse_projection', false));
+view_meta.allow_zero_padding = logical(local_getfield_or(policy, 'allow_zero_padding', false));
+end
+
+function output_field = local_detect_output_value_field(source_table, options)
+value_fields = cellstr(string(local_getfield_or(options, 'value_fields', {})));
+if ~isempty(value_fields) && istable(source_table) && ismember(value_fields{1}, source_table.Properties.VariableNames)
+    output_field = value_fields{1};
+    return;
+end
+candidates = {'max_pass_ratio', 'overlay_pass_ratio', 'max_pass_ratio_legacyDG', 'max_pass_ratio_closedD'};
+for idx = 1:numel(candidates)
+    if istable(source_table) && ismember(candidates{idx}, source_table.Properties.VariableNames)
+        output_field = candidates{idx};
+        return;
+    end
+end
+output_field = 'max_pass_ratio';
+end
+
+function values = local_get_primary_passratio_column(T)
+for field_name = ["max_pass_ratio", "overlay_pass_ratio", "max_pass_ratio_legacyDG", "max_pass_ratio_closedD"]
+    if istable(T) && ismember(field_name, string(T.Properties.VariableNames))
+        values = T.(char(field_name));
+        return;
+    end
+end
+values = [];
 end
 
 function filtered = local_filter_ns_window(T, ns_field, window)

@@ -43,7 +43,6 @@ end
 windows = struct();
 windows.history_full = history_window;
 windows.effective_full_range = effective_window;
-windows.global_trend = windows.effective_full_range; % compatibility alias
 windows.frontier_zoom = windows.effective_full_range;
 windows.status_tag = "effective_only";
 
