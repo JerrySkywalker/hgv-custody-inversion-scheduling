@@ -1,4 +1,4 @@
-function artifacts = export_mb_cross_profile_outputs(run_outputs, paths)
+function artifacts = export_mb_cross_profile_outputs(run_outputs, paths, plot_options)
 %EXPORT_MB_CROSS_PROFILE_OUTPUTS Export cross-profile overlays across sensor groups.
 
 artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct(), 'summary_table', table(), 'export_grade_table', table());
@@ -6,13 +6,16 @@ artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct(),
 if nargin < 2 || isempty(paths) || isempty(run_outputs)
     return;
 end
+if nargin < 3 || isempty(plot_options)
+    plot_options = struct();
+end
 
 summary_chunks = {};
 summary_cursor = 0;
 grade_chunks = {};
 grade_cursor = 0;
 
-[legacy_artifacts, legacy_summary, legacy_grade] = local_export_mode_family(run_outputs, paths, "legacyDG");
+[legacy_artifacts, legacy_summary, legacy_grade] = local_export_mode_family(run_outputs, paths, "legacyDG", plot_options);
 artifacts.tables = milestone_common_merge_structs(artifacts.tables, legacy_artifacts.tables);
 artifacts.figures = milestone_common_merge_structs(artifacts.figures, legacy_artifacts.figures);
 if ~isempty(legacy_summary)
@@ -24,7 +27,7 @@ if ~isempty(legacy_grade)
     grade_chunks{grade_cursor, 1} = legacy_grade; %#ok<AGROW>
 end
 
-[closed_artifacts, closed_summary, closed_grade] = local_export_mode_family(run_outputs, paths, "closedD");
+[closed_artifacts, closed_summary, closed_grade] = local_export_mode_family(run_outputs, paths, "closedD", plot_options);
 artifacts.tables = milestone_common_merge_structs(artifacts.tables, closed_artifacts.tables);
 artifacts.figures = milestone_common_merge_structs(artifacts.figures, closed_artifacts.figures);
 if ~isempty(closed_summary)
@@ -67,7 +70,7 @@ artifacts.summary = struct( ...
     'has_strict_stage05_reference', any(strcmp(local_collect_sensor_groups(run_outputs, "legacyDG"), 'stage05_strict_reference')));
 end
 
-function [artifacts, summary_table, grade_table] = local_export_mode_family(run_outputs, paths, semantic_mode)
+function [artifacts, summary_table, grade_table] = local_export_mode_family(run_outputs, paths, semantic_mode, plot_options)
 artifacts = struct('tables', struct(), 'figures', struct());
 summary_table = table();
 grade_table = table();
@@ -93,7 +96,9 @@ for idx_ctx = 1:size(contexts, 1)
     [pass_table, pass_summary] = local_build_passratio_overlay_table(context_runs, semantic_mode, h_km, family_name);
     context_tag = local_context_tag(h_km, family_name, contexts);
     if ~isempty(pass_table)
+        plot_mode_profile = local_resolve_plot_mode_profile(plot_options);
         pass_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_%s.csv', char(semantic_mode), context_tag));
+        pass_primary_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_primary_%s.csv', char(semantic_mode), context_tag));
         pass_history_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_historyFull_%s.csv', char(semantic_mode), context_tag));
         pass_effective_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_effectiveFullRange_%s.csv', char(semantic_mode), context_tag));
         pass_zoom_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_frontierZoom_%s.csv', char(semantic_mode), context_tag));
@@ -156,14 +161,6 @@ for idx_ctx = 1:size(contexts, 1)
             'figure_family', string(semantic_mode) + "_cross_profile_passratio", ...
             'expected_domain_behavior', "effective_domain_only_without_history_padding", ...
             'actual_domain_behavior', "effective_domain_view")));
-        pass_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_fullRange_%s.png', char(semantic_mode), context_tag));
-        milestone_common_save_figure(fig_pass_effective, pass_alias_png);
-        write_mb_plot_domain_sidecar(pass_alias_png, "effective_full_range", "effective_search_domain", effective_xlim, ...
-            build_mb_passratio_view_sidecar_fields(fig_pass_effective, pass_effective_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, pass_effective_meta, struct('figure_family', string(semantic_mode) + "_cross_profile_passratio")));
-        legacy_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_%s.png', char(semantic_mode), context_tag));
-        milestone_common_save_figure(fig_pass_effective, legacy_alias_png);
-        write_mb_plot_domain_sidecar(legacy_alias_png, "effective_full_range", "effective_search_domain", effective_xlim, ...
-            build_mb_passratio_view_sidecar_fields(fig_pass_effective, pass_effective_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, pass_effective_meta, struct('figure_family', string(semantic_mode) + "_cross_profile_passratio")));
         close(fig_pass_effective);
 
         fig_pass_zoom = plot_mb_cross_profile_passratio_overlay(pass_zoom_table, pass_summary, h_km, semantic_mode, family_name, struct( ...
@@ -181,15 +178,31 @@ for idx_ctx = 1:size(contexts, 1)
             'actual_domain_behavior', "frontier_zoom_view")));
         close(fig_pass_zoom);
 
+        primary_mode = plot_mode_profile.cross_profile_primary_mode;
+        pass_mode_files = struct( ...
+            'historyFull', struct('csv', string(pass_history_csv), 'png', string(pass_history_png), 'table', pass_history_table), ...
+            'effectiveFullRange', struct('csv', string(pass_effective_csv), 'png', string(pass_effective_png), 'table', pass_effective_table), ...
+            'frontierZoom', struct('csv', string(pass_zoom_csv), 'png', string(pass_zoom_png), 'table', pass_zoom_table));
+        primary_pass = pass_mode_files.(char(primary_mode));
+        milestone_common_save_table(primary_pass.table, pass_primary_csv);
+        pass_primary_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_primary_%s.png', char(semantic_mode), context_tag));
+        local_copy_figure_with_sidecar(primary_pass.png, string(pass_primary_png));
+        pass_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_fullRange_%s.png', char(semantic_mode), context_tag));
+        local_copy_figure_with_sidecar(primary_pass.png, string(pass_alias_png));
+        legacy_alias_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_%s.png', char(semantic_mode), context_tag));
+        local_copy_figure_with_sidecar(primary_pass.png, string(legacy_alias_png));
+
         pass_summary = local_apply_passratio_render_summary(pass_summary, pass_history_meta, history_xlim, effective_xlim, zoom_xlim);
         milestone_common_save_table(pass_summary, pass_summary_csv);
 
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratio_%s', char(semantic_mode), context_tag))) = string(pass_csv);
+        artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioPrimary_%s', char(semantic_mode), context_tag))) = string(pass_primary_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioHistory_%s', char(semantic_mode), context_tag))) = string(pass_history_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioEffective_%s', char(semantic_mode), context_tag))) = string(pass_effective_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioZoom_%s', char(semantic_mode), context_tag))) = string(pass_zoom_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioHistoryPadding_%s', char(semantic_mode), context_tag))) = string(pass_padding_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioSummary_%s', char(semantic_mode), context_tag))) = string(pass_summary_csv);
+        artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioPrimary_%s', char(semantic_mode), context_tag))) = string(pass_primary_png);
         artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioHistory_%s', char(semantic_mode), context_tag))) = string(pass_history_png);
         artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioEffective_%s', char(semantic_mode), context_tag))) = string(pass_effective_png);
         artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioZoom_%s', char(semantic_mode), context_tag))) = string(pass_zoom_png);
@@ -764,6 +777,27 @@ end
 
 function xlim_values = local_capture_axis_xlim(fig)
 xlim_values = capture_mb_primary_axes_xlim(fig);
+end
+
+function profile = local_resolve_plot_mode_profile(plot_options)
+profile = resolve_mb_plot_mode_profile(local_getfield_or(plot_options, 'runtime', struct()));
+if isfield(plot_options, 'plot_mode_profile') && isstruct(plot_options.plot_mode_profile)
+    profile = plot_options.plot_mode_profile;
+end
+end
+
+function local_copy_figure_with_sidecar(source_png, target_png)
+source_png = char(string(source_png));
+target_png = char(string(target_png));
+if strcmpi(source_png, target_png)
+    return;
+end
+copyfile(source_png, target_png);
+source_meta = [source_png, '.meta.json'];
+target_meta = [target_png, '.meta.json'];
+if isfile(source_meta)
+    copyfile(source_meta, target_meta);
+end
 end
 
 function summary_table = local_apply_passratio_render_summary(summary_table, pass_history_meta, history_xlim, effective_xlim, zoom_xlim)

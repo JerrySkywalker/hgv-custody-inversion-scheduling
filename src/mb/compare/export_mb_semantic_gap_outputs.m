@@ -8,6 +8,7 @@ end
 comparison = build_semantic_gap_tables(legacy_output, closed_output);
 sensor_group = char(string(comparison.sensor_group));
 sensor_label = char(string(comparison.sensor_label));
+plot_mode_profile = local_resolve_plot_mode_profile(plot_options);
 
 artifacts = struct();
 artifacts.tables = struct();
@@ -24,6 +25,7 @@ for idx = 1:numel(comparison.run_pairs)
 
     gap_csv = fullfile(paths.tables, sprintf('MB_comparison_gap_heatmap_iP_%s_%s.csv', h_label, sensor_group));
     pass_csv = fullfile(paths.tables, sprintf('MB_comparison_passratio_overlay_%s_%s.csv', h_label, sensor_group));
+    pass_primary_csv = fullfile(paths.tables, sprintf('MB_comparison_passratio_overlay_primary_%s_%s.csv', h_label, sensor_group));
     pass_history_csv = fullfile(paths.tables, sprintf('MB_comparison_passratio_overlay_historyFull_%s_%s.csv', h_label, sensor_group));
     pass_effective_csv = fullfile(paths.tables, sprintf('MB_comparison_passratio_overlay_effectiveFullRange_%s_%s.csv', h_label, sensor_group));
     pass_zoom_csv = fullfile(paths.tables, sprintf('MB_comparison_passratio_overlay_frontierZoom_%s_%s.csv', h_label, sensor_group));
@@ -127,14 +129,6 @@ for idx = 1:numel(comparison.run_pairs)
         'figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")), ...
         'expected_domain_behavior', "effective_domain_only_without_history_padding", ...
         'actual_domain_behavior', "effective_domain_view")));
-    pass_alias_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_fullRange_%s_%s.png', h_label, sensor_group));
-    milestone_common_save_figure(fig_pass_effective, pass_alias_png);
-    write_mb_plot_domain_sidecar(pass_alias_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
-        build_mb_passratio_view_sidecar_fields(fig_pass_effective, pass_effective_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, pass_effective_meta, struct('figure_family', "comparison_passratio")));
-    global_alias_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_globalTrend_%s_%s.png', h_label, sensor_group));
-    milestone_common_save_figure(fig_pass_effective, global_alias_png);
-    write_mb_plot_domain_sidecar(global_alias_png, "effective_full_range", "effective_search_domain", local_capture_axis_xlim(fig_pass_effective), ...
-        build_mb_passratio_view_sidecar_fields(fig_pass_effective, pass_effective_table, pass_effective_csv, "effective_full_range", pass_windows.effective_full_range, pass_effective_meta, struct('figure_family', "comparison_passratio")));
     close(fig_pass_effective);
 
     fig_pass_zoom = plot_semantic_gap_passratio_curves(pass_zoom_table, pair.h_km, sensor_label, struct( ...
@@ -155,6 +149,19 @@ for idx = 1:numel(comparison.run_pairs)
         'actual_domain_behavior', "frontier_zoom_view")));
     close(fig_pass_zoom);
 
+    pass_mode_files = struct( ...
+        'historyFull', struct('csv', string(pass_history_csv), 'png', string(pass_history_png), 'table', pass_history_table), ...
+        'effectiveFullRange', struct('csv', string(pass_effective_csv), 'png', string(pass_effective_png), 'table', pass_effective_table), ...
+        'frontierZoom', struct('csv', string(pass_zoom_csv), 'png', string(pass_zoom_png), 'table', pass_zoom_table));
+    primary_pass = pass_mode_files.(char(plot_mode_profile.comparison_primary_mode));
+    milestone_common_save_table(primary_pass.table, pass_primary_csv);
+    pass_primary_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_primary_%s_%s.png', h_label, sensor_group));
+    local_copy_figure_with_sidecar(primary_pass.png, string(pass_primary_png));
+    pass_alias_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_fullRange_%s_%s.png', h_label, sensor_group));
+    local_copy_figure_with_sidecar(primary_pass.png, string(pass_alias_png));
+    global_alias_png = fullfile(paths.figures, sprintf('MB_comparison_passratio_overlay_globalTrend_%s_%s.png', h_label, sensor_group));
+    local_copy_figure_with_sidecar(primary_pass.png, string(global_alias_png));
+
     fig_frontier = plot_semantic_gap_frontier_shift(pair.frontier_gap_table, pair.h_km, sensor_label, struct( ...
         'frontier_truncation_table', pair.frontier_truncation_table, ...
         'figure_style', local_getfield_or(plot_options, 'figure_style', struct())));
@@ -174,6 +181,7 @@ for idx = 1:numel(comparison.run_pairs)
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_overlay_historyFull_%s', h_label))) = string(pass_history_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_overlay_effectiveFullRange_%s', h_label))) = string(pass_effective_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_overlay_frontierZoom_%s', h_label))) = string(pass_zoom_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_overlay_primary_%s', h_label))) = string(pass_primary_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_overlay_historyPadding_%s', h_label))) = string(pass_padding_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_shift_%s', h_label))) = string(frontier_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_diagnostic_%s', h_label))) = string(frontier_diag_csv);
@@ -186,6 +194,7 @@ for idx = 1:numel(comparison.run_pairs)
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioHistory_%s', h_label))) = string(pass_history_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioEffective_%s', h_label))) = string(pass_effective_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioZoom_%s', h_label))) = string(pass_zoom_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioPrimary_%s', h_label))) = string(pass_primary_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('frontier_shift_%s', h_label))) = string(frontier_png);
 
     diagnostics = struct( ...
@@ -296,6 +305,27 @@ end
 
 function xlim_values = local_capture_axis_xlim(fig)
 xlim_values = capture_mb_primary_axes_xlim(fig);
+end
+
+function profile = local_resolve_plot_mode_profile(plot_options)
+profile = resolve_mb_plot_mode_profile(local_getfield_or(plot_options, 'runtime', struct()));
+if isfield(plot_options, 'plot_mode_profile') && isstruct(plot_options.plot_mode_profile)
+    profile = plot_options.plot_mode_profile;
+end
+end
+
+function local_copy_figure_with_sidecar(source_png, target_png)
+source_png = char(string(source_png));
+target_png = char(string(target_png));
+if strcmpi(source_png, target_png)
+    return;
+end
+copyfile(source_png, target_png);
+source_meta = [source_png, '.meta.json'];
+target_meta = [target_png, '.meta.json'];
+if isfile(source_meta)
+    copyfile(source_meta, target_meta);
+end
 end
 
 function value = local_pick_x(xlim_values, idx_pick)

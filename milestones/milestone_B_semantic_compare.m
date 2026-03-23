@@ -1121,7 +1121,8 @@ end
 function artifacts = local_export_cross_profile_outputs(cfg, meta, run_outputs)
 artifacts = struct('tables', struct(), 'figures', struct(), 'summary', struct(), 'summary_table', table());
 paths = mb_output_paths(cfg, meta.milestone_id, meta.title);
-artifacts = export_mb_cross_profile_outputs(run_outputs, paths);
+plot_options = local_semantic_plot_options(cfg, meta);
+artifacts = export_mb_cross_profile_outputs(run_outputs, paths, plot_options);
 end
 
 function artifacts = local_export_reliability_reports(paths, run_outputs, comparison_artifacts)
