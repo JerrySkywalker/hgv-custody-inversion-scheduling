@@ -26,20 +26,28 @@ for idx = 1:numel(run_output.runs)
     h_label = sprintf('h%d', round(run.h_km));
     search_domain = local_build_search_domain(run_output, run);
     diagnostics = local_build_diagnostics(run, search_domain);
+    plot_mode_profile = local_resolve_plot_mode_profile(plot_options);
 
     pass_csv = fullfile(paths.tables, sprintf('MB_closedD_passratio_%s_%s.csv', h_label, sensor_group));
+    pass_primary_csv = fullfile(paths.tables, sprintf('MB_closedD_passratio_primary_%s_%s.csv', h_label, sensor_group));
     pass_history_csv = fullfile(paths.tables, sprintf('MB_closedD_passratio_historyFull_%s_%s.csv', h_label, sensor_group));
     pass_effective_csv = fullfile(paths.tables, sprintf('MB_closedD_passratio_effectiveFullRange_%s_%s.csv', h_label, sensor_group));
     pass_zoom_csv = fullfile(paths.tables, sprintf('MB_closedD_passratio_frontierZoom_%s_%s.csv', h_label, sensor_group));
     pass_padding_csv = fullfile(paths.tables, sprintf('MB_closedD_passratio_historyPadding_%s_%s.csv', h_label, sensor_group));
     heat_csv = fullfile(paths.tables, sprintf('MB_closedD_minimumNs_heatmap_iP_%s_%s.csv', h_label, sensor_group));
+    heat_primary_csv = fullfile(paths.tables, sprintf('MB_closedD_minimumNs_heatmap_primary_%s_%s.csv', h_label, sensor_group));
+    heat_local_csv = fullfile(paths.tables, sprintf('MB_closedD_minimumNs_heatmap_local_%s_%s.csv', h_label, sensor_group));
+    heat_global_csv = fullfile(paths.tables, sprintf('MB_closedD_minimumNs_heatmap_globalSkeleton_%s_%s.csv', h_label, sensor_group));
+    heat_state_csv = fullfile(paths.tables, sprintf('MB_closedD_heatmap_stateMap_%s_%s.csv', h_label, sensor_group));
+    heat_state_primary_csv = fullfile(paths.tables, sprintf('MB_closedD_heatmap_stateMap_primary_%s_%s.csv', h_label, sensor_group));
+    heat_state_local_csv = fullfile(paths.tables, sprintf('MB_closedD_heatmap_stateMap_local_%s_%s.csv', h_label, sensor_group));
+    heat_state_global_csv = fullfile(paths.tables, sprintf('MB_closedD_heatmap_stateMap_globalSkeleton_%s_%s.csv', h_label, sensor_group));
     overcompute_csv = fullfile(paths.tables, sprintf('MB_heatmap_overcompute_summary_closedD_%s_%s.csv', h_label, sensor_group));
     provenance_csv = fullfile(paths.tables, sprintf('MB_heatmap_provenance_map_closedD_%s_%s.csv', h_label, sensor_group));
     refinement_csv = fullfile(paths.tables, sprintf('MB_frontier_refinement_summary_closedD_%s_%s.csv', h_label, sensor_group));
     incr_history_csv = fullfile(paths.tables, sprintf('MB_incremental_search_history_closedD_%s_%s.csv', h_label, sensor_group));
     incr_stop_csv = fullfile(paths.tables, sprintf('MB_incremental_search_stop_reason_closedD_%s_%s.csv', h_label, sensor_group));
     milestone_common_save_table(run.aggregate.passratio_phasecurve, pass_csv);
-    milestone_common_save_table(run.aggregate.requirement_surface_iP.surface_table, heat_csv);
     milestone_common_save_table(local_getfield_or(run.aggregate, 'heatmap_overcompute_summary', table()), overcompute_csv);
     milestone_common_save_table(local_build_heatmap_provenance_table(run), provenance_csv);
     milestone_common_save_table(local_getfield_or(run.aggregate, 'frontier_refinement_summary', table()), refinement_csv);
@@ -54,7 +62,6 @@ for idx = 1:numel(run_output.runs)
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_effectiveFullRange_%s', h_label))) = string(pass_effective_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_frontierZoom_%s', h_label))) = string(pass_zoom_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_historyPadding_%s', h_label))) = string(pass_padding_csv);
-    artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmap_overcompute_%s', h_label))) = string(overcompute_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmap_provenance_%s', h_label))) = string(provenance_csv);
     artifacts.tables.(matlab.lang.makeValidName(sprintf('frontier_refinement_%s', h_label))) = string(refinement_csv);
@@ -156,6 +163,10 @@ for idx = 1:numel(run_output.runs)
     local_surface = annotate_mb_heatmap_surface_semantics(run.aggregate.requirement_surface_iP, search_domain, struct('domain_mode', "local"));
     global_surface = build_mb_global_skeleton_heatmap_surface(run.aggregate.requirement_surface_iP, search_domain, struct('h_km', run.h_km, 'family_name', string(run.family_name)));
     global_surface = annotate_mb_heatmap_surface_semantics(global_surface, search_domain, struct('domain_mode', "globalSkeleton"));
+    milestone_common_save_table(local_getfield_or(local_surface, 'surface_table', table()), heat_local_csv);
+    milestone_common_save_table(local_getfield_or(global_surface, 'surface_table', table()), heat_global_csv);
+    milestone_common_save_table(local_getfield_or(local_surface, 'surface_table', table()), heat_state_local_csv);
+    milestone_common_save_table(local_getfield_or(global_surface, 'surface_table', table()), heat_state_global_csv);
 
     fig_heat = plot_mb_fixed_h_requirement_heatmap_iP(local_surface, style, struct( ...
         'boundary_hit_table', diagnostics.boundary_hit_table, ...
@@ -169,10 +180,6 @@ for idx = 1:numel(run_output.runs)
     heat_local_png = fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_local_%s_%s.png', h_label, sensor_group));
     milestone_common_save_figure(fig_heat, heat_local_png);
     write_mb_plot_domain_sidecar(heat_local_png, "local_defined_surface", "current_defined_surface", [], ...
-        build_mb_heatmap_sidecar_fields(local_surface, "numeric_requirement", "local", struct('figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")))));
-    heat_png = fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_iP_%s_%s.png', h_label, sensor_group));
-    milestone_common_save_figure(fig_heat, heat_png);
-    write_mb_plot_domain_sidecar(heat_png, "local_defined_surface", "current_defined_surface", [], ...
         build_mb_heatmap_sidecar_fields(local_surface, "numeric_requirement", "local", struct('figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")))));
     close(fig_heat);
 
@@ -204,10 +211,6 @@ for idx = 1:numel(run_output.runs)
     milestone_common_save_figure(fig_heat_state, heat_state_local_png);
     write_mb_plot_domain_sidecar(heat_state_local_png, "local_defined_surface", "current_defined_surface", [], ...
         build_mb_heatmap_sidecar_fields(local_surface, "state_map", "local", struct('figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")))));
-    heat_state_png = fullfile(paths.figures, sprintf('MB_closedD_heatmap_stateMap_%s_%s.png', h_label, sensor_group));
-    milestone_common_save_figure(fig_heat_state, heat_state_png);
-    write_mb_plot_domain_sidecar(heat_state_png, "local_defined_surface", "current_defined_surface", [], ...
-        build_mb_heatmap_sidecar_fields(local_surface, "state_map", "local", struct('figure_style_mode', string(local_getfield_or(plot_options, 'figure_style_mode', "")))));
     close(fig_heat_state);
 
     fig_heat_state_global = plot_mb_fixed_h_requirement_heatmap_iP(global_surface, style, struct( ...
@@ -233,15 +236,66 @@ for idx = 1:numel(run_output.runs)
         fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_iP_%s_%s_paperReady.png', h_label, sensor_group)), ...
         "closedD_heatmap", diagnostics, plot_options);
 
+    pass_mode_files = struct( ...
+        'historyFull', struct('csv', string(pass_history_csv), 'png', string(pass_history_png), 'table', pass_history_table), ...
+        'effectiveFullRange', struct('csv', string(pass_effective_csv), 'png', string(pass_effective_png), 'table', pass_effective_table), ...
+        'frontierZoom', struct('csv', string(pass_zoom_csv), 'png', string(pass_zoom_png), 'table', pass_zoom_table));
+    primary_pass = pass_mode_files.(char(plot_mode_profile.passratio_primary_mode));
+    milestone_common_save_table(primary_pass.table, pass_primary_csv);
+    pass_primary_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_primary_%s_%s.png', h_label, sensor_group));
+    local_copy_figure_with_sidecar(primary_pass.png, string(pass_primary_png));
+    pass_alias_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_fullRange_%s_%s.png', h_label, sensor_group));
+    local_copy_figure_with_sidecar(primary_pass.png, string(pass_alias_png));
+    closed_alias_png = fullfile(paths.figures, sprintf('MB_closedD_passratio_globalTrend_%s_%s.png', h_label, sensor_group));
+    local_copy_figure_with_sidecar(primary_pass.png, string(closed_alias_png));
+
+    numeric_primary_surface = local_surface;
+    numeric_primary_png = string(heat_local_png);
+    if plot_mode_profile.heatmap_primary_domain_mode == "globalSkeleton"
+        numeric_primary_surface = global_surface;
+        numeric_primary_png = string(heat_global_png);
+    end
+    milestone_common_save_table(local_getfield_or(numeric_primary_surface, 'surface_table', table()), heat_csv);
+    milestone_common_save_table(local_getfield_or(numeric_primary_surface, 'surface_table', table()), heat_primary_csv);
+    heat_png = fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_iP_%s_%s.png', h_label, sensor_group));
+    local_copy_figure_with_sidecar(numeric_primary_png, string(heat_png));
+    heat_primary_png = fullfile(paths.figures, sprintf('MB_closedD_minimumNs_heatmap_primary_%s_%s.png', h_label, sensor_group));
+    local_copy_figure_with_sidecar(numeric_primary_png, string(heat_primary_png));
+
+    state_primary_surface = local_surface;
+    state_primary_png = string(heat_state_local_png);
+    if plot_mode_profile.heatmap_primary_domain_mode == "globalSkeleton"
+        state_primary_surface = global_surface;
+        state_primary_png = string(heat_state_global_png);
+    end
+    milestone_common_save_table(local_getfield_or(state_primary_surface, 'surface_table', table()), heat_state_csv);
+    milestone_common_save_table(local_getfield_or(state_primary_surface, 'surface_table', table()), heat_state_primary_csv);
+    heat_state_png = fullfile(paths.figures, sprintf('MB_closedD_heatmap_stateMap_%s_%s.png', h_label, sensor_group));
+    local_copy_figure_with_sidecar(state_primary_png, string(heat_state_png));
+    heat_state_primary_png = fullfile(paths.figures, sprintf('MB_closedD_heatmap_stateMap_primary_%s_%s.png', h_label, sensor_group));
+    local_copy_figure_with_sidecar(state_primary_png, string(heat_state_primary_png));
+
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioHistory_%s', h_label))) = string(pass_history_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioEffective_%s', h_label))) = string(pass_effective_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioZoom_%s', h_label))) = string(pass_zoom_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('passratioPrimary_%s', h_label))) = string(pass_primary_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_local_%s', h_label))) = string(heat_local_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_globalSkeleton_%s', h_label))) = string(heat_global_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_primary_%s', h_label))) = string(heat_primary_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMapLocal_%s', h_label))) = string(heat_state_local_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMapGlobalSkeleton_%s', h_label))) = string(heat_state_global_png);
     artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMap_%s', h_label))) = string(heat_state_png);
+    artifacts.figures.(matlab.lang.makeValidName(sprintf('heatmapStateMapPrimary_%s', h_label))) = string(heat_state_primary_png);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('passratio_primary_%s', h_label))) = string(pass_primary_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_iP_%s', h_label))) = string(heat_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_primary_%s', h_label))) = string(heat_primary_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_local_%s', h_label))) = string(heat_local_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('minimumNs_heatmap_globalSkeleton_%s', h_label))) = string(heat_global_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmapStateMap_%s', h_label))) = string(heat_state_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmapStateMap_primary_%s', h_label))) = string(heat_state_primary_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmapStateMapLocal_%s', h_label))) = string(heat_state_local_csv);
+    artifacts.tables.(matlab.lang.makeValidName(sprintf('heatmapStateMapGlobalSkeleton_%s', h_label))) = string(heat_state_global_csv);
 end
 
 function local_maybe_export_paper_ready(builder_fn, file_path, figure_family, diagnostics, plot_options)
@@ -414,6 +468,27 @@ end
 
 function xlim_values = local_capture_axis_xlim(fig)
 xlim_values = capture_mb_primary_axes_xlim(fig);
+end
+
+function profile = local_resolve_plot_mode_profile(plot_options)
+profile = resolve_mb_plot_mode_profile(local_getfield_or(plot_options, 'runtime', struct()));
+if isfield(plot_options, 'plot_mode_profile') && isstruct(plot_options.plot_mode_profile)
+    profile = plot_options.plot_mode_profile;
+end
+end
+
+function local_copy_figure_with_sidecar(source_png, target_png)
+source_png = char(string(source_png));
+target_png = char(string(target_png));
+if strcmpi(source_png, target_png)
+    return;
+end
+copyfile(source_png, target_png);
+source_meta = [source_png, '.meta.json'];
+target_meta = [target_png, '.meta.json'];
+if isfile(source_meta)
+    copyfile(source_meta, target_meta);
+end
 end
 
 function T = local_build_heatmap_provenance_table(run)
