@@ -26,15 +26,21 @@ else
     y_values = local_getfield_or(surface, 'y_values', []);
     if render_mode == "state_map"
         state_matrix = local_getfield_or(surface, 'state_matrix', []);
-        state_labels = string(local_getfield_or(surface, 'state_labels', ["undefined", "boundary suspect", "defined internal", "refined/overcompute"]));
+        state_labels = string(local_getfield_or(surface, 'state_labels', ["undefined / uncomputed", "evaluated infeasible", "boundary suspect", "defined internal", "refined/overcompute"]));
         if isempty(state_matrix)
             [state_matrix, state_labels] = build_mb_heatmap_state_matrix(surface, struct(), struct('x_values', x_values, 'y_values', y_values));
         end
         imagesc(ax, x_values, y_values, state_matrix);
         set(ax, 'YDir', 'normal');
-        colormap(ax, [0.92 0.92 0.92; 0.96 0.70 0.25; 0.19 0.55 0.91; 0.12 0.68 0.38]);
-        clim(ax, [-0.5, 3.5]);
-        cb = colorbar(ax, 'Ticks', 0:3, 'TickLabels', cellstr(state_labels));
+        cmap = [ ...
+            0.92 0.92 0.92; ...
+            0.74 0.74 0.74; ...
+            0.96 0.70 0.25; ...
+            0.19 0.55 0.91; ...
+            0.12 0.68 0.38];
+        colormap(ax, cmap(1:numel(state_labels), :));
+        clim(ax, [-0.5, numel(state_labels) - 0.5]);
+        cb = colorbar(ax, 'Ticks', 0:(numel(state_labels) - 1), 'TickLabels', cellstr(state_labels));
         cb.Label.String = 'Heatmap state';
     else
         value_matrix = local_getfield_or(surface, 'numeric_requirement_matrix', local_getfield_or(surface, 'value_matrix', []));

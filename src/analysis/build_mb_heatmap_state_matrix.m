@@ -11,7 +11,7 @@ end
 surface_table = local_getfield_or(surface, 'surface_table', table());
 x_values = local_resolve_axis_values(surface, options, 'x_values', 'P');
 y_values = local_resolve_axis_values(surface, options, 'y_values', 'i_deg');
-state_labels = ["undefined", "boundary suspect", "defined internal", "refined/overcompute"];
+state_labels = ["undefined / uncomputed", "evaluated infeasible", "boundary suspect", "defined internal", "refined/overcompute"];
 state_matrix = zeros(numel(y_values), numel(x_values));
 state_table = table();
 
@@ -35,18 +35,21 @@ for iy = 1:numel(y_values)
         is_refined = false;
         state_code = 0;
         if ~isempty(hit)
+            num_total = local_pick_table_scalar(hit, 'num_total', 0);
             min_ns = local_pick_table_scalar(hit, 'minimum_feasible_Ns', NaN);
             if isfinite(min_ns)
                 is_boundary_suspect = ix == numel(x_values) || iy == numel(y_values) || ...
                     (isfinite(ns_upper) && min_ns >= ns_upper - ns_tol);
                 is_refined = local_row_has_refinement_or_overcompute(hit);
                 if is_refined
-                    state_code = 3;
+                    state_code = 4;
                 elseif is_boundary_suspect
-                    state_code = 1;
-                else
                     state_code = 2;
+                else
+                    state_code = 3;
                 end
+            elseif num_total > 0
+                state_code = 1;
             end
         end
         state_matrix(iy, ix) = state_code;

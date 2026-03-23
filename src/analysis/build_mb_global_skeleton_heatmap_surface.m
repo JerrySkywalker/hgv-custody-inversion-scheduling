@@ -16,17 +16,37 @@ if isempty(x_values) || isempty(y_values)
     return;
 end
 
-full_table = local_build_full_grid_table(surface_table, x_values, y_values, options);
-surface_out.surface_table = full_table;
-surface_out.x_values = x_values(:);
-surface_out.y_values = y_values(:);
-surface_out.value_matrix = local_build_value_matrix(full_table, x_values, y_values, 'minimum_feasible_Ns');
-surface_out.numeric_requirement_matrix = surface_out.value_matrix;
-surface_out.margin_matrix = local_build_value_matrix(full_table, x_values, y_values, 'best_joint_margin_at_min');
-surface_out.surface_name = string(local_getfield_or(surface_in, 'surface_name', "requirement_surface")) + "_globalSkeleton";
-surface_out.heatmap_surface_mode = "globalSkeleton";
-surface_out.matrix_domain_source = "global_i_p_skeleton";
-surface_out.global_skeleton_applied = true;
+runtime_cfg = local_getfield_or(options, 'runtime', struct());
+plot_mode_profile = local_getfield_or(options, 'plot_mode_profile', struct());
+policy = local_getfield_or(options, 'plot_data_policy', resolve_mb_plot_data_policy(runtime_cfg, struct( ...
+    'plot_mode_profile', plot_mode_profile, ...
+    'heatmap_value_mode', "numeric_requirement", ...
+    'heatmap_domain_mode', "globalSkeleton")));
+
+if logical(local_getfield_or(policy, 'used_global_rebuild_required', false))
+    [surface_out, rebuild_meta] = rebuild_mb_requirement_surface_for_heatmap(surface_in, search_domain, struct( ...
+        'raw_eval_table', local_getfield_or(options, 'raw_eval_table', table()), ...
+        'x_values', x_values, ...
+        'y_values', y_values, ...
+        'h_km', local_getfield_or(options, 'h_km', NaN), ...
+        'family_name', local_getfield_or(options, 'family_name', "")));
+    surface_out.used_global_rebuild = logical(local_getfield_or(rebuild_meta, 'used_global_rebuild', false));
+    surface_out.used_skeleton_projection = logical(local_getfield_or(rebuild_meta, 'used_skeleton_projection', false));
+else
+    full_table = local_build_full_grid_table(surface_table, x_values, y_values, options);
+    surface_out.surface_table = full_table;
+    surface_out.x_values = x_values(:);
+    surface_out.y_values = y_values(:);
+    surface_out.value_matrix = local_build_value_matrix(full_table, x_values, y_values, 'minimum_feasible_Ns');
+    surface_out.numeric_requirement_matrix = surface_out.value_matrix;
+    surface_out.margin_matrix = local_build_value_matrix(full_table, x_values, y_values, 'best_joint_margin_at_min');
+    surface_out.surface_name = string(local_getfield_or(surface_in, 'surface_name', "requirement_surface")) + "_globalSkeleton";
+    surface_out.heatmap_surface_mode = "globalSkeleton";
+    surface_out.matrix_domain_source = "global_i_p_skeleton";
+    surface_out.global_skeleton_applied = true;
+    surface_out.used_global_rebuild = false;
+    surface_out.used_skeleton_projection = true;
+end
 end
 
 function axis_values = local_resolve_axis_values(search_domain, surface_in, primary_search_field, secondary_search_field, surface_field, table_field)
