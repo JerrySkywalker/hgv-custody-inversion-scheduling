@@ -14,6 +14,7 @@ group_fields = cellstr(string(local_getfield_or(options, 'group_fields', {})));
 target_ns_grid = reshape(local_getfield_or(options, 'target_ns_grid', []), 1, []);
 output_value_field = char(string(local_getfield_or(options, 'output_value_field', local_detect_output_field(source_table))));
 raw_value_field = char(string(local_getfield_or(options, 'raw_value_field', 'pass_ratio')));
+rebuild_scope = local_normalize_rebuild_scope(local_getfield_or(options, 'rebuild_scope', "effective"));
 
 dense_table = table();
 rebuild_meta = struct( ...
@@ -22,6 +23,13 @@ rebuild_meta = struct( ...
     'zero_padding_used', false, ...
     'sparse_projection_used', false, ...
     'source_table_kind', "aggregate_source_table", ...
+    'rebuild_scope', rebuild_scope, ...
+    'dense_grid_min_ns', NaN, ...
+    'dense_grid_max_ns', NaN, ...
+    'dense_grid_step', NaN, ...
+    'num_dense_rows', 0, ...
+    'num_raw_rows', height(raw_eval_table), ...
+    'num_recomputed_rows', 0, ...
     'target_ns_min', NaN, ...
     'target_ns_max', NaN, ...
     'target_ns_count', 0, ...
@@ -32,7 +40,7 @@ rebuild_meta = struct( ...
 
 target_ns_grid = unique(target_ns_grid(isfinite(target_ns_grid)), 'sorted');
 if isempty(target_ns_grid)
-    target_ns_grid = local_make_target_ns_grid(search_domain, source_table, ns_field);
+    target_ns_grid = local_make_target_ns_grid(search_domain, source_table, ns_field, rebuild_scope, options);
 end
 if isempty(target_ns_grid)
     rebuild_meta.source_table_kind = "no_target_ns_grid";
@@ -42,9 +50,14 @@ end
 rebuild_meta.target_ns_min = min(target_ns_grid);
 rebuild_meta.target_ns_max = max(target_ns_grid);
 rebuild_meta.target_ns_count = numel(target_ns_grid);
+rebuild_meta.dense_grid_min_ns = rebuild_meta.target_ns_min;
+rebuild_meta.dense_grid_max_ns = rebuild_meta.target_ns_max;
+rebuild_meta.dense_grid_step = local_min_spacing(target_ns_grid);
 
 if ~isempty(raw_eval_table)
     rebuild_meta.source_table_kind = "raw_eval_table_dense_rebuild";
+else
+    rebuild_meta.num_raw_rows = height(source_table);
 end
 
 group_source = source_table;
@@ -86,6 +99,8 @@ end
 
 dense_table = local_sort_dense_table(dense_table, group_fields, ns_field);
 rebuild_meta.missing_target_row_count = missing_rows;
+rebuild_meta.num_dense_rows = height(dense_table);
+rebuild_meta.num_recomputed_rows = sum(logical(local_pick_column(dense_table, 'point_evaluated', false)));
 rebuild_meta.num_unique_ns_plotted = numel(unique(local_pick_column(dense_table, ns_field, NaN)));
 value_column = local_pick_column(dense_table, output_value_field, NaN);
 rebuild_meta.num_nonzero_rows = sum(isfinite(value_column) & abs(value_column) > 0);
@@ -238,11 +253,18 @@ end
 filtered = T(mask, :);
 end
 
-function target_ns_grid = local_make_target_ns_grid(search_domain, source_table, ns_field)
+function target_ns_grid = local_make_target_ns_grid(search_domain, source_table, ns_field, rebuild_scope, options)
 source_ns = [];
 if istable(source_table) && ismember(ns_field, source_table.Properties.VariableNames)
     source_ns = unique(source_table.(ns_field), 'sorted');
     source_ns = source_ns(isfinite(source_ns));
+end
+if rebuild_scope == "global_full"
+    [target_ns_grid, ~] = build_mb_global_full_dense_ns_grid(search_domain, source_table, ns_field, struct( ...
+        'initial_ns_min', local_getfield_or(options, 'initial_ns_min', NaN), ...
+        'final_ns_max', local_getfield_or(options, 'final_ns_max', NaN), ...
+        'ns_step', local_getfield_or(options, 'ns_step', NaN)));
+    return;
 end
 step = local_first_finite_positive( ...
     local_getfield_or(search_domain, 'ns_search_step', NaN), ...
@@ -251,6 +273,19 @@ step = local_first_finite_positive( ...
 ns_min = local_first_finite(local_getfield_or(search_domain, 'effective_ns_min', NaN), local_getfield_or(search_domain, 'ns_search_min', NaN), local_min_or_nan(source_ns));
 ns_max = local_first_finite(local_getfield_or(search_domain, 'effective_ns_max', NaN), local_getfield_or(search_domain, 'ns_search_max', NaN), local_max_or_nan(source_ns));
 target_ns_grid = local_make_ns_grid(ns_min, ns_max, step);
+end
+
+function scope = local_normalize_rebuild_scope(scope)
+scope = string(scope);
+switch lower(strrep(strrep(char(scope), '_', ''), '-', ''))
+    case {'effective', 'effectivedomain'}
+        scope = "effective";
+    case {'globalfull', 'globalfulldense', 'fullsearchdomain'}
+        scope = "global_full";
+    otherwise
+        error('rebuild_mb_passratio_dense_view_table:InvalidRebuildScope', ...
+            'Unsupported rebuild_scope: %s', char(scope));
+end
 end
 
 function field_name = local_detect_output_field(source_table)
