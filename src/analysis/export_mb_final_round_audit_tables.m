@@ -465,7 +465,7 @@ for idx = 1:height(passratio_audit)
     if ~isempty(global_row)
         global_min(idx) = global_row.actual_rendered_xlim_min(1);
         global_max(idx) = global_row.actual_rendered_xlim_max(1);
-        global_source_kind(idx) = string(global_row.source_table_kind(1));
+        global_source_kind(idx) = string(global_row.source_table_name(1));
     end
 end
 
