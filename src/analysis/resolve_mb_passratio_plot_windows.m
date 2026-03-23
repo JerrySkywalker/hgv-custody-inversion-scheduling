@@ -1,5 +1,5 @@
 function windows = resolve_mb_passratio_plot_windows(curve_table, search_domain, options)
-%RESOLVE_MB_PASSRATIO_PLOT_WINDOWS Build history/effective/zoom x-limits for pass-ratio plots.
+%RESOLVE_MB_PASSRATIO_PLOT_WINDOWS Build history/effective/global/zoom x-limits for pass-ratio plots.
 
 if nargin < 2 || isempty(search_domain)
     search_domain = struct();
@@ -43,6 +43,7 @@ end
 windows = struct();
 windows.history_full = history_window;
 windows.effective_full_range = effective_window;
+windows.global_full_dense = history_window;
 windows.frontier_zoom = windows.effective_full_range;
 windows.status_tag = "effective_only";
 
