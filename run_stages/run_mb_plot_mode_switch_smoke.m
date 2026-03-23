@@ -158,7 +158,9 @@ cfg.milestones.MB_plotting.diagnostic_export_full_bundle = true;
 end
 
 function meta = local_read_sidecar(file_path)
-sidecar = string(file_path) + ".meta.json";
+file_path = string(file_path);
+[folder, stem, ~] = fileparts(char(file_path));
+sidecar = string(fullfile(folder, stem + ".meta.json"));
 if ~isfile(sidecar)
     error('Missing sidecar: %s', char(sidecar));
 end

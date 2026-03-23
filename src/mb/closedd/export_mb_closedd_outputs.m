@@ -527,8 +527,10 @@ if strcmpi(source_png, target_png)
     return;
 end
 copyfile(source_png, target_png);
-source_meta = [source_png, '.meta.json'];
-target_meta = [target_png, '.meta.json'];
+[source_folder, source_stem, ~] = fileparts(source_png);
+[target_folder, target_stem, ~] = fileparts(target_png);
+source_meta = fullfile(source_folder, [source_stem, '.meta.json']);
+target_meta = fullfile(target_folder, [target_stem, '.meta.json']);
 if isfile(source_meta)
     copyfile(source_meta, target_meta);
 end
