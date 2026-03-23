@@ -102,6 +102,10 @@ result.summary.heatmap_primary_domain_mode = plot_mode_profile.heatmap_primary_d
 result.summary.canonical_primary_mode = plot_mode_profile.canonical_primary_mode;
 result.summary.export_all_passratio_modes = plot_mode_profile.export_all_passratio_modes;
 result.summary.export_all_heatmap_modes = plot_mode_profile.export_all_heatmap_modes;
+result.summary.export_history_full = logical(local_getfield_or(local_getfield_or(cfg.milestones, 'MB_plotting', struct()), 'export_history_full', true));
+result.summary.export_effective_full_range = logical(local_getfield_or(local_getfield_or(cfg.milestones, 'MB_plotting', struct()), 'export_effective_full_range', true));
+result.summary.export_frontier_zoom = logical(local_getfield_or(local_getfield_or(cfg.milestones, 'MB_plotting', struct()), 'export_frontier_zoom', true));
+result.summary.export_global_full_dense = logical(local_getfield_or(local_getfield_or(cfg.milestones, 'MB_plotting', struct()), 'export_global_full_dense', true));
 
 if logical(local_getfield_or(meta, 'dry_run', false))
     search_domain_audit = build_mb_search_domain_audit_table(meta, repmat(struct(), 0, 1));
