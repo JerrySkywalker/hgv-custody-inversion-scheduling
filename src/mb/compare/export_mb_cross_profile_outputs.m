@@ -101,6 +101,7 @@ for idx_ctx = 1:size(contexts, 1)
         pass_primary_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_primary_%s.csv', char(semantic_mode), context_tag));
         pass_history_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_historyFull_%s.csv', char(semantic_mode), context_tag));
         pass_effective_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_effectiveFullRange_%s.csv', char(semantic_mode), context_tag));
+        pass_global_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_globalFullDense_%s.csv', char(semantic_mode), context_tag));
         pass_zoom_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_frontierZoom_%s.csv', char(semantic_mode), context_tag));
         pass_padding_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratio_historyPadding_%s.csv', char(semantic_mode), context_tag));
         pass_summary_csv = fullfile(paths.tables, sprintf('MB_profileCompare_%s_passratioSummary_%s.csv', char(semantic_mode), context_tag));
@@ -123,16 +124,21 @@ for idx_ctx = 1:size(contexts, 1)
         effective_view_spec = pass_view_spec;
         effective_view_spec.domain_view = "effective_full_range";
         effective_view_spec.figure_name = sprintf('MB_profileCompare_%s_passratio_effectiveFullRange_%s.png', char(semantic_mode), context_tag);
+        global_view_spec = pass_view_spec;
+        global_view_spec.domain_view = "global_full_dense";
+        global_view_spec.figure_name = sprintf('MB_profileCompare_%s_passratio_globalFullDense_%s.png', char(semantic_mode), context_tag);
         zoom_view_spec = pass_view_spec;
         zoom_view_spec.domain_view = "frontier_zoom";
         zoom_view_spec.plot_window = pass_windows.frontier_zoom;
         zoom_view_spec.figure_name = sprintf('MB_profileCompare_%s_passratio_frontierZoom_%s.png', char(semantic_mode), context_tag);
         [pass_history_table, pass_padding_summary, pass_history_meta] = build_mb_passratio_domain_view(pass_table, search_domain, history_view_spec);
         [pass_effective_table, ~, pass_effective_meta] = build_mb_passratio_domain_view(pass_table, search_domain, effective_view_spec);
+        [pass_global_table, ~, pass_global_meta] = build_mb_passratio_domain_view(pass_table, search_domain, global_view_spec);
         zoom_view_spec.effective_dense_table = pass_effective_table;
         [pass_zoom_table, ~, pass_zoom_meta] = build_mb_passratio_domain_view(pass_table, search_domain, zoom_view_spec);
         milestone_common_save_table(pass_history_table, pass_history_csv);
         milestone_common_save_table(pass_effective_table, pass_effective_csv);
+        milestone_common_save_table(pass_global_table, pass_global_csv);
         milestone_common_save_table(pass_zoom_table, pass_zoom_csv);
         milestone_common_save_table(pass_padding_summary, pass_padding_csv);
 
@@ -176,6 +182,26 @@ for idx_ctx = 1:size(contexts, 1)
             'actual_domain_behavior', "dense_effective_view_from_overlay_source")));
         close(fig_pass_effective);
 
+        fig_pass_global = plot_mb_cross_profile_passratio_overlay(pass_global_table, pass_summary, h_km, semantic_mode, family_name, struct( ...
+            'plot_xlim_ns', pass_windows.global_full_dense, ...
+            'plot_domain_label', "global_full_dense", ...
+            'plot_domain_source', "global_full_dense", ...
+            'subtitle_text', "Cross-profile envelope rebuilt across the full search domain"));
+        global_xlim = local_capture_axis_xlim(fig_pass_global);
+        pass_global_png = fullfile(paths.figures, sprintf('MB_profileCompare_%s_passratio_globalFullDense_%s.png', char(semantic_mode), context_tag));
+        milestone_common_save_figure(fig_pass_global, pass_global_png);
+        write_mb_plot_domain_sidecar(pass_global_png, "global_full_dense", "full_search_domain", global_xlim, ...
+            build_mb_passratio_view_sidecar_fields(fig_pass_global, pass_global_table, pass_global_csv, "global_full_dense", pass_windows.global_full_dense, pass_global_meta, struct( ...
+            'figure_family', string(semantic_mode) + "_cross_profile_passratio", ...
+            'primary_plot_mode', plot_mode_profile.cross_profile_primary_mode, ...
+            'canonical_primary_mode', plot_mode_profile.canonical_primary_mode, ...
+            'current_mode', "globalFullDense", ...
+            'is_primary_selection', plot_mode_profile.cross_profile_primary_mode == "globalFullDense", ...
+            'is_canonical_selection', plot_mode_profile.canonical_primary_mode == "globalFullDense", ...
+            'expected_domain_behavior', "global_full_dense_rebuild", ...
+            'actual_domain_behavior', "dense_global_view_from_overlay_source")));
+        close(fig_pass_global);
+
         fig_pass_zoom = plot_mb_cross_profile_passratio_overlay(pass_zoom_table, pass_summary, h_km, semantic_mode, family_name, struct( ...
             'plot_xlim_ns', pass_windows.frontier_zoom, ...
             'plot_domain_label', "frontier_zoom", ...
@@ -200,6 +226,7 @@ for idx_ctx = 1:size(contexts, 1)
         pass_mode_files = struct( ...
             'historyFull', struct('csv', string(pass_history_csv), 'png', string(pass_history_png), 'table', pass_history_table), ...
             'effectiveFullRange', struct('csv', string(pass_effective_csv), 'png', string(pass_effective_png), 'table', pass_effective_table), ...
+            'globalFullDense', struct('csv', string(pass_global_csv), 'png', string(pass_global_png), 'table', pass_global_table), ...
             'frontierZoom', struct('csv', string(pass_zoom_csv), 'png', string(pass_zoom_png), 'table', pass_zoom_table));
         primary_pass = pass_mode_files.(char(primary_mode));
         milestone_common_save_table(primary_pass.table, pass_primary_csv);
@@ -207,6 +234,8 @@ for idx_ctx = 1:size(contexts, 1)
         local_copy_figure_with_sidecar(primary_pass.png, string(pass_primary_png));
 
         pass_summary = local_apply_passratio_render_summary(pass_summary, pass_history_meta, history_xlim, effective_xlim, zoom_xlim);
+        pass_summary.global_full_dense_rendered_min_ns = repmat(local_pick_x(global_xlim, 1), height(pass_summary), 1);
+        pass_summary.global_full_dense_rendered_max_ns = repmat(local_pick_x(global_xlim, 2), height(pass_summary), 1);
         pass_summary.primary_plot_mode = repmat(plot_mode_profile.cross_profile_primary_mode, height(pass_summary), 1);
         pass_summary.canonical_primary_mode = repmat(plot_mode_profile.canonical_primary_mode, height(pass_summary), 1);
         pass_summary.canonical_figure_file = repmat(string(pass_primary_png), height(pass_summary), 1);
@@ -216,12 +245,14 @@ for idx_ctx = 1:size(contexts, 1)
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioPrimary_%s', char(semantic_mode), context_tag))) = string(pass_primary_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioHistory_%s', char(semantic_mode), context_tag))) = string(pass_history_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioEffective_%s', char(semantic_mode), context_tag))) = string(pass_effective_csv);
+        artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioGlobalFullDense_%s', char(semantic_mode), context_tag))) = string(pass_global_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioZoom_%s', char(semantic_mode), context_tag))) = string(pass_zoom_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioHistoryPadding_%s', char(semantic_mode), context_tag))) = string(pass_padding_csv);
         artifacts.tables.(matlab.lang.makeValidName(sprintf('%s_passratioSummary_%s', char(semantic_mode), context_tag))) = string(pass_summary_csv);
         artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioPrimary_%s', char(semantic_mode), context_tag))) = string(pass_primary_png);
         artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioHistory_%s', char(semantic_mode), context_tag))) = string(pass_history_png);
         artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioEffective_%s', char(semantic_mode), context_tag))) = string(pass_effective_png);
+        artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioGlobalFullDense_%s', char(semantic_mode), context_tag))) = string(pass_global_png);
         artifacts.figures.(matlab.lang.makeValidName(sprintf('%s_passratioZoom_%s', char(semantic_mode), context_tag))) = string(pass_zoom_png);
         summary_cursor = summary_cursor + 1;
         summary_chunks{summary_cursor, 1} = local_normalize_summary(pass_summary, "passratio_overlay"); %#ok<AGROW>
