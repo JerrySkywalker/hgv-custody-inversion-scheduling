@@ -61,7 +61,7 @@ end
 
 switch domain_view
     case "history_full"
-        [view_table, padding_summary, view_meta] = local_build_history_view( ...
+        [view_table, padding_summary, view_meta] = local_build_history_points_view( ...
             source_table, ns_field, group_fields, value_fields, fill_values, recompute_mode, ...
             history_fill_mode, history_origin, history_origin_min, initial_ns_min, final_ns_max, ns_step, figure_name, view_meta);
     case "effective_full_range"
@@ -81,17 +81,12 @@ switch domain_view
 end
 end
 
-function [view_table, padding_summary, view_meta] = local_build_history_view(source_table, ns_field, group_fields, value_fields, fill_values, recompute_mode, history_fill_mode, history_origin, history_origin_min, initial_ns_min, final_ns_max, ns_step, figure_name, view_meta)
+function [view_table, padding_summary, view_meta] = local_build_history_points_view(source_table, ns_field, group_fields, value_fields, fill_values, recompute_mode, history_fill_mode, history_origin, history_origin_min, initial_ns_min, final_ns_max, ns_step, figure_name, view_meta)
+%#ok<INUSD>
 padding_summary = local_empty_padding_summary();
 view_table = source_table;
 
-if ~isfinite(history_origin_min) || ~isfinite(final_ns_max) || ~isfinite(ns_step)
-    view_meta.root_cause_tag = "source_table_tail_only";
-    return;
-end
-
-ns_grid = local_make_ns_grid(history_origin_min, final_ns_max, ns_step);
-if isempty(ns_grid)
+if ~isfinite(history_origin_min) || ~isfinite(final_ns_max)
     view_meta.root_cause_tag = "source_table_tail_only";
     return;
 end
@@ -102,53 +97,52 @@ if ~isempty(missing_group_fields)
         'Missing group fields: %s', strjoin(missing_group_fields, ', '));
 end
 
+view_table = local_filter_ns_window(source_table, ns_field, [history_origin_min, final_ns_max]);
+view_table = local_apply_recompute_mode(view_table, recompute_mode);
+view_table = local_sort_view_table(view_table, group_fields, ns_field);
+view_table.history_padded_row = false(height(view_table), 1);
+view_table.history_padding_applied = false(height(view_table), 1);
+view_table.history_fill_mode = repmat("none", height(view_table), 1);
+view_table.history_origin = repmat(history_origin, height(view_table), 1);
+
 if isempty(group_fields)
     group_rows = table(1, 'VariableNames', {'group_id_tmp'});
-    source_table.group_id_tmp = ones(height(source_table), 1);
+    view_table.group_id_tmp = ones(height(view_table), 1);
     group_fields = {'group_id_tmp'};
 else
-    group_rows = unique(source_table(:, group_fields), 'rows', 'stable');
+    group_rows = unique(view_table(:, group_fields), 'rows', 'stable');
 end
 
-row_chunks = cell(height(group_rows), 1);
 summary_rows = cell(height(group_rows), 1);
-padding_applied = false;
 group_pass = true(height(group_rows), 1);
 for idx_group = 1:height(group_rows)
     group_row = group_rows(idx_group, :);
-    sub = local_filter_group_rows(source_table, group_row, group_fields);
+    sub = local_filter_group_rows(view_table, group_row, group_fields);
     original_ns = unique(local_get_column(sub, ns_field));
     original_ns = original_ns(isfinite(original_ns));
 
-    skeleton = local_build_skeleton_table(group_row, group_fields, ns_field, ns_grid);
-    joined = outerjoin(skeleton, sub, 'Keys', [group_fields, {ns_field}], 'MergeKeys', true, 'Type', 'left');
+    if ~isempty(sub)
+        match_mask = local_group_mask(view_table, group_row, group_fields);
+        view_table.history_padded_row(match_mask, 1) = false;
+        view_table.history_padding_applied(match_mask, 1) = false;
+        view_table.history_fill_mode(match_mask, 1) = repmat("none", sum(match_mask), 1);
+        view_table.history_origin(match_mask, 1) = repmat(history_origin, sum(match_mask), 1);
+    end
 
-    padded_mask = ~ismember(joined.(ns_field), original_ns);
-    joined = local_fill_missing_columns(joined, value_fields, fill_values, padded_mask, history_fill_mode);
-    joined = local_apply_recompute_mode(joined, recompute_mode);
-    joined.history_padded_row = padded_mask;
-    joined.history_padding_applied = repmat(any(padded_mask), height(joined), 1);
-    joined.history_fill_mode = repmat(history_fill_mode, height(joined), 1);
-    joined.history_origin = repmat(history_origin, height(joined), 1);
-
-    row_chunks{idx_group} = joined;
-    padding_applied = padding_applied || any(padded_mask);
-    group_pass(idx_group) = ~isempty(joined) && local_min_or_nan(joined.(ns_field)) <= history_origin_min + 1.0e-9;
+    group_pass(idx_group) = ~isempty(sub);
     summary_rows{idx_group} = local_build_padding_summary_row( ...
-        figure_name, local_group_height_km(joined), group_row, group_fields, initial_ns_min, final_ns_max, ...
-        numel(original_ns), sum(padded_mask), history_fill_mode, history_origin, any(padded_mask), group_pass(idx_group));
+        figure_name, local_group_height_km(sub), group_row, group_fields, initial_ns_min, final_ns_max, ...
+        numel(original_ns), 0, "none", history_origin, false, group_pass(idx_group));
 end
 
-view_table = vertcat(row_chunks{:});
-view_table = local_sort_view_table(view_table, group_fields, ns_field);
 padding_summary = vertcat(summary_rows{:});
 
 if ismember('group_id_tmp', view_table.Properties.VariableNames)
     view_table.group_id_tmp = [];
 end
 
-view_meta.history_padding_applied = padding_applied;
-view_meta.history_fill_mode = history_fill_mode;
+view_meta.history_padding_applied = false;
+view_meta.history_fill_mode = "none";
 view_meta.history_origin = history_origin;
 view_meta.view_table_min_ns = local_min_or_nan(local_get_column(view_table, ns_field));
 view_meta.view_table_max_ns = local_max_or_nan(local_get_column(view_table, ns_field));
@@ -271,6 +265,11 @@ key = strjoin(parts, ";");
 end
 
 function filtered = local_filter_group_rows(T, group_row, group_fields)
+mask = local_group_mask(T, group_row, group_fields);
+filtered = T(mask, :);
+end
+
+function mask = local_group_mask(T, group_row, group_fields)
 mask = true(height(T), 1);
 for idx = 1:numel(group_fields)
     field_name = group_fields{idx};
@@ -282,7 +281,6 @@ for idx = 1:numel(group_fields)
         mask = mask & (column == value);
     end
 end
-filtered = T(mask, :);
 end
 
 function skeleton = local_build_skeleton_table(group_row, group_fields, ns_field, ns_grid)
