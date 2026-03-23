@@ -11,6 +11,7 @@ end
 fig = create_managed_figure(struct(), 'Color', 'w', 'Position', [140 140 1100 720]);
 ax = axes(fig);
 hold(ax, 'on');
+contract = local_getfield_or(options, 'plot_view_contract', struct());
 
 if isempty(overlay_table)
     apply_mb_plot_domain_guardrail(ax, [], [], struct( ...
@@ -24,24 +25,32 @@ end
 
 groups = unique(overlay_table.sensor_group, 'stable');
 cmap = lines(max(3, numel(groups)));
+base_grid_step = local_resolve_base_grid_step(overlay_table);
+gap_steps_for_break = max(1, double(local_getfield_or(options, 'passratio_gap_steps_for_break', 1)));
+max_gap_for_connect = inf;
+if isstruct(contract) && isfield(contract, 'view_name') && string(contract.view_name) ~= "historyFull" && isfinite(base_grid_step)
+    max_gap_for_connect = gap_steps_for_break * base_grid_step;
+end
 for idx = 1:numel(groups)
     sensor_group = groups(idx);
     sub = overlay_table(overlay_table.sensor_group == sensor_group, :);
     sub = sortrows(sub, 'Ns');
-    valid = isfinite(sub.Ns) & isfinite(sub.overlay_pass_ratio);
-    sub = sub(valid, :);
-    if isempty(sub)
-        continue;
-    end
     label = char(local_group_label(sensor_group));
-    if numel(unique(sub.Ns)) < 2
-        plot(ax, sub.Ns, sub.overlay_pass_ratio, 'o', ...
-            'Color', cmap(idx, :), 'LineWidth', 2.0, 'MarkerSize', 8, ...
-            'MarkerFaceColor', cmap(idx, :), 'DisplayName', sprintf('%s (single point)', label));
-    else
-        plot(ax, sub.Ns, sub.overlay_pass_ratio, '-o', ...
-            'Color', cmap(idx, :), 'LineWidth', 2.0, 'MarkerSize', 7, ...
-            'DisplayName', label);
+    is_defined = isfinite(sub.overlay_pass_ratio);
+    segments = build_mb_polyline_segments_from_defined_points(sub.Ns, sub.overlay_pass_ratio, is_defined, max_gap_for_connect);
+    display_consumed = false;
+    for idx_seg = 1:numel(segments)
+        seg = segments{idx_seg};
+        if numel(seg.x) < 2
+            plot(ax, seg.x, seg.y, 'o', ...
+                'Color', cmap(idx, :), 'LineWidth', 2.0, 'MarkerSize', 8, ...
+                'MarkerFaceColor', cmap(idx, :), 'DisplayName', local_segment_label(label + " (isolated)", display_consumed));
+        else
+            plot(ax, seg.x, seg.y, '-o', ...
+                'Color', cmap(idx, :), 'LineWidth', 2.0, 'MarkerSize', 7, ...
+                'DisplayName', local_segment_label(label, display_consumed));
+        end
+        display_consumed = true;
     end
 end
 
@@ -67,6 +76,19 @@ apply_mb_plot_domain_guardrail(ax, overlay_table.Ns, overlay_table.overlay_pass_
 if strlength(diagnostic) > 0
     text(ax, 0.02, 0.88, char(diagnostic), 'Units', 'normalized', ...
         'FontSize', 10, 'Color', [0.28 0.28 0.28], 'VerticalAlignment', 'top');
+end
+scope_text = string(local_getfield_or(options, 'scope_annotation_text', ""));
+if strlength(scope_text) > 0
+    text(ax, 0.02, 0.80, char(scope_text), 'Units', 'normalized', ...
+        'FontSize', 10, 'Color', [0.28 0.28 0.28], 'VerticalAlignment', 'top');
+end
+end
+
+function label = local_segment_label(base_label, consumed)
+if consumed
+    label = "";
+else
+    label = base_label;
 end
 end
 
@@ -94,5 +116,22 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function step = local_resolve_base_grid_step(T)
+step = NaN;
+if istable(T) && ismember('base_grid_step', T.Properties.VariableNames)
+    values = T.base_grid_step(isfinite(T.base_grid_step));
+    if ~isempty(values)
+        step = values(1);
+        return;
+    end
+end
+if istable(T) && ismember('Ns', T.Properties.VariableNames)
+    ns_values = unique(T.Ns(isfinite(T.Ns)), 'sorted');
+    if numel(ns_values) >= 2
+        step = min(diff(ns_values));
+    end
 end
 end

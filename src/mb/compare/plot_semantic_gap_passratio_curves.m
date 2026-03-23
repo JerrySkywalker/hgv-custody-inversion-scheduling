@@ -19,14 +19,21 @@ fig = create_managed_figure(local_getfield_or(options, 'runtime', struct()), 'Co
 setappdata(fig, 'mb_figure_style', local_getfield_or(options, 'figure_style', struct()));
 tiled = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 title(tiled, sprintf('Comparison Pass-Ratio Diagnostics at h = %.0f km [%s]', h_km, char(string(sensor_label))));
+contract = local_getfield_or(options, 'plot_view_contract', struct());
+base_grid_step = local_resolve_base_grid_step(gap_table);
+gap_steps_for_break = max(1, double(local_getfield_or(options, 'passratio_gap_steps_for_break', 1)));
+max_gap_for_connect = inf;
+if isstruct(contract) && isfield(contract, 'view_name') && string(contract.view_name) ~= "historyFull" && isfinite(base_grid_step)
+    max_gap_for_connect = gap_steps_for_break * base_grid_step;
+end
 
 ax1 = nexttile(tiled, 1);
 hold(ax1, 'on');
 for idx = 1:numel(i_values)
     Ti = gap_table(gap_table.i_deg == i_values(idx), :);
     Ti = sortrows(Ti, 'Ns');
-    local_plot_curve(ax1, Ti.Ns, Ti.max_pass_ratio_legacyDG, '--s', cmap(idx, :), 1.5, 5, sprintf('legacyDG i=%g', i_values(idx)));
-    local_plot_curve(ax1, Ti.Ns, Ti.max_pass_ratio_closedD, '-o', cmap(idx, :), 1.8, 5, sprintf('closedD i=%g', i_values(idx)));
+    local_plot_curve(ax1, Ti.Ns, Ti.max_pass_ratio_legacyDG, local_pick_logical(Ti, 'legacy_present'), '--s', cmap(idx, :), 1.5, 5, sprintf('legacyDG i=%g', i_values(idx)), max_gap_for_connect);
+    local_plot_curve(ax1, Ti.Ns, Ti.max_pass_ratio_closedD, local_pick_logical(Ti, 'closed_present'), '-o', cmap(idx, :), 1.8, 5, sprintf('closedD i=%g', i_values(idx)), max_gap_for_connect);
 end
 ylabel(ax1, 'max pass ratio');
 title(ax1, 'Upper panel: pass ratio overlay');
@@ -42,6 +49,11 @@ apply_mb_plot_domain_guardrail(ax1, local_getfield_or(gap_table, 'Ns', []), loca
 if local_show_annotations(options)
     text(ax1, 0.02, 0.96, char("plot-domain: " + string(local_getfield_or(options, 'plot_domain_label', "expanded_final_shared"))), ...
         'Units', 'normalized', 'FontSize', 10, 'Color', [0.20 0.20 0.20], 'VerticalAlignment', 'top');
+    scope_text = string(local_getfield_or(options, 'scope_annotation_text', ""));
+    if strlength(scope_text) > 0
+        text(ax1, 0.02, 0.88, char(scope_text), ...
+            'Units', 'normalized', 'FontSize', 10, 'Color', [0.20 0.20 0.20], 'VerticalAlignment', 'top');
+    end
 end
 
 [legacy_plateau, closed_plateau, plateau_note] = local_plateau_status(gap_table, local_getfield_or(options, 'passratio_saturation_table', table()));
@@ -55,7 +67,7 @@ hold(ax2, 'on');
 for idx = 1:numel(i_values)
     Ti = gap_table(gap_table.i_deg == i_values(idx), :);
     Ti = sortrows(Ti, 'Ns');
-    local_plot_curve(ax2, Ti.Ns, Ti.passratio_gap, '-o', cmap(idx, :), 1.6, 5, sprintf('gap i=%g', i_values(idx)));
+    local_plot_curve(ax2, Ti.Ns, Ti.passratio_gap, isfinite(Ti.passratio_gap), '-o', cmap(idx, :), 1.6, 5, sprintf('gap i=%g', i_values(idx)), max_gap_for_connect);
 end
 yline(ax2, 0, ':', 'Color', [0.35, 0.35, 0.35], 'LineWidth', 1.1);
 xlabel(ax2, 'N_s');
@@ -94,18 +106,34 @@ else
 end
 end
 
-function local_plot_curve(ax, x_values, y_values, line_spec, color_value, line_width, marker_size, label_text)
-valid_mask = isfinite(x_values) & isfinite(y_values);
-x_values = x_values(valid_mask);
-y_values = y_values(valid_mask);
-if isempty(x_values)
+function local_plot_curve(ax, x_values, y_values, is_defined, line_spec, color_value, line_width, marker_size, label_text, max_gap_for_connect)
+if nargin < 4 || isempty(is_defined)
+    is_defined = isfinite(x_values) & isfinite(y_values);
+end
+segments = build_mb_polyline_segments_from_defined_points(x_values, y_values, is_defined, max_gap_for_connect);
+if isempty(segments)
     return;
-elseif numel(unique(x_values)) < 2
-    plot(ax, x_values, y_values, line_spec(end), 'Color', color_value, 'LineWidth', line_width, ...
-        'MarkerSize', marker_size + 1, 'MarkerFaceColor', color_value, 'DisplayName', sprintf('%s (single point)', label_text));
+end
+display_consumed = false;
+for idx_seg = 1:numel(segments)
+    seg = segments{idx_seg};
+    if numel(seg.x) < 2
+        plot(ax, seg.x, seg.y, line_spec(end), 'Color', color_value, 'LineWidth', line_width, ...
+            'MarkerSize', marker_size + 1, 'MarkerFaceColor', color_value, ...
+            'DisplayName', local_segment_label(label_text + " (isolated)", display_consumed));
+    else
+        plot(ax, seg.x, seg.y, line_spec, 'Color', color_value, 'LineWidth', line_width, ...
+            'MarkerSize', marker_size, 'DisplayName', local_segment_label(label_text, display_consumed));
+    end
+    display_consumed = true;
+end
+end
+
+function label = local_segment_label(label_text, consumed)
+if consumed
+    label = "";
 else
-    plot(ax, x_values, y_values, line_spec, 'Color', color_value, 'LineWidth', line_width, ...
-        'MarkerSize', marker_size, 'DisplayName', label_text);
+    label = label_text;
 end
 end
 
@@ -181,5 +209,29 @@ if isstruct(style_mode) && isfield(style_mode, 'show_diagnostic_annotation')
     tf = logical(style_mode.show_diagnostic_annotation);
 else
     tf = true;
+end
+end
+
+function values = local_pick_logical(T, field_name)
+if istable(T) && ismember(field_name, T.Properties.VariableNames)
+    values = logical(T.(field_name));
+else
+    values = isfinite(local_getfield_or(T, field_name, []));
+end
+end
+
+function step = local_resolve_base_grid_step(T)
+step = NaN;
+if istable(T) && ismember('base_grid_step', T.Properties.VariableNames)
+    values = T.base_grid_step(isfinite(T.base_grid_step));
+    if ~isempty(values)
+        step = values(1);
+        return;
+    end
+end
+ns_values = unique(local_getfield_or(T, 'Ns', []), 'sorted');
+ns_values = ns_values(isfinite(ns_values));
+if numel(ns_values) >= 2
+    step = min(diff(ns_values));
 end
 end
