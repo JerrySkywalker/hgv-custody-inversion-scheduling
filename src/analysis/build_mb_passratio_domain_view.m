@@ -1,5 +1,5 @@
 function [view_table, padding_summary, view_meta] = build_mb_passratio_domain_view(source_table, search_domain, options)
-%BUILD_MB_PASSRATIO_DOMAIN_VIEW Build data-layer history/effective/frontier views for pass-ratio exports.
+%BUILD_MB_PASSRATIO_DOMAIN_VIEW Build data-layer history/effective/frontier/global views for pass-ratio exports.
 
 if nargin < 2 || isempty(search_domain)
     search_domain = struct();
@@ -58,7 +58,7 @@ view_meta = struct( ...
     'pass_fail', false, ...
     'root_cause_tag', "correct");
 
-if isempty(source_table)
+if isempty(source_table) && isempty(raw_eval_table)
     view_meta.root_cause_tag = "source_table_tail_only";
     return;
 end
@@ -86,6 +86,13 @@ switch domain_view
         [view_table, view_meta] = local_build_frontier_zoom_view( ...
             source_table, raw_eval_table, effective_dense_table, search_domain, ns_field, group_fields, recompute_mode, ...
             [effective_ns_min, effective_ns_max], plot_window, ns_step, options, view_meta, zoom_policy);
+    case "global_full_dense"
+        global_policy = resolve_mb_plot_data_policy(runtime_cfg, struct( ...
+            'plot_mode_profile', plot_mode_profile, ...
+            'passratio_mode', "globalFullDense"));
+        [view_table, view_meta] = local_build_global_full_dense_view( ...
+            source_table, raw_eval_table, search_domain, ns_field, group_fields, recompute_mode, ...
+            initial_ns_min, final_ns_max, ns_step, options, view_meta, global_policy);
     otherwise
         error('build_mb_passratio_domain_view:UnsupportedDomainView', ...
             'Unsupported domain_view: %s', char(domain_view));
@@ -221,6 +228,41 @@ else
 end
 end
 
+function [view_table, view_meta] = local_build_global_full_dense_view(source_table, raw_eval_table, search_domain, ns_field, group_fields, recompute_mode, initial_ns_min, final_ns_max, ns_step, options, view_meta, policy)
+grid_options = struct( ...
+    'initial_ns_min', initial_ns_min, ...
+    'final_ns_max', final_ns_max, ...
+    'ns_step', ns_step, ...
+    'origin_mode', string(local_getfield_or(options, 'history_origin', "initial_ns_min")));
+[target_ns_grid, grid_meta] = build_mb_global_full_dense_ns_grid(search_domain, source_table, ns_field, grid_options);
+
+dense_options = struct( ...
+    'raw_eval_table', raw_eval_table, ...
+    'ns_field', ns_field, ...
+    'group_fields', {group_fields}, ...
+    'target_ns_grid', target_ns_grid, ...
+    'output_value_field', local_detect_output_value_field(source_table, options), ...
+    'raw_value_field', char(string(local_getfield_or(options, 'raw_value_field', 'pass_ratio'))), ...
+    'rebuild_scope', 'global_full', ...
+    'initial_ns_min', grid_meta.initial_ns_min, ...
+    'final_ns_max', grid_meta.final_ns_max, ...
+    'ns_step', grid_meta.ns_step);
+[view_table, dense_meta] = rebuild_mb_passratio_dense_view_table(source_table, search_domain, dense_options);
+view_table = local_apply_recompute_mode(view_table, recompute_mode);
+view_table = local_sort_view_table(view_table, group_fields, ns_field);
+view_meta = local_apply_dense_meta(view_meta, dense_meta, policy);
+view_meta.domain_view = "global_full_dense";
+view_meta.view_table_min_ns = local_min_or_nan(local_get_column(view_table, ns_field));
+view_meta.view_table_max_ns = local_max_or_nan(local_get_column(view_table, ns_field));
+view_meta.history_padding_applied = false;
+view_meta.pass_fail = logical(local_getfield_or(dense_meta, 'pass_fail', false));
+if view_meta.pass_fail
+    view_meta.root_cause_tag = "correct";
+else
+    view_meta.root_cause_tag = "source_table_tail_only";
+end
+end
+
 function view_meta = local_apply_dense_meta(view_meta, dense_meta, policy)
 view_meta.history_padding_applied = false;
 view_meta.history_fill_mode = "none";
@@ -231,6 +273,13 @@ view_meta.inherited_from_effective_dense = logical(local_getfield_or(dense_meta,
 view_meta.source_table_kind = string(local_getfield_or(dense_meta, 'source_table_kind', ""));
 view_meta.num_unique_ns_plotted = double(local_getfield_or(dense_meta, 'num_unique_ns_plotted', NaN));
 view_meta.num_nonzero_rows = double(local_getfield_or(dense_meta, 'num_nonzero_rows', NaN));
+view_meta.rebuild_scope = string(local_getfield_or(dense_meta, 'rebuild_scope', ""));
+view_meta.dense_grid_min_ns = double(local_getfield_or(dense_meta, 'dense_grid_min_ns', NaN));
+view_meta.dense_grid_max_ns = double(local_getfield_or(dense_meta, 'dense_grid_max_ns', NaN));
+view_meta.dense_grid_step = double(local_getfield_or(dense_meta, 'dense_grid_step', NaN));
+view_meta.num_dense_rows = double(local_getfield_or(dense_meta, 'num_dense_rows', NaN));
+view_meta.num_raw_rows = double(local_getfield_or(dense_meta, 'num_raw_rows', NaN));
+view_meta.num_recomputed_rows = double(local_getfield_or(dense_meta, 'num_recomputed_rows', NaN));
 view_meta.allow_sparse_projection = logical(local_getfield_or(policy, 'allow_sparse_projection', false));
 view_meta.allow_zero_padding = logical(local_getfield_or(policy, 'allow_zero_padding', false));
 end
