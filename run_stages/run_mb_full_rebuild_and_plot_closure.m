@@ -47,6 +47,7 @@ end
 closure_summary = build_mb_full_rebuild_closure_summary(strict_paths.milestone_root, baseline_paths.milestone_root);
 closure_summary_csv = fullfile(baseline_paths.tables, 'MB_full_rebuild_closure_summary.csv');
 milestone_common_save_table(closure_summary, closure_summary_csv);
+delivery_out = package_mb_full_rebuild_delivery(tag);
 
 out = struct();
 out.tag = tag;
@@ -58,4 +59,5 @@ out.profile_name = string(profile.name);
 out.audit_artifacts = audit_artifacts;
 out.fullnight_run_summary_csv = string(fullnight_summary_csv);
 out.closure_summary_csv = string(closure_summary_csv);
+out.delivery = delivery_out;
 end
