@@ -4,7 +4,7 @@ function out = package_mb_full_rebuild_delivery(tag)
 mb_safe_startup();
 
 if nargin < 1 || strlength(string(tag)) == 0
-    tag = "20260323_fullrebuild";
+    tag = "20260323_globalfulldense";
 end
 tag = string(tag);
 
@@ -127,7 +127,7 @@ end
 end
 
 function items = local_append_passratio_items(items, root_dir, height_km, prefix_key, rel_dir, baseline_suffix)
-domain_tags = {'historyFull', 'effectiveFullRange', 'frontierZoom'};
+domain_tags = {'historyFull', 'effectiveFullRange', 'globalFullDense', 'frontierZoom'};
 for idx = 1:numel(domain_tags)
     tag = domain_tags{idx};
     if baseline_suffix
@@ -170,9 +170,12 @@ notes = repmat("full rebuild figure bundle", numel(paths), 1);
 
 for idx = 1:numel(paths)
     rel = paths(idx);
-    if contains(rel, "effectiveFullRange")
+    if contains(rel, "globalFullDense")
         status(idx) = "paper_primary";
-        notes(idx) = "default primary pass-ratio mode from dense effective-domain rebuild";
+        notes(idx) = "default primary pass-ratio mode rebuilt across the full search domain";
+    elseif contains(rel, "effectiveFullRange")
+        status(idx) = "paper_primary";
+        notes(idx) = "dense effective-domain pass-ratio view kept for effective-range analysis";
     elseif contains(rel, "historyFull")
         status(idx) = "paper_supporting";
         notes(idx) = "true computed history points without zero padding";

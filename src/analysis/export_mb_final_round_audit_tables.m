@@ -62,7 +62,7 @@ for idx = 1:numel(files)
     if mode_name == ""
         mode_name = local_infer_passratio_mode(figure_name);
     end
-    if ~ismember(mode_name, ["historyFull", "effectiveFullRange", "frontierZoom"])
+    if ~ismember(mode_name, ["historyFull", "effectiveFullRange", "frontierZoom", "globalFullDense"])
         continue;
     end
     source_table = local_resolve_source_table(meta, tables_dir, figure_name);
@@ -71,8 +71,13 @@ for idx = 1:numel(files)
     inherited_from_effective_dense = logical(local_getfield_or(meta, 'inherited_from_effective_dense', false));
     zero_padding_used = logical(local_getfield_or(meta, 'zero_padding_used', false));
     sparse_projection_used = logical(local_getfield_or(meta, 'sparse_projection_used', false));
+    rebuild_scope = string(local_getfield_or(meta, 'rebuild_scope', ""));
+    dense_grid_min_ns = double(local_getfield_or(meta, 'dense_grid_min_ns', NaN));
+    dense_grid_max_ns = double(local_getfield_or(meta, 'dense_grid_max_ns', NaN));
+    num_recomputed_rows = double(local_getfield_or(meta, 'num_recomputed_rows', NaN));
+    global_full_dense_used = logical(local_getfield_or(meta, 'global_full_dense_used', mode_name == "globalFullDense"));
     [ns_min_plotted, ns_max_plotted, num_unique_ns_plotted, num_nonzero_rows] = local_read_passratio_plot_counts(source_table, meta);
-    expected_semantics_match = local_passratio_semantics_match(mode_name, dense_rebuild_used, inherited_from_effective_dense, zero_padding_used, sparse_projection_used);
+    expected_semantics_match = local_passratio_semantics_match(mode_name, dense_rebuild_used, inherited_from_effective_dense, zero_padding_used, sparse_projection_used, rebuild_scope, global_full_dense_used);
     rows{end + 1, 1} = { ... %#ok<AGROW>
         figure_name, ...
         string(local_infer_semantic_name(figure_name, meta)), ...
@@ -83,21 +88,27 @@ for idx = 1:numel(files)
         logical(inherited_from_effective_dense), ...
         logical(zero_padding_used), ...
         logical(sparse_projection_used), ...
+        logical(global_full_dense_used), ...
+        rebuild_scope, ...
+        double(dense_grid_min_ns), ...
+        double(dense_grid_max_ns), ...
+        double(num_recomputed_rows), ...
         double(ns_min_plotted), ...
         double(ns_max_plotted), ...
         double(num_unique_ns_plotted), ...
         double(num_nonzero_rows), ...
-        logical(expected_semantics_match)};
+        logical(expected_semantics_match), ...
+        logical(mode_name ~= "globalFullDense" || expected_semantics_match)};
 end
 
 if isempty(rows)
-    T = table('Size', [0, 14], ...
-        'VariableTypes', {'string','string','double','string','string','logical','logical','logical','logical','double','double','double','double','logical'}, ...
-        'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'mode_name', 'source_table_kind', 'dense_rebuild_used', 'inherited_from_effective_dense', 'zero_padding_used', 'sparse_projection_used', 'ns_min_plotted', 'ns_max_plotted', 'num_unique_ns_plotted', 'num_nonzero_rows', 'expected_semantics_match'});
+    T = table('Size', [0, 20], ...
+        'VariableTypes', {'string','string','double','string','string','logical','logical','logical','logical','logical','string','double','double','double','double','double','double','double','logical','logical'}, ...
+        'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'mode_name', 'source_table_kind', 'dense_rebuild_used', 'inherited_from_effective_dense', 'zero_padding_used', 'sparse_projection_used', 'global_full_dense_used', 'rebuild_scope', 'dense_grid_min_ns', 'dense_grid_max_ns', 'num_recomputed_rows', 'ns_min_plotted', 'ns_max_plotted', 'num_unique_ns_plotted', 'num_nonzero_rows', 'expected_semantics_match', 'global_full_dense_pass'});
     return;
 end
 
-T = cell2table(vertcat(rows{:}), 'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'mode_name', 'source_table_kind', 'dense_rebuild_used', 'inherited_from_effective_dense', 'zero_padding_used', 'sparse_projection_used', 'ns_min_plotted', 'ns_max_plotted', 'num_unique_ns_plotted', 'num_nonzero_rows', 'expected_semantics_match'});
+T = cell2table(vertcat(rows{:}), 'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'mode_name', 'source_table_kind', 'dense_rebuild_used', 'inherited_from_effective_dense', 'zero_padding_used', 'sparse_projection_used', 'global_full_dense_used', 'rebuild_scope', 'dense_grid_min_ns', 'dense_grid_max_ns', 'num_recomputed_rows', 'ns_min_plotted', 'ns_max_plotted', 'num_unique_ns_plotted', 'num_nonzero_rows', 'expected_semantics_match', 'global_full_dense_pass'});
 end
 
 function T = local_build_heatmap_source_semantics_audit_summary(figures_dir)
@@ -145,13 +156,13 @@ rows = cell(0, 31);
 for idx = 1:numel(files)
     figure_name = string(files(idx).name);
     lower_name = lower(figure_name);
-    if ~(contains(lower_name, "historyfull") || contains(lower_name, "effectivefullrange") || contains(lower_name, "frontierzoom"))
+    if ~(contains(lower_name, "historyfull") || contains(lower_name, "effectivefullrange") || contains(lower_name, "globalfulldense") || contains(lower_name, "frontierzoom"))
         continue;
     end
 
     meta = local_read_sidecar(fullfile(files(idx).folder, files(idx).name));
     domain_mode = string(local_getfield_or(meta, 'plot_domain_mode', ""));
-    if ~ismember(domain_mode, ["history_full", "effective_full_range", "frontier_zoom"])
+    if ~ismember(domain_mode, ["history_full", "effective_full_range", "global_full_dense", "frontier_zoom"])
         continue;
     end
 
@@ -415,14 +426,30 @@ end
 
 function T = local_build_plot_domain_root_cause_audit_summary(passratio_audit, ~)
 if isempty(passratio_audit)
-    T = table('Size', [0, 24], ...
-        'VariableTypes', {'string','string','double','string','string','string','double','double','double','logical','double','double','double','double','logical','string','logical','string','logical','logical','string','string','string','logical'}, ...
+    T = table('Size', [0, 27], ...
+        'VariableTypes', {'string','string','double','string','string','string','double','double','double','logical','double','double','double','double','logical','string','logical','string','logical','logical','string','string','double','double','string','string','logical'}, ...
         'VariableNames', {'figure_name', 'semantic_name', 'height_km', 'domain_mode', 'export_chain', ...
         'source_table_name', 'source_table_min_ns', 'source_table_max_ns', 'source_table_row_count', 'source_table_is_tail_only', ...
         'resolver_xlim_min', 'resolver_xlim_max', 'actual_rendered_xlim_min', 'actual_rendered_xlim_max', ...
         'fallback_override_applied', 'fallback_override_source', 'cache_hit', 'cache_key', 'stale_domain_semantics_reused', ...
-        'history_padding_applied', 'history_padding_mode', 'history_origin_mode', 'root_cause_tag', 'pass_fail'});
+        'history_padding_applied', 'history_padding_mode', 'history_origin_mode', ...
+        'global_full_dense_rendered_min_ns', 'global_full_dense_rendered_max_ns', 'global_full_dense_source_kind', ...
+        'root_cause_tag', 'pass_fail'});
     return;
+end
+
+group_keys = arrayfun(@local_passratio_group_key, passratio_audit.figure_name);
+global_min = nan(height(passratio_audit), 1);
+global_max = nan(height(passratio_audit), 1);
+global_source_kind = repmat("", height(passratio_audit), 1);
+for idx = 1:height(passratio_audit)
+    group_rows = passratio_audit(group_keys == group_keys(idx), :);
+    global_row = group_rows(group_rows.domain_mode == "global_full_dense", :);
+    if ~isempty(global_row)
+        global_min(idx) = global_row.actual_rendered_xlim_min(1);
+        global_max(idx) = global_row.actual_rendered_xlim_max(1);
+        global_source_kind(idx) = string(global_row.source_table_kind(1));
+    end
 end
 
 T = passratio_audit(:, {'figure_name', 'semantic_name', 'height_km', 'domain_mode', 'export_chain', ...
@@ -430,6 +457,9 @@ T = passratio_audit(:, {'figure_name', 'semantic_name', 'height_km', 'domain_mod
     'resolver_xlim_min', 'resolver_xlim_max', 'actual_rendered_xlim_min', 'actual_rendered_xlim_max', ...
     'fallback_override_applied', 'fallback_override_source', 'cache_hit', 'cache_key', 'stale_domain_semantics_reused', ...
     'history_padding_applied', 'history_padding_mode', 'history_origin_mode', 'root_cause_tag', 'pass_fail'});
+T.global_full_dense_rendered_min_ns = global_min;
+T.global_full_dense_rendered_max_ns = global_max;
+T.global_full_dense_source_kind = string(global_source_kind);
 T = sortrows(T, {'height_km', 'export_chain', 'semantic_name', 'domain_mode', 'figure_name'});
 end
 
@@ -510,6 +540,7 @@ function key = local_passratio_group_key(figure_name)
 key = string(figure_name);
 key = replace(key, "_historyFull_", "_");
 key = replace(key, "_effectiveFullRange_", "_");
+key = replace(key, "_globalFullDense_", "_");
 key = replace(key, "_frontierZoom_", "_");
 end
 
@@ -547,6 +578,22 @@ switch string(domain_mode)
         expected_behavior = "effective_domain_window_from_effective_search_domain";
         actual_behavior = "effective_domain_view";
         pass_fail = local_xlim_matches_resolver(resolver_min, resolver_max, actual_min, actual_max);
+        if pass_fail
+            root_cause_tag = "correct";
+        elseif logical(fallback_override_applied) || (isfinite(resolver_min) && isfinite(actual_min))
+            root_cause_tag = "resolver_ok_but_render_override";
+        elseif cache_hit && source_table_is_tail_only
+            root_cause_tag = "cache_reused_old_tail_table";
+        else
+            root_cause_tag = "source_table_tail_only";
+        end
+    case "global_full_dense"
+        expected_behavior = "global_full_dense_rebuild_from_full_search_domain";
+        actual_behavior = "global_full_dense_view";
+        pass_fail = local_xlim_matches_resolver(resolver_min, resolver_max, actual_min, actual_max) && ...
+            logical(local_getfield_or(meta, 'dense_rebuild_used', false)) && ...
+            string(local_getfield_or(meta, 'rebuild_scope', "")) == "global_full" && ...
+            ~logical(zero_padding_used);
         if pass_fail
             root_cause_tag = "correct";
         elseif logical(fallback_override_applied) || (isfinite(resolver_min) && isfinite(actual_min))
@@ -843,6 +890,8 @@ function mode_name = local_infer_passratio_mode(figure_name)
 figure_name = lower(string(figure_name));
 if contains(figure_name, "historyfull")
     mode_name = "historyFull";
+elseif contains(figure_name, "globalfulldense")
+    mode_name = "globalFullDense";
 elseif contains(figure_name, "frontierzoom")
     mode_name = "frontierZoom";
 else
@@ -884,13 +933,16 @@ if ~isfinite(num_nonzero_rows)
 end
 end
 
-function tf = local_passratio_semantics_match(mode_name, dense_rebuild_used, inherited_from_effective_dense, zero_padding_used, sparse_projection_used)
+function tf = local_passratio_semantics_match(mode_name, dense_rebuild_used, inherited_from_effective_dense, zero_padding_used, sparse_projection_used, rebuild_scope, global_full_dense_used)
 mode_name = string(mode_name);
 switch mode_name
     case "historyFull"
         tf = ~logical(zero_padding_used);
     case "effectiveFullRange"
         tf = logical(dense_rebuild_used) && ~logical(sparse_projection_used) && ~logical(zero_padding_used);
+    case "globalFullDense"
+        tf = logical(dense_rebuild_used) && ~logical(sparse_projection_used) && ~logical(zero_padding_used) && ...
+            string(rebuild_scope) == "global_full" && logical(global_full_dense_used);
     case "frontierZoom"
         tf = (logical(dense_rebuild_used) || logical(inherited_from_effective_dense)) && ~logical(sparse_projection_used) && ~logical(zero_padding_used);
     otherwise
@@ -900,7 +952,7 @@ end
 
 function tf = local_is_audited_passratio_file(figure_name)
 lower_name = lower(string(figure_name));
-tf = contains(lower_name, "historyfull") || contains(lower_name, "effectivefullrange") || contains(lower_name, "frontierzoom") || contains(lower_name, "_primary_");
+tf = contains(lower_name, "historyfull") || contains(lower_name, "effectivefullrange") || contains(lower_name, "globalfulldense") || contains(lower_name, "frontierzoom") || contains(lower_name, "_primary_");
 end
 
 function tf = local_heatmap_source_semantics_match(value_mode, domain_mode, used_global_rebuild, used_skeleton_projection)

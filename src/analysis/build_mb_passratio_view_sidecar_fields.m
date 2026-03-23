@@ -59,6 +59,14 @@ extra_fields.dense_rebuild_used = logical(local_getfield_or(view_meta, 'dense_re
 extra_fields.inherited_from_effective_dense = logical(local_getfield_or(view_meta, 'inherited_from_effective_dense', false));
 extra_fields.zero_padding_used = logical(local_getfield_or(view_meta, 'zero_padding_used', logical(local_getfield_or(view_meta, 'history_padding_applied', false))));
 extra_fields.sparse_projection_used = logical(local_getfield_or(view_meta, 'sparse_projection_used', false));
+extra_fields.rebuild_scope = string(local_getfield_or(view_meta, 'rebuild_scope', ""));
+extra_fields.dense_grid_min_ns = double(local_getfield_or(view_meta, 'dense_grid_min_ns', NaN));
+extra_fields.dense_grid_max_ns = double(local_getfield_or(view_meta, 'dense_grid_max_ns', NaN));
+extra_fields.dense_grid_step = double(local_getfield_or(view_meta, 'dense_grid_step', NaN));
+extra_fields.num_dense_rows = double(local_getfield_or(view_meta, 'num_dense_rows', NaN));
+extra_fields.num_raw_rows = double(local_getfield_or(view_meta, 'num_raw_rows', NaN));
+extra_fields.num_recomputed_rows = double(local_getfield_or(view_meta, 'num_recomputed_rows', NaN));
+extra_fields.global_full_dense_used = string(local_getfield_or(spec, 'current_mode', "")) == "globalFullDense";
 extra_fields.num_unique_ns_plotted = double(local_getfield_or(view_meta, 'num_unique_ns_plotted', numel(unique(local_getfield_or(source_table, 'Ns', [])))));
 extra_fields.num_nonzero_rows = double(local_getfield_or(view_meta, 'num_nonzero_rows', local_count_nonzero_rows(source_table)));
 extra_fields.plot_primary_mode = string(local_getfield_or(spec, 'primary_plot_mode', ""));
