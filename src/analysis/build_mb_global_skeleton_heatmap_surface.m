@@ -18,10 +18,7 @@ end
 
 runtime_cfg = local_getfield_or(options, 'runtime', struct());
 plot_mode_profile = local_getfield_or(options, 'plot_mode_profile', struct());
-policy = local_getfield_or(options, 'plot_data_policy', resolve_mb_plot_data_policy(runtime_cfg, struct( ...
-    'plot_mode_profile', plot_mode_profile, ...
-    'heatmap_value_mode', "numeric_requirement", ...
-    'heatmap_domain_mode', "globalSkeleton")));
+policy = local_resolve_heatmap_policy(options, runtime_cfg, plot_mode_profile);
 
 if logical(local_getfield_or(policy, 'used_global_rebuild_required', false))
     [surface_out, rebuild_meta] = rebuild_mb_requirement_surface_for_heatmap(surface_in, search_domain, struct( ...
@@ -194,5 +191,15 @@ if isstruct(S) && isfield(S, field_name)
     value = S.(field_name);
 else
     value = fallback;
+end
+end
+
+function policy = local_resolve_heatmap_policy(options, runtime_cfg, plot_mode_profile)
+policy = local_getfield_or(options, 'plot_data_policy', struct());
+if ~(isstruct(policy) && isfield(policy, 'used_global_rebuild_required'))
+    policy = resolve_mb_plot_data_policy(runtime_cfg, struct( ...
+        'plot_mode_profile', plot_mode_profile, ...
+        'heatmap_value_mode', "numeric_requirement", ...
+        'heatmap_domain_mode', "globalSkeleton"));
 end
 end

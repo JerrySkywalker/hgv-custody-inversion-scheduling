@@ -54,7 +54,14 @@ rows = cell(0, 1);
 for idx = 1:numel(files)
     figure_name = string(files(idx).name);
     meta = local_read_sidecar(fullfile(files(idx).folder, files(idx).name));
-    mode_name = string(local_getfield_or(meta, 'current_plot_mode', local_infer_passratio_mode(figure_name)));
+    explicit_mode = string(local_getfield_or(meta, 'current_plot_mode', ""));
+    if explicit_mode == "" && ~local_is_audited_passratio_file(figure_name)
+        continue;
+    end
+    mode_name = explicit_mode;
+    if mode_name == ""
+        mode_name = local_infer_passratio_mode(figure_name);
+    end
     if ~ismember(mode_name, ["historyFull", "effectiveFullRange", "frontierZoom"])
         continue;
     end
@@ -888,6 +895,11 @@ switch mode_name
     otherwise
         tf = false;
 end
+end
+
+function tf = local_is_audited_passratio_file(figure_name)
+lower_name = lower(string(figure_name));
+tf = contains(lower_name, "historyfull") || contains(lower_name, "effectivefullrange") || contains(lower_name, "frontierzoom") || contains(lower_name, "_primary_");
 end
 
 function tf = local_heatmap_source_semantics_match(value_mode, domain_mode, used_global_rebuild, used_skeleton_projection)
