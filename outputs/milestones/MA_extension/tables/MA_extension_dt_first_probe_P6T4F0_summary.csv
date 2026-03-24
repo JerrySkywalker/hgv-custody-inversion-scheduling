@@ -1,2 +1,0 @@
-baseline_case_id,extension_case_tag,baseline_DG_worst,baseline_DA_worst,baseline_DT_bar_worst,baseline_DT_worst,extension_DG_worst,extension_DA_worst,extension_DT_bar_worst,extension_DT_worst,baseline_dominant_metric,extension_active_constraint
-N01,dt_first_probe_P6T4F0,1.37393886264635,1.17215138213768,0.5,1,0,0,0.5,1,DT,joint
