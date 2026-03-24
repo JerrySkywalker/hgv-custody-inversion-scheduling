@@ -1,6 +1,6 @@
 {
   "skip_dirs": [".git", ".vs", ".vscode", "snapshots"],
-  "allowed_ext": [".m", ".md", ".txt", ".yaml", ".yml", ".json", ".csv"],
+  "allowed_ext": [".m", ".md", ".txt", ".yaml", ".yml", ".json", ".csv", ".ps1"],
   "blocked_ext": [".asv", ".fig", ".png", ".jpg", ".jpeg", ".zip", ".mat"],
   "blocked_names": [],
   "latest_pattern": "_latest.",
