@@ -8,17 +8,16 @@ end
 repo_root = fileparts(fileparts(fileparts(mfilename('fullpath'))));
 legacy_root = fullfile(repo_root, 'legacy');
 
-% Assume root startup has already run. This addpath is a defensive fallback.
 addpath(genpath(fullfile(legacy_root, 'src')));
 addpath(genpath(fullfile(legacy_root, 'params')));
 
-% Legacy config
 cfg = default_params();
 
-% Build legacy casebank
 casebank = build_casebank_stage01(cfg);
 
-% Minimal task-family selection
+disp('--- adapter_casebank_legacy: casebank fields ---');
+disp(fieldnames(casebank));
+
 family_name = 'nominal';
 if isfield(profile, 'task_family') && ~isempty(profile.task_family)
     family_name = lower(string(profile.task_family));
