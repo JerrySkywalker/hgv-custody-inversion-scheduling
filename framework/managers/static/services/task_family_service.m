@@ -30,9 +30,7 @@ trajs_in = repmat(struct('case', struct(), 'traj', struct()), n, 1);
 
 for k = 1:n
     case_item = raw_cases{k};
-
-    hgv_cfg = build_hgv_cfg_from_case_stage02(case_item, cfg_legacy);
-    traj = propagate_hgv_case_stage02(hgv_cfg, cfg_legacy);
+    traj = propagate_hgv_case_stage02(case_item, cfg_legacy);
 
     trajs_in(k).case = case_item;
     trajs_in(k).traj = traj;
