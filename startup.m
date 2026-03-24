@@ -1,7 +1,7 @@
 function startup()
 % Root startup wrapper
 % 1) Prevent duplicate startup
-% 2) Add framework and experiments paths
+% 2) Add framework, experiments, and tests paths
 % 3) Delegate legacy path setup
 % 4) Print startup timing
 
@@ -20,14 +20,15 @@ end
 fprintf('[startup] Initializing project paths...\n');
 fprintf('[startup] Repository root: %s\n', repo_root);
 
-% Add new framework paths
 fprintf('[startup] Adding framework paths...\n');
 addpath(genpath(fullfile(repo_root, 'framework')));
 
 fprintf('[startup] Adding experiments paths...\n');
 addpath(genpath(fullfile(repo_root, 'experiments')));
 
-% Delegate to legacy startup
+fprintf('[startup] Adding tests paths...\n');
+addpath(genpath(fullfile(repo_root, 'tests')));
+
 legacy_startup = fullfile(repo_root, 'legacy', 'startup.m');
 if exist(legacy_startup, 'file') == 2
     fprintf('[startup] Delegating to legacy startup...\n');
