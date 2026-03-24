@@ -1,5 +1,7 @@
 function out = run_milestone_B_inverse_slices(cfg_override)
 %RUN_MILESTONE_B_INVERSE_SLICES Fast entry for Milestone B.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% Use run_milestones/active/run_mb_v2_main.m for future MB development.
 
 proj_root = fileparts(fileparts(mfilename('fullpath')));
 if ~isempty(proj_root)

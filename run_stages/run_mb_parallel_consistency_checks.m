@@ -1,5 +1,7 @@
 function out = run_mb_parallel_consistency_checks(options)
 %RUN_MB_PARALLEL_CONSISTENCY_CHECKS Compare serial and parallel MB search outputs on a small regression slice.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% Keep for historical reproduction only; do not add new MB features here.
 
 mb_safe_startup();
 

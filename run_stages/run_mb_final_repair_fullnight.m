@@ -1,5 +1,7 @@
 function out = run_mb_final_repair_fullnight(tag, sensor_groups, family_set)
 %RUN_MB_FINAL_REPAIR_FULLNIGHT Run the final-repair MB fullnight profile into a dedicated fresh root.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% Keep for historical reproduction only; do not add new MB features here.
 
 mb_safe_startup();
 

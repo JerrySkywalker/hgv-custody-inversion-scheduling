@@ -1,5 +1,7 @@
 function out = run_mb_final_round_closure(tag)
 %RUN_MB_FINAL_ROUND_CLOSURE Run final-round MB closure checks into clean roots.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% Keep for historical reproduction only; do not add new MB features here.
 
 mb_safe_startup();
 

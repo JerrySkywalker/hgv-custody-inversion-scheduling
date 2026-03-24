@@ -1,5 +1,7 @@
 function out = run_mb_plot_mode_switch_smoke(tag)
 %RUN_MB_PLOT_MODE_SWITCH_SMOKE Validate unified MB plot-mode switching on baseline h=1000.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% Keep for historical reproduction only; do not add new MB features here.
 
 mb_safe_startup();
 

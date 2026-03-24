@@ -1,5 +1,7 @@
 function result = milestone_B_inverse_slices(cfg)
 %MILESTONE_B_INVERSE_SLICES Dissertation-grade Chapter 4 Milestone B pipeline.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% New MB feature work must move to milestones/active/MB_v2 and src/mb/v2.
 
 startup();
 

@@ -1,5 +1,7 @@
 function result = run_mb_vgeom_h1000(cfg, run_tag)
 %RUN_MB_VGEOM_H1000 Minimal geometry-ensemble validation for the MB V-shape question.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% Keep for historical reproduction only; do not add new MB features here.
 
 mb_safe_startup();
 

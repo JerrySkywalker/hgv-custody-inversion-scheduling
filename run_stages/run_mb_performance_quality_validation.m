@@ -1,5 +1,7 @@
 function out = run_mb_performance_quality_validation(cfg)
 %RUN_MB_PERFORMANCE_QUALITY_VALIDATION Run a lightweight validation bundle for startup/cache/search/plot plumbing.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% Keep for historical reproduction only; do not add new MB features here.
 
 if nargin < 1 || isempty(cfg)
     cfg = milestone_common_defaults();

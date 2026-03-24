@@ -1,5 +1,7 @@
 function out = run_mb_full_rebuild_and_plot_closure(tag)
 %RUN_MB_FULL_REBUILD_AND_PLOT_CLOSURE Run strict replica plus multi-height MB full rebuild closure.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% Keep for historical reproduction only; do not add new MB features here.
 
 mb_safe_startup();
 

@@ -1,5 +1,7 @@
 function out = run_mb_closure_suite(options)
 %RUN_MB_CLOSURE_SUITE Run fresh-root MB closure checks and cache A/B validation.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% Keep for historical reproduction only; do not add new MB features here.
 
 mb_safe_startup();
 

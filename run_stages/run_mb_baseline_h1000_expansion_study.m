@@ -1,5 +1,7 @@
 function out = run_mb_baseline_h1000_expansion_study(cfg)
 %RUN_MB_BASELINE_H1000_EXPANSION_STUDY Dedicated baseline-h1000 expansion study for MB.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% Keep for historical reproduction only; do not add new MB features here.
 
 proj_root = fileparts(fileparts(mfilename('fullpath')));
 if ~isempty(proj_root), addpath(proj_root); end

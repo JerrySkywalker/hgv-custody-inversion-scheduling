@@ -67,6 +67,12 @@ Milestone、shared scenario 与 Stage13 的正式资产统一写入 `outputs/` �
 | `MD` | FFT support |
 | `ME` | worst-window diagnosis |
 
+## MB Status
+
+- Existing MB implementation and runners are now treated as legacy / frozen.
+- New MB development should move to `milestones/active/MB_v2`, `run_milestones/active`, `src/mb/v2`, `src/analysis/mb_v2`, and `docs/mb_v2`.
+- Stage source files remain the trusted kernel and are not to be edited as part of MB_v2 work.
+
 主要入口：
 
 - `milestones/milestone_A_truth_baseline.m`

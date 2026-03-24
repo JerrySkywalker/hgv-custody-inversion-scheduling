@@ -1,5 +1,7 @@
 function result = milestone_B_semantic_compare(cfg)
 %MILESTONE_B_SEMANTIC_COMPARE Unified MB semantic-comparison entry point.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% New MB feature work must move to run_milestones/active and src/mb/v2.
 
 mb_safe_startup();
 

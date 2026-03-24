@@ -1,5 +1,7 @@
 function out = run_milestone_B_semantic_compare(cfg, interactive)
 %RUN_MILESTONE_B_SEMANTIC_COMPARE CLI entry for MB semantic comparison.
+% LEGACY MB ENTRYPOINT (FROZEN).
+% New MB work must move to run_milestones/active and src/mb/v2.
 %
 % Usage:
 %   out = run_milestone_B_semantic_compare()
