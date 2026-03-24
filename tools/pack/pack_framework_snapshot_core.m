@@ -119,16 +119,16 @@ end
 end
 
 function tf = should_skip_dir(name, settings)
-skip_dirs = cellstr(settings.skip_dirs);
+skip_dirs = normalize_to_cellstr(settings.skip_dirs);
 tf = any(strcmpi(name, skip_dirs));
 end
 
 function tf = should_copy_file(name, settings)
 [~,~,ext] = fileparts(name);
 
-allowed_ext = cellstr(settings.allowed_ext);
-blocked_ext = cellstr(settings.blocked_ext);
-blocked_names = cellstr(settings.blocked_names);
+allowed_ext = normalize_to_cellstr(settings.allowed_ext);
+blocked_ext = normalize_to_cellstr(settings.blocked_ext);
+blocked_names = normalize_to_cellstr(settings.blocked_names);
 
 if any(strcmpi(name, blocked_names))
     tf = false;
@@ -173,7 +173,8 @@ for k = 1:numel(items)
     if item.isdir
         copy_latest_output_tree(src_path, dst_path, settings);
     else
-        if contains(name, char(settings.latest_pattern))
+        latest_pattern = char(settings.latest_pattern);
+        if contains(name, latest_pattern)
             dst_dir = fileparts(dst_path);
             if ~exist(dst_dir, 'dir')
                 mkdir(dst_dir);
@@ -205,5 +206,20 @@ for k = 1:numel(items)
     else
         n = n + 1;
     end
+end
+end
+
+function out = normalize_to_cellstr(value)
+if iscell(value)
+    out = cellfun(@char, value, 'UniformOutput', false);
+elseif isstring(value)
+    out = cellstr(value);
+elseif ischar(value)
+    out = {value};
+elseif isnumeric(value) && isempty(value)
+    out = {};
+else
+    error('pack_framework_snapshot_core:UnsupportedSettingType', ...
+        'Unsupported settings array type: %s', class(value));
 end
 end
