@@ -91,3 +91,7 @@ satellite_view.png
 # *.png
 # *.pdf
 # *.csv
+
+# Ignore all generated legacy outputs
+legacy/outputs/
+
