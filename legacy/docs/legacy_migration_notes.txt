@@ -1,0 +1,5 @@
+Legacy migration completed.
+
+Moved old stage/milestone/source trees into legacy/.
+Added root startup.m wrapper that delegates to legacy/startup.m.
+No framework/ or experiments/ directories created yet.
