@@ -9,6 +9,8 @@ row.P = cfg.design.default_P;
 row.T = cfg.design.default_T;
 row.h_km = cfg.design.default_h_km;
 row.i_deg = cfg.design.default_i_deg;
+row.F = 0;
+row.Ns = row.P * row.T;
 
 design_pool = struct();
 design_pool.name = 'bootstrap_pool';
