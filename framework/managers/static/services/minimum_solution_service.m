@@ -10,8 +10,10 @@ if isempty(tbl)
     minimum_solution_result = struct();
     minimum_solution_result.feasible_table = tbl;
     minimum_solution_result.solution_table = tbl;
+    minimum_solution_result.near_optimal_table = tbl;
     minimum_solution_result.min_Ns = NaN;
     minimum_solution_result.solution_count = 0;
+    minimum_solution_result.near_optimal_count = 0;
     minimum_solution_result.meta = struct('status', 'empty_table');
     return;
 end
@@ -23,20 +25,28 @@ if isempty(feasible_table)
     minimum_solution_result = struct();
     minimum_solution_result.feasible_table = feasible_table;
     minimum_solution_result.solution_table = feasible_table;
+    minimum_solution_result.near_optimal_table = feasible_table;
     minimum_solution_result.min_Ns = NaN;
     minimum_solution_result.solution_count = 0;
+    minimum_solution_result.near_optimal_count = 0;
     minimum_solution_result.meta = struct('status', 'no_feasible_solution');
     return;
 end
 
 min_Ns = min(feasible_table.Ns);
+
 solution_mask = feasible_table.Ns == min_Ns;
 solution_table = feasible_table(solution_mask, :);
+
+near_optimal_mask = feasible_table.Ns <= (min_Ns + 16);
+near_optimal_table = feasible_table(near_optimal_mask, :);
 
 minimum_solution_result = struct();
 minimum_solution_result.feasible_table = feasible_table;
 minimum_solution_result.solution_table = solution_table;
+minimum_solution_result.near_optimal_table = near_optimal_table;
 minimum_solution_result.min_Ns = min_Ns;
 minimum_solution_result.solution_count = height(solution_table);
+minimum_solution_result.near_optimal_count = height(near_optimal_table);
 minimum_solution_result.meta = struct('status', 'ok');
 end
