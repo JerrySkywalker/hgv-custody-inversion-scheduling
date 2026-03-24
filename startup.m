@@ -1,17 +1,44 @@
 function startup()
-% Root startup wrapper after legacy migration.
-% 1) Add new framework and experiments paths
-% 2) Delegate legacy path setup to legacy/startup.m
+% Root startup wrapper
+% 1) Prevent duplicate startup
+% 2) Add framework and experiments paths
+% 3) Delegate legacy path setup
+% 4) Print startup timing
 
+persistent STARTUP_DONE;
+persistent STARTUP_ROOT;
+
+t0 = tic;
 repo_root = fileparts(mfilename('fullpath'));
 
+if ~isempty(STARTUP_DONE) && STARTUP_DONE
+    fprintf('[startup] Already initialized. Root: %s\n', STARTUP_ROOT);
+    fprintf('[startup] Skipping repeated initialization.\n');
+    return;
+end
+
+fprintf('[startup] Initializing project paths...\n');
+fprintf('[startup] Repository root: %s\n', repo_root);
+
+% Add new framework paths
+fprintf('[startup] Adding framework paths...\n');
 addpath(genpath(fullfile(repo_root, 'framework')));
+
+fprintf('[startup] Adding experiments paths...\n');
 addpath(genpath(fullfile(repo_root, 'experiments')));
 
+% Delegate to legacy startup
 legacy_startup = fullfile(repo_root, 'legacy', 'startup.m');
 if exist(legacy_startup, 'file') == 2
+    fprintf('[startup] Delegating to legacy startup...\n');
     run(legacy_startup);
 else
-    warning('legacy startup.m not found: %s', legacy_startup);
+    warning('[startup] legacy startup.m not found: %s', legacy_startup);
 end
+
+STARTUP_DONE = true;
+STARTUP_ROOT = repo_root;
+
+elapsed = toc(t0);
+fprintf('[startup] Initialization complete in %.3f s\n', elapsed);
 end
