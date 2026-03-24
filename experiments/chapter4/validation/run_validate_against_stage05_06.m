@@ -13,7 +13,7 @@ tbl_new_heading = heading_result.out.truth_result.table;
 % ------------------------------------------------------------
 % Locate legacy Stage05 / Stage06 caches directly
 % ------------------------------------------------------------
-repo_root = fileparts(fileparts(fileparts(mfilename('fullpath'))));
+repo_root = fileparts(fileparts(fileparts(fileparts(mfilename('fullpath')))));
 
 stage05_cache_dir = fullfile(repo_root, 'legacy', 'outputs', 'stage', 'stage05', 'cache');
 stage06_cache_dir = fullfile(repo_root, 'legacy', 'outputs', 'stage', 'stage06', 'cache');
