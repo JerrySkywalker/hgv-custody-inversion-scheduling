@@ -50,6 +50,9 @@ if isfield(ms, 'solution_count')
     if ~isnan(ms.min_Ns)
         fprintf('[static] Minimum-solution Ns: %d\n', ms.min_Ns);
     end
+    if isfield(ms, 'near_optimal_count')
+        fprintf('[static] Near-optimal count: %d\n', ms.near_optimal_count);
+    end
 end
 end
 
