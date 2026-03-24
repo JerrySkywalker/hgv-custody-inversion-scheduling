@@ -7,8 +7,21 @@ cfg = struct();
 cfg.profile = profile;
 
 cfg.runtime = struct();
-cfg.runtime.max_cases = 1;
 cfg.runtime.max_designs = 3;
+
+task_family = 'nominal';
+if isfield(profile, 'task_family') && ~isempty(profile.task_family)
+    task_family = lower(string(profile.task_family));
+end
+
+switch char(task_family)
+    case 'nominal'
+        cfg.runtime.max_cases = 1;
+    case 'heading'
+        cfg.runtime.max_cases = 3;
+    otherwise
+        cfg.runtime.max_cases = 1;
+end
 
 cfg.design = struct();
 cfg.design.default_P = 8;
