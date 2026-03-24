@@ -8,7 +8,7 @@ cfg.profile = profile;
 
 cfg.runtime = struct();
 cfg.runtime.max_cases = 1;
-cfg.runtime.max_designs = 1;
+cfg.runtime.max_designs = 3;
 
 cfg.design = struct();
 cfg.design.default_P = 8;
