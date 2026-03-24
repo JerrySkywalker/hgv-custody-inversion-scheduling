@@ -16,6 +16,7 @@ cfg = config_service(profile);
 design_pool = design_pool_service(cfg);
 task_family = task_family_service(cfg);
 truth_result = truth_evaluation_service(cfg, design_pool, task_family);
+minimum_solution_result = minimum_solution_service(truth_result);
 
 result = struct();
 result.profile = profile;
@@ -23,6 +24,7 @@ result.cfg = cfg;
 result.design_pool = design_pool;
 result.task_family = task_family;
 result.truth_result = truth_result;
+result.minimum_solution_result = minimum_solution_result;
 
 fprintf('[static] Run completed.\n');
 fprintf('[static] Profile: %s\n', get_profile_name(profile));
@@ -40,6 +42,14 @@ if ~isempty(tbl)
     fprintf('[static] Feasible rows: %d\n', feasible_count);
     fprintf('[static] Minimum Ns: %d\n', min_Ns);
     fprintf('[static] Maximum joint margin: %.6g\n', max_joint_margin);
+end
+
+ms = minimum_solution_result;
+if isfield(ms, 'solution_count')
+    fprintf('[static] Minimum-solution count: %d\n', ms.solution_count);
+    if ~isnan(ms.min_Ns)
+        fprintf('[static] Minimum-solution Ns: %d\n', ms.min_Ns);
+    end
 end
 end
 
