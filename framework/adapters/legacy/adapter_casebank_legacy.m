@@ -15,9 +15,6 @@ cfg = default_params();
 
 casebank = build_casebank_stage01(cfg);
 
-disp('--- adapter_casebank_legacy: casebank fields ---');
-disp(fieldnames(casebank));
-
 family_name = 'nominal';
 if isfield(profile, 'task_family') && ~isempty(profile.task_family)
     family_name = lower(string(profile.task_family));
@@ -25,9 +22,13 @@ end
 
 switch char(family_name)
     case 'nominal'
-        case_list = generate_nominal_entry_family(cfg, casebank);
+        entry = casebank.nominal;
+        case_list = generate_nominal_entry_family(cfg, entry);
+
     case 'heading'
-        case_list = generate_heading_family(cfg, casebank);
+        entry = casebank.heading;
+        case_list = generate_heading_family(cfg, entry);
+
     otherwise
         error('adapter_casebank_legacy:UnsupportedTaskFamily', ...
             'Unsupported task family: %s', family_name);
@@ -36,6 +37,7 @@ end
 task_family = struct();
 task_family.name = char(family_name);
 task_family.mode = 'legacy_adapter';
+task_family.entry = entry;
 task_family.case_list = case_list;
 task_family.case_count = numel(case_list);
 task_family.meta = struct('source', 'legacy');
