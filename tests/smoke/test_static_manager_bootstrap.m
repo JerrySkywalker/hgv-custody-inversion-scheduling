@@ -13,19 +13,21 @@ assert(isfield(out, 'truth_result'), 'Missing truth_result.');
 assert(isfield(out.design_pool, 'design_count'), 'Missing design_count.');
 assert(isfield(out.task_family, 'case_count'), 'Missing case_count.');
 assert(isfield(out.truth_result, 'row_count'), 'Missing row_count.');
+assert(isfield(out.truth_result, 'table'), 'Missing truth table.');
 
 assert(out.design_pool.design_count >= 1, 'Expected at least one design.');
 assert(out.task_family.case_count >= 1, 'Expected at least one task case.');
 assert(out.truth_result.row_count >= 1, 'Expected at least one truth row.');
 
-row = out.truth_result.rows;
+rows = out.truth_result.rows;
+tbl = out.truth_result.table;
 
-assert(isfield(row, 'geometry_margin'), 'Missing geometry_margin.');
-assert(isfield(row, 'accuracy_margin'), 'Missing accuracy_margin.');
-assert(isfield(row, 'temporal_margin'), 'Missing temporal_margin.');
-assert(isfield(row, 'joint_margin'), 'Missing joint_margin.');
-assert(isfield(row, 'is_feasible'), 'Missing is_feasible.');
-assert(isfield(row, 'fail_reason'), 'Missing fail_reason.');
+assert(numel(rows) == out.truth_result.row_count, 'rows size mismatch.');
+assert(height(tbl) == out.truth_result.row_count, 'table height mismatch.');
+
+assert(all(ismember({'geometry_margin','accuracy_margin','temporal_margin', ...
+    'joint_margin','is_feasible','fail_reason'}, tbl.Properties.VariableNames)), ...
+    'Missing expected truth table variables.');
 
 disp('test_static_manager_bootstrap passed.');
 end
