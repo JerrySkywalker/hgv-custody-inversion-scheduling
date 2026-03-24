@@ -23,67 +23,68 @@ assert(exist(stage05_cache_dir, 'dir') == 7, ...
 assert(exist(stage06_cache_dir, 'dir') == 7, ...
     'Stage06 cache directory not found: %s', stage06_cache_dir);
 
+% ------------------------------------------------------------
+% Stage05 nominal validation (required)
+% ------------------------------------------------------------
 d5 = dir(fullfile(stage05_cache_dir, 'stage05_nominal_walker_search*.mat'));
 assert(~isempty(d5), 'No Stage05 nominal cache found in %s', stage05_cache_dir);
 [~, idx5] = max([d5.datenum]);
 stage05_file = fullfile(d5(idx5).folder, d5(idx5).name);
-
-d6 = dir(fullfile(stage06_cache_dir, 'stage06_heading_walker_search*.mat'));
-assert(~isempty(d6), 'No Stage06 heading cache found in %s', stage06_cache_dir);
-[~, idx6] = max([d6.datenum]);
-stage06_file = fullfile(d6(idx6).folder, d6(idx6).name);
 
 S5 = load(stage05_file);
 assert(isfield(S5, 'out') && isfield(S5.out, 'grid'), ...
     'Invalid Stage05 cache: missing out.grid');
 grid05 = S5.out.grid;
 
-S6 = load(stage06_file);
-assert(isfield(S6, 'out') && isfield(S6.out, 'grid'), ...
-    'Invalid Stage06 cache: missing out.grid');
-grid06 = S6.out.grid;
-
-% ------------------------------------------------------------
-% Normalize new tables to comparison schema
-% ------------------------------------------------------------
 new_nominal = tbl_new_nominal(:, {'design_id','P','T','i_deg','Ns','pass_ratio','is_feasible','joint_margin'});
-new_heading = tbl_new_heading(:, {'design_id','P','T','i_deg','Ns','pass_ratio','is_feasible','joint_margin'});
-
 new_nominal = renamevars(new_nominal, ...
     {'pass_ratio','is_feasible','joint_margin'}, ...
     {'new_pass_ratio','new_is_feasible','new_joint_margin'});
 
-new_heading = renamevars(new_heading, ...
-    {'pass_ratio','is_feasible','joint_margin'}, ...
-    {'new_pass_ratio','new_is_feasible','new_joint_margin'});
-
-% ------------------------------------------------------------
-% Normalize legacy tables to comparison schema
-% ------------------------------------------------------------
 legacy05 = grid05(:, {'P','T','i_deg','Ns','pass_ratio','feasible_flag','D_G_min'});
-legacy06 = grid06(:, {'P','T','i_deg','Ns','pass_ratio','feasible_flag','D_G_min'});
-
 legacy05 = renamevars(legacy05, ...
     {'pass_ratio','feasible_flag','D_G_min'}, ...
     {'legacy_pass_ratio','legacy_is_feasible','legacy_DG_min'});
 
-legacy06 = renamevars(legacy06, ...
-    {'pass_ratio','feasible_flag','D_G_min'}, ...
-    {'legacy_pass_ratio','legacy_is_feasible','legacy_DG_min'});
-
-% ------------------------------------------------------------
-% Inner join on common design keys
-% ------------------------------------------------------------
 key_vars = {'P','T','i_deg','Ns'};
-
 nominal_compare = innerjoin(new_nominal, legacy05, 'Keys', key_vars);
-heading_compare = innerjoin(new_heading, legacy06, 'Keys', key_vars);
-
 nominal_compare.abs_diff_pass_ratio = abs(nominal_compare.new_pass_ratio - nominal_compare.legacy_pass_ratio);
-heading_compare.abs_diff_pass_ratio = abs(heading_compare.new_pass_ratio - heading_compare.legacy_pass_ratio);
-
 nominal_compare.feasible_match = (nominal_compare.new_is_feasible == logical(nominal_compare.legacy_is_feasible));
-heading_compare.feasible_match = (heading_compare.new_is_feasible == logical(heading_compare.legacy_is_feasible));
+
+% ------------------------------------------------------------
+% Stage06 heading validation (optional for now)
+% ------------------------------------------------------------
+stage06_file = '';
+heading_compare = table();
+
+d6 = dir(fullfile(stage06_cache_dir, 'stage06_heading_walker_search*.mat'));
+if isempty(d6)
+    warning('run_validate_against_stage05_06:Stage06Unavailable', ...
+        ['Stage06 heading walker-search cache not found in %s. ', ...
+         'Only Stage05 nominal validation will be produced for now.'], stage06_cache_dir);
+else
+    [~, idx6] = max([d6.datenum]);
+    stage06_file = fullfile(d6(idx6).folder, d6(idx6).name);
+
+    S6 = load(stage06_file);
+    assert(isfield(S6, 'out') && isfield(S6.out, 'grid'), ...
+        'Invalid Stage06 cache: missing out.grid');
+    grid06 = S6.out.grid;
+
+    new_heading = tbl_new_heading(:, {'design_id','P','T','i_deg','Ns','pass_ratio','is_feasible','joint_margin'});
+    new_heading = renamevars(new_heading, ...
+        {'pass_ratio','is_feasible','joint_margin'}, ...
+        {'new_pass_ratio','new_is_feasible','new_joint_margin'});
+
+    legacy06 = grid06(:, {'P','T','i_deg','Ns','pass_ratio','feasible_flag','D_G_min'});
+    legacy06 = renamevars(legacy06, ...
+        {'pass_ratio','feasible_flag','D_G_min'}, ...
+        {'legacy_pass_ratio','legacy_is_feasible','legacy_DG_min'});
+
+    heading_compare = innerjoin(new_heading, legacy06, 'Keys', key_vars);
+    heading_compare.abs_diff_pass_ratio = abs(heading_compare.new_pass_ratio - heading_compare.legacy_pass_ratio);
+    heading_compare.feasible_match = (heading_compare.new_is_feasible == logical(heading_compare.legacy_is_feasible));
+end
 
 % ------------------------------------------------------------
 % Export artifacts
@@ -91,11 +92,18 @@ heading_compare.feasible_match = (heading_compare.new_is_feasible == logical(hea
 output_dir = fullfile('outputs', 'experiments', 'chapter4', 'validation');
 
 artifact_nominal = artifact_service(nominal_compare, output_dir, 'validate_stage05_nominal');
-artifact_heading = artifact_service(heading_compare, output_dir, 'validate_stage06_heading');
+
+artifacts = {artifact_nominal};
+artifact_heading = struct();
+
+if ~isempty(heading_compare)
+    artifact_heading = artifact_service(heading_compare, output_dir, 'validate_stage06_heading');
+    artifacts{end+1} = artifact_heading;
+end
 
 manifest = make_artifact_manifest( ...
     'validate_against_stage05_06', ...
-    {artifact_nominal, artifact_heading});
+    artifacts);
 
 manifest_paths = save_artifact_manifest( ...
     manifest, ...
@@ -115,6 +123,11 @@ validation_result.manifest_paths = manifest_paths;
 disp('[validation] Stage05/06 comparison completed.');
 disp('[validation] Nominal comparison:');
 disp(nominal_compare(:, {'design_id','P','T','i_deg','Ns','new_pass_ratio','legacy_pass_ratio','abs_diff_pass_ratio','feasible_match'}));
-disp('[validation] Heading comparison:');
-disp(heading_compare(:, {'design_id','P','T','i_deg','Ns','new_pass_ratio','legacy_pass_ratio','abs_diff_pass_ratio','feasible_match'}));
+
+if ~isempty(heading_compare)
+    disp('[validation] Heading comparison:');
+    disp(heading_compare(:, {'design_id','P','T','i_deg','Ns','new_pass_ratio','legacy_pass_ratio','abs_diff_pass_ratio','feasible_match'}));
+else
+    disp('[validation] Heading comparison skipped: Stage06 walker-search cache unavailable.');
+end
 end
