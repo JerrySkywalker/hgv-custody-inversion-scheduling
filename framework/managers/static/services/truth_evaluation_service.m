@@ -5,9 +5,8 @@ if nargin < 3
 end
 
 design_row = design_pool.design_table(1);
-task_case = task_family.case_list(1);
 
-design_eval = adapter_design_eval_legacy(design_row, task_case, cfg.profile);
+design_eval = adapter_design_eval_legacy(design_row, task_family, cfg.profile);
 
 truth_result = struct();
 truth_result.rows = design_eval;
