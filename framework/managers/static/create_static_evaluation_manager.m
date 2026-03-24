@@ -24,6 +24,28 @@ result.design_pool = design_pool;
 result.task_family = task_family;
 result.truth_result = truth_result;
 
-disp('Static evaluation bootstrap run completed.');
-disp(result);
+fprintf('[static] Run completed.\n');
+fprintf('[static] Profile: %s\n', get_profile_name(profile));
+fprintf('[static] Design count: %d\n', design_pool.design_count);
+fprintf('[static] Task family: %s\n', task_family.name);
+fprintf('[static] Case count: %d\n', task_family.case_count);
+fprintf('[static] Truth rows: %d\n', truth_result.row_count);
+
+tbl = truth_result.table;
+if ~isempty(tbl)
+    feasible_count = sum(tbl.is_feasible);
+    min_Ns = min(tbl.Ns);
+    max_joint_margin = max(tbl.joint_margin);
+
+    fprintf('[static] Feasible rows: %d\n', feasible_count);
+    fprintf('[static] Minimum Ns: %d\n', min_Ns);
+    fprintf('[static] Maximum joint margin: %.6g\n', max_joint_margin);
+end
+end
+
+function name = get_profile_name(profile)
+name = 'unnamed';
+if isstruct(profile) && isfield(profile, 'name') && ~isempty(profile.name)
+    name = profile.name;
+end
 end
