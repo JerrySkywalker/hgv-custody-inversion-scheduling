@@ -31,7 +31,7 @@ function out = stage06_build_heading_family_physical_demo(cfg)
         % Load latest Stage06.1 scope (by run_tag)
         % ------------------------------------------------------------
         d6 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage06_define_heading_scope_%s_*.mat', run_tag)));
+            sprintf('stage06_define_heading_scope_%s_*.mat', run_tag));
         assert(~isempty(d6), 'No Stage06.1 cache found for run_tag: %s', run_tag);
     
         [~, idx6] = max([d6.datenum]);

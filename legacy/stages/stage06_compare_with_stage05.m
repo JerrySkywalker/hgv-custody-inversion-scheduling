@@ -61,7 +61,7 @@ function out = stage06_compare_with_stage05(cfg)
         % Load latest Stage06 cache (by run_tag)
         % ============================================================
         d6 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage06_heading_walker_search_%s_*.mat', run_tag)));
+            sprintf('stage06_heading_walker_search_%s_*.mat', run_tag));
         assert(~isempty(d6), ...
             'No Stage06 cache found for run_tag: %s. Please run stage06_heading_walker_search first.', run_tag);
     
