@@ -7,9 +7,13 @@ end
 rows = design_pool.design_table;
 n = numel(rows);
 
-eval_rows = repmat(struct(), n, 1);
+% Evaluate first row to establish struct schema
+first_eval = adapter_design_eval_legacy(rows(1), task_family, cfg.profile);
 
-for k = 1:n
+% Preallocate with matching fields
+eval_rows = repmat(first_eval, n, 1);
+
+for k = 2:n
     eval_rows(k) = adapter_design_eval_legacy(rows(k), task_family, cfg.profile);
 end
 
