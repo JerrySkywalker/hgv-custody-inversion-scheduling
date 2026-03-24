@@ -23,6 +23,7 @@ assert(exist(settings_file, 'file') == 2, ...
 settings = jsondecode(fileread(settings_file));
 
 timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+created_at = datestr(now, 'yyyy-mm-dd HH:MM:SS');
 
 snapshot_root = fullfile(repo_root, 'snapshots', opts.snapshot_name);
 if ~exist(snapshot_root, 'dir')
@@ -45,27 +46,38 @@ copy_tree_filtered(fullfile(repo_root, 'experiments', 'common'), fullfile(stagin
 copy_tree_filtered(fullfile(repo_root, 'experiments', 'chapter4'), fullfile(staging_dir, 'experiments', 'chapter4'), settings);
 copy_tree_filtered(fullfile(repo_root, 'tests', 'smoke'), fullfile(staging_dir, 'tests', 'smoke'), settings);
 
+included_roots = {'tools/pack','framework','experiments/common','experiments/chapter4','tests/smoke'};
+
 if opts.include_chapter5
     copy_tree_filtered(fullfile(repo_root, 'experiments', 'chapter5'), fullfile(staging_dir, 'experiments', 'chapter5'), settings);
+    included_roots{end+1} = 'experiments/chapter5'; %#ok<AGROW>
 end
 
 if opts.include_legacy
     copy_tree_filtered(fullfile(repo_root, 'legacy'), fullfile(staging_dir, 'legacy'), settings);
+    included_roots{end+1} = 'legacy'; %#ok<AGROW>
 end
 
 if opts.include_outputs && ~opts.code_only
     copy_latest_outputs(repo_root, staging_dir, opts, settings);
+    if strcmpi(opts.scope, 'head')
+        included_roots{end+1} = 'outputs/experiments/chapter4 (latest only)'; %#ok<AGROW>
+    else
+        included_roots{end+1} = 'outputs/experiments (latest only)'; %#ok<AGROW>
+    end
 end
 
-zip(zip_path, staging_dir);
+write_snapshot_manifest(staging_dir, opts, created_at, timestamp, included_roots);
+
 file_count = count_files_recursive(staging_dir);
+zip(zip_path, staging_dir);
 rmdir(staging_dir, 's');
 
 out = struct();
 out.zip_path = zip_path;
 out.snapshot_dir = snapshot_root;
 out.file_count = file_count;
-out.created_at = datestr(now, 'yyyy-mm-dd HH:MM:SS');
+out.created_at = created_at;
 out.meta = struct('status', 'ok', 'snapshot_name', opts.snapshot_name);
 
 fprintf('[pack] Created snapshot: %s\n', zip_path);
@@ -222,4 +234,26 @@ else
     error('pack_framework_snapshot_core:UnsupportedSettingType', ...
         'Unsupported settings array type: %s', class(value));
 end
+end
+
+function write_snapshot_manifest(staging_dir, opts, created_at, timestamp, included_roots)
+manifest_path = fullfile(staging_dir, 'manifest.txt');
+fid = fopen(manifest_path, 'w');
+assert(fid ~= -1, 'Failed to create snapshot manifest: %s', manifest_path);
+
+fprintf(fid, 'snapshot_name: %s\n', opts.snapshot_name);
+fprintf(fid, 'scope: %s\n', opts.scope);
+fprintf(fid, 'code_only: %d\n', logical(opts.code_only));
+fprintf(fid, 'include_outputs: %d\n', logical(opts.include_outputs));
+fprintf(fid, 'include_chapter5: %d\n', logical(opts.include_chapter5));
+fprintf(fid, 'include_legacy: %d\n', logical(opts.include_legacy));
+fprintf(fid, 'created_at: %s\n', created_at);
+fprintf(fid, 'timestamp: %s\n', timestamp);
+fprintf(fid, '\n');
+fprintf(fid, 'included_roots:\n');
+for k = 1:numel(included_roots)
+    fprintf(fid, '  - %s\n', included_roots{k});
+end
+
+fclose(fid);
 end
