@@ -1,0 +1,10 @@
+{
+  "skip_dirs": [".git", ".vs", ".vscode", "snapshots"],
+  "allowed_ext": [".m", ".md", ".txt", ".yaml", ".yml", ".json", ".csv"],
+  "blocked_ext": [".asv", ".fig", ".png", ".jpg", ".jpeg", ".zip", ".mat"],
+  "blocked_names": [],
+  "latest_pattern": "_latest.",
+  "default_include_outputs": true,
+  "default_include_chapter5": false,
+  "default_include_legacy": false
+}
