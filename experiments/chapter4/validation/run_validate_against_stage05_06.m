@@ -11,24 +11,33 @@ tbl_new_nominal = nominal_result.out.truth_result.table;
 tbl_new_heading = heading_result.out.truth_result.table;
 
 % ------------------------------------------------------------
-% Locate legacy caches
+% Locate legacy Stage05 / Stage06 caches directly
 % ------------------------------------------------------------
-cfg = default_params();
-cfg = configure_stage_output_paths(cfg);
+repo_root = fileparts(fileparts(fileparts(mfilename('fullpath'))));
 
-d5 = dir(fullfile(cfg.paths.cache, 'stage05_nominal_walker_search_*.mat'));
-assert(~isempty(d5), 'No Stage05 nominal cache found.');
+stage05_cache_dir = fullfile(repo_root, 'legacy', 'outputs', 'stage', 'stage05', 'cache');
+stage06_cache_dir = fullfile(repo_root, 'legacy', 'outputs', 'stage', 'stage06', 'cache');
+
+assert(exist(stage05_cache_dir, 'dir') == 7, ...
+    'Stage05 cache directory not found: %s', stage05_cache_dir);
+assert(exist(stage06_cache_dir, 'dir') == 7, ...
+    'Stage06 cache directory not found: %s', stage06_cache_dir);
+
+d5 = dir(fullfile(stage05_cache_dir, 'stage05_nominal_walker_search*.mat'));
+assert(~isempty(d5), 'No Stage05 nominal cache found in %s', stage05_cache_dir);
 [~, idx5] = max([d5.datenum]);
 stage05_file = fullfile(d5(idx5).folder, d5(idx5).name);
+
+d6 = dir(fullfile(stage06_cache_dir, 'stage06_heading_walker_search*.mat'));
+assert(~isempty(d6), 'No Stage06 heading cache found in %s', stage06_cache_dir);
+[~, idx6] = max([d6.datenum]);
+stage06_file = fullfile(d6(idx6).folder, d6(idx6).name);
+
 S5 = load(stage05_file);
 assert(isfield(S5, 'out') && isfield(S5.out, 'grid'), ...
     'Invalid Stage05 cache: missing out.grid');
 grid05 = S5.out.grid;
 
-d6 = dir(fullfile(cfg.paths.cache, 'stage06_heading_walker_search_*.mat'));
-assert(~isempty(d6), 'No Stage06 heading cache found.');
-[~, idx6] = max([d6.datenum]);
-stage06_file = fullfile(d6(idx6).folder, d6(idx6).name);
 S6 = load(stage06_file);
 assert(isfield(S6, 'out') && isfield(S6.out, 'grid'), ...
     'Invalid Stage06 cache: missing out.grid');
@@ -73,8 +82,8 @@ heading_compare = innerjoin(new_heading, legacy06, 'Keys', key_vars);
 nominal_compare.abs_diff_pass_ratio = abs(nominal_compare.new_pass_ratio - nominal_compare.legacy_pass_ratio);
 heading_compare.abs_diff_pass_ratio = abs(heading_compare.new_pass_ratio - heading_compare.legacy_pass_ratio);
 
-nominal_compare.feasible_match = (nominal_compare.new_is_feasible == legacy05.legacy_is_feasible(1:height(nominal_compare)));
-heading_compare.feasible_match = (heading_compare.new_is_feasible == legacy06.legacy_is_feasible(1:height(heading_compare)));
+nominal_compare.feasible_match = (nominal_compare.new_is_feasible == logical(nominal_compare.legacy_is_feasible));
+heading_compare.feasible_match = (heading_compare.new_is_feasible == logical(heading_compare.legacy_is_feasible));
 
 % ------------------------------------------------------------
 % Export artifacts
