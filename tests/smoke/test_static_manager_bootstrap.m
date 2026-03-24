@@ -32,9 +32,13 @@ assert(all(ismember({'geometry_margin','accuracy_margin','temporal_margin', ...
 
 ms = out.minimum_solution_result;
 assert(isfield(ms, 'solution_table'), 'Missing solution_table.');
+assert(isfield(ms, 'near_optimal_table'), 'Missing near_optimal_table.');
 assert(isfield(ms, 'min_Ns'), 'Missing min_Ns.');
 assert(isfield(ms, 'solution_count'), 'Missing solution_count.');
+assert(isfield(ms, 'near_optimal_count'), 'Missing near_optimal_count.');
 assert(ms.solution_count >= 1, 'Expected at least one minimum solution.');
+assert(ms.near_optimal_count >= ms.solution_count, ...
+    'Expected near-optimal count to be >= minimum solution count.');
 
 disp('test_static_manager_bootstrap passed.');
 end
