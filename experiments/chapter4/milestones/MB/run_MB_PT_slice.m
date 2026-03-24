@@ -14,12 +14,15 @@ slice_result = slice_service(out.truth_result, slice_spec);
 output_dir = fullfile('outputs', 'experiments', 'chapter4', 'MB');
 artifact = artifact_service(slice_result.table, output_dir, 'mb_pt_slice');
 manifest = make_artifact_manifest('MB_PT_slice', artifact);
+manifest_paths = save_artifact_manifest(manifest, output_dir, 'mb_pt_slice');
 
 slice_result.artifact = artifact;
 slice_result.manifest = manifest;
+slice_result.manifest_paths = manifest_paths;
 
 disp('[experiment] MB PT slice completed.');
 disp(slice_result.table);
 disp(artifact);
 disp(manifest);
+disp(manifest_paths);
 end
