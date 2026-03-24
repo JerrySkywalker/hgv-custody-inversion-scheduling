@@ -18,5 +18,14 @@ assert(out.design_pool.design_count >= 1, 'Expected at least one design.');
 assert(out.task_family.case_count >= 1, 'Expected at least one task case.');
 assert(out.truth_result.row_count >= 1, 'Expected at least one truth row.');
 
+row = out.truth_result.rows;
+
+assert(isfield(row, 'geometry_margin'), 'Missing geometry_margin.');
+assert(isfield(row, 'accuracy_margin'), 'Missing accuracy_margin.');
+assert(isfield(row, 'temporal_margin'), 'Missing temporal_margin.');
+assert(isfield(row, 'joint_margin'), 'Missing joint_margin.');
+assert(isfield(row, 'is_feasible'), 'Missing is_feasible.');
+assert(isfield(row, 'fail_reason'), 'Missing fail_reason.');
+
 disp('test_static_manager_bootstrap passed.');
 end
