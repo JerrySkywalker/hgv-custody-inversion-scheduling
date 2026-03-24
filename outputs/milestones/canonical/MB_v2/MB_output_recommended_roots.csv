@@ -1,0 +1,5 @@
+"future_root","current_reference_root","reference_role","keep_in_place","notes"
+"outputs/milestones/canonical/MB_v2/baseline","outputs/milestones/MB_20260324_globalfullreplay_baseline","baseline_reference","true","Latest tracked baseline rebuild root; use as the current provenance source for MB_v2 baseline references."
+"outputs/milestones/canonical/MB_v2/strict","outputs/milestones/MB_20260324_globalfullreplay_strict","strict_reference","true","Latest tracked strict replica root; use as the current provenance source for MB_v2 strict references."
+"outputs/milestones/canonical/MB_v2/delivery","outputs/milestones/MB_20260324_globalfullreplay_delivery","delivery_reference","true","Latest tracked delivery-style bundle; use as the current provenance source for MB_v2 delivery references."
+"outputs/milestones/canonical/MB_v2/scene_stats","","reserved_for_future_mb_v2","true","No dedicated legacy scene-statistics root is promoted in this round; reserved for future MB_v2 outputs."
