@@ -4,12 +4,20 @@ if nargin < 3
         'cfg, design_pool, and task_family are required.');
 end
 
-design_row = design_pool.design_table(1);
+rows = design_pool.design_table;
+n = numel(rows);
 
-design_eval = adapter_design_eval_legacy(design_row, task_family, cfg.profile);
+eval_rows = repmat(struct(), n, 1);
+
+for k = 1:n
+    eval_rows(k) = adapter_design_eval_legacy(rows(k), task_family, cfg.profile);
+end
+
+truth_table = struct2table(eval_rows);
 
 truth_result = struct();
-truth_result.rows = design_eval;
-truth_result.row_count = 1;
-truth_result.meta = struct('status', 'minimal');
+truth_result.rows = eval_rows;
+truth_result.table = truth_table;
+truth_result.row_count = n;
+truth_result.meta = struct('status', 'multi_design');
 end
