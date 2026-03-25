@@ -3,16 +3,21 @@ if nargin < 1
     cfg = struct();
 end
 
-rows = [];
-
+use_profile_rows = false;
 if isfield(cfg, 'profile') && isstruct(cfg.profile) ...
         && isfield(cfg.profile, 'design_pool') && isstruct(cfg.profile.design_pool) ...
         && isfield(cfg.profile.design_pool, 'rows') && ~isempty(cfg.profile.design_pool.rows)
+    use_profile_rows = true;
+end
+
+if use_profile_rows
     rows = cfg.profile.design_pool.rows;
 else
-    rows(1) = make_row('D0001', 8, 8, 800, 60, 0);
-    rows(2) = make_row('D0002', 8, 10, 800, 60, 0);
-    rows(3) = make_row('D0003', 10, 8, 800, 60, 0);
+    rows = [ ...
+        make_row('D0001', 8, 8, 800, 60, 0), ...
+        make_row('D0002', 8, 10, 800, 60, 0), ...
+        make_row('D0003', 10, 8, 800, 60, 0) ...
+    ];
 end
 
 if isfield(cfg, 'runtime') && isfield(cfg.runtime, 'max_designs')
