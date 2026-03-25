@@ -18,7 +18,13 @@ else
 end
 
 task_family = task_family_service(cfg);
-gamma_eff_scalar = cfg.runtime.gamma_eff_scalar;
+
+if isfield(profile, 'gamma_eff_scalar')
+    gamma_eff_scalar = profile.gamma_eff_scalar;
+else
+    gamma_info = load_stage04_nominal_gamma_req();
+    gamma_eff_scalar = gamma_info.gamma_req;
+end
 
 n = numel(rows);
 legacy_rows = repmat(struct(), n, 1);
@@ -77,6 +83,7 @@ compare_tbl.joint_margin_abs_diff = abs(compare_tbl.legacy_joint_margin - compar
 
 out = struct();
 out.profile_name = string(profile.name);
+out.gamma_eff_scalar = gamma_eff_scalar;
 out.legacy_table = legacy_tbl;
 out.engine_table = engine_tbl;
 out.compare_table = compare_tbl;
