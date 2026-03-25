@@ -34,6 +34,20 @@ result.manifest_paths = manifest_paths;
 
 disp('[experiment] MB nominal small-formal boundary summary completed.');
 disp(boundary_result.summary_table);
-disp(boundary_result.minimum_feasible_table(:, {'design_id','P','T','Ns','joint_margin','is_feasible'}));
-disp(boundary_result.critical_boundary_table(:, {'design_id','P','T','Ns','joint_margin','is_feasible'}));
+local_disp_table(boundary_result.minimum_feasible_table, {'design_id','P','T','Ns','joint_margin','is_feasible'});
+local_disp_table(boundary_result.critical_boundary_table, {'design_id','P','T','Ns','joint_margin','is_feasible'});
+end
+
+function local_disp_table(tbl, cols)
+if isempty(tbl) || height(tbl) == 0
+    disp(tbl);
+    return;
+end
+
+keep = cols(ismember(cols, tbl.Properties.VariableNames));
+if isempty(keep)
+    disp(tbl);
+else
+    disp(tbl(:, keep));
+end
 end

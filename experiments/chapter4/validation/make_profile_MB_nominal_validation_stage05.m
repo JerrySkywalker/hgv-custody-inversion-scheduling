@@ -5,6 +5,7 @@ profile = struct();
 profile.name = 'MB_nominal_validation_stage05';
 profile.mode = 'static';
 profile.task_family = 'nominal';
+profile.evaluator_mode = 'opend';
 
 profile.runtime = struct();
 profile.runtime.max_cases = 1;

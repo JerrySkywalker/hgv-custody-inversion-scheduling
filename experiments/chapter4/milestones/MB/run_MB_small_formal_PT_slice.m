@@ -4,10 +4,10 @@ startup;
 r_nom = run_MB_nominal_small_formal_master();
 r_head = run_MB_heading_small_formal_master();
 
-nominal_slice = r_nom.truth_result.table(:, ...
-    {'design_id','P','T','Ns','pass_ratio','is_feasible','joint_margin'});
-heading_slice = r_head.truth_result.table(:, ...
-    {'design_id','P','T','Ns','pass_ratio','is_feasible','joint_margin'});
+nominal_slice = slice_truth_table(r_nom.truth_result.table, struct( ...
+    'keep_columns', {{'design_id','P','T','Ns','pass_ratio','is_feasible','joint_margin'}}));
+heading_slice = slice_truth_table(r_head.truth_result.table, struct( ...
+    'keep_columns', {{'design_id','P','T','Ns','pass_ratio','is_feasible','joint_margin'}}));
 
 output_dir = fullfile('outputs', 'experiments', 'chapter4', 'MB');
 

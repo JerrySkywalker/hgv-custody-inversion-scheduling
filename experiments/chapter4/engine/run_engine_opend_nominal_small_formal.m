@@ -10,25 +10,18 @@ cfg = default_params();
 cfg.stage04.Tw_s = gamma_info.Tw_s;
 cfg.stage04.gamma_req = gamma_info.gamma_req;
 
-casebank = build_casebank_nominal(cfg);
-n_case = min(task_profile.nominal.max_cases, numel(casebank.nominal));
-nominal_cases = casebank.nominal(1:n_case);
-first_traj = propagate_target_case(nominal_cases(1), cfg);
-nominal_trajs = repmat(first_traj, n_case, 1);
-trajs_in = repmat(struct('case', nominal_cases(1), 'traj', first_traj), n_case, 1);
+task_family = build_task_family(task_profile.nominal, cfg);
 
-nominal_trajs(1) = first_traj;
-trajs_in(1).case = nominal_cases(1);
-trajs_in(1).traj = first_traj;
+search_spec = struct();
+search_spec.gamma_eff_scalar = gamma_info.gamma_req;
+search_spec.run_tag = 'engine_opend_nominal_small_formal';
+search_spec.source_profile = struct( ...
+    'task_profile', task_profile.nominal, ...
+    'grid_profile', grid_profile.small_formal);
+search_spec.source_kind = 'design_grid_search';
 
-for k = 2:n_case
-    nominal_trajs(k) = propagate_target_case(nominal_cases(k), cfg);
-    trajs_in(k).case = nominal_cases(k);
-    trajs_in(k).traj = nominal_trajs(k);
-end
-
-grid_table = evaluate_design_grid_opend(rows, trajs_in, gamma_info.gamma_req, cfg);
-truth_table = local_normalize_truth_table(grid_table, gamma_info);
+search_result = run_design_grid_search_opend(rows, task_family, cfg, search_spec);
+truth_table = local_normalize_truth_table(search_result.grid_table, gamma_info);
 
 truth_result = struct();
 truth_result.rows = table2struct(truth_table);
@@ -54,6 +47,8 @@ manifest_paths = save_artifact_manifest(manifest, output_dir, 'engine_opend_nomi
 
 result = struct();
 result.gamma_info = gamma_info;
+result.task_family = task_family;
+result.search_result = search_result;
 result.truth_result = truth_result;
 result.boundary_result = boundary_result;
 result.envelope_result = envelope_result;
@@ -93,4 +88,10 @@ truth_table.n_case_total = grid_table.n_case_total;
 truth_table.n_case_evaluated = grid_table.n_case_evaluated;
 truth_table.failed_early = grid_table.failed_early;
 truth_table.source = repmat("engine_opend", height(grid_table), 1);
+truth_table.raw_DG_rob = grid_table.DG_rob;
+truth_table.raw_DA_rob = nan(height(grid_table), 1);
+truth_table.raw_DT_bar_rob = nan(height(grid_table), 1);
+truth_table.raw_DT_rob = nan(height(grid_table), 1);
+truth_table.raw_joint_margin = grid_table.joint_margin;
+truth_table.raw_feasible_flag = grid_table.feasible_flag;
 end

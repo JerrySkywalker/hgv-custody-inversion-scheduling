@@ -5,6 +5,7 @@ profile = struct();
 profile.name = 'MB_heading_validation_stage06';
 profile.mode = 'static';
 profile.task_family = 'heading';
+profile.evaluator_mode = 'opend';
 
 profile.runtime = struct();
 profile.runtime.max_cases = 3;

@@ -5,20 +5,11 @@ tbl_head = heading_result.truth_result.table;
 summary_nom = build_family_summary('nominal', tbl_nom);
 summary_head = build_family_summary('heading', tbl_head);
 
-nominal_tbl = tbl_nom(:, {'design_id','P','T','h_km','i_deg','Ns','pass_ratio','is_feasible','joint_margin'});
-nominal_tbl = renamevars(nominal_tbl, ...
-    {'design_id','pass_ratio','is_feasible','joint_margin'}, ...
-    {'nominal_design_id','nominal_pass_ratio','nominal_is_feasible','nominal_joint_margin'});
-
-heading_tbl = tbl_head(:, {'design_id','P','T','h_km','i_deg','Ns','pass_ratio','is_feasible','joint_margin'});
-heading_tbl = renamevars(heading_tbl, ...
-    {'design_id','pass_ratio','is_feasible','joint_margin'}, ...
-    {'heading_design_id','heading_pass_ratio','heading_is_feasible','heading_joint_margin'});
-
-compare_tbl = innerjoin( ...
-    nominal_tbl, ...
-    heading_tbl, ...
-    'Keys', {'P','T','h_km','i_deg','Ns'});
+compare_tbl = compare_truth_tables( ...
+    tbl_nom, tbl_head, {'P','T','h_km','i_deg','Ns'}, struct( ...
+        'metric_columns', {{'design_id','pass_ratio','is_feasible','joint_margin'}}, ...
+        'left_prefix', 'nominal', ...
+        'right_prefix', 'heading'));
 
 compare_tbl.abs_diff_pass_ratio = abs(compare_tbl.nominal_pass_ratio - compare_tbl.heading_pass_ratio);
 compare_tbl.feasible_match = compare_tbl.nominal_is_feasible == compare_tbl.heading_is_feasible;
@@ -34,25 +25,30 @@ compare_result.summary_heading = summary_head;
 end
 
 function summary = build_family_summary(family_name, tbl)
-feasible_tbl = tbl(tbl.is_feasible, :);
+boundary_result = summarize_boundary(tbl);
+if ismember('is_feasible', tbl.Properties.VariableNames)
+    feasible_mask = tbl.is_feasible;
+else
+    feasible_mask = logical(tbl.feasible_flag);
+end
 
 summary = struct();
 summary.family_name = string(family_name);
 summary.design_count = height(tbl);
-summary.feasible_count = sum(tbl.is_feasible);
-summary.feasible_ratio = mean(double(tbl.is_feasible));
+summary.feasible_count = sum(feasible_mask);
+summary.feasible_ratio = mean(double(feasible_mask));
 
-if isempty(feasible_tbl)
+if isempty(boundary_result.minimum_feasible_table)
     summary.min_Ns = NaN;
     summary.min_joint_margin = NaN;
     summary.max_joint_margin = max(tbl.joint_margin);
     summary.best_design_id = "";
 else
-    summary.min_Ns = min(feasible_tbl.Ns);
-    summary.min_joint_margin = min(feasible_tbl.joint_margin);
-    summary.max_joint_margin = max(feasible_tbl.joint_margin);
+    summary.min_Ns = min(boundary_result.minimum_feasible_table.Ns);
+    summary.min_joint_margin = min(boundary_result.minimum_feasible_table.joint_margin);
+    summary.max_joint_margin = max(tbl.joint_margin);
 
-    candidate_tbl = feasible_tbl(feasible_tbl.Ns == summary.min_Ns, :);
+    candidate_tbl = boundary_result.minimum_feasible_table;
     [~, idx_best] = max(candidate_tbl.joint_margin);
     summary.best_design_id = string(candidate_tbl.design_id(idx_best));
 end

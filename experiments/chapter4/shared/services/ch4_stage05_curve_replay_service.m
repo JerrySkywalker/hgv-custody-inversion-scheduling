@@ -2,34 +2,27 @@ function replay_result = ch4_stage05_curve_replay_service(tbl)
 assert(istable(tbl), 'ch4_stage05_curve_replay_service:InvalidInput', ...
     'Input must be a table.');
 
-required = {'Ns','pass_ratio','is_feasible','joint_margin'};
+required = {'Ns','pass_ratio'};
 for k = 1:numel(required)
     assert(ismember(required{k}, tbl.Properties.VariableNames), ...
         'ch4_stage05_curve_replay_service:MissingField', ...
         'Missing required field: %s', required{k});
 end
 
-Ns_vals = unique(tbl.Ns);
-Ns_vals = sort(Ns_vals(:));
+curve_table = build_best_envelope(tbl, 'Ns', 'pass_ratio', struct(), 'max');
+curve_table = renamevars(curve_table, 'pass_ratio', 'best_pass');
 
-rows = repmat(struct(), numel(Ns_vals), 1);
+stats_pass = build_statistical_curve(tbl, 'Ns', 'pass_ratio', struct(), ...
+    struct('stats', {{'mean', 'min', 'max'}}));
 
-for i = 1:numel(Ns_vals)
-    ns = Ns_vals(i);
-    sub = tbl(tbl.Ns == ns, :);
-
-    rows(i).Ns = ns;
-    rows(i).design_count = height(sub);
-    rows(i).pass_ratio_mean = mean(sub.pass_ratio);
-    rows(i).pass_ratio_min = min(sub.pass_ratio);
-    rows(i).pass_ratio_max = max(sub.pass_ratio);
-    rows(i).feasible_ratio = mean(double(sub.is_feasible));
-    rows(i).joint_margin_min = min(sub.joint_margin);
-    rows(i).joint_margin_mean = mean(sub.joint_margin);
-    rows(i).joint_margin_max = max(sub.joint_margin);
+feasible_curve = build_statistical_curve(tbl, 'Ns', 'is_feasible', struct(), ...
+    struct('stats', {{'mean'}}));
+if ismember('mean', feasible_curve.Properties.VariableNames)
+    feasible_curve = renamevars(feasible_curve, 'mean', 'feasible_ratio');
 end
 
-curve_table = struct2table(rows);
+curve_table = outerjoin(curve_table, stats_pass, 'Keys', 'Ns', 'MergeKeys', true);
+curve_table = outerjoin(curve_table, feasible_curve, 'Keys', 'Ns', 'MergeKeys', true);
 
 summary = struct();
 summary.point_count = height(curve_table);

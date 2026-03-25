@@ -1,8 +1,10 @@
 function result = run_stage05_curve_replay_nominal_minimal()
 startup;
 
-r_slice = run_MB_small_formal_PT_slice();
-nominal_slice = r_slice.nominal_slice;
+run_result = run_engine_opend_nominal_small_formal();
+nominal_slice = slice_truth_table(run_result.truth_result.table, ...
+    struct('keep_columns', {{ ...
+        'design_id','P','T','Ns','pass_ratio','is_feasible','joint_margin','i_deg'}}));
 
 replay_result = ch4_stage05_curve_replay_service(nominal_slice);
 
@@ -22,6 +24,7 @@ manifest_paths = save_artifact_manifest( ...
 
 result = struct();
 result.nominal_slice = nominal_slice;
+result.source_run = run_result;
 result.replay_result = replay_result;
 result.artifact_curve = artifact_curve;
 result.artifact_summary = artifact_summary;
