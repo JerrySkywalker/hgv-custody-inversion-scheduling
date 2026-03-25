@@ -38,4 +38,16 @@ cfg.design.default_P = 8;
 cfg.design.default_T = 8;
 cfg.design.default_h_km = 800;
 cfg.design.default_i_deg = 60;
+
+cfg.threshold = struct();
+cfg.threshold.gamma_eff_scalar = 1.0;
+cfg.threshold.gamma_source = 'default_unit_threshold';
+
+if isfield(profile, 'gamma_eff_scalar') && ~isempty(profile.gamma_eff_scalar)
+    cfg.threshold.gamma_eff_scalar = profile.gamma_eff_scalar;
+end
+
+if isfield(profile, 'gamma_source') && ~isempty(profile.gamma_source)
+    cfg.threshold.gamma_source = char(profile.gamma_source);
+end
 end
