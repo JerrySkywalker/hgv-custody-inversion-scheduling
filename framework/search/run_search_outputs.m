@@ -18,18 +18,27 @@ if nargin < 2 || isempty(output_requests)
 end
 
 if iscell(output_requests)
-    reqs = [output_requests{:}];
+    req_list = output_requests;
+elseif isstruct(output_requests)
+    req_list = arrayfun(@(x) x, output_requests, 'UniformOutput', false);
 else
-    reqs = output_requests;
+    error('run_search_outputs:UnsupportedRequestType', ...
+        'output_requests must be a cell array or struct array.');
 end
 
 outputs = struct();
 
-for k = 1:numel(reqs)
-    req = reqs(k);
+for k = 1:numel(req_list)
+    req = req_list{k};
+
+    if ~isstruct(req)
+        error('run_search_outputs:InvalidRequest', ...
+            'Each output request must be a struct.');
+    end
 
     if ~isfield(req, 'type') || isempty(req.type)
-        error('run_search_outputs:MissingType', 'Each output request must contain field "type".');
+        error('run_search_outputs:MissingType', ...
+            'Each output request must contain field "type".');
     end
 
     req_type = lower(string(req.type));
