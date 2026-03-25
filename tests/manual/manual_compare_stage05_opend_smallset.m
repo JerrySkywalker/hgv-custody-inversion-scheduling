@@ -8,16 +8,7 @@ profile = make_profile_MB_nominal_validation_stage05();
 cfg_engine = config_service(profile);
 
 design_pool = design_pool_service(cfg_engine);
-
-if isstruct(design_pool) && isfield(design_pool, 'rows')
-    rows = design_pool.rows;
-elseif istable(design_pool)
-    rows = table2struct(design_pool);
-elseif isstruct(design_pool)
-    rows = design_pool;
-else
-    error('Unsupported design_pool type: %s', class(design_pool));
-end
+rows = local_extract_design_rows(design_pool);
 
 task_family = task_family_service(cfg_engine);
 
@@ -107,7 +98,39 @@ disp('[manual] Stage05 OpenD small-set comparison completed.');
 disp(compare_tbl);
 end
 
+function rows = local_extract_design_rows(design_pool)
+if isstruct(design_pool) && isfield(design_pool, 'rows')
+    rows = design_pool.rows;
+elseif isstruct(design_pool) && isfield(design_pool, 'design_table')
+    rows = design_pool.design_table;
+elseif istable(design_pool)
+    rows = table2struct(design_pool);
+elseif isstruct(design_pool)
+    % If this already looks like a row struct array, use it directly.
+    fn = fieldnames(design_pool);
+    if any(strcmp(fn, 'P')) || any(strcmp(fn, 'T')) || any(strcmp(fn, 'design_id'))
+        rows = design_pool;
+    else
+        error('Unsupported design_pool container struct. Fields: %s', strjoin(fn, ', '));
+    end
+else
+    error('Unsupported design_pool type: %s', class(design_pool));
+end
+
+if istable(rows)
+    rows = table2struct(rows);
+end
+end
+
 function row = local_complete_design_row(row, cfg_engine, cfg_legacy)
+if ~isfield(row, 'P')
+    error('Design row is missing field P.');
+end
+
+if ~isfield(row, 'T')
+    error('Design row is missing field T.');
+end
+
 if ~isfield(row, 'h_km')
     if isfield(cfg_engine, 'stage03') && isfield(cfg_engine.stage03, 'h_km')
         row.h_km = cfg_engine.stage03.h_km;
