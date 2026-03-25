@@ -2,15 +2,6 @@ function validation_result = run_validate_against_stage05_06()
 startup;
 
 % ------------------------------------------------------------
-% Run new framework results
-% ------------------------------------------------------------
-nominal_result = run_MB_nominal_validation_stage05();
-heading_result = run_MB_heading();
-
-tbl_new_nominal = nominal_result.truth_result.table;
-tbl_new_heading = heading_result.out.truth_result.table;
-
-% ------------------------------------------------------------
 % Locate legacy Stage05 / Stage06 caches directly
 % ------------------------------------------------------------
 repo_root = fileparts(fileparts(fileparts(fileparts(mfilename('fullpath')))));
@@ -22,6 +13,12 @@ assert(exist(stage05_cache_dir, 'dir') == 7, ...
     'Stage05 cache directory not found: %s', stage05_cache_dir);
 assert(exist(stage06_cache_dir, 'dir') == 7, ...
     'Stage06 cache directory not found: %s', stage06_cache_dir);
+
+% ------------------------------------------------------------
+% Run nominal validation profile first
+% ------------------------------------------------------------
+nominal_result = run_MB_nominal_validation_stage05();
+tbl_new_nominal = nominal_result.truth_result.table;
 
 % ------------------------------------------------------------
 % Stage05 nominal validation (required)
@@ -52,10 +49,12 @@ nominal_compare.abs_diff_pass_ratio = abs(nominal_compare.new_pass_ratio - nomin
 nominal_compare.feasible_match = (nominal_compare.new_is_feasible == logical(nominal_compare.legacy_is_feasible));
 
 % ------------------------------------------------------------
-% Stage06 heading validation (optional for now)
+% Stage06 heading validation (optional)
+% Only run heading path if Stage06 walker-search cache exists.
 % ------------------------------------------------------------
 stage06_file = '';
 heading_compare = table();
+artifact_heading = struct();
 
 d6 = dir(fullfile(stage06_cache_dir, 'stage06_heading_walker_search*.mat'));
 if isempty(d6)
@@ -65,6 +64,9 @@ if isempty(d6)
 else
     [~, idx6] = max([d6.datenum]);
     stage06_file = fullfile(d6(idx6).folder, d6(idx6).name);
+
+    heading_result = run_MB_heading();
+    tbl_new_heading = heading_result.out.truth_result.table;
 
     S6 = load(stage06_file);
     assert(isfield(S6, 'out') && isfield(S6.out, 'grid'), ...
@@ -94,8 +96,6 @@ output_dir = fullfile('outputs', 'experiments', 'chapter4', 'validation');
 artifact_nominal = artifact_service(nominal_compare, output_dir, 'validate_stage05_nominal');
 
 artifacts = {artifact_nominal};
-artifact_heading = struct();
-
 if ~isempty(heading_compare)
     artifact_heading = artifact_service(heading_compare, output_dir, 'validate_stage06_heading');
     artifacts{end+1} = artifact_heading;
