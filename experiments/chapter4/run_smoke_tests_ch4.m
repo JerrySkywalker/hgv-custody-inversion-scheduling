@@ -3,6 +3,8 @@ startup;
 
 disp('=== Running Chapter 4 smoke tests ===');
 
+test_ch4_shared_profiles_bootstrap;
+
 test_static_manager_bootstrap;
 test_static_heading_master_run_bootstrap;
 test_static_slice_service_bootstrap;
