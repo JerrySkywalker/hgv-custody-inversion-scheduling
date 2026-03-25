@@ -3,9 +3,17 @@ if nargin < 1
     cfg = struct();
 end
 
-rows(1) = make_row('D0001', 8, 8, 800, 60, 0);
-rows(2) = make_row('D0002', 8, 10, 800, 60, 0);
-rows(3) = make_row('D0003', 10, 8, 800, 60, 0);
+rows = [];
+
+if isfield(cfg, 'profile') && isstruct(cfg.profile) ...
+        && isfield(cfg.profile, 'design_pool') && isstruct(cfg.profile.design_pool) ...
+        && isfield(cfg.profile.design_pool, 'rows') && ~isempty(cfg.profile.design_pool.rows)
+    rows = cfg.profile.design_pool.rows;
+else
+    rows(1) = make_row('D0001', 8, 8, 800, 60, 0);
+    rows(2) = make_row('D0002', 8, 10, 800, 60, 0);
+    rows(3) = make_row('D0003', 10, 8, 800, 60, 0);
+end
 
 if isfield(cfg, 'runtime') && isfield(cfg.runtime, 'max_designs')
     n = min(cfg.runtime.max_designs, numel(rows));
@@ -13,10 +21,10 @@ if isfield(cfg, 'runtime') && isfield(cfg.runtime, 'max_designs')
 end
 
 design_pool = struct();
-design_pool.name = 'bootstrap_pool';
+design_pool.name = 'static_design_pool';
 design_pool.design_table = rows;
 design_pool.design_count = numel(rows);
-design_pool.meta = struct('status', 'minimal_multi_design');
+design_pool.meta = struct('status', 'ok');
 end
 
 function row = make_row(design_id, P, T, h_km, i_deg, F)
