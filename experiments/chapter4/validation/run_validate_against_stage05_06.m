@@ -4,10 +4,10 @@ startup;
 % ------------------------------------------------------------
 % Run new framework results
 % ------------------------------------------------------------
-nominal_result = run_MB_nominal();
+nominal_result = run_MB_nominal_validation_stage05();
 heading_result = run_MB_heading();
 
-tbl_new_nominal = nominal_result.out.truth_result.table;
+tbl_new_nominal = nominal_result.truth_result.table;
 tbl_new_heading = heading_result.out.truth_result.table;
 
 % ------------------------------------------------------------
@@ -36,17 +36,17 @@ assert(isfield(S5, 'out') && isfield(S5.out, 'grid'), ...
     'Invalid Stage05 cache: missing out.grid');
 grid05 = S5.out.grid;
 
-new_nominal = tbl_new_nominal(:, {'design_id','P','T','i_deg','Ns','pass_ratio','is_feasible','joint_margin'});
+new_nominal = tbl_new_nominal(:, {'design_id','h_km','P','T','i_deg','Ns','pass_ratio','is_feasible','joint_margin'});
 new_nominal = renamevars(new_nominal, ...
     {'pass_ratio','is_feasible','joint_margin'}, ...
     {'new_pass_ratio','new_is_feasible','new_joint_margin'});
 
-legacy05 = grid05(:, {'P','T','i_deg','Ns','pass_ratio','feasible_flag','D_G_min'});
+legacy05 = grid05(:, {'h_km','P','T','i_deg','Ns','pass_ratio','feasible_flag','D_G_min'});
 legacy05 = renamevars(legacy05, ...
     {'pass_ratio','feasible_flag','D_G_min'}, ...
     {'legacy_pass_ratio','legacy_is_feasible','legacy_DG_min'});
 
-key_vars = {'P','T','i_deg','Ns'};
+key_vars = {'h_km','P','T','i_deg','Ns'};
 nominal_compare = innerjoin(new_nominal, legacy05, 'Keys', key_vars);
 nominal_compare.abs_diff_pass_ratio = abs(nominal_compare.new_pass_ratio - nominal_compare.legacy_pass_ratio);
 nominal_compare.feasible_match = (nominal_compare.new_is_feasible == logical(nominal_compare.legacy_is_feasible));
@@ -71,12 +71,12 @@ else
         'Invalid Stage06 cache: missing out.grid');
     grid06 = S6.out.grid;
 
-    new_heading = tbl_new_heading(:, {'design_id','P','T','i_deg','Ns','pass_ratio','is_feasible','joint_margin'});
+    new_heading = tbl_new_heading(:, {'design_id','h_km','P','T','i_deg','Ns','pass_ratio','is_feasible','joint_margin'});
     new_heading = renamevars(new_heading, ...
         {'pass_ratio','is_feasible','joint_margin'}, ...
         {'new_pass_ratio','new_is_feasible','new_joint_margin'});
 
-    legacy06 = grid06(:, {'P','T','i_deg','Ns','pass_ratio','feasible_flag','D_G_min'});
+    legacy06 = grid06(:, {'h_km','P','T','i_deg','Ns','pass_ratio','feasible_flag','D_G_min'});
     legacy06 = renamevars(legacy06, ...
         {'pass_ratio','feasible_flag','D_G_min'}, ...
         {'legacy_pass_ratio','legacy_is_feasible','legacy_DG_min'});
@@ -122,11 +122,11 @@ validation_result.manifest_paths = manifest_paths;
 
 disp('[validation] Stage05/06 comparison completed.');
 disp('[validation] Nominal comparison:');
-disp(nominal_compare(:, {'design_id','P','T','i_deg','Ns','new_pass_ratio','legacy_pass_ratio','abs_diff_pass_ratio','feasible_match'}));
+disp(nominal_compare(:, {'design_id','h_km','P','T','i_deg','Ns','new_pass_ratio','legacy_pass_ratio','abs_diff_pass_ratio','feasible_match'}));
 
 if ~isempty(heading_compare)
     disp('[validation] Heading comparison:');
-    disp(heading_compare(:, {'design_id','P','T','i_deg','Ns','new_pass_ratio','legacy_pass_ratio','abs_diff_pass_ratio','feasible_match'}));
+    disp(heading_compare(:, {'design_id','h_km','P','T','i_deg','Ns','new_pass_ratio','legacy_pass_ratio','abs_diff_pass_ratio','feasible_match'}));
 else
     disp('[validation] Heading comparison skipped: Stage06 walker-search cache unavailable.');
 end
