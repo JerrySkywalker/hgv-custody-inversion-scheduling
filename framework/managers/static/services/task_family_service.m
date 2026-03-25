@@ -53,7 +53,7 @@ if isfield(cfg, 'runtime') && isfield(cfg.runtime, 'max_cases')
 end
 end
 
-function trajs_in = build_heading_trajs_in(casebank, cfg)
+function trajs_in = build_heading_trajs_in(casebank, ~)
 cfg_legacy = default_params();
 heading_offsets = [0, -30, 30];
 
@@ -74,35 +74,30 @@ for i = 1:numel(heading_offsets)
     trajs_in(k).case = case_item;
     trajs_in(k).traj = traj;
 end
-
-if isfield(cfg, 'runtime') && isfield(cfg.runtime, 'max_cases')
-    n = min(cfg.runtime.max_cases, numel(trajs_in));
-    trajs_in = trajs_in(1:n);
-end
 end
 
 function trajs_out = apply_heading_offset_filter_if_needed(trajs_in, profile, cfg)
 trajs_out = trajs_in;
 
 if ~isfield(profile, 'allowed_heading_offsets_deg') || isempty(profile.allowed_heading_offsets_deg)
-    return;
-end
+    % no-op
+else
+    allowed = profile.allowed_heading_offsets_deg;
+    keep_mask = false(numel(trajs_in), 1);
 
-allowed = profile.allowed_heading_offsets_deg;
-keep_mask = false(numel(trajs_in), 1);
-
-for k = 1:numel(trajs_in)
-    case_k = trajs_in(k).case;
-    if isfield(case_k, 'heading_offset_deg')
-        keep_mask(k) = any(case_k.heading_offset_deg == allowed);
+    for k = 1:numel(trajs_in)
+        case_k = trajs_in(k).case;
+        if isfield(case_k, 'heading_offset_deg')
+            keep_mask(k) = any(case_k.heading_offset_deg == allowed);
+        end
     end
-end
 
-trajs_out = trajs_in(keep_mask);
+    trajs_out = trajs_in(keep_mask);
 
-if isempty(trajs_out)
-    error('task_family_service:EmptyHeadingSelection', ...
-        'Heading offset filter removed all heading cases.');
+    if isempty(trajs_out)
+        error('task_family_service:EmptyHeadingSelection', ...
+            'Heading offset filter removed all heading cases.');
+    end
 end
 
 if isfield(cfg, 'runtime') && isfield(cfg.runtime, 'max_cases')
