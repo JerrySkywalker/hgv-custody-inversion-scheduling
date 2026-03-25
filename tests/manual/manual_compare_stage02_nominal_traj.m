@@ -1,10 +1,10 @@
 function out = manual_compare_stage02_nominal_traj()
 cfg = default_params();
 
-legacy_casebank = stage01_build_casebank(cfg);
+legacy_casebank = build_casebank_stage01(cfg);
 case_item = legacy_casebank.nominal(1);
 
-legacy_traj = stage02_propagate_hgv_case(case_item, cfg);
+legacy_traj = propagate_hgv_case_stage02(case_item, cfg);
 engine_traj = propagate_target_case(case_item, cfg);
 
 out = struct();
