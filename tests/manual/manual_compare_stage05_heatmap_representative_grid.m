@@ -38,14 +38,14 @@ for k = 1:n
     legacy_rows(k).T = row.T;
     legacy_rows(k).Ns = row.Ns;
     legacy_rows(k).feasible_flag = legacy_eval.feasible_flag;
-    legacy_rows(k).joint_margin = legacy_eval.joint_margin;
+    legacy_rows(k).DG_rob = legacy_eval.DG_rob;
 
     engine_rows(k).design_id = string(row.design_id);
     engine_rows(k).P = row.P;
     engine_rows(k).T = row.T;
     engine_rows(k).Ns = row.Ns;
     engine_rows(k).feasible_flag = engine_eval.feasible_flag;
-    engine_rows(k).joint_margin = engine_eval.joint_margin;
+    engine_rows(k).DG_rob = engine_eval.DG_rob;
 end
 
 legacy_tbl = struct2table(legacy_rows);
@@ -61,15 +61,15 @@ feasible_compare = innerjoin(legacy_feasible, engine_feasible, ...
     'Keys', {'design_id','P','T','Ns'});
 feasible_compare.feasible_match = feasible_compare.legacy_feasible_flag == feasible_compare.engine_feasible_flag;
 
-legacy_margin = legacy_tbl(:, {'design_id','P','T','Ns','joint_margin'});
-engine_margin = engine_tbl(:, {'design_id','P','T','Ns','joint_margin'});
+legacy_margin = legacy_tbl(:, {'design_id','P','T','Ns','DG_rob'});
+engine_margin = engine_tbl(:, {'design_id','P','T','Ns','DG_rob'});
 
-legacy_margin = renamevars(legacy_margin, {'joint_margin'}, {'legacy_joint_margin'});
-engine_margin = renamevars(engine_margin, {'joint_margin'}, {'engine_joint_margin'});
+legacy_margin = renamevars(legacy_margin, {'DG_rob'}, {'legacy_geometry_margin'});
+engine_margin = renamevars(engine_margin, {'DG_rob'}, {'engine_geometry_margin'});
 
 margin_compare = innerjoin(legacy_margin, engine_margin, ...
     'Keys', {'design_id','P','T','Ns'});
-margin_compare.joint_margin_abs_diff = abs(margin_compare.legacy_joint_margin - margin_compare.engine_joint_margin);
+margin_compare.geometry_margin_abs_diff = abs(margin_compare.legacy_geometry_margin - margin_compare.engine_geometry_margin);
 
 out = struct();
 out.feasible_compare = feasible_compare;
