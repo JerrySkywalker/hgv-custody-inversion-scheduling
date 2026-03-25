@@ -38,5 +38,14 @@ assert(all(cmp09.joint_margin_abs_diff < 1e-12), 'Stage09 ClosedD joint margin m
 assert(all(cmp09.pass_ratio_abs_diff < 1e-12), 'Stage09 ClosedD pass ratio mismatch.');
 assert(all(cmp09.feasible_match), 'Stage09 ClosedD feasible flag mismatch.');
 
+env_tbl = report.stage05_best_envelope.compare_table;
+assert(all(env_tbl.best_pass_abs_diff < 1e-12), 'Stage05 best-pass envelope mismatch.');
+
+hm_feas = report.stage05_heatmap_slice.feasible_compare;
+assert(all(hm_feas.feasible_match), 'Stage05 feasible heatmap slice mismatch.');
+
+hm_margin = report.stage05_heatmap_slice.margin_compare;
+assert(all(hm_margin.joint_margin_abs_diff < 1e-10), 'Stage05 joint-margin heatmap slice mismatch.');
+
 disp('assert_framework_vs_legacy_manual_regression passed.');
 end
