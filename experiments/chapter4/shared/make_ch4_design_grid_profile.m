@@ -23,8 +23,8 @@ grid_profile.validation_stage06.rows = [ ...
 ];
 
 grid_profile.small_formal = struct();
-grid_profile.small_formal.P_set = [8, 10, 12];
-grid_profile.small_formal.T_set = [8, 10, 12];
+grid_profile.small_formal.P_set = [4, 6, 8, 10];
+grid_profile.small_formal.T_set = [4, 6, 8, 10];
 grid_profile.small_formal.h_set_km = 1000;
 grid_profile.small_formal.i_set_deg = 60;
 grid_profile.small_formal.F_set = 0;
