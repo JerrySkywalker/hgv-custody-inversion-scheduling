@@ -75,7 +75,7 @@ framework_env = build_best_envelope(grid_table, 'Ns', 'pass_ratio', fixed_filter
 % 5) Compare
 % ------------------------------------------------------------
 legacy_env = renamevars(legacy_env, {'best_pass'}, {'legacy_best_pass'});
-framework_env = renamevars(framework_env, {'best_pass'}, {'engine_best_pass'});
+framework_env = renamevars(framework_env, {'pass_ratio'}, {'engine_best_pass'});
 
 compare_tbl = innerjoin(legacy_env, framework_env, 'Keys', {'Ns'});
 compare_tbl.best_pass_abs_diff = abs(compare_tbl.legacy_best_pass - compare_tbl.engine_best_pass);
