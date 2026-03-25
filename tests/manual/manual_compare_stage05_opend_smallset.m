@@ -40,7 +40,7 @@ legacy_rows = repmat(struct(), n, 1);
 engine_rows = repmat(struct(), n, 1);
 
 for k = 1:n
-    row = rows(k);
+    row = local_complete_design_row(rows(k), cfg_engine, cfg_legacy);
 
     % ---------------------------
     % Legacy / current truth path
@@ -55,16 +55,22 @@ for k = 1:n
         row, task_family.trajs_in, gamma_eff_scalar, cfg_engine);
 
     legacy_rows(k).design_id = string(row.design_id);
+    legacy_rows(k).h_km = row.h_km;
+    legacy_rows(k).i_deg = row.i_deg;
     legacy_rows(k).P = row.P;
     legacy_rows(k).T = row.T;
+    legacy_rows(k).F = row.F;
     legacy_rows(k).Ns = row.Ns;
     legacy_rows(k).pass_ratio = legacy_eval.pass_ratio;
     legacy_rows(k).feasible_flag = legacy_eval.feasible_flag;
     legacy_rows(k).joint_margin = legacy_eval.joint_margin;
 
     engine_rows(k).design_id = string(row.design_id);
+    engine_rows(k).h_km = row.h_km;
+    engine_rows(k).i_deg = row.i_deg;
     engine_rows(k).P = row.P;
     engine_rows(k).T = row.T;
+    engine_rows(k).F = row.F;
     engine_rows(k).Ns = row.Ns;
     engine_rows(k).pass_ratio = engine_eval.pass_ratio;
     engine_rows(k).feasible_flag = engine_eval.feasible_flag;
@@ -84,7 +90,7 @@ engine_tbl = renamevars(engine_tbl, ...
 
 compare_tbl = innerjoin( ...
     legacy_tbl, engine_tbl, ...
-    'Keys', {'design_id','P','T','Ns'});
+    'Keys', {'design_id','h_km','i_deg','P','T','F','Ns'});
 
 compare_tbl.pass_ratio_abs_diff = abs(compare_tbl.legacy_pass_ratio - compare_tbl.engine_pass_ratio);
 compare_tbl.feasible_match = compare_tbl.legacy_feasible_flag == compare_tbl.engine_feasible_flag;
@@ -99,4 +105,40 @@ out.compare_table = compare_tbl;
 
 disp('[manual] Stage05 OpenD small-set comparison completed.');
 disp(compare_tbl);
+end
+
+function row = local_complete_design_row(row, cfg_engine, cfg_legacy)
+if ~isfield(row, 'h_km')
+    if isfield(cfg_engine, 'stage03') && isfield(cfg_engine.stage03, 'h_km')
+        row.h_km = cfg_engine.stage03.h_km;
+    elseif isfield(cfg_legacy, 'stage03') && isfield(cfg_legacy.stage03, 'h_km')
+        row.h_km = cfg_legacy.stage03.h_km;
+    else
+        row.h_km = 1000;
+    end
+end
+
+if ~isfield(row, 'i_deg')
+    if isfield(cfg_engine, 'stage03') && isfield(cfg_engine.stage03, 'i_deg')
+        row.i_deg = cfg_engine.stage03.i_deg;
+    elseif isfield(cfg_legacy, 'stage03') && isfield(cfg_legacy.stage03, 'i_deg')
+        row.i_deg = cfg_legacy.stage03.i_deg;
+    else
+        row.i_deg = 60;
+    end
+end
+
+if ~isfield(row, 'F')
+    if isfield(cfg_engine, 'stage03') && isfield(cfg_engine.stage03, 'F')
+        row.F = cfg_engine.stage03.F;
+    elseif isfield(cfg_legacy, 'stage03') && isfield(cfg_legacy.stage03, 'F')
+        row.F = cfg_legacy.stage03.F;
+    else
+        row.F = 0;
+    end
+end
+
+if ~isfield(row, 'Ns')
+    row.Ns = row.P * row.T;
+end
 end
