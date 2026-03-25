@@ -1,7 +1,7 @@
 function out = manual_compare_stage01_casebank()
 cfg = default_params();
 
-legacy_casebank = stage01_build_casebank(cfg);
+legacy_casebank = build_casebank_stage01(cfg);
 engine_casebank = build_casebank(cfg);
 
 out = struct();
