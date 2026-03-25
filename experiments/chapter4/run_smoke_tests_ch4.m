@@ -12,9 +12,16 @@ test_static_artifact_manifest_bootstrap;
 test_static_minimum_artifact_bootstrap;
 test_static_nominal_master_run_bootstrap;
 test_static_compare_master_run_bootstrap;
+
 test_nominal_validation_stage05_profile_bootstrap;
 test_validate_against_stage05_06_bootstrap;
 test_validate_stage05_nominal_alignment;
+
+test_heading_validation_stage06_profile_bootstrap;
+test_heading_validation_stage06_singlecase_bootstrap;
+test_diagnose_heading_stage06_threshold_bootstrap;
+test_diagnose_heading_stage06_case_list_bootstrap;
+test_validate_stage06_heading_minimal_alignment;
 
 disp('=== All Chapter 4 smoke tests passed ===');
 end
