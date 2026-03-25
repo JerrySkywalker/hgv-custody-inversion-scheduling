@@ -21,7 +21,6 @@ legacy_grid = S5.out.grid;
 
 % ------------------------------------------------------------
 % 2) Build legacy best-pass envelope directly from grid
-%    (replicates local_plot_passratio_profile logic)
 % ------------------------------------------------------------
 target_i_deg = 60;
 legacy_sub = legacy_grid(legacy_grid.i_deg == target_i_deg, :);
@@ -33,7 +32,6 @@ legacy_rows = repmat(struct(), numel(Ns_u), 1);
 for j = 1:numel(Ns_u)
     ns = Ns_u(j);
     tmp = legacy_sub(legacy_sub.Ns == ns, :);
-
     legacy_rows(j).Ns = ns;
     legacy_rows(j).best_pass = max(tmp.pass_ratio);
 end
@@ -57,22 +55,21 @@ design_rows = local_extract_design_rows(design_pool);
 task_family = task_family_service(cfg_engine);
 
 search_spec = struct();
-search_spec.run_label = 'manual_stage05_best_envelope';
+search_spec.run_tag = 'manual_stage05_best_envelope';
 search_spec.save_cache = false;
+search_spec.gamma_eff_scalar = profile.gamma_eff_scalar;
+search_spec.source_profile = profile;
+search_spec.source_kind = 'manual_stage05_best_envelope';
 
 search_result = run_design_grid_search_opend(design_rows, task_family, cfg_engine, search_spec);
 grid_table = search_result.grid_table;
 
 % ------------------------------------------------------------
 % 4) Build framework best-pass envelope
+% IMPORTANT: build_best_envelope expects positional args, not a spec struct
 % ------------------------------------------------------------
-env_spec = struct();
-env_spec.fixed_filters = struct('i_deg', target_i_deg);
-env_spec.group_key = 'Ns';
-env_spec.metric_name = 'pass_ratio';
-env_spec.aggregate_mode = 'max';
-
-framework_env = build_best_envelope(grid_table, env_spec);
+fixed_filters = struct('i_deg', target_i_deg);
+framework_env = build_best_envelope(grid_table, 'Ns', 'pass_ratio', fixed_filters, 'max');
 
 % ------------------------------------------------------------
 % 5) Compare
