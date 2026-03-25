@@ -6,6 +6,8 @@ disp('=== Running Chapter 4 smoke tests ===');
 test_ch4_shared_profiles_bootstrap;
 test_mb_small_formal_profiles_bootstrap;
 test_mb_small_formal_master_runs_bootstrap;
+test_mb_small_formal_compare_master_bootstrap;
+test_mb_small_formal_feasible_map_bootstrap;
 
 test_static_manager_bootstrap;
 test_static_heading_master_run_bootstrap;
