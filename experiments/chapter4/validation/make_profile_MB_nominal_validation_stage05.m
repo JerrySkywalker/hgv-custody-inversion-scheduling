@@ -1,4 +1,6 @@
 function profile = make_profile_MB_nominal_validation_stage05()
+gamma_info = load_stage04_nominal_gamma_req();
+
 profile = struct();
 profile.name = 'MB_nominal_validation_stage05';
 profile.mode = 'static';
@@ -8,8 +10,9 @@ profile.runtime = struct();
 profile.runtime.max_cases = 1;
 profile.runtime.max_designs = 3;
 
-profile.gamma_eff_scalar = 19748;
-profile.gamma_source = 'stage04_nominal_quantile';
+profile.gamma_eff_scalar = gamma_info.gamma_req;
+profile.gamma_source = gamma_info.gamma_source;
+profile.gamma_cache_file = gamma_info.cache_file;
 
 profile.design_pool = struct();
 profile.design_pool.rows = [ ...
