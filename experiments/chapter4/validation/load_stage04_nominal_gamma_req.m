@@ -15,10 +15,25 @@ stage04_file = fullfile(d4(idx4).folder, d4(idx4).name);
 
 S4 = load(stage04_file);
 assert(isfield(S4, 'out'), 'Invalid Stage04 cache: missing out field.');
-assert(isfield(S4.out, 'gamma_req'), 'Invalid Stage04 cache: missing out.gamma_req.');
+assert(isfield(S4.out, 'gamma_meta') && isstruct(S4.out.gamma_meta), ...
+    'Invalid Stage04 cache: missing out.gamma_meta.');
+
+gamma_meta = S4.out.gamma_meta;
+
+assert(isfield(gamma_meta, 'gamma_req'), ...
+    'Invalid Stage04 gamma_meta: missing gamma_req.');
 
 info = struct();
-info.gamma_req = S4.out.gamma_req;
-info.gamma_source = 'stage04_nominal_quantile';
+info.gamma_req = gamma_meta.gamma_req;
+
+if isfield(gamma_meta, 'mode') && isfield(gamma_meta, 'quantile')
+    info.gamma_source = sprintf('stage04:%s:q%.3f', gamma_meta.mode, gamma_meta.quantile);
+elseif isfield(gamma_meta, 'mode')
+    info.gamma_source = sprintf('stage04:%s', gamma_meta.mode);
+else
+    info.gamma_source = 'stage04_nominal_quantile';
+end
+
 info.cache_file = stage04_file;
+info.gamma_meta = gamma_meta;
 end
