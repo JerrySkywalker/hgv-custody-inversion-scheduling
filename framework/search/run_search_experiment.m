@@ -12,6 +12,7 @@ function result = run_search_experiment(spec)
 %   spec.task_family_builder
 %   spec.evaluator_mode
 %   spec.search_spec
+%   spec.output_requests
 %
 % Output:
 %   result.cfg
@@ -20,6 +21,7 @@ function result = run_search_experiment(spec)
 %   result.search_result
 %   result.grid_table
 %   result.meta
+%   result.outputs
 
 if nargin < 1 || isempty(spec)
     error('run_search_experiment:MissingSpec', 'A spec struct is required.');
@@ -56,6 +58,13 @@ end
 
 search_result = run_design_grid_search(design_grid, task_family, evaluator_mode, cfg, search_spec);
 
+if ~isfield(spec, 'output_requests') || isempty(spec.output_requests)
+    outputs = struct();
+    outputs.truth_table = search_result.grid_table;
+else
+    outputs = run_search_outputs(search_result.grid_table, spec.output_requests);
+end
+
 result = struct();
 result.cfg = cfg;
 result.task_family = task_family;
@@ -63,6 +72,7 @@ result.design_grid = design_grid;
 result.search_result = search_result;
 result.grid_table = search_result.grid_table;
 result.meta = search_result.meta;
+result.outputs = outputs;
 end
 
 function cfg_out = local_merge_cfg(cfg_base, cfg_overlay)
