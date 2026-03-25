@@ -7,6 +7,7 @@ report.stage02 = manual_compare_stage02_nominal_traj();
 report.stage03_resource = manual_compare_stage03_resource();
 report.stage03_visibility = manual_compare_stage03_visibility();
 report.stage04_window = manual_compare_stage04_window();
+report.stage06_heading_family = manual_compare_stage06_heading_family();
 
 disp('=== Framework vs Legacy Manual Regression ===');
 disp(report);
