@@ -28,12 +28,16 @@ trajs_in = task_family.trajs_in;
 
 gamma_eff_scalar = 1.0;
 gamma_source = 'default_unit_threshold';
+Tw_s = NaN;
 
 if isfield(profile, 'gamma_eff_scalar') && ~isempty(profile.gamma_eff_scalar)
     gamma_eff_scalar = profile.gamma_eff_scalar;
 end
 if isfield(profile, 'gamma_source') && ~isempty(profile.gamma_source)
     gamma_source = char(profile.gamma_source);
+end
+if isfield(profile, 'Tw_s') && ~isempty(profile.Tw_s)
+    Tw_s = profile.Tw_s;
 end
 
 eval_ctx = [];
@@ -73,6 +77,7 @@ design_eval.failed_early = logical(legacy_out.failed_early);
 % Raw diagnostic fields for threshold / margin alignment
 design_eval.gamma_eff_scalar = gamma_eff_scalar;
 design_eval.gamma_source = gamma_source;
+design_eval.Tw_s = Tw_s;
 design_eval.raw_DG_rob = legacy_out.DG_rob;
 design_eval.raw_DA_rob = legacy_out.DA_rob;
 design_eval.raw_DT_bar_rob = legacy_out.DT_bar_rob;
