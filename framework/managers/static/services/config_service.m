@@ -23,6 +23,16 @@ switch char(task_family)
         cfg.runtime.max_cases = 1;
 end
 
+% Allow profile runtime overrides
+if isfield(profile, 'runtime') && isstruct(profile.runtime)
+    if isfield(profile.runtime, 'max_cases') && ~isempty(profile.runtime.max_cases)
+        cfg.runtime.max_cases = profile.runtime.max_cases;
+    end
+    if isfield(profile.runtime, 'max_designs') && ~isempty(profile.runtime.max_designs)
+        cfg.runtime.max_designs = profile.runtime.max_designs;
+    end
+end
+
 cfg.design = struct();
 cfg.design.default_P = 8;
 cfg.design.default_T = 8;
