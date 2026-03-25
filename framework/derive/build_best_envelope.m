@@ -43,6 +43,12 @@ for k = 1:numel(group_values)
         rows(k).best_joint_margin = NaN;
     end
 
+    if ismember('DG_rob', tmp.Properties.VariableNames)
+        rows(k).best_geometry_margin = tmp.DG_rob(idx_best);
+    else
+        rows(k).best_geometry_margin = NaN;
+    end
+
     if ismember('design_id', tmp.Properties.VariableNames)
         rows(k).argmax_design_id = string(tmp.design_id(idx_best));
     else
