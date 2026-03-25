@@ -60,6 +60,15 @@ design_eval.n_case_total = legacy_out.n_case_total;
 design_eval.n_case_evaluated = legacy_out.n_case_evaluated;
 design_eval.failed_early = logical(legacy_out.failed_early);
 
+% Raw diagnostic fields for threshold / margin alignment
+design_eval.gamma_eff_scalar = gamma_eff_scalar;
+design_eval.raw_DG_rob = legacy_out.DG_rob;
+design_eval.raw_DA_rob = legacy_out.DA_rob;
+design_eval.raw_DT_bar_rob = legacy_out.DT_bar_rob;
+design_eval.raw_DT_rob = legacy_out.DT_rob;
+design_eval.raw_joint_margin = legacy_out.joint_margin;
+design_eval.raw_feasible_flag = legacy_out.feasible_flag;
+
 % Keep raw legacy payload for traceability during migration
 design_eval.legacy_out = legacy_out;
 
