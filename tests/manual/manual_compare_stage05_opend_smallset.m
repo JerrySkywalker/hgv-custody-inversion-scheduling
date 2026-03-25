@@ -2,10 +2,21 @@ function out = manual_compare_stage05_opend_smallset()
 startup;
 
 % ---------------------------------
-% Framework-side profile / cfg
+% Profile and config preparation
 % ---------------------------------
 profile = make_profile_MB_nominal_validation_stage05();
-cfg_engine = config_service(profile);
+
+% Full legacy-style baseline cfg
+cfg_legacy = default_params();
+cfg_legacy = stage09_prepare_cfg(cfg_legacy);
+cfg_legacy = configure_stage_output_paths(cfg_legacy);
+
+% Framework experiment cfg (slim)
+cfg_engine_profile = config_service(profile);
+
+% Engine manual-regression cfg:
+% start from full baseline, then overlay the profile-level experimental settings
+cfg_engine = local_merge_cfg_for_engine(cfg_legacy, cfg_engine_profile);
 
 design_pool = design_pool_service(cfg_engine);
 rows = local_extract_design_rows(design_pool);
@@ -18,13 +29,6 @@ else
     gamma_info = load_stage04_nominal_gamma_req();
     gamma_eff_scalar = gamma_info.gamma_req;
 end
-
-% ---------------------------------
-% Legacy-side cfg for truth evaluator
-% ---------------------------------
-cfg_legacy = default_params();
-cfg_legacy = stage09_prepare_cfg(cfg_legacy);
-cfg_legacy = configure_stage_output_paths(cfg_legacy);
 
 n = numel(rows);
 legacy_rows = repmat(struct(), n, 1);
@@ -98,6 +102,26 @@ disp('[manual] Stage05 OpenD small-set comparison completed.');
 disp(compare_tbl);
 end
 
+function cfg_out = local_merge_cfg_for_engine(cfg_base, cfg_overlay)
+cfg_out = cfg_base;
+
+overlay_fields = fieldnames(cfg_overlay);
+for i = 1:numel(overlay_fields)
+    f = overlay_fields{i};
+    cfg_out.(f) = cfg_overlay.(f);
+end
+
+% Ensure the profile-level runtime / stage03 style settings are reflected
+if isfield(cfg_overlay, 'runtime')
+    cfg_out.runtime = cfg_overlay.runtime;
+end
+
+% Carry through explicit stage03-like design defaults when available
+if isfield(cfg_overlay, 'stage03')
+    cfg_out.stage03 = cfg_overlay.stage03;
+end
+end
+
 function rows = local_extract_design_rows(design_pool)
 if isstruct(design_pool) && isfield(design_pool, 'rows')
     rows = design_pool.rows;
@@ -106,7 +130,6 @@ elseif isstruct(design_pool) && isfield(design_pool, 'design_table')
 elseif istable(design_pool)
     rows = table2struct(design_pool);
 elseif isstruct(design_pool)
-    % If this already looks like a row struct array, use it directly.
     fn = fieldnames(design_pool);
     if any(strcmp(fn, 'P')) || any(strcmp(fn, 'T')) || any(strcmp(fn, 'design_id'))
         rows = design_pool;
