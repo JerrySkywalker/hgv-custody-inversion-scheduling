@@ -40,22 +40,32 @@ end
 legacy_env = struct2table(legacy_rows);
 
 % ------------------------------------------------------------
-% 3) Build framework best-pass envelope
-%    Prefer framework derive path from current Stage05 replay source
+% 3) Build framework truth table through explicit framework search API
 % ------------------------------------------------------------
 profile = make_profile_MB_nominal_validation_stage05();
 
-cfg_engine = default_params();
-cfg_engine = stage09_prepare_cfg(cfg_engine);
-cfg_engine = configure_stage_output_paths(cfg_engine);
+cfg_engine_base = default_params();
+cfg_engine_base = stage09_prepare_cfg(cfg_engine_base);
+cfg_engine_base = configure_stage_output_paths(cfg_engine_base);
 
 cfg_engine_profile = config_service(profile);
-cfg_engine = local_merge_cfg_for_engine(cfg_engine, cfg_engine_profile);
+cfg_engine = local_merge_cfg_for_engine(cfg_engine_base, cfg_engine_profile);
 
-% Reuse current design grid search result if available through framework search
-search_result = run_design_grid_search_opend(profile);
+design_pool = design_pool_service(cfg_engine);
+design_rows = local_extract_design_rows(design_pool);
+
+task_family = task_family_service(cfg_engine);
+
+search_spec = struct();
+search_spec.run_label = 'manual_stage05_best_envelope';
+search_spec.save_cache = false;
+
+search_result = run_design_grid_search_opend(design_rows, task_family, cfg_engine, search_spec);
 grid_table = search_result.grid_table;
 
+% ------------------------------------------------------------
+% 4) Build framework best-pass envelope
+% ------------------------------------------------------------
 env_spec = struct();
 env_spec.fixed_filters = struct('i_deg', target_i_deg);
 env_spec.group_key = 'Ns';
@@ -65,7 +75,7 @@ env_spec.aggregate_mode = 'max';
 framework_env = build_best_envelope(grid_table, env_spec);
 
 % ------------------------------------------------------------
-% 4) Compare
+% 5) Compare
 % ------------------------------------------------------------
 legacy_env = renamevars(legacy_env, {'best_pass'}, {'legacy_best_pass'});
 framework_env = renamevars(framework_env, {'best_pass'}, {'engine_best_pass'});
@@ -96,5 +106,28 @@ if isfield(cfg_overlay, 'runtime')
 end
 if isfield(cfg_overlay, 'stage03')
     cfg_out.stage03 = cfg_overlay.stage03;
+end
+end
+
+function rows = local_extract_design_rows(design_pool)
+if isstruct(design_pool) && isfield(design_pool, 'rows')
+    rows = design_pool.rows;
+elseif isstruct(design_pool) && isfield(design_pool, 'design_table')
+    rows = design_pool.design_table;
+elseif istable(design_pool)
+    rows = table2struct(design_pool);
+elseif isstruct(design_pool)
+    fn = fieldnames(design_pool);
+    if any(strcmp(fn, 'P')) || any(strcmp(fn, 'T')) || any(strcmp(fn, 'design_id'))
+        rows = design_pool;
+    else
+        error('Unsupported design_pool container struct. Fields: %s', strjoin(fn, ', '));
+    end
+else
+    error('Unsupported design_pool type: %s', class(design_pool));
+end
+
+if istable(rows)
+    rows = table2struct(rows);
 end
 end
