@@ -2,7 +2,7 @@ function result = run_MB_heading_small_formal_boundary_summary()
 startup;
 
 r_head = run_MB_heading_small_formal_master();
-boundary_result = small_formal_boundary_summary_service(r_head.truth_result);
+boundary_result = ch4_small_formal_boundary_summary_service(r_head.truth_result);
 
 output_dir = fullfile('outputs', 'experiments', 'chapter4', 'MB');
 
