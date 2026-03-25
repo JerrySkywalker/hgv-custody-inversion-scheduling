@@ -28,7 +28,7 @@ out.legacy_r_size = size(legacy_satbank.r_eci_km);
 out.engine_r_size = size(engine_satbank.r_eci_km);
 out.r_size_match = isequal(out.legacy_r_size, out.engine_r_size);
 
-out.legacy_t_count = numel(t_s_common);
-out.engine_t_count = size(engine_satbank.r_eci_km, 3);
+out.legacy_t_count = size(legacy_satbank.r_eci_km, 1);
+out.engine_t_count = size(engine_satbank.r_eci_km, 1);
 out.time_count_match = (out.legacy_t_count == out.engine_t_count);
 end
