@@ -95,3 +95,6 @@ satellite_view.png
 # Ignore all generated legacy outputs
 legacy/outputs/
 
+# Ignore generated experiment outputs
+experiments/**/outputs/**
+
