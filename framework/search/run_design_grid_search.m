@@ -42,40 +42,48 @@ end
 logging_opts = resolve_search_logging_options(search_spec);
 logger = make_logger(logging_opts);
 
+parallel_opts = resolve_parallel_options(search_spec);
+
 rows = local_extract_design_rows(design_grid);
 n = numel(rows);
 
-log_message(logger, 'INFO', 'Starting design-grid search: mode=%s, n_rows=%d, gamma=%.10g', ...
-    engine_mode, n, search_spec.gamma_eff_scalar);
+log_message(logger, 'INFO', 'Starting design-grid search: mode=%s, n_rows=%d, gamma=%.10g, parallel=%d', ...
+    engine_mode, n, search_spec.gamma_eff_scalar, parallel_opts.use_parallel);
 
-result_rows = cell(n, 1);
+if parallel_opts.use_parallel
+    result_rows = run_design_grid_search_parallel(rows, trajs_in, engine_mode, engine_cfg, search_spec, logger, parallel_opts);
+else
+    result_cells = cell(n, 1);
 
-for k = 1:n
-    row = rows(k);
+    for k = 1:n
+        row = rows(k);
 
-    if logging_opts.show_progress && (mod(k, logging_opts.progress_every) == 0 || k == 1 || k == n)
-        if isfield(row, 'design_id')
-            rid = string(row.design_id);
-        else
-            rid = sprintf('row_%d', k);
+        if logging_opts.show_progress && (mod(k, logging_opts.progress_every) == 0 || k == 1 || k == n)
+            if isfield(row, 'design_id')
+                rid = string(row.design_id);
+            else
+                rid = sprintf('row_%d', k);
+            end
+            log_message(logger, 'INFO', '[%d/%d] evaluating %s', k, n, rid);
         end
-        log_message(logger, 'INFO', '[%d/%d] evaluating %s', k, n, rid);
+
+        switch engine_mode
+            case 'opend'
+                eval_out = evaluate_design_point_opend(row, trajs_in, search_spec.gamma_eff_scalar, engine_cfg);
+            case 'closedd'
+                eval_out = evaluate_design_point_closedd(row, trajs_in, search_spec.gamma_eff_scalar, engine_cfg);
+            otherwise
+                error('run_design_grid_search:UnsupportedMode', ...
+                    'Unsupported evaluator mode: %s', engine_mode);
+        end
+
+        result_cells{k} = local_pack_result_row(row, eval_out, engine_mode, search_spec);
     end
 
-    switch engine_mode
-        case 'opend'
-            eval_out = evaluate_design_point_opend(row, trajs_in, search_spec.gamma_eff_scalar, engine_cfg);
-        case 'closedd'
-            eval_out = evaluate_design_point_closedd(row, trajs_in, search_spec.gamma_eff_scalar, engine_cfg);
-        otherwise
-            error('run_design_grid_search:UnsupportedMode', ...
-                'Unsupported evaluator mode: %s', engine_mode);
-    end
-
-    result_rows{k} = local_pack_result_row(row, eval_out, engine_mode, search_spec);
+    result_rows = vertcat(result_cells{:});
 end
 
-grid_table = struct2table(vertcat(result_rows{:}));
+grid_table = struct2table(result_rows);
 grid_table = local_standardize_grid_table(grid_table, engine_mode, search_spec);
 
 meta = local_build_meta(design_grid, task_family, engine_mode, search_spec);
