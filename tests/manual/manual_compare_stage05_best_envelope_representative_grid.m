@@ -41,7 +41,7 @@ for k = 1:n
     legacy_rows(k).F = row.F;
     legacy_rows(k).Ns = row.Ns;
     legacy_rows(k).pass_ratio = legacy_eval.pass_ratio;
-    legacy_rows(k).joint_margin = legacy_eval.joint_margin;
+    legacy_rows(k).DG_rob = legacy_eval.DG_rob;
 
     engine_rows(k).design_id = string(row.design_id);
     engine_rows(k).h_km = row.h_km;
@@ -51,7 +51,7 @@ for k = 1:n
     engine_rows(k).F = row.F;
     engine_rows(k).Ns = row.Ns;
     engine_rows(k).pass_ratio = engine_eval.pass_ratio;
-    engine_rows(k).joint_margin = engine_eval.joint_margin;
+    engine_rows(k).DG_rob = engine_eval.DG_rob;
 end
 
 legacy_tbl = struct2table(legacy_rows);
@@ -60,11 +60,12 @@ engine_tbl = struct2table(engine_rows);
 legacy_env = build_best_envelope(legacy_tbl, 'Ns', 'pass_ratio', struct('i_deg', 60), 'max');
 engine_env = build_best_envelope(engine_tbl, 'Ns', 'pass_ratio', struct('i_deg', 60), 'max');
 
-legacy_env = renamevars(legacy_env, {'pass_ratio'}, {'legacy_best_pass'});
-engine_env = renamevars(engine_env, {'pass_ratio'}, {'engine_best_pass'});
+legacy_env = renamevars(legacy_env, {'pass_ratio','best_joint_margin'}, {'legacy_best_pass','legacy_best_geometry_margin'});
+engine_env = renamevars(engine_env, {'pass_ratio','best_joint_margin'}, {'engine_best_pass','engine_best_geometry_margin'});
 
 compare_tbl = innerjoin(legacy_env, engine_env, 'Keys', {'Ns'});
 compare_tbl.best_pass_abs_diff = abs(compare_tbl.legacy_best_pass - compare_tbl.engine_best_pass);
+compare_tbl.best_geometry_margin_abs_diff = abs(compare_tbl.legacy_best_geometry_margin - compare_tbl.engine_best_geometry_margin);
 
 out = struct();
 out.legacy_env = legacy_env;
