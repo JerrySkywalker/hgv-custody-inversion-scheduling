@@ -48,7 +48,7 @@ n = numel(rows);
 log_message(logger, 'INFO', 'Starting design-grid search: mode=%s, n_rows=%d, gamma=%.10g', ...
     engine_mode, n, search_spec.gamma_eff_scalar);
 
-result_rows = repmat(struct(), n, 1);
+result_rows = cell(n, 1);
 
 for k = 1:n
     row = rows(k);
@@ -72,10 +72,10 @@ for k = 1:n
                 'Unsupported evaluator mode: %s', engine_mode);
     end
 
-    result_rows(k) = local_pack_result_row(row, eval_out, engine_mode, search_spec);
+    result_rows{k} = local_pack_result_row(row, eval_out, engine_mode, search_spec);
 end
 
-grid_table = struct2table(result_rows);
+grid_table = struct2table(vertcat(result_rows{:}));
 grid_table = local_standardize_grid_table(grid_table, engine_mode, search_spec);
 
 meta = local_build_meta(design_grid, task_family, engine_mode, search_spec);
