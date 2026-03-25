@@ -10,6 +10,7 @@ report.stage04_window = manual_compare_stage04_window();
 report.stage06_heading_family = manual_compare_stage06_heading_family();
 report.stage05_opend_smallset = manual_compare_stage05_opend_smallset();
 report.stage09_closedd_smallset = manual_compare_stage09_closedd_smallset();
+report.stage05_best_envelope = manual_compare_stage05_best_envelope();
 
 disp('=== Framework vs Legacy Manual Regression ===');
 disp(report);
