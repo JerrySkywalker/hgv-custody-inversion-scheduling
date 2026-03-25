@@ -4,7 +4,7 @@ startup;
 r_slice = run_MB_small_formal_PT_slice();
 nominal_slice = r_slice.nominal_slice;
 
-replay_result = ch4_stage05_curve_replay_service(nominal_slice);
+replay_result = ch4_ch4_stage05_curve_replay_service(nominal_slice);
 
 output_dir = fullfile('outputs', 'experiments', 'chapter4', 'validation');
 
