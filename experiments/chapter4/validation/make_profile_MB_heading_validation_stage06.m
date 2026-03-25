@@ -1,0 +1,35 @@
+function profile = make_profile_MB_heading_validation_stage06()
+gamma_info = load_stage04_nominal_gamma_req();
+
+profile = struct();
+profile.name = 'MB_heading_validation_stage06';
+profile.mode = 'static';
+profile.task_family = 'heading';
+
+profile.runtime = struct();
+profile.runtime.max_cases = 3;
+profile.runtime.max_designs = 3;
+
+profile.gamma_eff_scalar = gamma_info.gamma_req;
+profile.gamma_source = gamma_info.gamma_source;
+profile.gamma_cache_file = gamma_info.cache_file;
+profile.Tw_s = gamma_info.Tw_s;
+
+profile.design_pool = struct();
+profile.design_pool.rows = [ ...
+    make_row('H0601', 8,  8,  1000, 60, 0), ...
+    make_row('H0602', 8, 10,  1000, 60, 0), ...
+    make_row('H0603', 10, 8,  1000, 60, 0) ...
+];
+end
+
+function row = make_row(design_id, P, T, h_km, i_deg, F)
+row = struct();
+row.design_id = design_id;
+row.P = P;
+row.T = T;
+row.h_km = h_km;
+row.i_deg = i_deg;
+row.F = F;
+row.Ns = P * T;
+end
