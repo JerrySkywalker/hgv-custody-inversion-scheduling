@@ -4,7 +4,7 @@ startup;
 r_nom = run_MB_nominal_small_formal_master();
 r_head = run_MB_heading_small_formal_master();
 
-compare_result = small_formal_compare_service(r_nom, r_head);
+compare_result = ch4_small_formal_compare_service(r_nom, r_head);
 
 output_dir = fullfile('outputs', 'experiments', 'chapter4', 'MB');
 
