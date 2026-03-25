@@ -36,7 +36,7 @@ end
 
 function trajs_in = build_nominal_trajs_in(casebank, cfg)
 cfg_legacy = default_params();
-entry = casebank.nominal;
+entry = pick_first_nominal_case(casebank.nominal);
 
 trajs_in = struct('case', {}, 'traj', {});
 k = 1;
@@ -57,7 +57,7 @@ function trajs_in = build_heading_trajs_in(casebank, cfg)
 cfg_legacy = default_params();
 heading_offsets = [0, -30, 30];
 
-nominal_entry = casebank.nominal;
+nominal_entry = pick_first_nominal_case(casebank.nominal);
 trajs_in = struct('case', {}, 'traj', {});
 k = 0;
 
@@ -120,5 +120,14 @@ for k = 1:numel(trajs_in)
     else
         case_list{k} = sprintf('case_%d', k);
     end
+end
+end
+
+function case_item = pick_first_nominal_case(nominal_entry)
+if isstruct(nominal_entry)
+    case_item = nominal_entry(1);
+else
+    error('task_family_service:InvalidNominalEntry', ...
+        'casebank.nominal must be a struct or struct array.');
 end
 end
