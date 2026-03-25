@@ -13,6 +13,7 @@ profile.runtime.max_designs = 3;
 profile.gamma_eff_scalar = gamma_info.gamma_req;
 profile.gamma_source = gamma_info.gamma_source;
 profile.gamma_cache_file = gamma_info.cache_file;
+profile.Tw_s = gamma_info.Tw_s;
 
 profile.design_pool = struct();
 profile.design_pool.rows = [ ...
