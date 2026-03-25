@@ -42,7 +42,7 @@ for k = 1:n
     legacy_rows(k).Ns = row.Ns;
     legacy_rows(k).pass_ratio = legacy_eval.pass_ratio;
     legacy_rows(k).feasible_flag = legacy_eval.feasible_flag;
-    legacy_rows(k).joint_margin = legacy_eval.joint_margin;
+    legacy_rows(k).DG_rob = legacy_eval.DG_rob;
 
     engine_rows(k).design_id = string(row.design_id);
     engine_rows(k).h_km = row.h_km;
@@ -53,19 +53,19 @@ for k = 1:n
     engine_rows(k).Ns = row.Ns;
     engine_rows(k).pass_ratio = engine_eval.pass_ratio;
     engine_rows(k).feasible_flag = engine_eval.feasible_flag;
-    engine_rows(k).joint_margin = engine_eval.joint_margin;
+    engine_rows(k).DG_rob = engine_eval.DG_rob;
 end
 
 legacy_tbl = struct2table(legacy_rows);
 engine_tbl = struct2table(engine_rows);
 
 legacy_tbl = renamevars(legacy_tbl, ...
-    {'pass_ratio','feasible_flag','joint_margin'}, ...
-    {'legacy_pass_ratio','legacy_feasible_flag','legacy_joint_margin'});
+    {'pass_ratio','feasible_flag','DG_rob'}, ...
+    {'legacy_pass_ratio','legacy_feasible_flag','legacy_geometry_margin'});
 
 engine_tbl = renamevars(engine_tbl, ...
-    {'pass_ratio','feasible_flag','joint_margin'}, ...
-    {'engine_pass_ratio','engine_feasible_flag','engine_joint_margin'});
+    {'pass_ratio','feasible_flag','DG_rob'}, ...
+    {'engine_pass_ratio','engine_feasible_flag','engine_geometry_margin'});
 
 compare_tbl = innerjoin( ...
     legacy_tbl, engine_tbl, ...
@@ -73,7 +73,7 @@ compare_tbl = innerjoin( ...
 
 compare_tbl.pass_ratio_abs_diff = abs(compare_tbl.legacy_pass_ratio - compare_tbl.engine_pass_ratio);
 compare_tbl.feasible_match = compare_tbl.legacy_feasible_flag == compare_tbl.engine_feasible_flag;
-compare_tbl.joint_margin_abs_diff = abs(compare_tbl.legacy_joint_margin - compare_tbl.engine_joint_margin);
+compare_tbl.geometry_margin_abs_diff = abs(compare_tbl.legacy_geometry_margin - compare_tbl.engine_geometry_margin);
 
 out = struct();
 out.profile_name = string(profile.name);
