@@ -25,7 +25,17 @@ row.F = design_point.F;
 row.Ns = design_point.Ns;
 
 trajs_in = task_family.trajs_in;
+
 gamma_eff_scalar = 1.0;
+gamma_source = 'default_unit_threshold';
+
+if isfield(profile, 'gamma_eff_scalar') && ~isempty(profile.gamma_eff_scalar)
+    gamma_eff_scalar = profile.gamma_eff_scalar;
+end
+if isfield(profile, 'gamma_source') && ~isempty(profile.gamma_source)
+    gamma_source = char(profile.gamma_source);
+end
+
 eval_ctx = [];
 
 legacy_out = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
@@ -62,6 +72,7 @@ design_eval.failed_early = logical(legacy_out.failed_early);
 
 % Raw diagnostic fields for threshold / margin alignment
 design_eval.gamma_eff_scalar = gamma_eff_scalar;
+design_eval.gamma_source = gamma_source;
 design_eval.raw_DG_rob = legacy_out.DG_rob;
 design_eval.raw_DA_rob = legacy_out.DA_rob;
 design_eval.raw_DT_bar_rob = legacy_out.DT_bar_rob;
