@@ -6,7 +6,16 @@ profile = make_profile_MB_nominal_validation_stage05();
 cfg = config_service(profile);
 
 design_pool = design_pool_service(cfg);
-rows = design_pool.rows;
+
+if isstruct(design_pool) && isfield(design_pool, 'rows')
+    rows = design_pool.rows;
+elseif istable(design_pool)
+    rows = table2struct(design_pool);
+elseif isstruct(design_pool)
+    rows = design_pool;
+else
+    error('Unsupported design_pool type: %s', class(design_pool));
+end
 
 task_family = task_family_service(cfg);
 gamma_eff_scalar = cfg.runtime.gamma_eff_scalar;
@@ -19,7 +28,7 @@ for k = 1:n
     row = rows(k);
 
     % ---------------------------
-    % Legacy / current validation path
+    % Legacy / current truth path
     % ---------------------------
     legacy_eval = evaluate_single_layer_walker_stage09( ...
         row, task_family.trajs_in, gamma_eff_scalar, cfg);
@@ -50,17 +59,17 @@ end
 legacy_tbl = struct2table(legacy_rows);
 engine_tbl = struct2table(engine_rows);
 
+legacy_tbl = renamevars(legacy_tbl, ...
+    {'pass_ratio','feasible_flag','joint_margin'}, ...
+    {'legacy_pass_ratio','legacy_feasible_flag','legacy_joint_margin'});
+
+engine_tbl = renamevars(engine_tbl, ...
+    {'pass_ratio','feasible_flag','joint_margin'}, ...
+    {'engine_pass_ratio','engine_feasible_flag','engine_joint_margin'});
+
 compare_tbl = innerjoin( ...
     legacy_tbl, engine_tbl, ...
-    'Keys', {'design_id','P','T','Ns'}, ...
-    'LeftVariables', {'design_id','P','T','Ns','pass_ratio','feasible_flag','joint_margin'}, ...
-    'RightVariables', {'pass_ratio','feasible_flag','joint_margin'});
-
-compare_tbl = renamevars(compare_tbl, ...
-    {'pass_ratio_legacy_tbl','feasible_flag_legacy_tbl','joint_margin_legacy_tbl', ...
-     'pass_ratio_engine_tbl','feasible_flag_engine_tbl','joint_margin_engine_tbl'}, ...
-    {'legacy_pass_ratio','legacy_feasible_flag','legacy_joint_margin', ...
-     'engine_pass_ratio','engine_feasible_flag','engine_joint_margin'});
+    'Keys', {'design_id','P','T','Ns'});
 
 compare_tbl.pass_ratio_abs_diff = abs(compare_tbl.legacy_pass_ratio - compare_tbl.engine_pass_ratio);
 compare_tbl.feasible_match = compare_tbl.legacy_feasible_flag == compare_tbl.engine_feasible_flag;
