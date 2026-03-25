@@ -2,27 +2,17 @@ function validation_result = run_validate_against_stage05_06()
 startup;
 
 % ------------------------------------------------------------
-% Locate legacy Stage05 / Stage06 caches directly
-% ------------------------------------------------------------
-repo_root = fileparts(fileparts(fileparts(fileparts(mfilename('fullpath')))));
-
-stage05_cache_dir = fullfile(repo_root, 'legacy', 'outputs', 'stage', 'stage05', 'cache');
-stage06_cache_dir = fullfile(repo_root, 'legacy', 'outputs', 'stage', 'stage06', 'cache');
-
-assert(exist(stage05_cache_dir, 'dir') == 7, ...
-    'Stage05 cache directory not found: %s', stage05_cache_dir);
-assert(exist(stage06_cache_dir, 'dir') == 7, ...
-    'Stage06 cache directory not found: %s', stage06_cache_dir);
-
-% ------------------------------------------------------------
-% Run nominal validation profile first
+% Stage05 nominal validation (required)
 % ------------------------------------------------------------
 nominal_result = run_MB_nominal_validation_stage05();
 tbl_new_nominal = nominal_result.truth_result.table;
 
-% ------------------------------------------------------------
-% Stage05 nominal validation (required)
-% ------------------------------------------------------------
+repo_root = fileparts(fileparts(fileparts(fileparts(mfilename('fullpath')))));
+stage05_cache_dir = fullfile(repo_root, 'legacy', 'outputs', 'stage', 'stage05', 'cache');
+
+assert(exist(stage05_cache_dir, 'dir') == 7, ...
+    'Stage05 cache directory not found: %s', stage05_cache_dir);
+
 d5 = dir(fullfile(stage05_cache_dir, 'stage05_nominal_walker_search*.mat'));
 assert(~isempty(d5), 'No Stage05 nominal cache found in %s', stage05_cache_dir);
 [~, idx5] = max([d5.datenum]);
@@ -49,43 +39,20 @@ nominal_compare.abs_diff_pass_ratio = abs(nominal_compare.new_pass_ratio - nomin
 nominal_compare.feasible_match = (nominal_compare.new_is_feasible == logical(nominal_compare.legacy_is_feasible));
 
 % ------------------------------------------------------------
-% Stage06 heading validation (optional)
-% Only run heading path if Stage06 walker-search cache exists.
+% Stage06 heading minimal validation (optional but preferred)
+% Reuse the already-verified minimal comparison entrypoint.
 % ------------------------------------------------------------
-stage06_file = '';
 heading_compare = table();
+stage06_file = '';
 artifact_heading = struct();
 
-d6 = dir(fullfile(stage06_cache_dir, 'stage06_heading_walker_search*.mat'));
-if isempty(d6)
+try
+    heading_validation = run_validate_stage06_heading_minimal();
+    heading_compare = heading_validation.compare_table;
+    stage06_file = heading_validation.stage06_file;
+catch ME
     warning('run_validate_against_stage05_06:Stage06Unavailable', ...
-        ['Stage06 heading walker-search cache not found in %s. ', ...
-         'Only Stage05 nominal validation will be produced for now.'], stage06_cache_dir);
-else
-    [~, idx6] = max([d6.datenum]);
-    stage06_file = fullfile(d6(idx6).folder, d6(idx6).name);
-
-    heading_result = run_MB_heading();
-    tbl_new_heading = heading_result.out.truth_result.table;
-
-    S6 = load(stage06_file);
-    assert(isfield(S6, 'out') && isfield(S6.out, 'grid'), ...
-        'Invalid Stage06 cache: missing out.grid');
-    grid06 = S6.out.grid;
-
-    new_heading = tbl_new_heading(:, {'design_id','h_km','P','T','i_deg','Ns','pass_ratio','is_feasible','joint_margin'});
-    new_heading = renamevars(new_heading, ...
-        {'pass_ratio','is_feasible','joint_margin'}, ...
-        {'new_pass_ratio','new_is_feasible','new_joint_margin'});
-
-    legacy06 = grid06(:, {'h_km','P','T','i_deg','Ns','pass_ratio','feasible_flag','D_G_min'});
-    legacy06 = renamevars(legacy06, ...
-        {'pass_ratio','feasible_flag','D_G_min'}, ...
-        {'legacy_pass_ratio','legacy_is_feasible','legacy_DG_min'});
-
-    heading_compare = innerjoin(new_heading, legacy06, 'Keys', key_vars);
-    heading_compare.abs_diff_pass_ratio = abs(heading_compare.new_pass_ratio - heading_compare.legacy_pass_ratio);
-    heading_compare.feasible_match = (heading_compare.new_is_feasible == logical(heading_compare.legacy_is_feasible));
+        'Stage06 minimal heading validation unavailable: %s', ME.message);
 end
 
 % ------------------------------------------------------------
@@ -128,6 +95,6 @@ if ~isempty(heading_compare)
     disp('[validation] Heading comparison:');
     disp(heading_compare(:, {'design_id','h_km','P','T','i_deg','Ns','new_pass_ratio','legacy_pass_ratio','abs_diff_pass_ratio','feasible_match'}));
 else
-    disp('[validation] Heading comparison skipped: Stage06 walker-search cache unavailable.');
+    disp('[validation] Heading comparison skipped: Stage06 minimal validation unavailable.');
 end
 end
