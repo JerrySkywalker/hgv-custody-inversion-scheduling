@@ -41,22 +41,13 @@ legacy_trajs_in = stage06_build_heading_family( ...
 
 % ------------------------------------------------------------
 % Engine family
-% Be permissive about current engine wrapper signature.
+% Engine API expects separate nominal_case / nominal_traj struct arrays
 % ------------------------------------------------------------
-try
-    engine_trajs_in = build_heading_family( ...
-        trajs_nominal, heading_offsets_deg, ...
-        'HeadingMode', spec.heading_mode, ...
-        'FamilyType', spec.family_type, ...
-        'Cfg', cfg);
-catch
-    try
-        engine_trajs_in = build_heading_family( ...
-            trajs_nominal, heading_offsets_deg, cfg);
-    catch ME
-        rethrow(ME);
-    end
-end
+nominal_case = reshape([trajs_nominal.case], [], 1);
+nominal_traj = reshape([trajs_nominal.traj], [], 1);
+
+engine_trajs_in = build_heading_family( ...
+    nominal_case, nominal_traj, heading_offsets_deg, cfg);
 
 out = struct();
 
