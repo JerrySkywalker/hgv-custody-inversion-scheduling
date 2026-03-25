@@ -47,6 +47,11 @@ parallel_opts = resolve_parallel_options(search_spec);
 rows = local_extract_design_rows(design_grid);
 n = numel(rows);
 
+if parallel_opts.use_parallel && n < parallel_opts.min_parallel_rows
+    log_message(logger, 'INFO', 'Parallel requested but disabled because n_rows=%d < min_parallel_rows=%d', n, parallel_opts.min_parallel_rows);
+    parallel_opts.use_parallel = false;
+end
+
 log_message(logger, 'INFO', 'Starting design-grid search: mode=%s, n_rows=%d, gamma=%.10g, parallel=%d', ...
     engine_mode, n, search_spec.gamma_eff_scalar, parallel_opts.use_parallel);
 
