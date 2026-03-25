@@ -1,11 +1,13 @@
 function out = manual_compare_stage05_opend_smallset()
 startup;
 
-% Use the current chapter4 nominal validation profile as the small-set source
+% ---------------------------------
+% Framework-side profile / cfg
+% ---------------------------------
 profile = make_profile_MB_nominal_validation_stage05();
-cfg = config_service(profile);
+cfg_engine = config_service(profile);
 
-design_pool = design_pool_service(cfg);
+design_pool = design_pool_service(cfg_engine);
 
 if isstruct(design_pool) && isfield(design_pool, 'rows')
     rows = design_pool.rows;
@@ -17,7 +19,7 @@ else
     error('Unsupported design_pool type: %s', class(design_pool));
 end
 
-task_family = task_family_service(cfg);
+task_family = task_family_service(cfg_engine);
 
 if isfield(profile, 'gamma_eff_scalar')
     gamma_eff_scalar = profile.gamma_eff_scalar;
@@ -25,6 +27,13 @@ else
     gamma_info = load_stage04_nominal_gamma_req();
     gamma_eff_scalar = gamma_info.gamma_req;
 end
+
+% ---------------------------------
+% Legacy-side cfg for truth evaluator
+% ---------------------------------
+cfg_legacy = default_params();
+cfg_legacy = stage09_prepare_cfg(cfg_legacy);
+cfg_legacy = configure_stage_output_paths(cfg_legacy);
 
 n = numel(rows);
 legacy_rows = repmat(struct(), n, 1);
@@ -37,13 +46,13 @@ for k = 1:n
     % Legacy / current truth path
     % ---------------------------
     legacy_eval = evaluate_single_layer_walker_stage09( ...
-        row, task_family.trajs_in, gamma_eff_scalar, cfg);
+        row, task_family.trajs_in, gamma_eff_scalar, cfg_legacy);
 
     % ---------------------------
     % Engine OpenD path
     % ---------------------------
     engine_eval = evaluate_design_point_opend( ...
-        row, task_family.trajs_in, gamma_eff_scalar, cfg);
+        row, task_family.trajs_in, gamma_eff_scalar, cfg_engine);
 
     legacy_rows(k).design_id = string(row.design_id);
     legacy_rows(k).P = row.P;
