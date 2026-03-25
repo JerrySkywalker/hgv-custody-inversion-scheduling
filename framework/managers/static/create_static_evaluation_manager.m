@@ -25,6 +25,9 @@ result.design_pool = design_pool;
 result.task_family = task_family;
 result.truth_result = truth_result;
 result.minimum_solution_result = minimum_solution_result;
+if isfield(truth_result, 'search_result')
+    result.search_result = truth_result.search_result;
+end
 
 fprintf('[static] Run completed.\n');
 fprintf('[static] Profile: %s\n', get_profile_name(profile));

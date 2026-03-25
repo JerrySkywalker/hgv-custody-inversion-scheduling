@@ -42,6 +42,7 @@ cfg.design.default_i_deg = 60;
 cfg.threshold = struct();
 cfg.threshold.gamma_eff_scalar = 1.0;
 cfg.threshold.gamma_source = 'default_unit_threshold';
+cfg.threshold.Tw_s = [];
 
 if isfield(profile, 'gamma_eff_scalar') && ~isempty(profile.gamma_eff_scalar)
     cfg.threshold.gamma_eff_scalar = profile.gamma_eff_scalar;
@@ -50,4 +51,19 @@ end
 if isfield(profile, 'gamma_source') && ~isempty(profile.gamma_source)
     cfg.threshold.gamma_source = char(profile.gamma_source);
 end
+
+if isfield(profile, 'Tw_s') && ~isempty(profile.Tw_s)
+    cfg.threshold.Tw_s = profile.Tw_s;
+end
+
+cfg.evaluator_mode = 'closedd';
+if isfield(profile, 'evaluator_mode') && ~isempty(profile.evaluator_mode)
+    cfg.evaluator_mode = char(lower(string(profile.evaluator_mode)));
+end
+
+cfg.engine_cfg = default_params();
+if ~isempty(cfg.threshold.Tw_s)
+    cfg.engine_cfg.stage04.Tw_s = cfg.threshold.Tw_s;
+end
+cfg.engine_cfg.stage04.gamma_req = cfg.threshold.gamma_eff_scalar;
 end
