@@ -12,6 +12,9 @@ test_static_artifact_manifest_bootstrap;
 test_static_minimum_artifact_bootstrap;
 test_static_nominal_master_run_bootstrap;
 test_static_compare_master_run_bootstrap;
+test_nominal_validation_stage05_profile_bootstrap;
+test_validate_against_stage05_06_bootstrap;
+test_validate_stage05_nominal_alignment;
 
 disp('=== All Chapter 4 smoke tests passed ===');
 end
