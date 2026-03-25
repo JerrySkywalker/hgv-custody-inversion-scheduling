@@ -60,12 +60,18 @@ engine_tbl = struct2table(engine_rows);
 legacy_env = build_best_envelope(legacy_tbl, 'Ns', 'pass_ratio', struct('i_deg', 60), 'max');
 engine_env = build_best_envelope(engine_tbl, 'Ns', 'pass_ratio', struct('i_deg', 60), 'max');
 
-legacy_env = renamevars(legacy_env, {'pass_ratio','best_joint_margin'}, {'legacy_best_pass','legacy_best_geometry_margin'});
-engine_env = renamevars(engine_env, {'pass_ratio','best_joint_margin'}, {'engine_best_pass','engine_best_geometry_margin'});
+legacy_env = renamevars(legacy_env, {'pass_ratio'}, {'legacy_best_pass'});
+engine_env = renamevars(engine_env, {'pass_ratio'}, {'engine_best_pass'});
 
 compare_tbl = innerjoin(legacy_env, engine_env, 'Keys', {'Ns'});
 compare_tbl.best_pass_abs_diff = abs(compare_tbl.legacy_best_pass - compare_tbl.engine_best_pass);
-compare_tbl.best_geometry_margin_abs_diff = abs(compare_tbl.legacy_best_geometry_margin - compare_tbl.engine_best_geometry_margin);
+
+if all(ismember({'best_geometry_margin_legacy_env','best_geometry_margin_engine_env'}, compare_tbl.Properties.VariableNames))
+    compare_tbl.best_geometry_margin_abs_diff = abs( ...
+        compare_tbl.best_geometry_margin_legacy_env - compare_tbl.best_geometry_margin_engine_env);
+else
+    compare_tbl.best_geometry_margin_abs_diff = NaN(height(compare_tbl),1);
+end
 
 out = struct();
 out.legacy_env = legacy_env;
