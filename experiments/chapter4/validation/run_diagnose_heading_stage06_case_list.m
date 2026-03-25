@@ -11,36 +11,32 @@ idx = find(strcmp({design_rows.design_id}, 'H0603'), 1);
 assert(~isempty(idx), 'Expected H0603 in heading validation design pool.');
 design_point = design_rows(idx);
 
-case_table = task_family.case_table;
-n_cases = height(case_table);
-assert(n_cases >= 1, 'Expected non-empty heading case table.');
+trajs_in = task_family.trajs_in;
+n_cases = numel(trajs_in);
+assert(n_cases >= 1, 'Expected non-empty heading trajs_in.');
 
 diag_rows = repmat(struct(), n_cases, 1);
 
 for k = 1:n_cases
-    task_family_k = task_family;
-    task_family_k.case_table = case_table(k, :);
-    task_family_k.trajs_in = task_family.trajs_in(k);
+    case_k = trajs_in(k).case;
+
+    task_family_k = struct();
+    task_family_k.name = task_family.name;
+    task_family_k.mode = task_family.mode;
+    task_family_k.case_count = 1;
+    task_family_k.case_list = {safe_get_field(case_k, 'case_id', sprintf('case_%d', k))};
+    task_family_k.trajs_in = trajs_in(k);
+    task_family_k.meta = task_family.meta;
 
     eval_row = adapter_design_eval_legacy(design_point, task_family_k, profile);
 
     diag_rows(k).design_id = string(design_point.design_id);
-    diag_rows(k).case_id = string(case_table.case_id(k));
+    diag_rows(k).case_id = string(safe_get_field(case_k, 'case_id', sprintf('case_%d', k)));
+    diag_rows(k).family = string(safe_get_field(case_k, 'family', ''));
+    diag_rows(k).subfamily = string(safe_get_field(case_k, 'subfamily', ''));
 
-    if ismember('family', case_table.Properties.VariableNames)
-        diag_rows(k).family = string(case_table.family(k));
-    else
-        diag_rows(k).family = "";
-    end
-
-    if ismember('subfamily', case_table.Properties.VariableNames)
-        diag_rows(k).subfamily = string(case_table.subfamily(k));
-    else
-        diag_rows(k).subfamily = "";
-    end
-
-    if ismember('heading_offset_deg', case_table.Properties.VariableNames)
-        diag_rows(k).heading_offset_deg = case_table.heading_offset_deg(k);
+    if isfield(case_k, 'heading_offset_deg')
+        diag_rows(k).heading_offset_deg = case_k.heading_offset_deg;
     else
         diag_rows(k).heading_offset_deg = NaN;
     end
@@ -75,7 +71,7 @@ manifest_paths = save_artifact_manifest(manifest, output_dir, 'diagnose_stage06_
 
 diagnose_result = struct();
 diagnose_result.design_point = design_point;
-diagnose_result.case_table = case_table;
+diagnose_result.trajs_in = trajs_in;
 diagnose_result.diag_table = diag_table;
 diagnose_result.artifact = artifact;
 diagnose_result.manifest = manifest;
@@ -83,4 +79,12 @@ diagnose_result.manifest_paths = manifest_paths;
 
 disp('[diagnose] Heading Stage06 case-list diagnosis completed.');
 disp(diag_table(:, {'design_id','case_id','heading_offset_deg','DG_rob','pass_ratio','is_feasible','joint_margin'}));
+end
+
+function value = safe_get_field(s, field_name, default_value)
+if isfield(s, field_name)
+    value = s.(field_name);
+else
+    value = default_value;
+end
 end
