@@ -16,6 +16,12 @@ if parallel_opts.use_parallel
     source_kind = search_spec.source_kind;
     mon = build_parallel_monitor_options(search_spec);
 
+    dq = [];
+    if mon.enable_monitor && mon.enable_dataqueue
+        dq = parallel.pool.DataQueue;
+        afterEach(dq, @(msg) local_handle_parallel_event(msg, logger, mon));
+    end
+
     t_parallel = tic;
     bytes_supported = false;
     if mon.enable_monitor && mon.enable_comm_bytes
@@ -49,12 +55,28 @@ if parallel_opts.use_parallel
             packed.iter_time_sec = iter_time_sec;
         end
 
+        task = getCurrentTask();
+        worker_id = NaN;
+        if ~isempty(task)
+            worker_id = task.ID;
+        end
+
+        if mon.enable_monitor && mon.enable_dataqueue && mon.enable_per_point_debug
+            msg = struct();
+            msg.kind = 'point_completed';
+            msg.worker_id = worker_id;
+            msg.k = k;
+            msg.design_id = local_design_id_string(row);
+            msg.iter_time_sec = iter_time_sec;
+            msg.level = mon.per_point_log_level;
+            msg.P = local_get_row_field(row, 'P', NaN);
+            msg.T = local_get_row_field(row, 'T', NaN);
+            msg.i_deg = local_get_row_field(row, 'i_deg', NaN);
+            msg.Ns = local_get_row_field(row, 'Ns', NaN);
+            send(dq, msg);
+        end
+
         if mon.enable_slow_iter_warn && iter_time_sec > mon.slow_iter_threshold_sec
-            task = getCurrentTask();
-            worker_id = NaN;
-            if ~isempty(task)
-                worker_id = task.ID;
-            end
             packed.parallel_warn_flag = true;
             packed.parallel_warn_worker_id = worker_id;
             packed.parallel_warn_message = sprintf( ...
@@ -183,5 +205,26 @@ if isstruct(row)
     elseif isfield(row, 'base_design_id') && ~isempty(row.base_design_id)
         s = char(string(row.base_design_id));
     end
+end
+end
+
+function v = local_get_row_field(row, field_name, default_value)
+v = default_value;
+if isstruct(row) && isfield(row, field_name) && ~isempty(row.(field_name))
+    v = row.(field_name);
+end
+end
+
+function local_handle_parallel_event(msg, logger, mon)
+if ~isstruct(msg) || ~isfield(msg, 'kind')
+    return;
+end
+
+switch msg.kind
+    case 'point_completed'
+        log_message(logger, mon.per_point_log_level, ...
+            'Parallel point completed: worker=%g, k=%d, design_id=%s, iter_time=%.3f s, P=%g, T=%g, i=%g, Ns=%g', ...
+            msg.worker_id, msg.k, msg.design_id, msg.iter_time_sec, ...
+            msg.P, msg.T, msg.i_deg, msg.Ns);
 end
 end
