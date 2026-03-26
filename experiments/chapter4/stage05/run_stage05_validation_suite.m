@@ -3,6 +3,9 @@ function out = run_stage05_validation_suite(varargin)
 
 suite = make_stage05_validation_suite_spec(varargin{:});
 
+% Reduce startup noise inside suite runs.
+setenv('HGV_STARTUP_LOG_REPEATED_INIT', 'false');
+
 out = struct();
 out.suite_spec = suite;
 out.started_at = string(datetime('now'));
@@ -23,8 +26,11 @@ common_args = { ...
 
 out.reproduction = run_stage05_opend_legacy_reproduction_framework(common_args{:});
 
-out.compare = manual_smoke_stage05_opend_legacy_reproduction_compare();
-assert_stage05_opend_legacy_reproduction_compare();
+out.compare = manual_smoke_stage05_opend_legacy_reproduction_compare( ...
+    'framework_result', out.reproduction, ...
+    'artifact_root', suite.validation_artifact_root);
+
+assert_stage05_opend_legacy_reproduction_compare_result(out.compare);
 
 out.finished_at = string(datetime('now'));
 end
