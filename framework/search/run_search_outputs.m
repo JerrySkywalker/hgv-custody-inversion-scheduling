@@ -6,11 +6,8 @@ function outputs = run_search_outputs(grid_table, output_requests)
 %   - best_envelope
 %   - heatmap_slice
 %   - scenario_aggregate
-%
-% output_requests can be:
-%   {} / empty
-%   struct array with field .type
-%   cell array of structs
+%   - raan_aware_envelope
+%   - raan_aware_heatmap_slice
 
 if nargin < 2 || isempty(output_requests)
     outputs = struct();
@@ -74,6 +71,27 @@ for k = 1:numel(req_list)
             aggregate_modes = local_get_field(req, 'aggregate_modes', {'min','max','mean'});
             outputs.(name) = aggregate_over_region_phase( ...
                 grid_table, group_keys, metric_names, aggregate_modes);
+
+        case "raan_aware_envelope"
+            name = local_get_name(req, sprintf('raan_aware_envelope_%d', k));
+            group_key = local_get_field(req, 'group_key', 'Ns');
+            metric_name = local_get_field(req, 'metric_name', 'DG_rob');
+            fixed_filters = local_get_field(req, 'fixed_filters', struct());
+            scenario_metric = local_get_field(req, 'scenario_metric', metric_name);
+            scenario_mode = local_get_field(req, 'scenario_mode', 'min');
+            outputs.(name) = build_raan_aware_envelope( ...
+                grid_table, group_key, metric_name, fixed_filters, scenario_metric, scenario_mode);
+
+        case "raan_aware_heatmap_slice"
+            name = local_get_name(req, sprintf('raan_aware_heatmap_slice_%d', k));
+            metric_name = local_get_field(req, 'metric_name', 'DG_rob');
+            fixed_filters = local_get_field(req, 'fixed_filters', struct());
+            row_key = local_get_field(req, 'row_key', 'P');
+            col_key = local_get_field(req, 'col_key', 'T');
+            scenario_metric = local_get_field(req, 'scenario_metric', metric_name);
+            scenario_mode = local_get_field(req, 'scenario_mode', 'min');
+            outputs.(name) = build_raan_aware_heatmap_slice( ...
+                grid_table, metric_name, fixed_filters, row_key, col_key, scenario_metric, scenario_mode);
 
         otherwise
             error('run_search_outputs:UnsupportedType', ...
