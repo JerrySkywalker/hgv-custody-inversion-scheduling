@@ -16,11 +16,17 @@ addParameter(p, 'save_cache', false, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'use_parallel', true, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'show_progress', true, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'parallel_monitor', struct(), @(x) isstruct(x) || isempty(x));
+addParameter(p, 'min_parallel_rows', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 parse(p, varargin{:});
 args = p.Results;
 
+profile = args.profile;
+if isempty(profile)
+    profile = make_profile_MB_nominal_validation_stage05();
+end
+
 spec = struct();
-spec.profile = args.profile;
+spec.profile = profile;
 spec.i_grid_deg = args.i_grid_deg;
 spec.P_grid = args.P_grid;
 spec.T_grid = args.T_grid;
@@ -33,6 +39,7 @@ spec.artifact_root = char(string(args.artifact_root));
 spec.save_cache = logical(args.save_cache);
 spec.use_parallel = logical(args.use_parallel);
 spec.show_progress = logical(args.show_progress);
+spec.min_parallel_rows = args.min_parallel_rows;
 
 default_monitor = struct();
 default_monitor.enable_monitor = true;
