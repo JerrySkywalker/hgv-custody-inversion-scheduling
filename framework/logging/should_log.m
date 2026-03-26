@@ -1,15 +1,38 @@
-function tf = should_log(message_level, threshold_level)
-levels = struct('ERROR', 1, 'WARN', 2, 'INFO', 3, 'DEBUG', 4);
+function tf = should_log(logger, level)
+%SHOULD_LOG Decide whether a message at LEVEL should be emitted.
 
-ml = upper(string(message_level));
-tl = upper(string(threshold_level));
+tf = false;
 
-if ~isfield(levels, ml)
-    error('should_log:UnknownMessageLevel', 'Unknown message level: %s', ml);
-end
-if ~isfield(levels, tl)
-    error('should_log:UnknownThresholdLevel', 'Unknown threshold level: %s', tl);
+if nargin < 2 || isempty(level)
+    return;
 end
 
-tf = levels.(ml) <= levels.(tl);
+level = upper(char(string(level)));
+
+if isempty(logger) || ~isstruct(logger)
+    tf = true;
+    return;
+end
+
+if ~isfield(logger, 'level_rank') || isempty(logger.level_rank)
+    tf = true;
+    return;
+end
+
+if ~isfield(logger.level_rank, level)
+    tf = true;
+    return;
+end
+
+threshold = 'INFO';
+if isfield(logger, 'console_level') && ~isempty(logger.console_level)
+    threshold = upper(char(string(logger.console_level)));
+end
+
+if ~isfield(logger.level_rank, threshold)
+    tf = true;
+    return;
+end
+
+tf = logger.level_rank.(level) >= logger.level_rank.(threshold);
 end
