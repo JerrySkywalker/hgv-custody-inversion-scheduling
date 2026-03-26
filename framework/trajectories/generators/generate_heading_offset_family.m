@@ -1,24 +1,21 @@
 function items = generate_heading_offset_family(base_items, heading_offsets_deg, varargin)
-%GENERATE_HEADING_OFFSET_FAMILY Generate heading-offset family from base items.
-%
-%   items = GENERATE_HEADING_OFFSET_FAMILY(base_items, heading_offsets_deg)
-%
-%   base_items must be a standardized trajectory item table.
-%   Output is also a standardized trajectory item table suitable for direct
-%   registration into the trajectory registry.
+%GENERATE_HEADING_OFFSET_FAMILY Generate heading-offset bundle from base tracks.
 
 p = inputParser;
 addRequired(p, 'base_items', @istable);
 addRequired(p, 'heading_offsets_deg', @(x) isnumeric(x) && ~isempty(x));
 
-addParameter(p, 'family_name', "heading", @(x) ischar(x) || isstring(x));
-addParameter(p, 'group_name', "heading_offsets", @(x) ischar(x) || isstring(x));
+addParameter(p, 'class_name', "heading", @(x) ischar(x) || isstring(x));
 addParameter(p, 'generator_id', "heading_offset_family", @(x) ischar(x) || isstring(x));
+addParameter(p, 'variation_kind', "heading_offset", @(x) ischar(x) || isstring(x));
 
 parse(p, base_items, heading_offsets_deg, varargin{:});
 opts = p.Results;
 
-required_vars = {'traj_id','family_name','group_name','source_kind','generator_id','payload'};
+required_vars = { ...
+    'traj_id','class_name','bundle_id','source_kind','generator_id', ...
+    'base_traj_id','sample_id','variation_kind','payload'};
+
 for k = 1:numel(required_vars)
     if ~ismember(required_vars{k}, base_items.Properties.VariableNames)
         error('generate_heading_offset_family:MissingVariable', ...
@@ -32,31 +29,40 @@ n_offsets = numel(heading_offsets_deg);
 n_total = n_base * n_offsets;
 
 traj_id = strings(n_total,1);
-family_name = repmat(string(opts.family_name), n_total, 1);
-group_name = repmat(string(opts.group_name), n_total, 1);
+class_name = repmat(string(opts.class_name), n_total, 1);
+bundle_id = strings(n_total,1);
 source_kind = repmat("generator", n_total, 1);
 generator_id = repmat(string(opts.generator_id), n_total, 1);
+base_traj_id = strings(n_total,1);
+sample_id = zeros(n_total,1);
+variation_kind = repmat(string(opts.variation_kind), n_total, 1);
 payload = cell(n_total,1);
 
 row = 0;
 for i = 1:n_base
     base_id = string(base_items.traj_id(i));
     base_payload = base_items.payload{i};
+    this_bundle_id = base_id + "_heading";
 
     for j = 1:n_offsets
         row = row + 1;
         offset = heading_offsets_deg(j);
 
         traj_id(row) = sprintf('%s_h%+03d', char(base_id), round(offset));
+        bundle_id(row) = this_bundle_id;
+        base_traj_id(row) = base_id;
+        sample_id(row) = j;
 
         new_payload = base_payload;
         new_payload.base_traj_id = char(base_id);
         new_payload.heading_offset_deg = offset;
+        new_payload.bundle_id = char(this_bundle_id);
 
         payload{row} = new_payload;
     end
 end
 
 items = make_trajectory_item_table( ...
-    traj_id, family_name, group_name, source_kind, generator_id, payload);
+    traj_id, class_name, bundle_id, source_kind, generator_id, ...
+    base_traj_id, sample_id, variation_kind, payload);
 end

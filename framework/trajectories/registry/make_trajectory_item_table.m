@@ -1,14 +1,29 @@
-function items = make_trajectory_item_table(traj_id, family_name, group_name, source_kind, generator_id, payload)
-%MAKE_TRAJECTORY_ITEM_TABLE Build standardized trajectory item table.
+function items = make_trajectory_item_table( ...
+    traj_id, class_name, bundle_id, source_kind, generator_id, ...
+    base_traj_id, sample_id, variation_kind, payload)
+%MAKE_TRAJECTORY_ITEM_TABLE Build standardized trajectory track table.
 %
-%   items = MAKE_TRAJECTORY_ITEM_TABLE(traj_id, family_name, group_name, ...
-%       source_kind, generator_id, payload)
+%   items = MAKE_TRAJECTORY_ITEM_TABLE(...)
+%
+%   Standard columns:
+%     - traj_id
+%     - class_name
+%     - bundle_id
+%     - source_kind
+%     - generator_id
+%     - base_traj_id
+%     - sample_id
+%     - variation_kind
+%     - payload
 
 traj_id = string(traj_id(:));
-family_name = string(family_name(:));
-group_name = string(group_name(:));
+class_name = string(class_name(:));
+bundle_id = string(bundle_id(:));
 source_kind = string(source_kind(:));
 generator_id = string(generator_id(:));
+base_traj_id = string(base_traj_id(:));
+variation_kind = string(variation_kind(:));
+sample_id = sample_id(:);
 
 if iscell(payload)
     payload = payload(:);
@@ -18,13 +33,18 @@ end
 
 n = numel(traj_id);
 
-assert_same_length(family_name, n, 'family_name');
-assert_same_length(group_name, n, 'group_name');
+assert_same_length(class_name, n, 'class_name');
+assert_same_length(bundle_id, n, 'bundle_id');
 assert_same_length(source_kind, n, 'source_kind');
 assert_same_length(generator_id, n, 'generator_id');
+assert_same_length(base_traj_id, n, 'base_traj_id');
+assert_same_length(sample_id, n, 'sample_id');
+assert_same_length(variation_kind, n, 'variation_kind');
 assert_same_length(payload, n, 'payload');
 
-items = table(traj_id, family_name, group_name, source_kind, generator_id, payload);
+items = table( ...
+    traj_id, class_name, bundle_id, source_kind, generator_id, ...
+    base_traj_id, sample_id, variation_kind, payload);
 end
 
 function assert_same_length(x, n, name)

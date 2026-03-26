@@ -9,18 +9,24 @@ end
 items = task_family.items;
 
 summary = struct();
-summary.family_name = task_family.family_name;
+if isfield(task_family, 'class_name')
+    summary.class_name = task_family.class_name;
+else
+    summary.class_name = 'unknown';
+end
 summary.source_registry_name = task_family.source_registry_name;
 summary.selection_mode = task_family.selection_mode;
 summary.item_count = height(items);
 
 if isempty(items)
-    summary.group_names = strings(0,1);
+    summary.bundle_ids = strings(0,1);
     summary.source_kinds = strings(0,1);
     summary.generator_ids = strings(0,1);
+    summary.variation_kinds = strings(0,1);
 else
-    summary.group_names = unique(string(items.group_name));
+    summary.bundle_ids = unique(string(items.bundle_id));
     summary.source_kinds = unique(string(items.source_kind));
     summary.generator_ids = unique(string(items.generator_id));
+    summary.variation_kinds = unique(string(items.variation_kind));
 end
 end
