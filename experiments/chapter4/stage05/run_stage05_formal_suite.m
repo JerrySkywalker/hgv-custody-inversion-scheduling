@@ -44,4 +44,5 @@ out.closedd_manual_raan = run_stage05_closedd_manual_raan_fullgrid_experiment( .
     'output_suffix', 'formal');
 
 out.finished_at = string(datetime('now'));
+out.manifest = write_stage05_formal_suite_manifest(out);
 end
