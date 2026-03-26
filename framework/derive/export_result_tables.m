@@ -32,15 +32,28 @@ for i = 1:numel(table_names)
         continue;
     end
 
+    tbl_for_export = local_prepare_table_for_export(tbl);
+
     csv_path = fullfile(tables_dir, [name '.csv']);
     mat_path = fullfile(tables_dir, [name '.mat']);
 
-    writetable(tbl, csv_path);
     save(mat_path, 'tbl');
+
+    csv_written = false;
+    csv_error = "";
+
+    try
+        writetable(tbl_for_export, csv_path);
+        csv_written = true;
+    catch ME
+        csv_error = string(ME.message);
+    end
 
     table_paths.(name) = struct( ...
         'csv_path', string(csv_path), ...
-        'mat_path', string(mat_path));
+        'mat_path', string(mat_path), ...
+        'csv_written', csv_written, ...
+        'csv_error', csv_error);
 end
 end
 
@@ -57,6 +70,27 @@ elseif isstruct(obj)
         tbl = struct2table(obj);
     catch
         tbl = [];
+    end
+end
+end
+
+function tbl = local_prepare_table_for_export(tbl)
+% Split nested table vars first.
+nested_mask = varfun(@istable, tbl, 'OutputFormat', 'uniform');
+if any(nested_mask)
+    nested_names = tbl.Properties.VariableNames(nested_mask);
+    tbl = splitvars(tbl, nested_names);
+end
+
+% Convert cell columns to strings when possible.
+for k = 1:width(tbl)
+    v = tbl.(k);
+    if iscell(v)
+        try
+            tbl.(k) = string(v);
+        catch
+            % leave as-is; csv write may still fail, but MAT export remains
+        end
     end
 end
 end
