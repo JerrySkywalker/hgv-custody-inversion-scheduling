@@ -88,8 +88,11 @@ addParameter(p, 'enable_file_log', local_env_bool('HGV_STARTUP_ENABLE_FILE_LOG',
 addParameter(p, 'log_file', local_env_str('HGV_STARTUP_LOG_FILE', ''), @(x) ischar(x) || isstring(x));
 addParameter(p, 'enable_timing', local_env_bool('HGV_STARTUP_ENABLE_TIMING', true), @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'force_reinit', false, @(x) islogical(x) || isnumeric(x));
-addParameter(p, 'use_color', local_env_bool('HGV_STARTUP_USE_COLOR', false), @(x) islogical(x) || isnumeric(x));
+
+% Default: auto color enabled
+addParameter(p, 'use_color', local_env_bool('HGV_STARTUP_USE_COLOR', true), @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'color_mode', local_env_str('HGV_STARTUP_COLOR_MODE', 'auto'), @(x) ischar(x) || isstring(x));
+
 addParameter(p, 'log_repeated_init', local_env_bool('HGV_STARTUP_LOG_REPEATED_INIT', true), @(x) islogical(x) || isnumeric(x));
 parse(p, varargin{:});
 opts = p.Results;
