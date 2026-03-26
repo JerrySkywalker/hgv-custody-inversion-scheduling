@@ -66,32 +66,12 @@ i_list = unique(grid_tbl.i_deg(:))';
 ns_list = unique(grid_tbl.Ns(:))';
 
 value_matrix = nan(numel(i_list), numel(ns_list));
-
-flag_col = '';
-vars = string(grid_tbl.Properties.VariableNames);
-if any(vars == "feasible_flag")
-    flag_col = 'feasible_flag';
-elseif any(vars == "is_feasible")
-    flag_col = 'is_feasible';
-elseif any(vars == "engine_feasible_flag")
-    flag_col = 'engine_feasible_flag';
-elseif any(vars == "legacy_feasible_flag")
-    flag_col = 'legacy_feasible_flag';
-end
-
 for ii = 1:numel(i_list)
     i_deg = i_list(ii);
     for jj = 1:numel(ns_list)
         Ns = ns_list(jj);
         mask = grid_tbl.i_deg == i_deg & grid_tbl.Ns == Ns;
-        if ~any(mask)
-            continue;
-        end
-
-        if ~isempty(flag_col)
-            vals = double(grid_tbl.(flag_col)(mask));
-            value_matrix(ii, jj) = max(vals);
-        else
+        if any(mask)
             value_matrix(ii, jj) = max(grid_tbl.pass_ratio(mask));
         end
     end
@@ -112,7 +92,7 @@ for pp = 1:numel(P_list)
     P = P_list(pp);
     for ii = 1:numel(i_list)
         i_deg = i_list(ii);
-        mask = grid_tbl.i_deg == i_deg & grid_tbl.P == P & grid_tbl.pass_ratio > 0;
+        mask = grid_tbl.i_deg == i_deg & grid_tbl.P == P & grid_tbl.feasible_flag > 0;
         if any(mask)
             value_matrix(pp, ii) = max(grid_tbl.DG_rob(mask));
         end
@@ -134,7 +114,7 @@ for pp = 1:numel(P_list)
     P = P_list(pp);
     for ii = 1:numel(i_list)
         i_deg = i_list(ii);
-        mask = grid_tbl.i_deg == i_deg & grid_tbl.P == P & grid_tbl.pass_ratio > 0;
+        mask = grid_tbl.i_deg == i_deg & grid_tbl.P == P & grid_tbl.feasible_flag > 0;
         if any(mask)
             value_matrix(pp, ii) = min(grid_tbl.Ns(mask));
         end
