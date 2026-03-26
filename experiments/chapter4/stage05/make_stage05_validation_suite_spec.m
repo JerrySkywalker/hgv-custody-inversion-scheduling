@@ -16,8 +16,13 @@ addParameter(p, 'show_progress', false, @(x) islogical(x) || isnumeric(x));
 parse(p, varargin{:});
 args = p.Results;
 
+profile = args.profile;
+if isempty(profile)
+    profile = make_profile_MB_nominal_validation_stage05();
+end
+
 spec = struct();
-spec.profile = args.profile;
+spec.profile = profile;
 spec.i_grid_deg = args.i_grid_deg;
 spec.P_grid = args.P_grid;
 spec.T_grid = args.T_grid;
