@@ -30,7 +30,12 @@ cfg.trajectory_registry_def.nominal_spec.start_angle_deg = 0;
 
 cfg.trajectory_registry_def.heading_spec = struct();
 cfg.trajectory_registry_def.heading_spec.enabled = false;
-cfg.trajectory_registry_def.heading_spec.offsets_deg = [-30; 0; 30];
+cfg.trajectory_registry_def.heading_spec.offsets_deg = [0; -30; 30; -60; 60];
+
+cfg.trajectory_registry_def.critical_spec = struct();
+cfg.trajectory_registry_def.critical_spec.enabled = false;
+cfg.trajectory_registry_def.critical_spec.entry_radius_km = 3000;
+cfg.trajectory_registry_def.critical_spec.center_xy_km = [0, 0];
 
 cfg.task_family_def = struct();
 cfg.task_family_def.class_name = "nominal";

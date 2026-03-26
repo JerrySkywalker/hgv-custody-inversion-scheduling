@@ -44,9 +44,28 @@ for i = 1:n_base
     base_payload = base_items.payload{i};
     this_bundle_id = base_id + "_heading";
 
+    if isfield(base_payload, 'entry_theta_deg')
+        entry_theta_deg = double(base_payload.entry_theta_deg);
+    else
+        entry_theta_deg = NaN;
+    end
+
+    if isfield(base_payload, 'heading_deg')
+        base_heading_deg = double(base_payload.heading_deg);
+    else
+        base_heading_deg = NaN;
+    end
+
+    if isfield(base_payload, 'entry_point_xy_km')
+        entry_point_xy_km = double(base_payload.entry_point_xy_km);
+    else
+        entry_point_xy_km = [NaN, NaN];
+    end
+
     for j = 1:n_offsets
         row = row + 1;
-        offset = heading_offsets_deg(j);
+        offset = double(heading_offsets_deg(j));
+        heading_deg = base_heading_deg + offset;
 
         traj_id(row) = sprintf('%s_h%+03d', char(base_id), round(offset));
         bundle_id(row) = this_bundle_id;
@@ -55,8 +74,13 @@ for i = 1:n_base
 
         new_payload = base_payload;
         new_payload.base_traj_id = char(base_id);
-        new_payload.heading_offset_deg = offset;
         new_payload.bundle_id = char(this_bundle_id);
+        new_payload.entry_theta_deg = entry_theta_deg;
+        new_payload.base_heading_deg = base_heading_deg;
+        new_payload.heading_deg = heading_deg;
+        new_payload.heading_offset_deg = offset;
+        new_payload.entry_point_xy_km = entry_point_xy_km;
+        new_payload.heading_unit_xy = [cosd(heading_deg), sind(heading_deg)];
 
         payload{row} = new_payload;
     end
