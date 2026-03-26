@@ -1,5 +1,9 @@
 function startup(varargin)
 %STARTUP Initialize project paths with unified logger + timing.
+%   startup()                           -> framework-only mode (default)
+%   startup('mode','framework')         -> framework-only mode
+%   startup('mode','with-legacy')       -> framework + legacy
+%   startup('mode','legacy-only')       -> legacy only
 
 persistent STARTUP_STATE
 
@@ -9,58 +13,80 @@ repo_root = local_find_repo_root();
 local_bootstrap_logging_path(repo_root);
 logger = local_build_logger(repo_root, opts);
 
-if ~isempty(STARTUP_STATE) && isfield(STARTUP_STATE, 'initialized') && STARTUP_STATE.initialized ...
+if ~isempty(STARTUP_STATE) ...
+        && isfield(STARTUP_STATE, 'initialized') && STARTUP_STATE.initialized ...
         && isfield(STARTUP_STATE, 'repo_root') && strcmpi(STARTUP_STATE.repo_root, repo_root) ...
+        && isfield(STARTUP_STATE, 'mode') && strcmpi(STARTUP_STATE.mode, opts.mode) ...
         && ~opts.force_reinit
     if opts.log_repeated_init
         local_log(logger, 'DEBUG', '[startup] Already initialized. Root: %s', repo_root);
-        local_log(logger, 'DEBUG', '[startup] Skipping repeated initialization.');
+        local_log(logger, 'DEBUG', '[startup] Skipping repeated initialization. Mode: %s', opts.mode);
     end
     return;
 end
 
 t_total = tic;
 local_log(logger, 'INFO', '[startup] Initializing project paths.');
+local_log(logger, 'INFO', '[startup] Startup mode: %s', opts.mode);
 
 try
     t = local_stage_begin(logger, 'Resolve repository root');
     local_log(logger, 'INFO', '[startup] Repository root: %s', repo_root);
     local_stage_end(logger, 'Resolve repository root', t, opts.enable_timing);
 
-    t = local_stage_begin(logger, 'Add framework paths');
-    local_add_subtree_if_exists(fullfile(repo_root, 'framework'), logger);
-    local_stage_end(logger, 'Add framework paths', t, opts.enable_timing);
+    switch lower(char(string(opts.mode)))
+        case 'framework'
+            t = local_stage_begin(logger, 'Add framework paths');
+            local_add_subtree_if_exists(fullfile(repo_root, 'framework'), logger);
+            local_stage_end(logger, 'Add framework paths', t, opts.enable_timing);
 
-    t = local_stage_begin(logger, 'Add experiments paths');
-    local_add_subtree_if_exists(fullfile(repo_root, 'experiments'), logger);
-    local_stage_end(logger, 'Add experiments paths', t, opts.enable_timing);
+            t = local_stage_begin(logger, 'Add experiments paths');
+            local_add_subtree_if_exists(fullfile(repo_root, 'experiments'), logger);
+            local_stage_end(logger, 'Add experiments paths', t, opts.enable_timing);
 
-    t = local_stage_begin(logger, 'Add tests paths');
-    local_add_subtree_if_exists(fullfile(repo_root, 'tests'), logger);
-    local_stage_end(logger, 'Add tests paths', t, opts.enable_timing);
+            t = local_stage_begin(logger, 'Add tests paths');
+            local_add_subtree_if_exists(fullfile(repo_root, 'tests'), logger);
+            local_stage_end(logger, 'Add tests paths', t, opts.enable_timing);
 
-    t = local_stage_begin(logger, 'Add tools paths');
-    local_add_subtree_if_exists(fullfile(repo_root, 'tools'), logger);
-    local_stage_end(logger, 'Add tools paths', t, opts.enable_timing);
+            t = local_stage_begin(logger, 'Add tools paths');
+            local_add_subtree_if_exists(fullfile(repo_root, 'tools'), logger);
+            local_stage_end(logger, 'Add tools paths', t, opts.enable_timing);
 
-    t = local_stage_begin(logger, 'Delegate to legacy startup');
-    legacy_startup = fullfile(repo_root, 'legacy', 'startup.m');
-    if exist(legacy_startup, 'file') == 2
-        setappdata(0, 'HGV_STARTUP_LOGGER', logger);
-        setappdata(0, 'HGV_STARTUP_ENABLE_TIMING', opts.enable_timing);
-        setappdata(0, 'HGV_STARTUP_CALLER_ROOT', repo_root);
-        run(legacy_startup);
-        if isappdata(0, 'HGV_STARTUP_LOGGER'); rmappdata(0, 'HGV_STARTUP_LOGGER'); end
-        if isappdata(0, 'HGV_STARTUP_ENABLE_TIMING'); rmappdata(0, 'HGV_STARTUP_ENABLE_TIMING'); end
-        if isappdata(0, 'HGV_STARTUP_CALLER_ROOT'); rmappdata(0, 'HGV_STARTUP_CALLER_ROOT'); end
-    else
-        local_log(logger, 'WARN', '[startup] legacy/startup.m not found: %s', legacy_startup);
+        case 'with-legacy'
+            t = local_stage_begin(logger, 'Add framework paths');
+            local_add_subtree_if_exists(fullfile(repo_root, 'framework'), logger);
+            local_stage_end(logger, 'Add framework paths', t, opts.enable_timing);
+
+            t = local_stage_begin(logger, 'Add experiments paths');
+            local_add_subtree_if_exists(fullfile(repo_root, 'experiments'), logger);
+            local_stage_end(logger, 'Add experiments paths', t, opts.enable_timing);
+
+            t = local_stage_begin(logger, 'Add tests paths');
+            local_add_subtree_if_exists(fullfile(repo_root, 'tests'), logger);
+            local_stage_end(logger, 'Add tests paths', t, opts.enable_timing);
+
+            t = local_stage_begin(logger, 'Add tools paths');
+            local_add_subtree_if_exists(fullfile(repo_root, 'tools'), logger);
+            local_stage_end(logger, 'Add tools paths', t, opts.enable_timing);
+
+            t = local_stage_begin(logger, 'Delegate to legacy startup');
+            local_run_legacy_startup(repo_root, logger, opts.enable_timing);
+            local_stage_end(logger, 'Delegate to legacy startup', t, opts.enable_timing);
+
+        case 'legacy-only'
+            t = local_stage_begin(logger, 'Delegate to legacy startup');
+            local_run_legacy_startup(repo_root, logger, opts.enable_timing);
+            local_stage_end(logger, 'Delegate to legacy startup', t, opts.enable_timing);
+
+        otherwise
+            error('startup:InvalidMode', ...
+                'Unsupported startup mode: %s', char(string(opts.mode)));
     end
-    local_stage_end(logger, 'Delegate to legacy startup', t, opts.enable_timing);
 
     STARTUP_STATE = struct();
     STARTUP_STATE.initialized = true;
     STARTUP_STATE.repo_root = repo_root;
+    STARTUP_STATE.mode = char(string(opts.mode));
     STARTUP_STATE.initialized_at = datestr(now, 'yyyy-mm-dd HH:MM:SS');
 
     local_log(logger, 'INFO', '[startup] Paths initialized successfully.');
@@ -81,6 +107,7 @@ end
 
 function opts = local_parse_options(varargin)
 p = inputParser;
+addParameter(p, 'mode', local_env_str('HGV_STARTUP_MODE', 'framework'), @(x) ischar(x) || isstring(x));
 addParameter(p, 'logger', [], @(x) isempty(x) || isstruct(x));
 addParameter(p, 'enable_console', local_env_bool('HGV_STARTUP_ENABLE_CONSOLE', true), @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'console_level', local_env_str('HGV_STARTUP_CONSOLE_LEVEL', 'INFO'), @(x) ischar(x) || isstring(x));
@@ -89,13 +116,13 @@ addParameter(p, 'log_file', local_env_str('HGV_STARTUP_LOG_FILE', ''), @(x) isch
 addParameter(p, 'enable_timing', local_env_bool('HGV_STARTUP_ENABLE_TIMING', true), @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'force_reinit', false, @(x) islogical(x) || isnumeric(x));
 
-% Default: auto color enabled
 addParameter(p, 'use_color', local_env_bool('HGV_STARTUP_USE_COLOR', true), @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'color_mode', local_env_str('HGV_STARTUP_COLOR_MODE', 'auto'), @(x) ischar(x) || isstring(x));
 
 addParameter(p, 'log_repeated_init', local_env_bool('HGV_STARTUP_LOG_REPEATED_INIT', true), @(x) islogical(x) || isnumeric(x));
 parse(p, varargin{:});
 opts = p.Results;
+opts.mode = char(string(opts.mode));
 end
 
 function v = local_env_str(name, default_value)
@@ -199,6 +226,26 @@ if exist(root_dir, 'dir') == 7
 else
     local_log(logger, 'WARN', '[startup] Path subtree not found: %s', root_dir);
 end
+end
+
+function local_run_legacy_startup(repo_root, logger, enable_timing)
+legacy_startup = fullfile(repo_root, 'legacy', 'startup.m');
+if exist(legacy_startup, 'file') == 2
+    setappdata(0, 'HGV_STARTUP_LOGGER', logger);
+    setappdata(0, 'HGV_STARTUP_ENABLE_TIMING', enable_timing);
+    setappdata(0, 'HGV_STARTUP_CALLER_ROOT', repo_root);
+    cleanup = onCleanup(@() local_cleanup_legacy_appdata());
+    run(legacy_startup); %#ok<NASGU>
+    clear cleanup
+else
+    local_log(logger, 'WARN', '[startup] legacy/startup.m not found: %s', legacy_startup);
+end
+end
+
+function local_cleanup_legacy_appdata()
+if isappdata(0, 'HGV_STARTUP_LOGGER'); rmappdata(0, 'HGV_STARTUP_LOGGER'); end
+if isappdata(0, 'HGV_STARTUP_ENABLE_TIMING'); rmappdata(0, 'HGV_STARTUP_ENABLE_TIMING'); end
+if isappdata(0, 'HGV_STARTUP_CALLER_ROOT'); rmappdata(0, 'HGV_STARTUP_CALLER_ROOT'); end
 end
 
 function local_log(logger, level, fmt, varargin)
