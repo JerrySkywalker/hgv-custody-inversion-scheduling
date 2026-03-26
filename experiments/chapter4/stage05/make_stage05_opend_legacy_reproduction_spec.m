@@ -25,6 +25,7 @@ cfg_base = configure_stage_output_paths(cfg_base);
 cfg_overlay = struct();
 if ~isempty(args.profile)
     cfg_overlay = config_service(args.profile);
+    cfg_overlay.profile = args.profile;
 end
 
 spec = struct();
