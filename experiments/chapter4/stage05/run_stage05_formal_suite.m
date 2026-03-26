@@ -8,6 +8,9 @@ function out = run_stage05_formal_suite(varargin)
 
 suite = make_stage05_formal_suite_spec(varargin{:});
 
+% Reduce startup noise inside suite runs.
+setenv('HGV_STARTUP_LOG_REPEATED_INIT', 'false');
+
 out = struct();
 out.suite_spec = suite;
 out.started_at = string(datetime('now'));
