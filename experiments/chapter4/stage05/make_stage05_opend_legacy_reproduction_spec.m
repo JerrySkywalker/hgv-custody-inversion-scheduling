@@ -26,6 +26,8 @@ cfg_overlay = struct();
 if ~isempty(args.profile)
     cfg_overlay = config_service(args.profile);
     cfg_overlay.profile = args.profile;
+else
+    cfg_overlay.profile = struct();
 end
 
 spec = struct();
