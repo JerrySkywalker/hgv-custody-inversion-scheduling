@@ -1,6 +1,4 @@
 function products = run_stage05_scan_products(varargin)
-%RUN_STAGE05_SCAN_PRODUCTS Build Stage05 scan products from reusable raw results.
-
 p = inputParser;
 addParameter(p, 'preset', 'legacy_stage05_strict', @(x) ischar(x) || isstring(x));
 addParameter(p, 'profile', [], @(x) isempty(x) || isstruct(x));
@@ -42,34 +40,32 @@ else
         'show_progress', logical(args.show_progress));
 end
 
+grid_tbl = raw.grid_table;
+
 products = struct();
 products.meta = struct();
 products.meta.preset = string(preset);
-products.meta.artifact_root = string(args.artifact_root);
 products.meta.profile_name = string(profile.name);
+products.meta.artifact_root = string(args.artifact_root);
 
 products.raw = struct();
-products.raw.truth_table = raw.outputs.truth_table;
-products.raw.best_pass_by_Ns = raw.outputs.best_pass_by_Ns;
-products.raw.geometry_heatmap_i60 = raw.outputs.geometry_heatmap_i60;
-products.raw.grid_table = raw.grid_table;
+products.raw.grid_table = grid_tbl;
+products.raw.truth_table = grid_tbl;
 
 products.scan = struct();
-products.scan.passratio_profile = local_build_passratio_profile(products.raw.grid_table);
-products.scan.bestDG_heatmap = local_build_bestDG_heatmap(products.raw.grid_table);
-products.scan.minNs_heatmap = local_build_minNs_heatmap(products.raw.grid_table);
+products.scan.passratio_profile = local_build_passratio_profile(grid_tbl);
+products.scan.bestDG_heatmap = local_build_bestDG_heatmap(grid_tbl);
+products.scan.minNs_heatmap = local_build_minNs_heatmap(grid_tbl);
 end
 
 function prod = local_build_passratio_profile(grid_tbl)
 i_list = unique(grid_tbl.i_deg(:))';
 ns_list = unique(grid_tbl.Ns(:))';
-
 value_matrix = nan(numel(i_list), numel(ns_list));
+
 for ii = 1:numel(i_list)
-    i_deg = i_list(ii);
     for jj = 1:numel(ns_list)
-        Ns = ns_list(jj);
-        mask = grid_tbl.i_deg == i_deg & grid_tbl.Ns == Ns;
+        mask = grid_tbl.i_deg == i_list(ii) & grid_tbl.Ns == ns_list(jj);
         if any(mask)
             value_matrix(ii, jj) = max(grid_tbl.pass_ratio(mask));
         end
@@ -93,10 +89,8 @@ end
 
 value_matrix = nan(numel(P_list), numel(i_list));
 for pp = 1:numel(P_list)
-    P = P_list(pp);
     for ii = 1:numel(i_list)
-        i_deg = i_list(ii);
-        mask = grid_tbl.i_deg == i_deg & grid_tbl.P == P & grid_tbl.feasible_flag > 0;
+        mask = grid_tbl.i_deg == i_list(ii) & grid_tbl.P == P_list(pp) & grid_tbl.feasible_flag > 0;
         if any(mask)
             value_matrix(pp, ii) = max(grid_tbl.(metric_name)(mask));
         end
@@ -113,13 +107,11 @@ end
 function prod = local_build_minNs_heatmap(grid_tbl)
 i_list = unique(grid_tbl.i_deg(:))';
 P_list = unique(grid_tbl.P(:))';
-
 value_matrix = nan(numel(P_list), numel(i_list));
+
 for pp = 1:numel(P_list)
-    P = P_list(pp);
     for ii = 1:numel(i_list)
-        i_deg = i_list(ii);
-        mask = grid_tbl.i_deg == i_deg & grid_tbl.P == P & grid_tbl.feasible_flag > 0;
+        mask = grid_tbl.i_deg == i_list(ii) & grid_tbl.P == P_list(pp) & grid_tbl.feasible_flag > 0;
         if any(mask)
             value_matrix(pp, ii) = min(grid_tbl.Ns(mask));
         end
