@@ -11,7 +11,7 @@ addParameter(p, 'F_fixed', 1, @(x) isnumeric(x) && isscalar(x));
 addParameter(p, 'plot_visible', 'off', @(x) ischar(x) || isstring(x));
 addParameter(p, 'artifact_root', fullfile('outputs','experiments','chapter4','stage05_validation_suite'), @(x) ischar(x) || isstring(x));
 addParameter(p, 'save_cache', false, @(x) islogical(x) || isnumeric(x));
-addParameter(p, 'use_parallel', false, @(x) islogical(x) || isnumeric(x));
+addParameter(p, 'use_parallel', true, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'show_progress', false, @(x) islogical(x) || isnumeric(x));
 parse(p, varargin{:});
 args = p.Results;
