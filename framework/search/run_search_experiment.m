@@ -1,29 +1,5 @@
 function result = run_search_experiment(spec)
 %RUN_SEARCH_EXPERIMENT Minimal spec-driven unified search runner.
-%
-% Required:
-%   spec.design_grid
-%   or spec.design_grid_builder
-%
-% Optional:
-%   spec.cfg_base
-%   spec.cfg_overlay
-%   spec.task_family
-%   spec.task_family_builder
-%   spec.evaluator_mode
-%   spec.search_spec
-%   spec.output_requests
-%   spec.region_phase
-%
-% Output:
-%   result.cfg
-%   result.task_family
-%   result.design_grid
-%   result.base_design_grid
-%   result.search_result
-%   result.grid_table
-%   result.meta
-%   result.outputs
 
 if nargin < 1 || isempty(spec)
     error('run_search_experiment:MissingSpec', 'A spec struct is required.');
@@ -69,6 +45,12 @@ else
     outputs = run_search_outputs(search_result.grid_table, spec.output_requests);
 end
 
+if ~isfield(spec, 'plot_requests') || isempty(spec.plot_requests)
+    plot_outputs = struct();
+else
+    plot_outputs = run_plot_outputs(outputs, spec.plot_requests);
+end
+
 result = struct();
 result.cfg = cfg;
 result.task_family = task_family;
@@ -78,6 +60,7 @@ result.search_result = search_result;
 result.grid_table = search_result.grid_table;
 result.meta = search_result.meta;
 result.outputs = outputs;
+result.plot_outputs = plot_outputs;
 end
 
 function cfg_out = local_merge_cfg(cfg_base, cfg_overlay)
