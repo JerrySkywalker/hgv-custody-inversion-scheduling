@@ -6,17 +6,14 @@ function startup(varargin)
 %   startup('enable_file_log', true)
 %   startup('console_level', 'DEBUG')
 %   startup('force_reinit', true)
-%   logger = make_logger(struct('enable_console', true, 'console_level', 'INFO'));
-%   startup('logger', logger)
+%   startup('use_color', true, 'color_mode', 'ansi')
 
 persistent STARTUP_STATE
 
 opts = local_parse_options(varargin{:});
 repo_root = local_find_repo_root();
 
-% Ensure logger functions are reachable before building logger.
 local_bootstrap_logging_path(repo_root);
-
 logger = local_build_logger(repo_root, opts);
 
 if ~isempty(STARTUP_STATE) && isfield(STARTUP_STATE, 'initialized') && STARTUP_STATE.initialized ...
@@ -54,7 +51,13 @@ try
     t = local_stage_begin(logger, 'Delegate to legacy startup');
     legacy_startup = fullfile(repo_root, 'legacy', 'startup.m');
     if exist(legacy_startup, 'file') == 2
+        setappdata(0, 'HGV_STARTUP_LOGGER', logger);
+        setappdata(0, 'HGV_STARTUP_ENABLE_TIMING', opts.enable_timing);
+        setappdata(0, 'HGV_STARTUP_CALLER_ROOT', repo_root);
         run(legacy_startup);
+        if isappdata(0, 'HGV_STARTUP_LOGGER'); rmappdata(0, 'HGV_STARTUP_LOGGER'); end
+        if isappdata(0, 'HGV_STARTUP_ENABLE_TIMING'); rmappdata(0, 'HGV_STARTUP_ENABLE_TIMING'); end
+        if isappdata(0, 'HGV_STARTUP_CALLER_ROOT'); rmappdata(0, 'HGV_STARTUP_CALLER_ROOT'); end
     else
         local_log(logger, 'WARN', '[startup] legacy/startup.m not found: %s', legacy_startup);
     end
@@ -90,6 +93,8 @@ addParameter(p, 'enable_file_log', false, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'log_file', '', @(x) ischar(x) || isstring(x));
 addParameter(p, 'enable_timing', true, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'force_reinit', false, @(x) islogical(x) || isnumeric(x));
+addParameter(p, 'use_color', false, @(x) islogical(x) || isnumeric(x));
+addParameter(p, 'color_mode', 'auto', @(x) ischar(x) || isstring(x));
 parse(p, varargin{:});
 opts = p.Results;
 end
@@ -137,6 +142,8 @@ try
     logger_cfg.enable_console = logical(opts.enable_console);
     logger_cfg.console_level = char(string(opts.console_level));
     logger_cfg.enable_file = logical(opts.enable_file_log);
+    logger_cfg.use_color = logical(opts.use_color);
+    logger_cfg.color_mode = char(string(opts.color_mode));
     if ~isempty(log_file)
         logger_cfg.file_path = log_file;
     end
