@@ -15,6 +15,8 @@ addParameter(p, 'save_cache', false, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'use_parallel', true, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'show_progress', false, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'parallel_monitor', struct(), @(x) isstruct(x) || isempty(x));
+addParameter(p, 'min_parallel_rows', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+addParameter(p, 'heatmap_i_deg', 60, @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 parse(p, varargin{:});
 args = p.Results;
 
@@ -49,6 +51,9 @@ search_spec.save_cache = logical(args.save_cache);
 search_spec.use_parallel = logical(args.use_parallel);
 search_spec.show_progress = logical(args.show_progress);
 search_spec.parallel_monitor = args.parallel_monitor;
+if ~isempty(args.min_parallel_rows)
+    search_spec.min_parallel_rows = args.min_parallel_rows;
+end
 
 search_spec.logger = struct( ...
     'enable_console', true, ...
@@ -71,9 +76,9 @@ req2.aggregate_mode = 'max';
 
 req3 = struct();
 req3.type = 'heatmap_slice';
-req3.name = 'geometry_heatmap_i60';
+req3.name = sprintf('geometry_heatmap_i%d', args.heatmap_i_deg);
 req3.metric_name = 'DG_rob';
-req3.fixed_filters = struct('i_deg', 60);
+req3.fixed_filters = struct('i_deg', args.heatmap_i_deg);
 req3.row_key = 'P';
 req3.col_key = 'T';
 
