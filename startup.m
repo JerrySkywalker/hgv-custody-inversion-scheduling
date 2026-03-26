@@ -12,8 +12,10 @@ logger = local_build_logger(repo_root, opts);
 if ~isempty(STARTUP_STATE) && isfield(STARTUP_STATE, 'initialized') && STARTUP_STATE.initialized ...
         && isfield(STARTUP_STATE, 'repo_root') && strcmpi(STARTUP_STATE.repo_root, repo_root) ...
         && ~opts.force_reinit
-    local_log(logger, 'WARN', '[startup] Already initialized. Root: %s', repo_root);
-    local_log(logger, 'WARN', '[startup] Skipping repeated initialization.');
+    if opts.log_repeated_init
+        local_log(logger, 'DEBUG', '[startup] Already initialized. Root: %s', repo_root);
+        local_log(logger, 'DEBUG', '[startup] Skipping repeated initialization.');
+    end
     return;
 end
 
@@ -88,6 +90,7 @@ addParameter(p, 'enable_timing', local_env_bool('HGV_STARTUP_ENABLE_TIMING', tru
 addParameter(p, 'force_reinit', false, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'use_color', local_env_bool('HGV_STARTUP_USE_COLOR', false), @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'color_mode', local_env_str('HGV_STARTUP_COLOR_MODE', 'auto'), @(x) ischar(x) || isstring(x));
+addParameter(p, 'log_repeated_init', local_env_bool('HGV_STARTUP_LOG_REPEATED_INIT', true), @(x) islogical(x) || isnumeric(x));
 parse(p, varargin{:});
 opts = p.Results;
 end
