@@ -53,4 +53,22 @@ out.closedd_manual_raan = run_stage05_closedd_manual_raan_fullgrid_experiment( .
 
 out.finished_at = string(datetime('now'));
 out.manifest = write_stage05_formal_suite_manifest(out);
+
+out.summary_table = build_stage05_formal_suite_summary_table(out);
+
+summary_dir = fullfile(suite.artifact_root, 'summary');
+if exist(summary_dir, 'dir') ~= 7
+    mkdir(summary_dir);
+end
+
+summary_csv = fullfile(summary_dir, 'summary_table.csv');
+summary_mat = fullfile(summary_dir, 'summary_table.mat');
+
+writetable(out.summary_table, summary_csv);
+summary_table = out.summary_table; %#ok<NASGU>
+save(summary_mat, 'summary_table');
+
+out.summary_exports = struct();
+out.summary_exports.summary_csv = string(summary_csv);
+out.summary_exports.summary_mat = string(summary_mat);
 end
