@@ -21,7 +21,19 @@ cfg.trajectory_registry_def.build_mode = "generators";
 cfg.trajectory_registry_def.registry_name = "default_registry";
 cfg.trajectory_registry_def.generator_specs = {};
 
+cfg.trajectory_registry_def.nominal_spec = struct();
+cfg.trajectory_registry_def.nominal_spec.num_points = 12;
+cfg.trajectory_registry_def.nominal_spec.entry_radius_km = 3000;
+cfg.trajectory_registry_def.nominal_spec.bundle_id = "ring12";
+cfg.trajectory_registry_def.nominal_spec.center_xy_km = [0, 0];
+cfg.trajectory_registry_def.nominal_spec.start_angle_deg = 0;
+
+cfg.trajectory_registry_def.heading_spec = struct();
+cfg.trajectory_registry_def.heading_spec.enabled = false;
+cfg.trajectory_registry_def.heading_spec.offsets_deg = [-30; 0; 30];
+
 cfg.task_family_def = struct();
+cfg.task_family_def.class_name = "nominal";
 cfg.task_family_def.family_name = "nominal";
 cfg.task_family_def.selection_mode = "full";
 cfg.task_family_def.source_registry_name = "default_registry";
