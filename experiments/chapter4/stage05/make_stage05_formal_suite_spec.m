@@ -15,6 +15,7 @@ addParameter(p, 'artifact_root', fullfile('outputs','experiments','chapter4','st
 addParameter(p, 'save_cache', false, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'use_parallel', true, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'show_progress', true, @(x) islogical(x) || isnumeric(x));
+addParameter(p, 'parallel_monitor', struct(), @(x) isstruct(x) || isempty(x));
 parse(p, varargin{:});
 args = p.Results;
 
@@ -33,7 +34,31 @@ spec.save_cache = logical(args.save_cache);
 spec.use_parallel = logical(args.use_parallel);
 spec.show_progress = logical(args.show_progress);
 
+default_monitor = struct();
+default_monitor.enable_monitor = true;
+default_monitor.enable_comm_bytes = true;
+default_monitor.enable_slow_iter_warn = true;
+default_monitor.slow_iter_threshold_sec = 2.0;
+default_monitor.enable_per_point_debug = false;
+default_monitor.enable_dataqueue = true;
+default_monitor.per_point_log_level = 'DEBUG';
+
+spec.parallel_monitor = local_merge_monitor(default_monitor, args.parallel_monitor);
+
 spec.legacy_artifact_root = fullfile(spec.artifact_root, 'legacy_reproduction');
 spec.opend_artifact_root = fullfile(spec.artifact_root, 'opend_manual_raan');
 spec.closedd_artifact_root = fullfile(spec.artifact_root, 'closedd_manual_raan');
+end
+
+function out = local_merge_monitor(default_monitor, user_monitor)
+out = default_monitor;
+if isempty(user_monitor) || ~isstruct(user_monitor)
+    return;
+end
+
+fns = fieldnames(user_monitor);
+for i = 1:numel(fns)
+    f = fns{i};
+    out.(f) = user_monitor.(f);
+end
 end
