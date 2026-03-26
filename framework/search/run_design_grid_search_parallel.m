@@ -6,34 +6,124 @@ if parallel_opts.use_parallel
     pool = gcp('nocreate');
     if isempty(pool)
         if isempty(parallel_opts.num_workers)
-            parpool(parallel_opts.pool_profile);
+            pool = parpool(parallel_opts.pool_profile);
         else
-            parpool(parallel_opts.pool_profile, parallel_opts.num_workers);
+            pool = parpool(parallel_opts.pool_profile, parallel_opts.num_workers);
         end
     end
 
     gamma_eff_scalar = search_spec.gamma_eff_scalar;
     source_kind = search_spec.source_kind;
+    mon = build_parallel_monitor_options(search_spec);
+
+    t_parallel = tic;
+    bytes_supported = false;
+    if mon.enable_monitor && mon.enable_comm_bytes
+        try
+            ticBytes(pool);
+            bytes_supported = true;
+        catch
+            bytes_supported = false;
+        end
+    end
+
+    if mon.enable_monitor
+        log_message(logger, 'INFO', ...
+            'Parallel monitor started: n_rows=%d, workers=%d, mode=%s, slow_iter_warn=%d, threshold=%.3f s', ...
+            n, pool.NumWorkers, engine_mode, mon.enable_slow_iter_warn, mon.slow_iter_threshold_sec);
+    end
 
     parfor k = 1:n
         row = rows(k);
+        t_iter = tic;
 
         eval_out = local_eval_parallel_row( ...
             row, trajs_in, engine_mode, gamma_eff_scalar, engine_cfg);
 
+        iter_time_sec = toc(t_iter);
+
         packed = local_pack_parallel_row( ...
             row, eval_out, engine_mode, gamma_eff_scalar, source_kind);
+
+        if ~isfield(packed, 'iter_time_sec')
+            packed.iter_time_sec = iter_time_sec;
+        end
+
+        if mon.enable_slow_iter_warn && iter_time_sec > mon.slow_iter_threshold_sec
+            task = getCurrentTask();
+            worker_id = NaN;
+            if ~isempty(task)
+                worker_id = task.ID;
+            end
+            packed.parallel_warn_flag = true;
+            packed.parallel_warn_worker_id = worker_id;
+            packed.parallel_warn_message = sprintf( ...
+                'Slow parallel iteration: worker=%g, k=%d, design_id=%s, iter_time=%.3f s', ...
+                worker_id, k, local_design_id_string(row), iter_time_sec);
+        else
+            packed.parallel_warn_flag = false;
+            packed.parallel_warn_worker_id = NaN;
+            packed.parallel_warn_message = "";
+        end
 
         result_cells{k} = packed;
     end
 
-    log_message(logger, 'INFO', 'Parallel search branch completed: n_rows=%d', n);
+    parallel_time_sec = toc(t_parallel);
+
+    if mon.enable_monitor
+        if bytes_supported
+            try
+                bytes_info = tocBytes(pool);
+                total_mb = local_extract_total_megabytes(bytes_info);
+                log_message(logger, 'INFO', ...
+                    'Parallel search branch completed: n_rows=%d, elapsed=%.3f s, comm_total=%.3f MB', ...
+                    n, parallel_time_sec, total_mb);
+            catch
+                log_message(logger, 'INFO', ...
+                    'Parallel search branch completed: n_rows=%d, elapsed=%.3f s', ...
+                    n, parallel_time_sec);
+            end
+        else
+            log_message(logger, 'INFO', ...
+                'Parallel search branch completed: n_rows=%d, elapsed=%.3f s', ...
+                n, parallel_time_sec);
+        end
+    else
+        log_message(logger, 'INFO', 'Parallel search branch completed: n_rows=%d', n);
+    end
 else
     error('run_design_grid_search_parallel:ParallelDisabled', ...
         'Parallel helper called while parallel mode is disabled.');
 end
 
 result_rows = vertcat(result_cells{:});
+
+if parallel_opts.use_parallel
+    mon = build_parallel_monitor_options(search_spec);
+    if mon.enable_monitor && mon.enable_slow_iter_warn
+        warn_mask = false(size(result_rows));
+        for i = 1:numel(result_rows)
+            if isfield(result_rows(i), 'parallel_warn_flag') && result_rows(i).parallel_warn_flag
+                warn_mask(i) = true;
+            end
+        end
+
+        n_warn = nnz(warn_mask);
+        if n_warn > 0
+            log_message(logger, 'WARN', ...
+                'Parallel slow-iteration warnings detected: %d/%d rows exceeded %.3f s', ...
+                n_warn, numel(result_rows), mon.slow_iter_threshold_sec);
+
+            warn_rows = result_rows(warn_mask);
+            for i = 1:numel(warn_rows)
+                if isfield(warn_rows(i), 'parallel_warn_message')
+                    log_message(logger, 'WARN', '%s', warn_rows(i).parallel_warn_message);
+                end
+            end
+        end
+    end
+end
 end
 
 function eval_out = local_eval_parallel_row(row, trajs_in, engine_mode, gamma_eff_scalar, engine_cfg)
@@ -64,5 +154,34 @@ if ~isfield(packed, 'engine_mode')
 end
 if ~isfield(packed, 'source_kind')
     packed.source_kind = string(source_kind);
+end
+end
+
+function total_mb = local_extract_total_megabytes(bytes_info)
+total_bytes = 0;
+
+if isnumeric(bytes_info)
+    total_bytes = sum(bytes_info(:), 'omitnan');
+elseif isstruct(bytes_info)
+    fns = fieldnames(bytes_info);
+    for i = 1:numel(fns)
+        v = bytes_info.(fns{i});
+        if isnumeric(v)
+            total_bytes = total_bytes + sum(v(:), 'omitnan');
+        end
+    end
+end
+
+total_mb = total_bytes / (1024^2);
+end
+
+function s = local_design_id_string(row)
+s = "<unknown>";
+if isstruct(row)
+    if isfield(row, 'design_id') && ~isempty(row.design_id)
+        s = char(string(row.design_id));
+    elseif isfield(row, 'base_design_id') && ~isempty(row.base_design_id)
+        s = char(string(row.base_design_id));
+    end
 end
 end
