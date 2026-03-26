@@ -7,7 +7,7 @@ addParameter(p, 'base_rows', [], @(x) isstruct(x) || istable(x) || isempty(x));
 addParameter(p, 'raan_range_deg', [0 20], @(x) isnumeric(x) && numel(x)==2);
 addParameter(p, 'raan_step_deg', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'plot_visible', 'off', @(x) ischar(x) || isstring(x));
-addParameter(p, 'output_dir', fullfile('outputs','framework','plots'), @(x) ischar(x) || isstring(x));
+addParameter(p, 'artifact_root', fullfile('outputs','experiments','chapter4','stage05_manual_raan'), @(x) ischar(x) || isstring(x));
 addParameter(p, 'output_suffix', '', @(x) ischar(x) || isstring(x));
 addParameter(p, 'save_cache', false, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'use_parallel', false, @(x) islogical(x) || isnumeric(x));
@@ -33,6 +33,8 @@ else
     base_rows = args.base_rows;
 end
 
+artifact_root = char(string(args.artifact_root));
+figures_dir = fullfile(artifact_root, 'figures');
 suffix = char(string(args.output_suffix));
 suffix_part = '';
 if ~isempty(suffix)
@@ -45,6 +47,7 @@ spec.cfg_overlay = cfg_overlay;
 spec.design_grid = base_rows;
 spec.task_family_builder = @(cfg, spec_) task_family_service(cfg);
 spec.evaluator_mode = 'opend';
+spec.artifact_root = artifact_root;
 
 spec.region_phase = struct();
 spec.region_phase.enable = true;
@@ -157,45 +160,49 @@ pr1 = struct();
 pr1.type = 'envelope_curve'; pr1.name = 'env_min_DG_plot'; pr1.source = 'env_min_DG';
 pr1.x_field = 'Ns'; pr1.y_field = 'DG_rob';
 pr1.plot_spec = struct('title','Stage05 OpenD manual-RAAN min DG envelope','x_label','Ns','y_label','min DG over RAAN','visible',char(string(args.plot_visible)));
-pr1.save_spec = struct('output_dir',char(string(args.output_dir)),'file_name',['stage05_opend_manual_raan_env_min_DG' suffix_part '.png']);
+pr1.save_spec = struct('output_dir',figures_dir,'file_name',['stage05_opend_manual_raan_env_min_DG' suffix_part '.png']);
 
 pr2 = struct();
 pr2.type = 'envelope_curve'; pr2.name = 'env_mean_DG_plot'; pr2.source = 'env_mean_DG';
 pr2.x_field = 'Ns'; pr2.y_field = 'DG_rob';
 pr2.plot_spec = struct('title','Stage05 OpenD manual-RAAN mean DG envelope','x_label','Ns','y_label','mean DG over RAAN','visible',char(string(args.plot_visible)));
-pr2.save_spec = struct('output_dir',char(string(args.output_dir)),'file_name',['stage05_opend_manual_raan_env_mean_DG' suffix_part '.png']);
+pr2.save_spec = struct('output_dir',figures_dir,'file_name',['stage05_opend_manual_raan_env_mean_DG' suffix_part '.png']);
 
 pr3 = struct();
 pr3.type = 'heatmap_matrix'; pr3.name = 'hm_min_DG_plot'; pr3.source = 'hm_min_DG';
 pr3.plot_spec = struct('title','Stage05 OpenD manual-RAAN min DG heatmap','x_label','T','y_label','P','visible',char(string(args.plot_visible)));
-pr3.save_spec = struct('output_dir',char(string(args.output_dir)),'file_name',['stage05_opend_manual_raan_hm_min_DG' suffix_part '.png']);
+pr3.save_spec = struct('output_dir',figures_dir,'file_name',['stage05_opend_manual_raan_hm_min_DG' suffix_part '.png']);
 
 pr4 = struct();
 pr4.type = 'heatmap_matrix'; pr4.name = 'hm_mean_DG_plot'; pr4.source = 'hm_mean_DG';
 pr4.plot_spec = struct('title','Stage05 OpenD manual-RAAN mean DG heatmap','x_label','T','y_label','P','visible',char(string(args.plot_visible)));
-pr4.save_spec = struct('output_dir',char(string(args.output_dir)),'file_name',['stage05_opend_manual_raan_hm_mean_DG' suffix_part '.png']);
+pr4.save_spec = struct('output_dir',figures_dir,'file_name',['stage05_opend_manual_raan_hm_mean_DG' suffix_part '.png']);
 
 pr5 = struct();
 pr5.type = 'envelope_curve'; pr5.name = 'env_min_pass_ratio_plot'; pr5.source = 'env_min_pass_ratio';
 pr5.x_field = 'Ns'; pr5.y_field = 'pass_ratio';
 pr5.plot_spec = struct('title','Stage05 OpenD manual-RAAN min pass-ratio envelope','x_label','Ns','y_label','min pass ratio over RAAN','visible',char(string(args.plot_visible)));
-pr5.save_spec = struct('output_dir',char(string(args.output_dir)),'file_name',['stage05_opend_manual_raan_env_min_pass_ratio' suffix_part '.png']);
+pr5.save_spec = struct('output_dir',figures_dir,'file_name',['stage05_opend_manual_raan_env_min_pass_ratio' suffix_part '.png']);
 
 pr6 = struct();
 pr6.type = 'envelope_curve'; pr6.name = 'env_mean_pass_ratio_plot'; pr6.source = 'env_mean_pass_ratio';
 pr6.x_field = 'Ns'; pr6.y_field = 'pass_ratio';
 pr6.plot_spec = struct('title','Stage05 OpenD manual-RAAN mean pass-ratio envelope','x_label','Ns','y_label','mean pass ratio over RAAN','visible',char(string(args.plot_visible)));
-pr6.save_spec = struct('output_dir',char(string(args.output_dir)),'file_name',['stage05_opend_manual_raan_env_mean_pass_ratio' suffix_part '.png']);
+pr6.save_spec = struct('output_dir',figures_dir,'file_name',['stage05_opend_manual_raan_env_mean_pass_ratio' suffix_part '.png']);
 
 pr7 = struct();
 pr7.type = 'heatmap_matrix'; pr7.name = 'hm_min_pass_ratio_plot'; pr7.source = 'hm_min_pass_ratio';
 pr7.plot_spec = struct('title','Stage05 OpenD manual-RAAN min pass-ratio heatmap','x_label','T','y_label','P','visible',char(string(args.plot_visible)));
-pr7.save_spec = struct('output_dir',char(string(args.output_dir)),'file_name',['stage05_opend_manual_raan_hm_min_pass_ratio' suffix_part '.png']);
+pr7.save_spec = struct('output_dir',figures_dir,'file_name',['stage05_opend_manual_raan_hm_min_pass_ratio' suffix_part '.png']);
 
 pr8 = struct();
 pr8.type = 'heatmap_matrix'; pr8.name = 'hm_mean_pass_ratio_plot'; pr8.source = 'hm_mean_pass_ratio';
 pr8.plot_spec = struct('title','Stage05 OpenD manual-RAAN mean pass-ratio heatmap','x_label','T','y_label','P','visible',char(string(args.plot_visible)));
-pr8.save_spec = struct('output_dir',char(string(args.output_dir)),'file_name',['stage05_opend_manual_raan_hm_mean_pass_ratio' suffix_part '.png']);
+pr8.save_spec = struct('output_dir',figures_dir,'file_name',['stage05_opend_manual_raan_hm_mean_pass_ratio' suffix_part '.png']);
 
 spec.plot_requests = {pr1, pr2, pr3, pr4, pr5, pr6, pr7, pr8};
+
+spec.table_export = struct();
+spec.table_export.artifact_root = artifact_root;
+spec.table_export.table_names = {'agg_by_base_design','env_min_DG','env_mean_DG','env_min_pass_ratio','env_mean_pass_ratio'};
 end
