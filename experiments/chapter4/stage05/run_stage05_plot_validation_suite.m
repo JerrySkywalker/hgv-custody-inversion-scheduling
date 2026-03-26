@@ -55,6 +55,8 @@ out.plot_outputs.heatmap_i60_plot.file_path = string(save_figure_artifact(fig2, 
     'output_dir', plot_dir, ...
     'file_name', 'stage05_plot_validation_heatmap_i60.png')));
 
+out.compare = manual_compare_stage05_plot_validation_sources(out);
+
 manifest_dir = fullfile(suite.plot_artifact_root, 'manifest');
 if exist(manifest_dir, 'dir') ~= 7
     mkdir(manifest_dir);
@@ -69,6 +71,10 @@ plot_manifest.heatmap_i60_plot = out.plot_outputs.heatmap_i60_plot.file_path;
 plot_manifest.reproduction_grid_size = size(out.reproduction.grid_table);
 plot_manifest.best_pass_height = height(out.reproduction.outputs.best_pass_by_Ns);
 plot_manifest.heatmap_size = size(out.reproduction.outputs.geometry_heatmap_i60.value_matrix);
+plot_manifest.best_pass_compare_height = height(out.compare.best_pass_compare);
+plot_manifest.heatmap_compare_height = height(out.compare.heatmap_compare);
+plot_manifest.best_pass_max_abs_diff = max(out.compare.best_pass_compare.pass_abs_diff, [], 'omitnan');
+plot_manifest.heatmap_max_abs_diff = max(out.compare.heatmap_compare.abs_diff, [], 'omitnan');
 
 plot_manifest_mat = fullfile(manifest_dir, 'plot_validation_manifest.mat');
 save(plot_manifest_mat, 'plot_manifest');
@@ -86,9 +92,13 @@ if fid ~= -1
     fprintf(fid, 'best_pass_height: %d\n', plot_manifest.best_pass_height);
     fprintf(fid, 'heatmap_size:    [%d %d]\n', ...
         plot_manifest.heatmap_size(1), plot_manifest.heatmap_size(2));
+    fprintf(fid, 'best_pass_compare_height: %d\n', plot_manifest.best_pass_compare_height);
+    fprintf(fid, 'heatmap_compare_height:   %d\n', plot_manifest.heatmap_compare_height);
+    fprintf(fid, 'best_pass_max_abs_diff:   %.16g\n', plot_manifest.best_pass_max_abs_diff);
+    fprintf(fid, 'heatmap_max_abs_diff:     %.16g\n', plot_manifest.heatmap_max_abs_diff);
     fprintf(fid, '\n');
-    fprintf(fid, 'best_pass_plot:  %s\n', plot_manifest.best_pass_plot);
-    fprintf(fid, 'heatmap_i60_plot:%s\n', plot_manifest.heatmap_i60_plot);
+    fprintf(fid, 'best_pass_plot:   %s\n', plot_manifest.best_pass_plot);
+    fprintf(fid, 'heatmap_i60_plot: %s\n', plot_manifest.heatmap_i60_plot);
     fclose(fid);
 end
 
