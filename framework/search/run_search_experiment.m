@@ -13,11 +13,13 @@ function result = run_search_experiment(spec)
 %   spec.evaluator_mode
 %   spec.search_spec
 %   spec.output_requests
+%   spec.region_phase
 %
 % Output:
 %   result.cfg
 %   result.task_family
 %   result.design_grid
+%   result.base_design_grid
 %   result.search_result
 %   result.grid_table
 %   result.meta
@@ -41,7 +43,9 @@ end
 
 cfg = local_merge_cfg(cfg_base, cfg_overlay);
 
-design_grid = local_resolve_design_grid(spec, cfg);
+base_design_grid = local_resolve_design_grid(spec, cfg);
+design_grid = local_apply_region_phase(base_design_grid, spec);
+
 task_family = local_resolve_task_family(spec, cfg);
 
 if ~isfield(spec, 'evaluator_mode') || isempty(spec.evaluator_mode)
@@ -68,6 +72,7 @@ end
 result = struct();
 result.cfg = cfg;
 result.task_family = task_family;
+result.base_design_grid = base_design_grid;
 result.design_grid = design_grid;
 result.search_result = search_result;
 result.grid_table = search_result.grid_table;
@@ -113,6 +118,14 @@ end
 
 error('run_search_experiment:MissingDesignGrid', ...
     'Either spec.design_grid or spec.design_grid_builder is required.');
+end
+
+function design_grid = local_apply_region_phase(base_design_grid, spec)
+if isfield(spec, 'region_phase') && ~isempty(spec.region_phase)
+    design_grid = expand_design_grid_by_region_phase(base_design_grid, spec.region_phase);
+else
+    design_grid = base_design_grid;
+end
 end
 
 function task_family = local_resolve_task_family(spec, cfg)
