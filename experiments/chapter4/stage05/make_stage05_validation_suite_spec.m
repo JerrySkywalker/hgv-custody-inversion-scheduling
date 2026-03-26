@@ -40,7 +40,8 @@ spec.parallel_monitor.enable_comm_bytes = true;
 spec.parallel_monitor.enable_slow_iter_warn = true;
 spec.parallel_monitor.slow_iter_threshold_sec = 2.0;
 spec.parallel_monitor.enable_per_point_debug = false;
-spec.parallel_monitor.enable_dataqueue = false;
+spec.parallel_monitor.enable_dataqueue = true;
+spec.parallel_monitor.per_point_log_level = 'DEBUG';
 
 spec.reproduction_artifact_root = fullfile(spec.artifact_root, 'reproduction');
 spec.validation_artifact_root = fullfile(spec.artifact_root, 'validation');
