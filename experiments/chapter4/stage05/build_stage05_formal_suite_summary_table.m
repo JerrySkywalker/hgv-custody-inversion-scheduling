@@ -4,27 +4,47 @@ function summary_tbl = build_stage05_formal_suite_summary_table(out)
 rows = {};
 
 % legacy reproduction
-legacy_tbl = out.legacy_reproduction.outputs.best_pass_by_Ns;
+legacy_env = out.legacy_reproduction.outputs.best_pass_by_Ns;
+legacy_truth = out.legacy_reproduction.outputs.truth_table;
+
 legacy_min_feasible_Ns = NaN;
-if ~isempty(legacy_tbl)
-    feasible_mask = legacy_tbl.pass_ratio >= 1;
+legacy_P = NaN;
+legacy_T = NaN;
+legacy_mean_pass_ratio = NaN;
+legacy_max_pass_ratio = NaN;
+legacy_min_pass_ratio = NaN;
+
+if ~isempty(legacy_env)
+    legacy_mean_pass_ratio = mean(legacy_env.pass_ratio, 'omitnan');
+    legacy_max_pass_ratio = max(legacy_env.pass_ratio, [], 'omitnan');
+    legacy_min_pass_ratio = min(legacy_env.pass_ratio, [], 'omitnan');
+
+    feasible_mask = legacy_env.pass_ratio >= 1;
     idx = find(feasible_mask, 1, 'first');
     if ~isempty(idx)
-        legacy_min_feasible_Ns = legacy_tbl.Ns(idx);
+        legacy_min_feasible_Ns = legacy_env.Ns(idx);
+
+        if ~isempty(legacy_truth)
+            match_idx = find(legacy_truth.Ns == legacy_min_feasible_Ns, 1, 'first');
+            if ~isempty(match_idx)
+                legacy_P = legacy_truth.P(match_idx);
+                legacy_T = legacy_truth.T(match_idx);
+            end
+        end
     end
 end
 
 rows(end+1, :) = { ...
     "legacy_reproduction", ...
-    NaN, ...
-    NaN, ...
+    legacy_P, ...
+    legacy_T, ...
     legacy_min_feasible_Ns, ...
     NaN, ...
     NaN, ...
     NaN, ...
-    NaN, ...
-    NaN, ...
-    NaN, ...
+    legacy_min_pass_ratio, ...
+    legacy_max_pass_ratio, ...
+    legacy_mean_pass_ratio, ...
     NaN};
 
 % OpenD manual-RAAN
