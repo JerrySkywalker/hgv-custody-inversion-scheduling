@@ -71,4 +71,6 @@ save(summary_mat, 'summary_table');
 out.summary_exports = struct();
 out.summary_exports.summary_csv = string(summary_csv);
 out.summary_exports.summary_mat = string(summary_mat);
+
+out.figure_exports = collect_stage05_formal_figures(out);
 end
