@@ -32,7 +32,6 @@ else
     cfg_overlay.profile = struct();
 end
 
-% Ensure legacy task-family path sees expected engine config fields.
 cfg_overlay.engine_cfg = cfg_base;
 
 spec = struct();
@@ -55,9 +54,16 @@ if ~isempty(args.min_parallel_rows)
     search_spec.min_parallel_rows = args.min_parallel_rows;
 end
 
+logger_level = 'INFO';
+if isstruct(args.parallel_monitor) ...
+        && isfield(args.parallel_monitor, 'enable_per_point_debug') ...
+        && logical(args.parallel_monitor.enable_per_point_debug)
+    logger_level = 'DEBUG';
+end
+
 search_spec.logger = struct( ...
     'enable_console', true, ...
-    'console_level', 'INFO', ...
+    'console_level', logger_level, ...
     'enable_file', false);
 
 spec.search_spec = search_spec;
