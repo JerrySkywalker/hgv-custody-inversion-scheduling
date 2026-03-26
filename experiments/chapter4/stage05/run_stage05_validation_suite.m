@@ -33,4 +33,5 @@ out.compare = manual_smoke_stage05_opend_legacy_reproduction_compare( ...
 assert_stage05_opend_legacy_reproduction_compare_result(out.compare);
 
 out.finished_at = string(datetime('now'));
+out.manifest = write_stage05_validation_suite_manifest(out);
 end
