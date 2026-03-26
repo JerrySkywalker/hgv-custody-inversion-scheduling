@@ -3,6 +3,14 @@ function out = run_stage05_validation_suite(varargin)
 
 suite = make_stage05_validation_suite_spec(varargin{:});
 
+% Validation suite must remain strict full-grid.
+assert(isequal(suite.i_grid_deg(:)', [30 40 50 60 70 80 90]), ...
+    'Stage05 validation suite requires full i_grid_deg = [30 40 50 60 70 80 90].');
+assert(isequal(suite.P_grid(:)', [4 6 8 10 12]), ...
+    'Stage05 validation suite requires full P_grid = [4 6 8 10 12].');
+assert(isequal(suite.T_grid(:)', [4 6 8 10 12 16]), ...
+    'Stage05 validation suite requires full T_grid = [4 6 8 10 12 16].');
+
 % Reduce startup noise inside suite runs.
 setenv('HGV_STARTUP_LOG_REPEATED_INIT', 'false');
 
