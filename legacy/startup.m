@@ -56,7 +56,7 @@ addParameter(p, 'enable_console', true, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'console_level', 'INFO', @(x) ischar(x) || isstring(x));
 addParameter(p, 'enable_file_log', false, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'log_file', '', @(x) ischar(x) || isstring(x));
-addParameter(p, 'use_color', false, @(x) islogical(x) || isnumeric(x));
+addParameter(p, 'use_color', true, @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'color_mode', 'auto', @(x) ischar(x) || isstring(x));
 parse(p, varargin{:});
 opts = p.Results;
