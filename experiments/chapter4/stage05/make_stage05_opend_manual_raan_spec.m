@@ -108,7 +108,45 @@ req6.col_key = 'T';
 req6.scenario_metric = 'DG_rob';
 req6.scenario_mode = 'mean';
 
-spec.output_requests = {req1, req2, req3, req4, req5, req6};
+req7 = struct();
+req7.type = 'raan_aware_envelope';
+req7.name = 'env_min_pass_ratio';
+req7.group_key = 'Ns';
+req7.metric_name = 'pass_ratio';
+req7.fixed_filters = struct();
+req7.scenario_metric = 'pass_ratio';
+req7.scenario_mode = 'min';
+
+req8 = struct();
+req8.type = 'raan_aware_envelope';
+req8.name = 'env_mean_pass_ratio';
+req8.group_key = 'Ns';
+req8.metric_name = 'pass_ratio';
+req8.fixed_filters = struct();
+req8.scenario_metric = 'pass_ratio';
+req8.scenario_mode = 'mean';
+
+req9 = struct();
+req9.type = 'raan_aware_heatmap_slice';
+req9.name = 'hm_min_pass_ratio';
+req9.metric_name = 'pass_ratio';
+req9.fixed_filters = struct();
+req9.row_key = 'P';
+req9.col_key = 'T';
+req9.scenario_metric = 'pass_ratio';
+req9.scenario_mode = 'min';
+
+req10 = struct();
+req10.type = 'raan_aware_heatmap_slice';
+req10.name = 'hm_mean_pass_ratio';
+req10.metric_name = 'pass_ratio';
+req10.fixed_filters = struct();
+req10.row_key = 'P';
+req10.col_key = 'T';
+req10.scenario_metric = 'pass_ratio';
+req10.scenario_mode = 'mean';
+
+spec.output_requests = {req1, req2, req3, req4, req5, req6, req7, req8, req9, req10};
 
 pr1 = struct();
 pr1.type = 'envelope_curve';
@@ -166,5 +204,61 @@ pr4.save_spec = struct( ...
     'output_dir', char(string(args.output_dir)), ...
     'file_name', 'stage05_opend_manual_raan_hm_mean_DG.png');
 
-spec.plot_requests = {pr1, pr2, pr3, pr4};
+pr5 = struct();
+pr5.type = 'envelope_curve';
+pr5.name = 'env_min_pass_ratio_plot';
+pr5.source = 'env_min_pass_ratio';
+pr5.x_field = 'Ns';
+pr5.y_field = 'pass_ratio';
+pr5.plot_spec = struct( ...
+    'title', 'Stage05 OpenD manual-RAAN min pass-ratio envelope', ...
+    'x_label', 'Ns', ...
+    'y_label', 'min pass ratio over RAAN', ...
+    'visible', char(string(args.plot_visible)));
+pr5.save_spec = struct( ...
+    'output_dir', char(string(args.output_dir)), ...
+    'file_name', 'stage05_opend_manual_raan_env_min_pass_ratio.png');
+
+pr6 = struct();
+pr6.type = 'envelope_curve';
+pr6.name = 'env_mean_pass_ratio_plot';
+pr6.source = 'env_mean_pass_ratio';
+pr6.x_field = 'Ns';
+pr6.y_field = 'pass_ratio';
+pr6.plot_spec = struct( ...
+    'title', 'Stage05 OpenD manual-RAAN mean pass-ratio envelope', ...
+    'x_label', 'Ns', ...
+    'y_label', 'mean pass ratio over RAAN', ...
+    'visible', char(string(args.plot_visible)));
+pr6.save_spec = struct( ...
+    'output_dir', char(string(args.output_dir)), ...
+    'file_name', 'stage05_opend_manual_raan_env_mean_pass_ratio.png');
+
+pr7 = struct();
+pr7.type = 'heatmap_matrix';
+pr7.name = 'hm_min_pass_ratio_plot';
+pr7.source = 'hm_min_pass_ratio';
+pr7.plot_spec = struct( ...
+    'title', 'Stage05 OpenD manual-RAAN min pass-ratio heatmap', ...
+    'x_label', 'T', ...
+    'y_label', 'P', ...
+    'visible', char(string(args.plot_visible)));
+pr7.save_spec = struct( ...
+    'output_dir', char(string(args.output_dir)), ...
+    'file_name', 'stage05_opend_manual_raan_hm_min_pass_ratio.png');
+
+pr8 = struct();
+pr8.type = 'heatmap_matrix';
+pr8.name = 'hm_mean_pass_ratio_plot';
+pr8.source = 'hm_mean_pass_ratio';
+pr8.plot_spec = struct( ...
+    'title', 'Stage05 OpenD manual-RAAN mean pass-ratio heatmap', ...
+    'x_label', 'T', ...
+    'y_label', 'P', ...
+    'visible', char(string(args.plot_visible)));
+pr8.save_spec = struct( ...
+    'output_dir', char(string(args.output_dir)), ...
+    'file_name', 'stage05_opend_manual_raan_hm_mean_pass_ratio.png');
+
+spec.plot_requests = {pr1, pr2, pr3, pr4, pr5, pr6, pr7, pr8};
 end
