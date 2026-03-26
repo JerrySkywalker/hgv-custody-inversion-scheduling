@@ -20,17 +20,16 @@ if parallel_opts.use_parallel
 
         switch engine_mode
             case 'opend'
-                packed = local_pack_parallel_row( ...
-                    row, evaluate_design_point_opend(row, trajs_in, gamma_eff_scalar, engine_cfg), ...
-                    engine_mode, gamma_eff_scalar, source_kind);
+                eval_out = evaluate_design_point_opend(row, trajs_in, gamma_eff_scalar, engine_cfg);
             case 'closedd'
-                packed = local_pack_parallel_row( ...
-                    row, evaluate_design_point_closedd(row, trajs_in, gamma_eff_scalar, engine_cfg), ...
-                    engine_mode, gamma_eff_scalar, source_kind);
+                eval_out = evaluate_design_point_closedd(row, trajs_in, gamma_eff_scalar, engine_cfg);
             otherwise
                 error('run_design_grid_search_parallel:UnsupportedMode', ...
                     'Unsupported evaluator mode: %s', engine_mode);
         end
+
+        packed = local_pack_parallel_row( ...
+            row, eval_out, engine_mode, gamma_eff_scalar, source_kind);
 
         result_cells{k} = packed;
     end
