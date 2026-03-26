@@ -14,12 +14,12 @@ fw = run_stage05_opend_legacy_reproduction_framework( ...
     'output_suffix', 'compare_smoke');
 
 legacy_best = manual_compare_stage05_best_envelope_fullgrid_all_i();
-legacy_hm = manual_compare_stage05_heatmap_slice();
+legacy_hm_i60 = manual_compare_stage05_heatmap_fullgrid_i60();
 
 out = struct();
 out.framework = fw;
 out.legacy_best = legacy_best;
-out.legacy_hm = legacy_hm;
+out.legacy_hm_i60 = legacy_hm_i60;
 
 % -----------------------------
 % Best-pass compare
@@ -37,18 +37,12 @@ best_cmp = outerjoin(fw_best, lg_best, 'Keys', 'Ns', 'MergeKeys', true);
 best_cmp.pass_abs_diff = abs(best_cmp.pass_ratio - best_cmp.legacy_pass_ratio);
 
 % -----------------------------
-% Heatmap compare
-% Only compare the 3 legacy-covered points: (8,8), (8,10), (10,8)
+% Heatmap compare at i=60
 % -----------------------------
 fw_hm = fw.outputs.geometry_heatmap_i60;
 fw_hm_tbl = local_heatmap_to_table(fw_hm, 'framework_DG_rob');
 
-keep_mask = (fw_hm_tbl.P == 8 & fw_hm_tbl.T == 8) | ...
-            (fw_hm_tbl.P == 8 & fw_hm_tbl.T == 10) | ...
-            (fw_hm_tbl.P == 10 & fw_hm_tbl.T == 8);
-fw_hm_tbl = fw_hm_tbl(keep_mask, :);
-
-lg_hm_tbl = legacy_hm.margin_compare(:, {'P','T','legacy_joint_margin'});
+lg_hm_tbl = legacy_hm_i60.margin_compare(:, {'P','T','legacy_joint_margin'});
 lg_hm_tbl = renamevars(lg_hm_tbl, 'legacy_joint_margin', 'legacy_DG_rob');
 
 heatmap_cmp = outerjoin(fw_hm_tbl, lg_hm_tbl, 'Keys', {'P','T'}, 'MergeKeys', true);
