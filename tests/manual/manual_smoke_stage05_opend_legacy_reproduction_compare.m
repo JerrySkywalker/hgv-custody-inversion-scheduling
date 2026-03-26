@@ -21,15 +21,32 @@ out.framework = fw;
 out.legacy_best = legacy_best;
 out.legacy_hm = legacy_hm;
 
+% -----------------------------
+% Best-pass compare
+% -----------------------------
 fw_best = fw.outputs.best_pass_by_Ns(:, {'Ns','pass_ratio'});
-lg_best = legacy_best.compare_table(:, {'Ns','legacy_best_pass'});
-lg_best = renamevars(lg_best, 'legacy_best_pass', 'legacy_pass_ratio');
+
+lg_best_raw = legacy_best.compare_table(:, {'Ns','legacy_best_pass'});
+lg_best_raw = renamevars(lg_best_raw, 'legacy_best_pass', 'legacy_pass_ratio');
+
+[Gbest, ns_tbl] = findgroups(lg_best_raw(:, {'Ns'}));
+lg_best = ns_tbl;
+lg_best.legacy_pass_ratio = splitapply(@max, lg_best_raw.legacy_pass_ratio, Gbest);
 
 best_cmp = outerjoin(fw_best, lg_best, 'Keys', 'Ns', 'MergeKeys', true);
 best_cmp.pass_abs_diff = abs(best_cmp.pass_ratio - best_cmp.legacy_pass_ratio);
 
+% -----------------------------
+% Heatmap compare
+% Only compare the 3 legacy-covered points: (8,8), (8,10), (10,8)
+% -----------------------------
 fw_hm = fw.outputs.geometry_heatmap_i60;
 fw_hm_tbl = local_heatmap_to_table(fw_hm, 'framework_DG_rob');
+
+keep_mask = (fw_hm_tbl.P == 8 & fw_hm_tbl.T == 8) | ...
+            (fw_hm_tbl.P == 8 & fw_hm_tbl.T == 10) | ...
+            (fw_hm_tbl.P == 10 & fw_hm_tbl.T == 8);
+fw_hm_tbl = fw_hm_tbl(keep_mask, :);
 
 lg_hm_tbl = legacy_hm.margin_compare(:, {'P','T','legacy_joint_margin'});
 lg_hm_tbl = renamevars(lg_hm_tbl, 'legacy_joint_margin', 'legacy_DG_rob');
