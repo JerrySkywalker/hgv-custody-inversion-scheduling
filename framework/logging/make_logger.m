@@ -23,7 +23,10 @@ logger.level_rank = struct( ...
     'ERROR', 40);
 
 logger.is_desktop = usejava('desktop');
-logger.has_cprintf = (exist('cprintf', 'file') == 2);
+
+% accept both .m (2) and .p (6)
+cprintf_exist_code = exist('cprintf', 'file');
+logger.has_cprintf = any(cprintf_exist_code == [2, 6]);
 
 logger.color_backend = local_resolve_color_backend(logger);
 

@@ -20,7 +20,9 @@ end
 
 timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS.FFF');
 plain_msg = sprintf(fmt, varargin{:});
-line_plain = sprintf('[%s][%s] %s', timestamp, level, plain_msg);
+
+level_tag = local_level_tag(level);
+line_plain = sprintf('[%s][%s] %s', timestamp, level_tag, plain_msg);
 
 % console
 if logger.enable_console
@@ -29,7 +31,7 @@ if logger.enable_console
             try
                 cprintf(local_cprintf_style(level), '%s\n', line_plain);
             catch ME
-                fprintf('[log_message][WARN] cprintf failed, fallback to plain text: %s\n', ME.message);
+                fprintf('[log_message][WARN ] cprintf failed, fallback to plain text: %s\n', ME.message);
                 fprintf('%s\n', line_plain);
             end
 
@@ -51,31 +53,51 @@ if logger.enable_file && ~isempty(logger.file_path)
 end
 end
 
+function tag = local_level_tag(level)
+switch upper(string(level))
+    case "DEBUG"
+        tag = 'DEBUG';
+    case "INFO"
+        tag = 'INFO ';
+    case "WARN"
+        tag = 'WARN ';
+    case "ERROR"
+        tag = 'ERROR';
+    otherwise
+        s = upper(char(string(level)));
+        if strlength(string(s)) < 5
+            tag = char(pad(string(s), 5, 'right'));
+        else
+            tag = s;
+        end
+end
+end
+
 function style = local_cprintf_style(level)
 switch upper(string(level))
     case "DEBUG"
-        style = [0, 0.5, 0.5];
+        style = 'Comments';
     case "INFO"
-        style = [0, 0.5, 0];
+        style = 'Text';
     case "WARN"
-        style = [0.85, 0.55, 0];
+        style = 'SystemCommands';
     case "ERROR"
-        style = [1, 0, 0];
+        style = '*Errors';
     otherwise
-        style = [0, 0, 0];
+        style = 'Text';
 end
 end
 
 function out = local_apply_ansi_color(text_in, level)
 switch upper(string(level))
     case "DEBUG"
-        code = '36';
+        code = '32'; % green
     case "INFO"
-        code = '32';
+        code = '37'; % white
     case "WARN"
-        code = '33';
+        code = '33'; % yellow
     case "ERROR"
-        code = '31';
+        code = '31'; % red
     otherwise
         code = '';
 end
