@@ -1,34 +1,81 @@
-function logger = make_logger(opts)
-if nargin < 1 || isempty(opts)
-    opts = struct();
-end
+function logger = make_logger(cfg)
+%MAKE_LOGGER Create a logger configuration struct.
 
-if ~isfield(opts, 'console_level'), opts.console_level = 'INFO'; end
-if ~isfield(opts, 'file_level'), opts.file_level = 'DEBUG'; end
-if ~isfield(opts, 'enable_console'), opts.enable_console = true; end
-if ~isfield(opts, 'enable_file'), opts.enable_file = false; end
-if ~isfield(opts, 'file_path'), opts.file_path = ''; end
+if nargin < 1 || isempty(cfg)
+    cfg = struct();
+end
 
 logger = struct();
-logger.opts = opts;
-logger.log = @(level, msg, varargin) local_log(opts, level, msg, varargin{:});
-end
 
-function local_log(opts, level, msg, varargin)
-timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS.FFF');
-level = upper(string(level));
-text = sprintf(msg, varargin{:});
-line = sprintf('[%s][%s] %s', timestamp, level, text);
+logger.enable_console = local_get(cfg, 'enable_console', true);
+logger.console_level = upper(char(string(local_get(cfg, 'console_level', 'INFO'))));
 
-if opts.enable_console && should_log(level, opts.console_level)
-    fprintf('%s\n', line);
-end
+logger.enable_file = local_get(cfg, 'enable_file', false);
+logger.file_path = char(string(local_get(cfg, 'file_path', '')));
 
-if opts.enable_file && strlength(string(opts.file_path)) > 0 && should_log(level, opts.file_level)
-    fid = fopen(opts.file_path, 'a');
-    if fid ~= -1
-        fprintf(fid, '%s\n', line);
-        fclose(fid);
+logger.use_color = local_get(cfg, 'use_color', false);
+logger.color_mode = lower(char(string(local_get(cfg, 'color_mode', 'auto'))));
+
+logger.level_rank = struct( ...
+    'DEBUG', 10, ...
+    'INFO', 20, ...
+    'WARN', 30, ...
+    'ERROR', 40);
+
+logger.is_desktop = usejava('desktop');
+logger.has_cprintf = (exist('cprintf', 'file') == 2);
+
+logger.color_backend = local_resolve_color_backend(logger);
+
+if logger.enable_file && ~isempty(logger.file_path)
+    file_dir = fileparts(logger.file_path);
+    if ~isempty(file_dir) && exist(file_dir, 'dir') ~= 7
+        mkdir(file_dir);
     end
+end
+end
+
+function backend = local_resolve_color_backend(logger)
+backend = 'plain';
+
+if ~logger.use_color
+    return;
+end
+
+switch logger.color_mode
+    case 'never'
+        backend = 'plain';
+
+    case 'ansi'
+        backend = 'ansi';
+
+    case 'cprintf'
+        if logger.is_desktop && logger.has_cprintf
+            backend = 'cprintf';
+        else
+            backend = 'plain';
+        end
+
+    case 'auto'
+        if logger.is_desktop
+            if logger.has_cprintf
+                backend = 'cprintf';
+            else
+                backend = 'plain';
+            end
+        else
+            backend = 'ansi';
+        end
+
+    otherwise
+        backend = 'plain';
+end
+end
+
+function v = local_get(s, f, d)
+if isfield(s, f) && ~isempty(s.(f))
+    v = s.(f);
+else
+    v = d;
 end
 end

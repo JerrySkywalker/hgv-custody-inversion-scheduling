@@ -42,8 +42,8 @@ best_cmp.pass_abs_diff = abs(best_cmp.pass_ratio - best_cmp.legacy_pass_ratio);
 fw_hm = fw.outputs.geometry_heatmap_i60;
 fw_hm_tbl = local_heatmap_to_table(fw_hm, 'framework_DG_rob');
 
-lg_hm_tbl = legacy_hm_i60.margin_compare(:, {'P','T','legacy_joint_margin'});
-lg_hm_tbl = renamevars(lg_hm_tbl, 'legacy_joint_margin', 'legacy_DG_rob');
+lg_hm_tbl = legacy_hm_i60.margin_compare(:, {'P','T','legacy_geometry_margin'});
+lg_hm_tbl = renamevars(lg_hm_tbl, 'legacy_geometry_margin', 'legacy_DG_rob');
 
 heatmap_cmp = outerjoin(fw_hm_tbl, lg_hm_tbl, 'Keys', {'P','T'}, 'MergeKeys', true);
 heatmap_cmp.abs_diff = abs(heatmap_cmp.framework_DG_rob - heatmap_cmp.legacy_DG_rob);

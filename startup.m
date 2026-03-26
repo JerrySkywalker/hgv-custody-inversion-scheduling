@@ -1,12 +1,5 @@
 function startup(varargin)
 %STARTUP Initialize project paths with unified logger + timing.
-%
-% Examples:
-%   startup
-%   startup('enable_file_log', true)
-%   startup('console_level', 'DEBUG')
-%   startup('force_reinit', true)
-%   startup('use_color', true, 'color_mode', 'ansi')
 
 persistent STARTUP_STATE
 
@@ -87,16 +80,34 @@ end
 function opts = local_parse_options(varargin)
 p = inputParser;
 addParameter(p, 'logger', [], @(x) isempty(x) || isstruct(x));
-addParameter(p, 'enable_console', true, @(x) islogical(x) || isnumeric(x));
-addParameter(p, 'console_level', 'INFO', @(x) ischar(x) || isstring(x));
-addParameter(p, 'enable_file_log', false, @(x) islogical(x) || isnumeric(x));
-addParameter(p, 'log_file', '', @(x) ischar(x) || isstring(x));
-addParameter(p, 'enable_timing', true, @(x) islogical(x) || isnumeric(x));
+addParameter(p, 'enable_console', local_env_bool('HGV_STARTUP_ENABLE_CONSOLE', true), @(x) islogical(x) || isnumeric(x));
+addParameter(p, 'console_level', local_env_str('HGV_STARTUP_CONSOLE_LEVEL', 'INFO'), @(x) ischar(x) || isstring(x));
+addParameter(p, 'enable_file_log', local_env_bool('HGV_STARTUP_ENABLE_FILE_LOG', false), @(x) islogical(x) || isnumeric(x));
+addParameter(p, 'log_file', local_env_str('HGV_STARTUP_LOG_FILE', ''), @(x) ischar(x) || isstring(x));
+addParameter(p, 'enable_timing', local_env_bool('HGV_STARTUP_ENABLE_TIMING', true), @(x) islogical(x) || isnumeric(x));
 addParameter(p, 'force_reinit', false, @(x) islogical(x) || isnumeric(x));
-addParameter(p, 'use_color', false, @(x) islogical(x) || isnumeric(x));
-addParameter(p, 'color_mode', 'auto', @(x) ischar(x) || isstring(x));
+addParameter(p, 'use_color', local_env_bool('HGV_STARTUP_USE_COLOR', false), @(x) islogical(x) || isnumeric(x));
+addParameter(p, 'color_mode', local_env_str('HGV_STARTUP_COLOR_MODE', 'auto'), @(x) ischar(x) || isstring(x));
 parse(p, varargin{:});
 opts = p.Results;
+end
+
+function v = local_env_str(name, default_value)
+s = getenv(name);
+if isempty(s)
+    v = default_value;
+else
+    v = s;
+end
+end
+
+function v = local_env_bool(name, default_value)
+s = getenv(name);
+if isempty(s)
+    v = default_value;
+else
+    v = any(strcmpi(string(s), ["1","true","yes","on"]));
+end
 end
 
 function repo_root = local_find_repo_root()
@@ -109,9 +120,17 @@ end
 
 function local_bootstrap_logging_path(repo_root)
 logging_dir = fullfile(repo_root, 'framework', 'logging');
+cprintf_dir = fullfile(repo_root, 'framework', 'logging', 'vendor', 'cprintf');
+
 if exist(logging_dir, 'dir') == 7
     if ~contains(path, [logging_dir pathsep]) && ~endsWith(path, logging_dir)
         addpath(logging_dir);
+    end
+end
+
+if exist(cprintf_dir, 'dir') == 7
+    if ~contains(path, [cprintf_dir pathsep]) && ~endsWith(path, cprintf_dir)
+        addpath(cprintf_dir);
     end
 end
 end
@@ -183,7 +202,12 @@ try
     else
         fprintf([fmt '\n'], varargin{:});
     end
-catch
-    fprintf([fmt '\n'], varargin{:});
+catch ME
+    fprintf('[startup][local_log fallback] %s\n', ME.message);
+    try
+        fprintf([fmt '\n'], varargin{:});
+    catch
+        fprintf('[startup][local_log fallback] failed to print original message.\n');
+    end
 end
 end

@@ -63,10 +63,7 @@ search_spec.run_tag = ['stage05_closedd_manual_raan' suffix_part];
 search_spec.save_cache = logical(args.save_cache);
 search_spec.use_parallel = logical(args.use_parallel);
 search_spec.show_progress = logical(args.show_progress);
-search_spec.logger = struct( ...
-    'enable_console', true, ...
-    'console_level', 'INFO', ...
-    'enable_file', false);
+search_spec.logger = struct('enable_console', true, 'console_level', 'INFO', 'enable_file', false);
 spec.search_spec = search_spec;
 
 req1 = struct(); req1.type = 'truth_table'; req1.name = 'truth_table';

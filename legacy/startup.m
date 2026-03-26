@@ -1,9 +1,5 @@
 function startup(varargin)
 %LEGACY/STARTUP Initialize legacy project paths.
-%
-% Can be run in two modes:
-% 1) Standalone, by entering legacy/ and calling startup
-% 2) Delegated from root startup, reusing shared logger via appdata
 
 opts = local_parse_options(varargin{:});
 
@@ -103,7 +99,12 @@ try
     else
         fprintf([fmt '\n'], varargin{:});
     end
-catch
-    fprintf([fmt '\n'], varargin{:});
+catch ME
+    fprintf('[legacy/startup][local_log fallback] %s\n', ME.message);
+    try
+        fprintf([fmt '\n'], varargin{:});
+    catch
+        fprintf('[legacy/startup][local_log fallback] failed to print original message.\n');
+    end
 end
 end
