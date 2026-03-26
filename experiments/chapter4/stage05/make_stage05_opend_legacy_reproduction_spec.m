@@ -30,6 +30,9 @@ else
     cfg_overlay.profile = struct();
 end
 
+% Ensure legacy task-family path sees expected engine config fields.
+cfg_overlay.engine_cfg = cfg_base;
+
 spec = struct();
 spec.cfg_base = cfg_base;
 spec.cfg_overlay = cfg_overlay;
