@@ -56,23 +56,43 @@ products.raw.geometry_heatmap_i60 = raw.outputs.geometry_heatmap_i60;
 products.raw.grid_table = raw.grid_table;
 
 products.scan = struct();
-products.scan.passratio_profile = local_build_passratio_profile(products.raw.truth_table);
-products.scan.bestDG_heatmap = local_build_bestDG_heatmap(products.raw.truth_table);
-products.scan.minNs_heatmap = local_build_minNs_heatmap(products.raw.truth_table);
+products.scan.passratio_profile = local_build_passratio_profile(products.raw.grid_table);
+products.scan.bestDG_heatmap = local_build_bestDG_heatmap(products.raw.grid_table);
+products.scan.minNs_heatmap = local_build_minNs_heatmap(products.raw.grid_table);
 end
 
-function prod = local_build_passratio_profile(truth_tbl)
-i_list = unique(truth_tbl.i_deg(:))';
-ns_list = unique(truth_tbl.Ns(:))';
+function prod = local_build_passratio_profile(grid_tbl)
+i_list = unique(grid_tbl.i_deg(:))';
+ns_list = unique(grid_tbl.Ns(:))';
 
 value_matrix = nan(numel(i_list), numel(ns_list));
+
+flag_col = '';
+vars = string(grid_tbl.Properties.VariableNames);
+if any(vars == "feasible_flag")
+    flag_col = 'feasible_flag';
+elseif any(vars == "is_feasible")
+    flag_col = 'is_feasible';
+elseif any(vars == "engine_feasible_flag")
+    flag_col = 'engine_feasible_flag';
+elseif any(vars == "legacy_feasible_flag")
+    flag_col = 'legacy_feasible_flag';
+end
+
 for ii = 1:numel(i_list)
     i_deg = i_list(ii);
     for jj = 1:numel(ns_list)
         Ns = ns_list(jj);
-        mask = truth_tbl.i_deg == i_deg & truth_tbl.Ns == Ns;
-        if any(mask)
-            value_matrix(ii, jj) = max(truth_tbl.pass_ratio(mask));
+        mask = grid_tbl.i_deg == i_deg & grid_tbl.Ns == Ns;
+        if ~any(mask)
+            continue;
+        end
+
+        if ~isempty(flag_col)
+            vals = double(grid_tbl.(flag_col)(mask));
+            value_matrix(ii, jj) = max(vals);
+        else
+            value_matrix(ii, jj) = max(grid_tbl.pass_ratio(mask));
         end
     end
 end
@@ -83,18 +103,18 @@ prod.ns_list = ns_list;
 prod.value_matrix = value_matrix;
 end
 
-function prod = local_build_bestDG_heatmap(truth_tbl)
-i_list = unique(truth_tbl.i_deg(:))';
-P_list = unique(truth_tbl.P(:))';
+function prod = local_build_bestDG_heatmap(grid_tbl)
+i_list = unique(grid_tbl.i_deg(:))';
+P_list = unique(grid_tbl.P(:))';
 
 value_matrix = nan(numel(P_list), numel(i_list));
 for pp = 1:numel(P_list)
     P = P_list(pp);
     for ii = 1:numel(i_list)
         i_deg = i_list(ii);
-        mask = truth_tbl.i_deg == i_deg & truth_tbl.P == P & truth_tbl.pass_ratio > 0;
+        mask = grid_tbl.i_deg == i_deg & grid_tbl.P == P & grid_tbl.pass_ratio > 0;
         if any(mask)
-            value_matrix(pp, ii) = max(truth_tbl.DG_rob(mask));
+            value_matrix(pp, ii) = max(grid_tbl.DG_rob(mask));
         end
     end
 end
@@ -105,18 +125,18 @@ prod.i_list = i_list;
 prod.value_matrix = value_matrix;
 end
 
-function prod = local_build_minNs_heatmap(truth_tbl)
-i_list = unique(truth_tbl.i_deg(:))';
-P_list = unique(truth_tbl.P(:))';
+function prod = local_build_minNs_heatmap(grid_tbl)
+i_list = unique(grid_tbl.i_deg(:))';
+P_list = unique(grid_tbl.P(:))';
 
 value_matrix = nan(numel(P_list), numel(i_list));
 for pp = 1:numel(P_list)
     P = P_list(pp);
     for ii = 1:numel(i_list)
         i_deg = i_list(ii);
-        mask = truth_tbl.i_deg == i_deg & truth_tbl.P == P & truth_tbl.pass_ratio > 0;
+        mask = grid_tbl.i_deg == i_deg & grid_tbl.P == P & grid_tbl.pass_ratio > 0;
         if any(mask)
-            value_matrix(pp, ii) = min(truth_tbl.Ns(mask));
+            value_matrix(pp, ii) = min(grid_tbl.Ns(mask));
         end
     end
 end
