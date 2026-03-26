@@ -53,6 +53,16 @@ heatmap_cmp.abs_diff = abs(heatmap_cmp.framework_DG_rob - heatmap_cmp.legacy_DG_
 out.best_pass_compare = sortrows(best_cmp, 'Ns');
 out.heatmap_compare = sortrows(heatmap_cmp, {'P','T'});
 
+if any(isnan(out.best_pass_compare.pass_ratio))
+    warning('manual_smoke_stage05_opend_legacy_reproduction_compare:MissingBestPassCoverage', ...
+        'Framework best-pass compare has missing pass_ratio rows.');
+end
+
+if any(isnan(out.heatmap_compare.framework_DG_rob))
+    warning('manual_smoke_stage05_opend_legacy_reproduction_compare:MissingHeatmapCoverage', ...
+        'Framework heatmap compare has missing DG rows.');
+end
+
 disp('[manual] Stage05 OpenD legacy reproduction compare completed.');
 disp(out.best_pass_compare);
 disp(out.heatmap_compare);
