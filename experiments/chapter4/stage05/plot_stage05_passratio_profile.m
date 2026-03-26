@@ -29,5 +29,6 @@ grid on;
 xlabel(char(string(args.x_label)));
 ylabel(char(string(args.y_label)));
 title(char(string(args.title)));
+ylim([0, 1.05]);
 legend('Location', 'eastoutside');
 end
