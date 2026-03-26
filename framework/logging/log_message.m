@@ -80,7 +80,7 @@ switch upper(string(level))
     case "INFO"
         style = 'Text';
     case "WARN"
-        style = 'SystemCommands';
+        style = 'Strings';
     case "ERROR"
         style = '*Errors';
     otherwise
