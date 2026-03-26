@@ -29,6 +29,14 @@ spec.save_cache = logical(args.save_cache);
 spec.use_parallel = logical(args.use_parallel);
 spec.show_progress = logical(args.show_progress);
 
+spec.parallel_monitor = struct();
+spec.parallel_monitor.enable_monitor = true;
+spec.parallel_monitor.enable_comm_bytes = true;
+spec.parallel_monitor.enable_slow_iter_warn = true;
+spec.parallel_monitor.slow_iter_threshold_sec = 2.0;
+spec.parallel_monitor.enable_per_point_debug = false;
+spec.parallel_monitor.enable_dataqueue = false;
+
 spec.reproduction_artifact_root = fullfile(spec.artifact_root, 'reproduction');
 spec.validation_artifact_root = fullfile(spec.artifact_root, 'validation');
 end
