@@ -51,6 +51,12 @@ else
     plot_outputs = run_plot_outputs(outputs, spec.plot_requests);
 end
 
+if ~isfield(spec, 'table_export') || isempty(spec.table_export)
+    table_exports = struct();
+else
+    table_exports = export_result_tables(outputs, spec.table_export);
+end
+
 result = struct();
 result.cfg = cfg;
 result.task_family = task_family;
@@ -61,6 +67,7 @@ result.grid_table = search_result.grid_table;
 result.meta = search_result.meta;
 result.outputs = outputs;
 result.plot_outputs = plot_outputs;
+result.table_exports = table_exports;
 end
 
 function cfg_out = local_merge_cfg(cfg_base, cfg_overlay)
