@@ -4,7 +4,7 @@ if nargin < 1 || ~isstruct(opts)
         'opts struct is required.');
 end
 
-required_fields = {'snapshot_name','scope','code_only','include_outputs','include_chapter5','include_legacy'};
+required_fields = {'snapshot_name','source','content'};
 for k = 1:numel(required_fields)
     f = required_fields{k};
     if ~isfield(opts, f)
@@ -12,6 +12,14 @@ for k = 1:numel(required_fields)
             'Missing required opts field: %s', f);
     end
 end
+
+valid_sources = {'working','head'};
+valid_contents = {'all','code'};
+
+assert(any(strcmpi(opts.source, valid_sources)), ...
+    'Invalid source. Expected working or head.');
+assert(any(strcmpi(opts.content, valid_contents)), ...
+    'Invalid content. Expected all or code.');
 
 this_file = mfilename('fullpath');
 pack_root = fileparts(this_file);
@@ -36,44 +44,14 @@ zip_path = fullfile(snapshot_root, zip_name);
 
 mkdir(staging_dir);
 
-% root files
-root_files = normalize_to_cellstr(settings.root_files);
-for i = 1:numel(root_files)
-    rel = root_files{i};
-    copy_file_if_exists(fullfile(repo_root, rel), fullfile(staging_dir, rel));
-end
-
-% common roots
-roots_common = normalize_to_cellstr(settings.roots_common);
-for i = 1:numel(roots_common)
-    rel = roots_common{i};
-    copy_tree_filtered(fullfile(repo_root, rel), fullfile(staging_dir, rel), settings);
-end
-
-% chapter 4 tex
-chapter4_tex = normalize_to_cellstr(settings.chapter4_tex);
-for i = 1:numel(chapter4_tex)
-    name = chapter4_tex{i};
-    copy_file_if_exists(fullfile(repo_root, name), fullfile(staging_dir, name));
-end
-
-% chapter 5 tex
-if opts.include_chapter5
-    chapter5_tex = normalize_to_cellstr(settings.chapter5_tex);
-    for i = 1:numel(chapter5_tex)
-        name = chapter5_tex{i};
-        copy_file_if_exists(fullfile(repo_root, name), fullfile(staging_dir, name));
-    end
-end
-
-% legacy
-if opts.include_legacy
-    copy_tree_filtered(fullfile(repo_root, 'legacy'), fullfile(staging_dir, 'legacy'), settings);
-end
-
-% outputs
-if opts.include_outputs && ~opts.code_only
-    copy_selected_outputs(repo_root, staging_dir, settings);
+switch lower(opts.source)
+    case 'working'
+        pack_from_working_tree(repo_root, staging_dir, settings, opts);
+    case 'head'
+        pack_from_git_head(repo_root, staging_dir, settings, opts);
+    otherwise
+        error('pack_project_snapshot_core:InvalidSource', ...
+            'Unsupported source: %s', opts.source);
 end
 
 write_snapshot_manifest(staging_dir, opts, created_at, timestamp);
@@ -90,27 +68,22 @@ out.zip_path = zip_path;
 out.snapshot_dir = snapshot_root;
 out.file_count = file_count;
 out.created_at = created_at;
-out.meta = struct('status', 'ok', 'snapshot_name', opts.snapshot_name);
+out.meta = struct( ...
+    'status', 'ok', ...
+    'snapshot_name', opts.snapshot_name, ...
+    'source', opts.source, ...
+    'content', opts.content);
 
 fprintf('[pack] Created snapshot: %s\n', zip_path);
 end
 
-function copy_file_if_exists(src, dst)
-if exist(src, 'file') == 2
-    dst_dir = fileparts(dst);
-    if ~exist(dst_dir, 'dir')
-        mkdir(dst_dir);
-    end
-    copyfile(src, dst);
-end
+function pack_from_working_tree(repo_root, staging_dir, settings, opts)
+scan_dir_recursive(repo_root, repo_root, staging_dir, settings, opts);
 end
 
-function copy_tree_filtered(src_root, dst_root, settings)
-if exist(src_root, 'dir') ~= 7
-    return;
-end
+function scan_dir_recursive(base_root, current_dir, staging_dir, settings, opts)
+items = dir(current_dir);
 
-items = dir(src_root);
 for k = 1:numel(items)
     item = items(k);
     name = item.name;
@@ -119,19 +92,17 @@ for k = 1:numel(items)
         continue;
     end
 
-    src_path = fullfile(src_root, name);
-    dst_path = fullfile(dst_root, name);
+    src_path = fullfile(current_dir, name);
+    rel_path = make_relative_path(base_root, src_path);
 
     if item.isdir
-        if should_skip_dir(name, settings)
+        if should_skip_dir(rel_path, settings)
             continue;
         end
-        if ~exist(dst_path, 'dir')
-            mkdir(dst_path);
-        end
-        copy_tree_filtered(src_path, dst_path, settings);
+        scan_dir_recursive(base_root, src_path, staging_dir, settings, opts);
     else
-        if should_copy_file(name, settings)
+        if should_include_file(rel_path, name, settings, opts)
+            dst_path = fullfile(staging_dir, rel_path);
             dst_dir = fileparts(dst_path);
             if ~exist(dst_dir, 'dir')
                 mkdir(dst_dir);
@@ -142,74 +113,86 @@ for k = 1:numel(items)
 end
 end
 
-function tf = should_skip_dir(name, settings)
-skip_dirs = normalize_to_cellstr(settings.skip_dirs);
-tf = any(strcmpi(name, skip_dirs));
+function pack_from_git_head(repo_root, staging_dir, settings, opts)
+old_dir = pwd;
+cd(repo_root);
+cleanupObj = onCleanup(@() cd(old_dir)); %#ok<NASGU>
+
+tmp_id = char(java.util.UUID.randomUUID());
+tmp_zip = fullfile(tempdir, ['pack_head_' tmp_id '.zip']);
+tmp_extract_dir = fullfile(tempdir, ['pack_head_' tmp_id]);
+
+if exist(tmp_zip, 'file') == 2
+    delete(tmp_zip);
+end
+if exist(tmp_extract_dir, 'dir') == 7
+    rmdir(tmp_extract_dir, 's');
 end
 
-function tf = should_copy_file(name, settings)
+mkdir(tmp_extract_dir);
+
+cleanupTmp = onCleanup(@() cleanup_temp_head_artifacts(tmp_zip, tmp_extract_dir)); %#ok<NASGU>
+
+cmd = sprintf('git archive --format=zip -o "%s" HEAD', tmp_zip);
+[status, out] = system(cmd);
+if status ~= 0
+    error('pack_project_snapshot_core:GitArchiveFailed', ...
+        'git archive failed:\n%s', out);
+end
+
+unzip(tmp_zip, tmp_extract_dir);
+
+scan_dir_recursive(tmp_extract_dir, tmp_extract_dir, staging_dir, settings, opts);
+end
+
+function tf = should_skip_dir(rel_path, settings)
+rel_norm = strrep(rel_path, '/', filesep);
+parts = regexp(rel_norm, ['\' filesep], 'split');
+parts = parts(~cellfun(@isempty, parts));
+
+skip_dirs = normalize_to_cellstr(settings.skip_dirs);
+tf = any(ismember(lower(parts), lower(skip_dirs)));
+end
+
+function tf = should_include_file(rel_path, name, settings, opts) %#ok<INUSD>
+switch lower(opts.content)
+    case 'all'
+        tf = true;
+    case 'code'
+        tf = is_code_file(name, settings);
+    otherwise
+        tf = false;
+end
+end
+
+function tf = is_code_file(name, settings)
 [~,~,ext] = fileparts(name);
 
-allowed_ext = normalize_to_cellstr(settings.allowed_ext);
-blocked_ext = normalize_to_cellstr(settings.blocked_ext);
-blocked_names = normalize_to_cellstr(settings.blocked_names);
+always_include_names = normalize_to_cellstr(settings.always_include_names);
+if any(strcmpi(name, always_include_names))
+    tf = true;
+    return;
+end
 
-if any(strcmpi(name, blocked_names))
+code_blocked_ext = normalize_to_cellstr(settings.code_blocked_ext);
+if any(strcmpi(ext, code_blocked_ext))
     tf = false;
     return;
 end
 
-if any(strcmpi(ext, blocked_ext))
-    tf = false;
-    return;
+code_allowed_ext = normalize_to_cellstr(settings.code_allowed_ext);
+tf = any(strcmpi(ext, code_allowed_ext));
 end
 
-if isempty(ext)
-    tf = any(strcmpi(name, allowed_ext));
-    return;
-end
+function rel_path = make_relative_path(base_root, full_path)
+base_root = char(java.io.File(base_root).getCanonicalPath());
+full_path = char(java.io.File(full_path).getCanonicalPath());
 
-tf = any(strcmpi(ext, allowed_ext));
-end
-
-function copy_selected_outputs(repo_root, staging_dir, settings)
-copy_latest_output_tree(fullfile(repo_root, 'outputs', 'stage'), ...
-    fullfile(staging_dir, 'outputs', 'stage'), settings);
-copy_latest_output_tree(fullfile(repo_root, 'outputs', 'milestone'), ...
-    fullfile(staging_dir, 'outputs', 'milestone'), settings);
-copy_latest_output_tree(fullfile(repo_root, 'outputs', 'shared_scenarios'), ...
-    fullfile(staging_dir, 'outputs', 'shared_scenarios'), settings);
-end
-
-function copy_latest_output_tree(src_root, dst_root, settings)
-if exist(src_root, 'dir') ~= 7
-    return;
-end
-
-items = dir(src_root);
-for k = 1:numel(items)
-    item = items(k);
-    name = item.name;
-
-    if strcmp(name, '.') || strcmp(name, '..')
-        continue;
-    end
-
-    src_path = fullfile(src_root, name);
-    dst_path = fullfile(dst_root, name);
-
-    if item.isdir
-        copy_latest_output_tree(src_path, dst_path, settings);
-    else
-        latest_pattern = char(settings.latest_pattern);
-        if contains(name, latest_pattern)
-            dst_dir = fileparts(dst_path);
-            if ~exist(dst_dir, 'dir')
-                mkdir(dst_dir);
-            end
-            copyfile(src_path, dst_path);
-        end
-    end
+if strncmpi(full_path, base_root, length(base_root))
+    rel_path = full_path(length(base_root)+2:end);
+else
+    error('pack_project_snapshot_core:RelativePathFailed', ...
+        'Failed to compute relative path.');
 end
 end
 
@@ -219,11 +202,8 @@ fid = fopen(manifest_path, 'w');
 assert(fid > 0, 'Failed to write manifest.');
 
 fprintf(fid, 'snapshot_name: %s\n', opts.snapshot_name);
-fprintf(fid, 'scope: %s\n', opts.scope);
-fprintf(fid, 'code_only: %d\n', logical(opts.code_only));
-fprintf(fid, 'include_outputs: %d\n', logical(opts.include_outputs));
-fprintf(fid, 'include_chapter5: %d\n', logical(opts.include_chapter5));
-fprintf(fid, 'include_legacy: %d\n', logical(opts.include_legacy));
+fprintf(fid, 'source: %s\n', opts.source);
+fprintf(fid, 'content: %s\n', opts.content);
 fprintf(fid, 'created_at: %s\n', created_at);
 fprintf(fid, 'timestamp: %s\n', timestamp);
 
@@ -263,5 +243,21 @@ elseif ischar(v)
     cellstr_out = {v};
 else
     cellstr_out = {};
+end
+end
+
+function cleanup_temp_head_artifacts(tmp_zip, tmp_extract_dir)
+if exist(tmp_zip, 'file') == 2
+    try
+        delete(tmp_zip);
+    catch
+    end
+end
+
+if exist(tmp_extract_dir, 'dir') == 7
+    try
+        rmdir(tmp_extract_dir, 's');
+    catch
+    end
 end
 end
