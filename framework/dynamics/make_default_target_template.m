@@ -10,9 +10,6 @@ target_template.dynamics.ts_s = 1;
 
 target_template.dynamics.mass0_kg = 907.185;
 target_template.dynamics.s_ref_m2 = 0.292;
-target_template.dynamics.cd = 0.6;
-target_template.dynamics.cl = 0.0;
-
 target_template.dynamics.v0_mps = 6000;
 target_template.dynamics.h0_m = 30000;
 target_template.dynamics.theta0_deg = -5;
@@ -50,4 +47,26 @@ target_template.reference.lambda0_deg = 0;
 
 target_template.planet = struct();
 target_template.planet.re_m = 6378137;
+target_template.planet.mu_m3_s2 = 3.986004418e14;
+target_template.planet.g0_mps2 = 9.80665;
+
+target_template.atmosphere = struct();
+target_template.atmosphere.model_name = 'us76';
+
+target_template.aero = struct();
+target_template.aero.coef_L = [ ...
+    -0.2317
+     0.0513
+     0.2945
+     0.0024
+    -0.1028
+    -0.2793];
+target_template.aero.coef_D = [ ...
+     0.0240
+     0.0001
+     0.3535
+     0.0006
+    -0.1027
+    -1.6537];
 end
+

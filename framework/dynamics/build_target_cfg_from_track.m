@@ -45,6 +45,16 @@ target_cfg.control = tt.control;
 target_cfg.constraints = tt.constraints;
 target_cfg.reference = tt.reference;
 target_cfg.planet = tt.planet;
+if isfield(tt, 'atmosphere') && isstruct(tt.atmosphere)
+    target_cfg.atmosphere = tt.atmosphere;
+else
+    target_cfg.atmosphere = struct('model_name', 'us76');
+end
+if isfield(tt, 'aero') && isstruct(tt.aero) && isstruct(tt.aero)
+    target_cfg.aero = tt.aero;
+else
+    target_cfg.aero = struct();
+end
 
 % Carry over class / variation semantics into control context.
 target_cfg.control.family = char(string(track_i.class_name));
@@ -80,3 +90,5 @@ else
     value = default_value;
 end
 end
+
+
