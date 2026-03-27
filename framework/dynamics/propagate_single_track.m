@@ -36,7 +36,7 @@ function traj = propagate_single_track(case_i, cfg, hgv_cfg)
         ctrl.gamma_rad = deg2rad(hgv_cfg.ctrl_profile.bank_deg);
     
         t0 = cfg.target_template.dynamics.t0_s_s;
-        tf = cfg.stage02.Tmax_s;
+        tf = cfg.target_template.dynamics.tmax_s;
     
         event_params = local_make_event_params(cfg, p.Re);
         opts = odeset('RelTol',1e-6, 'AbsTol',1e-6, ...
@@ -47,7 +47,7 @@ function traj = propagate_single_track(case_i, cfg, hgv_cfg)
         % ------------------------------------------------------------
         % Uniform resampling
         % ------------------------------------------------------------
-        t_uniform = (t0 : cfg.stage02.Ts_s : T(end))';
+        t_uniform = (t0 : cfg.target_template.dynamics.ts_s : T(end))';
         X_uniform = interp1(T, X, t_uniform, 'linear');
     
         % ------------------------------------------------------------
@@ -188,9 +188,9 @@ function traj = propagate_single_track(case_i, cfg, hgv_cfg)
         event_params.h_max_m = cfg.target_template.constraints.h_max_m;
         event_params.v_min_mps = cfg.target_template.constraints.v_min_mps;
         event_params.v_max_mps = cfg.target_template.constraints.v_max_mps;
-        event_params.enable_task_capture_event = cfg.stage02.enable_task_capture_event;
+        event_params.enable_task_capture_event = cfg.target_template.constraints.enable_task_capture_event;
         event_params.capture_radius_km = cfg.target_template.constraints.capture_radius_km;
-        event_params.enable_landing_event = cfg.stage02.enable_landing_event;
+        event_params.enable_landing_event = cfg.target_template.constraints.enable_landing_event;
     end
 
     function dX = local_hgv_vtc_dynamics_const(X, alpha_rad, gamma_rad, p)
@@ -266,5 +266,6 @@ function traj = propagate_single_track(case_i, cfg, hgv_cfg)
         isterminal = isterminal(1:next_idx - 1);
         direction = direction(1:next_idx - 1);
     end
+
 
 

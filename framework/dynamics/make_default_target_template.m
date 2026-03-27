@@ -27,10 +27,14 @@ target_template.constraints.h_max_m = 1e6;
 target_template.constraints.v_min_mps = 0;
 target_template.constraints.v_max_mps = 1e5;
 target_template.constraints.capture_radius_km = 50;
+target_template.constraints.enable_task_capture_event = false;
+target_template.constraints.enable_landing_event = true;
 
 target_template.reference = struct();
 target_template.reference.phi_ref_deg = 0;
 target_template.reference.lambda_ref_deg = 0;
+target_template.reference.phi0_deg = 0;
+target_template.reference.lambda0_deg = 0;
 
 target_template.planet = struct();
 target_template.planet.re_m = 6378137;

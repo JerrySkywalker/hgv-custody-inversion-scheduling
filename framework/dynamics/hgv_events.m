@@ -36,18 +36,19 @@ function [value, isterminal, direction] = hgv_events(~, X, cfg, p)
         direction(end+1,1) = -1;
     
         % Task capture radius
-        if cfg.stage02.enable_task_capture_event
+        if cfg.target_template.constraints.enable_task_capture_event
             value(end+1,1) = dist_to_center_km - cfg.target_template.constraints.capture_radius_km;
             isterminal(end+1,1) = 1;
             direction(end+1,1) = -1;
         end
     
         % Optional landing event
-        if cfg.stage02.enable_landing_event
+        if cfg.target_template.constraints.enable_landing_event
             value(end+1,1) = h_m;  % h = 0
             isterminal(end+1,1) = 1;
             direction(end+1,1) = -1;
         end
     end
+
 
 

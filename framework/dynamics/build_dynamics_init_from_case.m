@@ -47,13 +47,13 @@ function hgv_cfg = build_dynamics_init_from_case(case_i, cfg)
             hgv_cfg.h0 = h0_m_default;
         else
             if isfield(cfg.stage02, 'phi0_deg')
-                phi0_deg = cfg.stage02.phi0_deg;
+                phi0_deg = cfg.target_template.reference.phi0_deg;
             else
                 phi0_deg = 0.0;
             end
     
             if isfield(cfg.stage02, 'lambda0_deg')
-                lambda0_deg = cfg.stage02.lambda0_deg;
+                lambda0_deg = cfg.target_template.reference.lambda0_deg;
             else
                 lambda0_deg = 0.0;
             end
@@ -125,5 +125,6 @@ function hgv_cfg = build_dynamics_init_from_case(case_i, cfg)
             hgv_cfg.debug.entry_point_ecef_m = case_i.entry_point_ecef_m;
         end
     end
+
 
 
