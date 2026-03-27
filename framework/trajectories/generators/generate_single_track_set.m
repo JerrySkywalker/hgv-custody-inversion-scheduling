@@ -19,6 +19,10 @@ function items = generate_single_track_set(track_specs, varargin)
 %     - entry_radius_km
 %     - center_xy_km
 %     - heading_offset_deg
+%     - scene_mode
+%     - anchor_lat_deg
+%     - anchor_lon_deg
+%     - anchor_h_m
 
 p = inputParser;
 addRequired(p, 'track_specs', @(x) isstruct(x) && ~isempty(x));
@@ -68,6 +72,11 @@ for k = 1:n
         entry_radius_km = double(entry_radius_km);
     end
 
+    scene_mode = char(string(get_or_default(spec, 'scene_mode', "local_disk")));
+    anchor_lat_deg = double(get_or_default(spec, 'anchor_lat_deg', NaN));
+    anchor_lon_deg = double(get_or_default(spec, 'anchor_lon_deg', NaN));
+    anchor_h_m = double(get_or_default(spec, 'anchor_h_m', NaN));
+
     if ~isnan(entry_radius_km)
         entry_point_xy_km = center_xy_km + entry_radius_km * [cosd(entry_theta_deg), sind(entry_theta_deg)];
     else
@@ -91,8 +100,15 @@ for k = 1:n
         'heading_offset_deg', heading_offset_deg, ...
         'entry_point_xy_km', entry_point_xy_km, ...
         'heading_unit_xy', heading_unit_xy, ...
+        'entry_point_enu_km', entry_point_xy_km, ...
+        'entry_point_enu_m', entry_point_xy_km * 1000, ...
+        'heading_unit_enu', heading_unit_xy, ...
         'center_xy_km', center_xy_km, ...
-        'entry_radius_km', entry_radius_km);
+        'entry_radius_km', entry_radius_km, ...
+        'scene_mode', scene_mode, ...
+        'anchor_lat_deg', anchor_lat_deg, ...
+        'anchor_lon_deg', anchor_lon_deg, ...
+        'anchor_h_m', anchor_h_m);
 end
 
 items = make_trajectory_item_table( ...
