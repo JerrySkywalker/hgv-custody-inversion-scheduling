@@ -41,7 +41,7 @@ function out = stage07_define_paper_plot_scope(cfg)
         % Load Stage07.1 reference Walker
         % ------------------------------------------------------------
         d71 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_select_reference_walker_%s_*.mat', run_tag)));
+            sprintf('stage07_select_reference_walker_%s_*.mat', run_tag));
         assert(~isempty(d71), 'No Stage07.1 cache found.');
     
         [~, idx71] = max([d71.datenum]);
@@ -55,7 +55,7 @@ function out = stage07_define_paper_plot_scope(cfg)
         % Load Stage07.4 selected examples
         % ------------------------------------------------------------
         d74 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_select_critical_examples_%s_*.mat', run_tag)));
+            sprintf('stage07_select_critical_examples_%s_*.mat', run_tag));
         assert(~isempty(d74), 'No Stage07.4 cache found.');
     
         [~, idx74] = max([d74.datenum]);

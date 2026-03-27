@@ -199,13 +199,13 @@ function [reference_walker, scope_spec, nominal_bank, stage07_ref_file, stage07_
     persistent cache
 
     d71 = find_stage_cache_files(cfg.paths.cache, ...
-        sprintf('stage07_select_reference_walker_%s_*.mat', run_tag)));
+        sprintf('stage07_select_reference_walker_%s_*.mat', run_tag));
     assert(~isempty(d71), 'No Stage07.1 cache found for run_tag=%s.', run_tag);
     [~, idx71] = max([d71.datenum]);
     stage07_ref_file = fullfile(d71(idx71).folder, d71(idx71).name);
 
     d72 = find_stage_cache_files(cfg.paths.cache, ...
-        sprintf('stage07_define_critical_scope_refwalker_%s_*.mat', run_tag)));
+        sprintf('stage07_define_critical_scope_refwalker_%s_*.mat', run_tag));
     assert(~isempty(d72), 'No Stage07.2 scope cache found for run_tag=%s.', run_tag);
     [~, idx72] = max([d72.datenum]);
     stage07_scope_file = fullfile(d72(idx72).folder, d72(idx72).name);

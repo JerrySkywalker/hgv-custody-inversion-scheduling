@@ -50,7 +50,7 @@ function out = stage07_define_critical_scope_refwalker(cfg)
         % Load latest Stage07.1 reference Walker
         % ============================================================
         d71 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_select_reference_walker_%s_*.mat', run_tag)));
+            sprintf('stage07_select_reference_walker_%s_*.mat', run_tag));
         assert(~isempty(d71), ...
             'No Stage07.1 reference-Walker cache found for run_tag=%s.', run_tag);
     
