@@ -12,7 +12,15 @@ elseif ~isfield(cfg, 'target_template')
     cfg.target_template = make_default_target_template();
 end
 
-stage01_out = run_stage01_parity(profile_stage01);
+profile_local = profile_stage01;
+if ~isfield(profile_local, 'task_family_def') || isempty(profile_local.task_family_def)
+    profile_local.task_family_def = struct();
+end
+if ~isfield(profile_local.task_family_def, 'selection_mode') || isempty(profile_local.task_family_def.selection_mode)
+    profile_local.task_family_def.selection_mode = 'all_enabled';
+end
+
+stage01_out = run_stage01_parity(profile_local);
 trajectory_set = propagate_track_set(stage01_out.task_set, cfg);
 
 out = struct();
