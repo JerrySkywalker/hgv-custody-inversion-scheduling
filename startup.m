@@ -15,6 +15,9 @@ function startup()
         addpath(genpath(fullfile(root_dir, 'run_milestones')));
         addpath(genpath(fullfile(root_dir, 'run_shared_scenarios')));
         addpath(genpath(fullfile(root_dir, 'run_stages')));
+
+        addpath(genpath(fullfile(root_dir, 'tools')));
+        addpath(genpath(fullfile(root_dir, 'tests')));
     
         % Add deliverables / milestone scripts
         deliverables_dir = fullfile(root_dir, 'deliverables');
