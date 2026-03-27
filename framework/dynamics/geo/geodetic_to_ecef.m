@@ -1,29 +1,41 @@
-function r_ecef_m = geodetic_to_ecef(lat_deg, lon_deg, h_m, cfg)
-    %GEODETIC_TO_ECEF Convert geodetic coordinates to ECEF position [m].
-    %
-    % Supports scalar or array-valued lat/lon/h inputs with matching size.
+function r_ecef_m = geodetic_to_ecef(lat_deg, lon_deg, h_m, cfg_like)
+%GEODETIC_TO_ECEF Convert geodetic coordinates to ECEF (spherical Earth fallback).
+%
+%   r_ecef_m = GEODETIC_TO_ECEF(lat_deg, lon_deg, h_m, cfg_like)
 
-    lat = deg2rad(lat_deg);
-    lon = deg2rad(lon_deg);
+if nargin < 4
+    error('geodetic_to_ecef:NotEnoughInputs', ...
+        'lat_deg, lon_deg, h_m, and cfg_like are required.');
+end
 
-    a = cfg.geo.a_m;
-    e2 = cfg.geo.e2;
+Re_m = resolve_earth_radius(cfg_like);
 
-    sin_lat = sin(lat);
-    cos_lat = cos(lat);
-    sin_lon = sin(lon);
-    cos_lon = cos(lon);
+lat_rad = deg2rad(lat_deg);
+lon_rad = deg2rad(lon_deg);
 
-    N = a ./ sqrt(1 - e2 .* sin_lat.^2);
+r = Re_m + h_m;
 
-    x = (N + h_m) .* cos_lat .* cos_lon;
-    y = (N + h_m) .* cos_lat .* sin_lon;
-    z = (N .* (1 - e2) + h_m) .* sin_lat;
+x = r .* cos(lat_rad) .* cos(lon_rad);
+y = r .* cos(lat_rad) .* sin(lon_rad);
+z = r .* sin(lat_rad);
 
-    r_ecef_m = [x(:).'; y(:).'; z(:).'];
+r_ecef_m = [x(:), y(:), z(:)];
+end
 
-    if isscalar(x)
-        r_ecef_m = r_ecef_m(:, 1);
+function Re_m = resolve_earth_radius(cfg_like)
+if isstruct(cfg_like)
+    if isfield(cfg_like, 'planet') && isstruct(cfg_like.planet) ...
+            && isfield(cfg_like.planet, 're_m') && ~isempty(cfg_like.planet.re_m)
+        Re_m = double(cfg_like.planet.re_m);
+        return;
+    end
+
+    if isfield(cfg_like, 'geo') && isstruct(cfg_like.geo) ...
+            && isfield(cfg_like.geo, 'a_m') && ~isempty(cfg_like.geo.a_m)
+        Re_m = double(cfg_like.geo.a_m);
+        return;
     end
 end
 
+Re_m = 6378137.0;
+end
