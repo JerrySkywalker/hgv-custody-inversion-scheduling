@@ -28,7 +28,7 @@ cfg.paths.outputs = fullfile(root_dir, 'outputs');
 cfg.paths.output = cfg.paths.outputs;
 cfg.paths.milestones = fullfile(cfg.paths.outputs, 'milestones');
 cfg.paths.shared_scenarios = fullfile(cfg.paths.outputs, 'shared_scenarios');
-cfg.paths.stage13 = fullfile(cfg.paths.outputs, 'stage13');
+cfg.paths.stage13 = fullfile(cfg.paths.outputs, 'stage', 'stage13');
 cfg.paths.milestone_outputs = cfg.paths.milestones;
 cfg.paths.shared_scenario_outputs = cfg.paths.shared_scenarios;
 cfg.paths.stage13_outputs = cfg.paths.stage13;
@@ -126,3 +126,4 @@ cfg.milestones = milestone_common_merge_structs(cfg.milestones, incoming_milesto
 cfg.shared_scenarios = milestone_common_merge_structs(cfg.shared_scenarios, incoming_shared_scenarios);
 cfg = milestone_common_merge_structs(cfg, overrides);
 end
+

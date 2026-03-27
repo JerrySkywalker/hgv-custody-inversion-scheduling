@@ -23,7 +23,7 @@ function cfg = default_params()
     cfg.paths.bundle_outputs = fullfile(cfg.paths.outputs, 'bundles');
     cfg.paths.milestone_outputs = fullfile(cfg.paths.outputs, 'milestones');
     cfg.paths.shared_scenario_outputs = fullfile(cfg.paths.outputs, 'shared_scenarios');
-    cfg.paths.stage13_outputs = fullfile(cfg.paths.outputs, 'stage13');
+    cfg.paths.stage13_outputs = fullfile(cfg.paths.outputs, 'stage', 'stage13');
 
     % Deprecated compatibility fields. Keep these mapped to the unified
     % outputs/ layout while stage code is still being migrated.
@@ -1313,3 +1313,4 @@ function cfg = default_params()
     cfg.stage11.use_parallel = false;
 
 end
+

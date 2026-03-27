@@ -34,7 +34,7 @@ function startup()
         ensure_dir(fullfile(outputs_root, 'bundles'));
         ensure_dir(fullfile(outputs_root, 'milestones'));
         ensure_dir(fullfile(outputs_root, 'shared_scenarios'));
-        ensure_dir(fullfile(outputs_root, 'stage13'));
+        ensure_dir(fullfile(outputs_root, 'stage', 'stage13'));
 
         % Create the canonical paper-export subtree eagerly.
         ensure_dir(fullfile(outputs_root, 'milestones', 'MA'));
@@ -67,3 +67,4 @@ function startup()
         set(groot, 'defaultLegendInterpreter', 'none');
         set(groot, 'defaultAxesTickLabelInterpreter', 'none');
     end
+

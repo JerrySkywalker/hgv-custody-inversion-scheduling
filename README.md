@@ -5,7 +5,7 @@
 仓库当前采用统一输出根目录 `outputs/`：
 
 - `outputs/stage/`、`outputs/benchmark/`、`outputs/logs/`、`outputs/bundles/` 是本地开发产物，默认不纳入版本控制
-- `outputs/milestones/`、`outputs/shared_scenarios/`、`outputs/stage13/` 是论文正式导出资产，默认纳入版本控制
+- `outputs/milestones/`、`outputs/shared_scenarios/`、`outputs/stage/stage13/` 是论文正式导出资产，默认纳入版本控制
 - 旧的 `results/` 与 `output/` 目录不再作为推荐输出语义，仅视为 legacy 历史痕迹
 
 ## 环境要求
@@ -139,14 +139,14 @@ run_stage13
 - `outputs/milestones/ME/data|figures|tables|reports`
 - `outputs/shared_scenarios/SS1/data|figures|reports`
 - `outputs/shared_scenarios/SS2/data|figures|reports`
-- `outputs/stage13/data|figures|tables|reports`
+- `outputs/stage/stage13/data|figures|tables|reports`
 
 说明：
 
 - 这里的 `data/` 是论文资产快照，不再使用 `cache/` 命名
 - `run_all_milestones` 汇总报告写入 `outputs/milestones/milestone_summary_report.md`
 - `run_all_shared_scenarios` 产物写入 `outputs/shared_scenarios/SS1` 与 `outputs/shared_scenarios/SS2`
-- `run_stage13` 产物写入 `outputs/stage13`
+- `run_stage13` 产物写入 `outputs/stage/stage13`
 
 ## Git Tracking Rules
 
@@ -161,7 +161,7 @@ run_stage13
 
 - `outputs/milestones/**`
 - `outputs/shared_scenarios/**`
-- `outputs/stage13/**`
+- `outputs/stage/stage13/**`
 
 ## Packaging
 
@@ -186,3 +186,4 @@ run_stage13
 ## License
 
 本项目采用 [MIT License](LICENSE)。
+
