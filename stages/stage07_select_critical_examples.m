@@ -46,7 +46,7 @@ function out = stage07_select_critical_examples(cfg)
         % Load Stage07.1 reference Walker
         % ============================================================
         d71 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_select_reference_walker_%s_*.mat', run_tag)));
+            sprintf('stage07_select_reference_walker_%s_*.mat', run_tag));
         assert(~isempty(d71), 'No Stage07.1 cache found.');
     
         [~, idx71] = max([d71.datenum]);
@@ -61,7 +61,7 @@ function out = stage07_select_critical_examples(cfg)
         % Load Stage07.2 scope
         % ============================================================
         d72 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_define_critical_scope_refwalker_%s_*.mat', run_tag)));
+            sprintf('stage07_define_critical_scope_refwalker_%s_*.mat', run_tag));
         assert(~isempty(d72), 'No Stage07.2 cache found.');
     
         [~, idx72] = max([d72.datenum]);
@@ -76,7 +76,7 @@ function out = stage07_select_critical_examples(cfg)
         % Load Stage07.3 risk map
         % ============================================================
         d73 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_scan_heading_risk_map_%s_*.mat', run_tag)));
+            sprintf('stage07_scan_heading_risk_map_%s_*.mat', run_tag));
         assert(~isempty(d73), 'No Stage07.3 cache found.');
     
         [~, idx73] = max([d73.datenum]);

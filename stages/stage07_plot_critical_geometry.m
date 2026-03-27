@@ -52,7 +52,7 @@ function out = stage07_plot_critical_geometry(cfg)
         % Load Stage07.1 reference
         % ============================================================
         d71 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_select_reference_walker_%s_*.mat', run_tag)));
+            sprintf('stage07_select_reference_walker_%s_*.mat', run_tag));
         assert(~isempty(d71), 'No Stage07.1 cache found.');
     
         [~, idx71] = max([d71.datenum]);
@@ -66,7 +66,7 @@ function out = stage07_plot_critical_geometry(cfg)
         % Load Stage07.3 risk map
         % ============================================================
         d73 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_scan_heading_risk_map_%s_*.mat', run_tag)));
+            sprintf('stage07_scan_heading_risk_map_%s_*.mat', run_tag));
         assert(~isempty(d73), 'No Stage07.3 cache found.');
     
         [~, idx73] = max([d73.datenum]);
@@ -81,7 +81,7 @@ function out = stage07_plot_critical_geometry(cfg)
         % Load Stage07.4 selected examples
         % ============================================================
         d74 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_select_critical_examples_%s_*.mat', run_tag)));
+            sprintf('stage07_select_critical_examples_%s_*.mat', run_tag));
         assert(~isempty(d74), 'No Stage07.4 cache found.');
     
         [~, idx74] = max([d74.datenum]);

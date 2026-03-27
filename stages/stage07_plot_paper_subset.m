@@ -40,7 +40,7 @@ function out = stage07_plot_paper_subset(cfg)
         % Load Stage07.6.1 paper scope
         % ------------------------------------------------------------
         d76 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_define_paper_plot_scope_%s_*.mat', run_tag)));
+            sprintf('stage07_define_paper_plot_scope_%s_*.mat', run_tag));
         assert(~isempty(d76), 'No Stage07.6.1 cache found.');
     
         [~, idx76] = max([d76.datenum]);
@@ -54,7 +54,7 @@ function out = stage07_plot_paper_subset(cfg)
         % Load Stage07.3 risk map
         % ------------------------------------------------------------
         d73 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_scan_heading_risk_map_%s_*.mat', run_tag)));
+            sprintf('stage07_scan_heading_risk_map_%s_*.mat', run_tag));
         assert(~isempty(d73), 'No Stage07.3 cache found.');
     
         [~, idx73] = max([d73.datenum]);
@@ -68,7 +68,7 @@ function out = stage07_plot_paper_subset(cfg)
         % Load Stage07.4 selected examples
         % ------------------------------------------------------------
         d74 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_select_critical_examples_%s_*.mat', run_tag)));
+            sprintf('stage07_select_critical_examples_%s_*.mat', run_tag));
         assert(~isempty(d74), 'No Stage07.4 cache found.');
     
         [~, idx74] = max([d74.datenum]);
