@@ -1,31 +1,41 @@
 {
-  "skip_dirs": [".git", ".vs", ".vscode", "snapshots", "outputs"],
-  "allowed_ext": [".m", ".md", ".txt", ".yaml", ".yml", ".json", ".csv", ".ps1", ".tex", ".gitignore", ".gitattributes", ".prj", ".xml"],
-  "blocked_ext": [".asv", ".fig", ".png", ".jpg", ".jpeg", ".zip", ".mat", ".xlsx", ".xls", ".pptx", ".docx", ".pdf"],
-  "blocked_names": [],
-  "latest_pattern": "_latest.",
-  "roots_common": [
-    "tools/pack",
-    "src",
-    "params",
-    "run_stages",
-    "milestones",
-    "shared_scenarios",
-    "run_milestones",
-    "run_shared_scenarios",
-    "tests/smoke"
+  "skip_dirs": [
+    ".git",
+    ".vs",
+    ".vscode",
+    "outputs",
+    "snapshots"
   ],
-  "root_files": [
-    "startup.m",
-    "README.md",
-    "CHANGELOG.md"
+  "code_allowed_ext": [
+    ".m",
+    ".ps1",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".md",
+    ".txt",
+    ".csv",
+    ".tex",
+    ".xml",
+    ".prj"
   ],
-  "chapter4_tex": [
-    "cpt02_ObservatoryFocused.tex",
-    "cpt03_Lie.tex",
-    "cpt04_StaticBaseline.tex"
+  "code_blocked_ext": [
+    ".asv",
+    ".fig",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".zip",
+    ".mat",
+    ".xlsx",
+    ".xls",
+    ".pptx",
+    ".docx",
+    ".pdf"
   ],
-  "chapter5_tex": [
-    "cpt05_Dynamic.tex"
+  "always_include_names": [
+    ".gitignore",
+    ".gitattributes",
+    "LICENSE"
   ]
 }
