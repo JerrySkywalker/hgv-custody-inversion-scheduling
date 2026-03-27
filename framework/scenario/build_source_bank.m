@@ -53,7 +53,7 @@ if isfield(trd, 'critical_spec') && ~isempty(trd.critical_spec)
 
     sources(end+1).source_id = "src_critical_tracks"; %#ok<AGROW>
     sources(end).source_type = "explicit_track_set";
-    sources(end).generator_name = "generate_stage01_critical_tracks";
+    sources(end).generator_name = "generate_single_track_set";
     sources(end).enabled = critical_enabled;
     sources(end).depends_on = "";
     sources(end).spec = trd.critical_spec;
