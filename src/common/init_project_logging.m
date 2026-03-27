@@ -24,6 +24,8 @@ function logger = init_project_logging(root_dir)
     cfg.file_path = log_file;
     cfg.use_color = true;
     cfg.color_mode = 'auto';
+    cfg.show_date = false;
+    cfg.show_time = true;
 
     logger = make_logger(cfg);
 

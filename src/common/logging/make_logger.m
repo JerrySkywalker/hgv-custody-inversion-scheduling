@@ -16,6 +16,9 @@ logger.file_path = char(string(local_get(cfg, 'file_path', '')));
 logger.use_color = local_get(cfg, 'use_color', false);
 logger.color_mode = lower(char(string(local_get(cfg, 'color_mode', 'auto'))));
 
+logger.show_date = local_get(cfg, 'show_date', false);
+logger.show_time = local_get(cfg, 'show_time', true);
+
 logger.level_rank = struct( ...
     'DEBUG', 10, ...
     'INFO', 20, ...
