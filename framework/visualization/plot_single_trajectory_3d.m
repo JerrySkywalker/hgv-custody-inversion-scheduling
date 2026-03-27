@@ -16,30 +16,23 @@ addParameter(p, 'OutputPath', '', @(x) ischar(x) || isstring(x));
 parse(p, traj, varargin{:});
 opts = p.Results;
 
-mode = char(string(opts.CoordinateMode));
+requested_mode = char(string(opts.CoordinateMode));
 vis  = char(string(opts.FigureVisible));
 outp = char(string(opts.OutputPath));
 
-switch lower(mode)
-    case 'enu_km'
-        if ~isfield(traj, 'r_enu_km') || isempty(traj.r_enu_km)
-            error('plot_single_trajectory_3d:MissingENU', ...
-                'traj.r_enu_km is required for CoordinateMode = enu_km.');
-        end
-        R = traj.r_enu_km;
-        labels = {'E [km]', 'N [km]', 'U [km]'};
+actual_mode = requested_mode;
+[R, labels] = resolve_coords(traj, requested_mode);
 
-    case 'ecef_km'
-        if ~isfield(traj, 'r_ecef_km') || isempty(traj.r_ecef_km)
-            error('plot_single_trajectory_3d:MissingECEF', ...
-                'traj.r_ecef_km is required for CoordinateMode = ecef_km.');
-        end
-        R = traj.r_ecef_km;
-        labels = {'X [km]', 'Y [km]', 'Z [km]'};
+if isempty(R)
+    if strcmpi(requested_mode, 'enu_km')
+        [R, labels] = resolve_coords(traj, 'ecef_km');
+        actual_mode = 'ecef_km';
+    end
+end
 
-    otherwise
-        error('plot_single_trajectory_3d:UnsupportedMode', ...
-            'Unsupported CoordinateMode: %s', mode);
+if isempty(R)
+    error('plot_single_trajectory_3d:NoValidCoordinates', ...
+        'No valid coordinates available for plotting.');
 end
 
 if size(R,1) ~= 3 && size(R,2) == 3
@@ -62,9 +55,32 @@ track_id = '';
 if isfield(traj, 'track_id')
     track_id = char(string(traj.track_id));
 end
-title(sprintf('Trajectory 3D Plot: %s', track_id), 'Interpreter', 'none');
+title(sprintf('Trajectory 3D Plot (%s): %s', upper(actual_mode), track_id), 'Interpreter', 'none');
 
 if ~isempty(outp)
     saveas(fig, outp);
+end
+end
+
+function [R, labels] = resolve_coords(traj, mode)
+R = [];
+labels = {};
+
+switch lower(mode)
+    case 'enu_km'
+        if isfield(traj, 'r_enu_km') && ~isempty(traj.r_enu_km) && ~any(isnan(traj.r_enu_km(:)))
+            R = traj.r_enu_km;
+            labels = {'E [km]', 'N [km]', 'U [km]'};
+        end
+
+    case 'ecef_km'
+        if isfield(traj, 'r_ecef_km') && ~isempty(traj.r_ecef_km) && ~any(isnan(traj.r_ecef_km(:)))
+            R = traj.r_ecef_km;
+            labels = {'X [km]', 'Y [km]', 'Z [km]'};
+        end
+
+    otherwise
+        error('plot_single_trajectory_3d:UnsupportedMode', ...
+            'Unsupported CoordinateMode: %s', mode);
 end
 end
