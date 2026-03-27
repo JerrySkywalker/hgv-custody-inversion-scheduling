@@ -1,0 +1,31 @@
+{
+  "skip_dirs": [".git", ".vs", ".vscode", "snapshots", "outputs"],
+  "allowed_ext": [".m", ".md", ".txt", ".yaml", ".yml", ".json", ".csv", ".ps1", ".tex", ".gitignore", ".gitattributes", ".prj", ".xml"],
+  "blocked_ext": [".asv", ".fig", ".png", ".jpg", ".jpeg", ".zip", ".mat", ".xlsx", ".xls", ".pptx", ".docx", ".pdf"],
+  "blocked_names": [],
+  "latest_pattern": "_latest.",
+  "roots_common": [
+    "tools/pack",
+    "src",
+    "params",
+    "run_stages",
+    "milestones",
+    "shared_scenarios",
+    "run_milestones",
+    "run_shared_scenarios",
+    "tests/smoke"
+  ],
+  "root_files": [
+    "startup.m",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "chapter4_tex": [
+    "cpt02_ObservatoryFocused.tex",
+    "cpt03_Lie.tex",
+    "cpt04_StaticBaseline.tex"
+  ],
+  "chapter5_tex": [
+    "cpt05_Dynamic.tex"
+  ]
+}
