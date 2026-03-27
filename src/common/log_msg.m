@@ -4,10 +4,10 @@ function log_msg(log_fid, level, msg, varargin)
 % Legacy signature:
 %   log_msg(log_fid, level, msg, varargin{:})
 %
-% New behavior:
-%   - If project logger is initialized, route message through project_log
-%   - Preserve optional legacy file write to log_fid
-%   - If project logger is not initialized, fall back to old screen/file behavior
+% Behavior:
+%   - If project logger is initialized, route to project_log(...)
+%   - Preserve legacy file sink via log_fid when provided
+%   - If project logger is unavailable, fall back to legacy screen/file output
 
     if nargin < 3
         error('log_msg requires at least log_fid, level, and msg.');
@@ -21,10 +21,10 @@ function log_msg(log_fid, level, msg, varargin)
     end
 
     if ~isempty(logger)
-        % New unified logging path
+        % Unified logging path: console + session file
         project_log(level, msg, varargin{:});
 
-        % Preserve legacy file sink if caller still passes log_fid
+        % Preserve explicit legacy file sink if caller still passes fid
         if ~isempty(log_fid) && isnumeric(log_fid) && log_fid > 0
             timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS.FFF');
             body = sprintf(msg, varargin{:});
@@ -39,10 +39,10 @@ function log_msg(log_fid, level, msg, varargin)
         return;
     end
 
-    % Fallback to legacy behavior if project logger is unavailable
+    % Fallback to legacy behavior if project logger not initialized
     timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
     body = sprintf(msg, varargin{:});
-    line = sprintf('[%s][%s] %s\n', timestamp, upper(level), body);
+    line = sprintf('[%s][%s] %s\n', timestamp, upper(char(string(level))), body);
 
     fprintf('%s', line);
 
