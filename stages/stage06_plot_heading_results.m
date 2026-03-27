@@ -55,7 +55,7 @@ function out = stage06_plot_heading_results(cfg)
         % Load latest Stage06 cache (by run_tag)
         % ============================================================
         d6 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage06_heading_walker_search_%s_*.mat', run_tag)));
+            sprintf('stage06_heading_walker_search_%s_*.mat', run_tag));
         assert(~isempty(d6), 'No Stage06 cache found for run_tag: %s.', run_tag);
         [~, idx6] = max([d6.datenum]);
         stage06_file = fullfile(d6(idx6).folder, d6(idx6).name);
@@ -66,7 +66,7 @@ function out = stage06_plot_heading_results(cfg)
         % Load latest Stage06 compare cache (by run_tag)
         % ============================================================
         dc = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage06_compare_with_stage05_%s_*.mat', run_tag)));
+            sprintf('stage06_compare_with_stage05_%s_*.mat', run_tag));
         assert(~isempty(dc), 'No Stage06 compare cache found for run_tag: %s. Please run stage06_compare_with_stage05 first.', run_tag);
         [~, idxc] = max([dc.datenum]);
         compare_file = fullfile(dc(idxc).folder, dc(idxc).name);
