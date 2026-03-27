@@ -23,6 +23,11 @@ tt = cfg.target_template;
 
 target_cfg = struct();
 target_cfg.track_id = string(track_i.traj_id);
+if isfield(tt, 'model') && isstruct(tt.model)
+    target_cfg.model = tt.model;
+else
+    target_cfg.model = struct('dynamics', 'hgv_vtc');
+end
 
 target_cfg.init = struct();
 target_cfg.init.scene_mode = get_payload_field(payload, 'scene_mode', 'local_disk');
@@ -90,5 +95,6 @@ else
     value = default_value;
 end
 end
+
 
 

@@ -3,6 +3,9 @@ function target_template = make_default_target_template()
 
 target_template = struct();
 
+target_template.model = struct();
+target_template.model.dynamics = 'hgv_vtc';
+
 target_template.dynamics = struct();
 target_template.dynamics.t0_s = 0;
 target_template.dynamics.tmax_s = 200;
@@ -69,4 +72,5 @@ target_template.aero.coef_D = [ ...
     -0.1027
     -1.6537];
 end
+
 
