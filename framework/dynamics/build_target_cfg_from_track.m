@@ -2,10 +2,6 @@ function target_cfg = build_target_cfg_from_track(track_i, cfg)
 %BUILD_TARGET_CFG_FROM_TRACK Build per-track target propagation config.
 %
 %   target_cfg = BUILD_TARGET_CFG_FROM_TRACK(track_i, cfg)
-%
-%   Inputs:
-%     - track_i : single-row task-set item table row
-%     - cfg     : global config struct containing cfg.target_template
 
 if nargin < 2
     error('build_target_cfg_from_track:NotEnoughInputs', ...
@@ -50,7 +46,10 @@ target_cfg.constraints = tt.constraints;
 target_cfg.reference = tt.reference;
 target_cfg.planet = tt.planet;
 
-% If reference anchor is available from track payload, override template defaults.
+% Carry over class / variation semantics into control context.
+target_cfg.control.family = char(string(track_i.class_name));
+target_cfg.control.subfamily = char(string(track_i.variation_kind));
+
 if ~isnan(target_cfg.init.anchor_lat_deg)
     target_cfg.reference.phi_ref_deg = target_cfg.init.anchor_lat_deg;
     target_cfg.reference.phi0_deg = target_cfg.init.anchor_lat_deg;
@@ -60,10 +59,18 @@ if ~isnan(target_cfg.init.anchor_lon_deg)
     target_cfg.reference.lambda0_deg = target_cfg.init.anchor_lon_deg;
 end
 
-% Initialize heading from track when available.
+target_cfg.init.v0_mps = target_cfg.dynamics.v0_mps;
+target_cfg.init.h0_m = target_cfg.dynamics.h0_m;
+target_cfg.init.theta0_rad = deg2rad(target_cfg.dynamics.theta0_deg);
+
 if ~isnan(target_cfg.init.heading_deg)
     target_cfg.dynamics.sigma0_deg = target_cfg.init.heading_deg;
 end
+target_cfg.init.sigma0_rad = deg2rad(target_cfg.dynamics.sigma0_deg);
+target_cfg.init.phi0_rad = deg2rad(target_cfg.reference.phi0_deg);
+target_cfg.init.lambda0_rad = deg2rad(target_cfg.reference.lambda0_deg);
+
+target_cfg.control_profile = build_control_profile(target_cfg);
 end
 
 function value = get_payload_field(payload, field_name, default_value)

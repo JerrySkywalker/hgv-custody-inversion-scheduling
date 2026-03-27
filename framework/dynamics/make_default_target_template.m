@@ -20,6 +20,18 @@ target_template.dynamics.sigma0_deg = 0;
 
 target_template.control = struct();
 target_template.control.mode = 'ballistic';
+target_template.control.alpha_cmd_deg = 15.0;
+target_template.control.bank_cmd_deg = 0.0;
+target_template.control.alpha_nominal_deg = 15.0;
+target_template.control.bank_nominal_deg = 0.0;
+target_template.control.alpha_heading_deg = 15.0;
+target_template.control.bank_heading_deg = 0.0;
+target_template.control.alpha_c1_deg = 15.0;
+target_template.control.bank_c1_deg = 0.0;
+target_template.control.alpha_c2_deg = 15.0;
+target_template.control.bank_c2_deg = 0.0;
+target_template.control.use_heading_offset_as_bank_seed = false;
+target_template.control.heading_offset_bank_gain_deg_per_deg = 0.0;
 
 target_template.constraints = struct();
 target_template.constraints.h_min_m = 0;
