@@ -19,7 +19,7 @@ target_template.dynamics.theta0_deg = -5;
 target_template.dynamics.sigma0_deg = 0;
 
 target_template.control = struct();
-target_template.control.mode = 'ballistic';
+target_template.control.mode = 'glide_open_loop';
 target_template.control.alpha_cmd_deg = 15.0;
 target_template.control.bank_cmd_deg = 0.0;
 target_template.control.alpha_nominal_deg = 15.0;
