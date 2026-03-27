@@ -44,28 +44,21 @@ for i = 1:n_base
     base_payload = base_items.payload{i};
     this_bundle_id = base_id + "_heading";
 
-    if isfield(base_payload, 'entry_theta_deg')
-        entry_theta_deg = double(base_payload.entry_theta_deg);
-    else
-        entry_theta_deg = NaN;
-    end
-
-    if isfield(base_payload, 'heading_deg')
-        base_heading_deg = double(base_payload.heading_deg);
-    else
-        base_heading_deg = NaN;
-    end
-
-    if isfield(base_payload, 'entry_point_xy_km')
-        entry_point_xy_km = double(base_payload.entry_point_xy_km);
-    else
-        entry_point_xy_km = [NaN, NaN];
-    end
+    entry_theta_deg = get_payload_field(base_payload, 'entry_theta_deg', NaN);
+    base_heading_deg = get_payload_field(base_payload, 'heading_deg', NaN);
+    entry_point_xy_km = get_payload_field(base_payload, 'entry_point_xy_km', [NaN, NaN]);
+    entry_point_enu_km = get_payload_field(base_payload, 'entry_point_enu_km', [NaN, NaN]);
+    entry_point_enu_m = get_payload_field(base_payload, 'entry_point_enu_m', [NaN, NaN]);
+    scene_mode = get_payload_field(base_payload, 'scene_mode', 'local_disk');
+    anchor_lat_deg = get_payload_field(base_payload, 'anchor_lat_deg', NaN);
+    anchor_lon_deg = get_payload_field(base_payload, 'anchor_lon_deg', NaN);
+    anchor_h_m = get_payload_field(base_payload, 'anchor_h_m', NaN);
 
     for j = 1:n_offsets
         row = row + 1;
         offset = double(heading_offsets_deg(j));
         heading_deg = base_heading_deg + offset;
+        heading_unit_xy = [cosd(heading_deg), sind(heading_deg)];
 
         traj_id(row) = sprintf('%s_h%+03d', char(base_id), round(offset));
         bundle_id(row) = this_bundle_id;
@@ -80,7 +73,14 @@ for i = 1:n_base
         new_payload.heading_deg = heading_deg;
         new_payload.heading_offset_deg = offset;
         new_payload.entry_point_xy_km = entry_point_xy_km;
-        new_payload.heading_unit_xy = [cosd(heading_deg), sind(heading_deg)];
+        new_payload.heading_unit_xy = heading_unit_xy;
+        new_payload.entry_point_enu_km = entry_point_enu_km;
+        new_payload.entry_point_enu_m = entry_point_enu_m;
+        new_payload.heading_unit_enu = heading_unit_xy;
+        new_payload.scene_mode = scene_mode;
+        new_payload.anchor_lat_deg = anchor_lat_deg;
+        new_payload.anchor_lon_deg = anchor_lon_deg;
+        new_payload.anchor_h_m = anchor_h_m;
 
         payload{row} = new_payload;
     end
@@ -89,4 +89,12 @@ end
 items = make_trajectory_item_table( ...
     traj_id, class_name, bundle_id, source_kind, generator_id, ...
     base_traj_id, sample_id, variation_kind, payload);
+end
+
+function value = get_payload_field(payload, field_name, default_value)
+if isstruct(payload) && isfield(payload, field_name)
+    value = payload.(field_name);
+else
+    value = default_value;
+end
 end

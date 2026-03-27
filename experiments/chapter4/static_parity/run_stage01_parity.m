@@ -85,7 +85,7 @@ if ~isfield(selector, 'selection_mode') || isempty(selector.selection_mode)
 end
 
 task_set = build_task_family(registry, selector);
-casebank_view = build_stage01_casebank_view(registry);
+casebank_view = build_case_catalog_view(registry);
 casebank_summary = summarize_stage01_casebank_view(casebank_view);
 
 out = struct();

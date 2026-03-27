@@ -15,6 +15,10 @@ cfg.scenario_def = struct();
 cfg.scenario_def.kind = "disk_region";
 cfg.scenario_def.frame = "regional_geodetic";
 cfg.scenario_def.region_id = "protected_disk_01";
+cfg.scenario_def.scene_mode = "local_disk";
+cfg.scenario_def.anchor_lat_deg = NaN;
+cfg.scenario_def.anchor_lon_deg = NaN;
+cfg.scenario_def.anchor_h_m = NaN;
 
 cfg.trajectory_registry_def = struct();
 cfg.trajectory_registry_def.build_mode = "generators";
@@ -27,6 +31,10 @@ cfg.trajectory_registry_def.nominal_spec.entry_radius_km = 3000;
 cfg.trajectory_registry_def.nominal_spec.bundle_id = "ring12";
 cfg.trajectory_registry_def.nominal_spec.center_xy_km = [0, 0];
 cfg.trajectory_registry_def.nominal_spec.start_angle_deg = 0;
+cfg.trajectory_registry_def.nominal_spec.scene_mode = "local_disk";
+cfg.trajectory_registry_def.nominal_spec.anchor_lat_deg = NaN;
+cfg.trajectory_registry_def.nominal_spec.anchor_lon_deg = NaN;
+cfg.trajectory_registry_def.nominal_spec.anchor_h_m = NaN;
 
 cfg.trajectory_registry_def.heading_spec = struct();
 cfg.trajectory_registry_def.heading_spec.enabled = false;
@@ -36,6 +44,10 @@ cfg.trajectory_registry_def.critical_spec = struct();
 cfg.trajectory_registry_def.critical_spec.enabled = false;
 cfg.trajectory_registry_def.critical_spec.entry_radius_km = 3000;
 cfg.trajectory_registry_def.critical_spec.center_xy_km = [0, 0];
+cfg.trajectory_registry_def.critical_spec.scene_mode = "local_disk";
+cfg.trajectory_registry_def.critical_spec.anchor_lat_deg = NaN;
+cfg.trajectory_registry_def.critical_spec.anchor_lon_deg = NaN;
+cfg.trajectory_registry_def.critical_spec.anchor_h_m = NaN;
 
 cfg.task_family_def = struct();
 cfg.task_family_def.class_name = "nominal";
