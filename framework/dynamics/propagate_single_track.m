@@ -35,7 +35,7 @@ function traj = propagate_single_track(case_i, cfg, hgv_cfg)
         ctrl.alpha_rad = deg2rad(hgv_cfg.ctrl_profile.alpha_deg);
         ctrl.gamma_rad = deg2rad(hgv_cfg.ctrl_profile.bank_deg);
     
-        t0 = cfg.stage02.t0_s;
+        t0 = cfg.target_template.dynamics.t0_s_s;
         tf = cfg.stage02.Tmax_s;
     
         event_params = local_make_event_params(cfg, p.Re);
@@ -178,18 +178,18 @@ function traj = propagate_single_track(case_i, cfg, hgv_cfg)
     function event_params = local_make_event_params(cfg, re_m)
         event_params = struct();
         event_params.Re = re_m;
-        event_params.phi_ref_rad = deg2rad(cfg.stage02.phi_ref_deg);
-        event_params.lambda_ref_rad = deg2rad(cfg.stage02.lambda_ref_deg);
+        event_params.phi_ref_rad = deg2rad(cfg.target_template.reference.phi_ref_deg);
+        event_params.lambda_ref_rad = deg2rad(cfg.target_template.reference.lambda_ref_deg);
         event_params.cos_phi_ref = cos(event_params.phi_ref_rad);
-        event_params.re_km = cfg.stage02.Re_m / 1000;
+        event_params.re_km = cfg.target_template.planet.re_m / 1000;
         event_params.center_x_km = cfg.stage01.disk_center_xy_km(1);
         event_params.center_y_km = cfg.stage01.disk_center_xy_km(2);
-        event_params.h_min_m = cfg.stage02.h_min_m;
-        event_params.h_max_m = cfg.stage02.h_max_m;
-        event_params.v_min_mps = cfg.stage02.v_min_mps;
-        event_params.v_max_mps = cfg.stage02.v_max_mps;
+        event_params.h_min_m = cfg.target_template.constraints.h_min_m;
+        event_params.h_max_m = cfg.target_template.constraints.h_max_m;
+        event_params.v_min_mps = cfg.target_template.constraints.v_min_mps;
+        event_params.v_max_mps = cfg.target_template.constraints.v_max_mps;
         event_params.enable_task_capture_event = cfg.stage02.enable_task_capture_event;
-        event_params.capture_radius_km = cfg.stage02.capture_radius_km;
+        event_params.capture_radius_km = cfg.target_template.constraints.capture_radius_km;
         event_params.enable_landing_event = cfg.stage02.enable_landing_event;
     end
 
@@ -266,4 +266,5 @@ function traj = propagate_single_track(case_i, cfg, hgv_cfg)
         isterminal = isterminal(1:next_idx - 1);
         direction = direction(1:next_idx - 1);
     end
+
 

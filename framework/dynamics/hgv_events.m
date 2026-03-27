@@ -16,28 +16,28 @@ function [value, isterminal, direction] = hgv_events(~, X, cfg, p)
         direction = [];
     
         % Minimum altitude
-        value(end+1,1) = h_m - cfg.stage02.h_min_m;
+        value(end+1,1) = h_m - cfg.target_template.constraints.h_min_m;
         isterminal(end+1,1) = 1;
         direction(end+1,1) = -1;
     
         % Maximum altitude
-        value(end+1,1) = cfg.stage02.h_max_m - h_m;
+        value(end+1,1) = cfg.target_template.constraints.h_max_m - h_m;
         isterminal(end+1,1) = 1;
         direction(end+1,1) = -1;
     
         % Minimum speed
-        value(end+1,1) = v - cfg.stage02.v_min_mps;
+        value(end+1,1) = v - cfg.target_template.constraints.v_min_mps;
         isterminal(end+1,1) = 1;
         direction(end+1,1) = -1;
     
         % Maximum speed
-        value(end+1,1) = cfg.stage02.v_max_mps - v;
+        value(end+1,1) = cfg.target_template.constraints.v_max_mps - v;
         isterminal(end+1,1) = 1;
         direction(end+1,1) = -1;
     
         % Task capture radius
         if cfg.stage02.enable_task_capture_event
-            value(end+1,1) = dist_to_center_km - cfg.stage02.capture_radius_km;
+            value(end+1,1) = dist_to_center_km - cfg.target_template.constraints.capture_radius_km;
             isterminal(end+1,1) = 1;
             direction(end+1,1) = -1;
         end
@@ -49,4 +49,5 @@ function [value, isterminal, direction] = hgv_events(~, X, cfg, p)
             direction(end+1,1) = -1;
         end
     end
+
 

@@ -13,20 +13,20 @@ function hgv_cfg = build_dynamics_init_from_case(case_i, cfg)
         % Basic initial scalars with safe fallbacks
         % ------------------------------------------------------------
         if isfield(cfg.stage02, 'v0_mps')
-            hgv_cfg.v0 = cfg.stage02.v0_mps;
+            hgv_cfg.v0 = cfg.target_template.dynamics.v0_mps;
         else
             hgv_cfg.v0 = 5500.0;
         end
     
         if isfield(cfg.stage02, 'theta0_deg')
-            theta0_deg = cfg.stage02.theta0_deg;
+            theta0_deg = cfg.target_template.dynamics.theta0_deg;
         else
             theta0_deg = 0.0;
         end
         hgv_cfg.theta0 = deg2rad(theta0_deg);
     
         if isfield(cfg.stage02, 'h0_m')
-            h0_m_default = cfg.stage02.h0_m;
+            h0_m_default = cfg.target_template.dynamics.h0_m;
         else
             h0_m_default = 50000.0;
         end
@@ -84,7 +84,7 @@ function hgv_cfg = build_dynamics_init_from_case(case_i, cfg)
         if isfield(case_i, 'heading_deg') && isfinite(case_i.heading_deg)
             sigma0_deg = wrapTo180(case_i.heading_deg - 90.0);
         elseif isfield(cfg.stage02, 'sigma0_deg')
-            sigma0_deg = cfg.stage02.sigma0_deg;
+            sigma0_deg = cfg.target_template.dynamics.sigma0_deg;
         else
             sigma0_deg = 0.0;
         end
@@ -125,4 +125,5 @@ function hgv_cfg = build_dynamics_init_from_case(case_i, cfg)
             hgv_cfg.debug.entry_point_ecef_m = case_i.entry_point_ecef_m;
         end
     end
+
 
