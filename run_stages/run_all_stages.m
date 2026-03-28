@@ -1,4 +1,15 @@
-function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_stage10_flag, final_stage)
+function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_stage10_flag, final_stage, start_stage)
+%RUN_ALL_STAGES Run a selectable stage interval in the development pipeline.
+%
+% Usage:
+%   outs = run_all_stages()
+%   outs = run_all_stages(false, true, true, true, 9)
+%   outs = run_all_stages(false, true, true, true, 9, 4)
+%
+% Notes:
+%   - The 5th argument remains final_stage for backward compatibility.
+%   - The optional 6th argument is start_stage.
+
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root)
         addpath(proj_root);
@@ -10,6 +21,7 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_s
         interactive = (nargin == 0);
     end
     final_stage_was_provided = (nargin >= 5) && ~isempty(final_stage);
+    start_stage_was_provided = (nargin >= 6) && ~isempty(start_stage);
     if nargin < 2 || isempty(run_stage09)
         run_stage09 = true;
     end
@@ -19,21 +31,32 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_s
     if nargin < 5 || isempty(final_stage)
         final_stage = 11;
     end
+    if nargin < 6 || isempty(start_stage)
+        start_stage = 0;
+    end
     if nargin < 4 || isempty(run_stage10_flag)
-        run_stage10_flag = (final_stage >= 10);
+        run_stage10_flag = local_stage_in_range(10, start_stage, final_stage);
+    end
+    if interactive && ~start_stage_was_provided
+        start_stage = local_prompt_start_stage(start_stage);
     end
     if interactive && ~final_stage_was_provided
-        final_stage = local_prompt_final_stage(final_stage);
+        final_stage = local_prompt_final_stage(max(final_stage, start_stage), start_stage);
         if nargin < 4 || isempty(run_stage10_flag)
-            run_stage10_flag = (final_stage >= 10);
+            run_stage10_flag = local_stage_in_range(10, start_stage, final_stage);
         end
     end
 
-    validateattributes(final_stage, {'numeric'}, {'scalar', 'integer', '>=', 1, '<=', 11}, ...
+    validateattributes(start_stage, {'numeric'}, {'scalar', 'integer', '>=', 0, '<=', 11}, ...
+        mfilename, 'start_stage');
+    validateattributes(final_stage, {'numeric'}, {'scalar', 'integer', '>=', 0, '<=', 11}, ...
         mfilename, 'final_stage');
+    if start_stage > final_stage
+        error('start_stage must be less than or equal to final_stage.');
+    end
 
-    run_stage09_effective = (final_stage >= 9) && run_stage09;
-    run_stage10_effective = (final_stage >= 10) && run_stage10_flag;
+    run_stage09_effective = local_stage_in_range(9, start_stage, final_stage) && run_stage09;
+    run_stage10_effective = local_stage_in_range(10, start_stage, final_stage) && run_stage10_flag;
 
     cfg = default_params();
     opts = struct();
@@ -42,29 +65,31 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_s
     % 先统一交互配置所有 stages（真正运行前）
     % ------------------------------------------------------------
     if interactive
-        [cfg, opts] = rs_cli_configure('stage00', cfg, true, opts);
-        if final_stage >= 1
+        if local_stage_in_range(0, start_stage, final_stage)
+            [cfg, opts] = rs_cli_configure('stage00', cfg, true, opts);
+        end
+        if local_stage_in_range(1, start_stage, final_stage)
             [cfg, opts] = rs_cli_configure('stage01', cfg, true, opts);
         end
-        if final_stage >= 2
+        if local_stage_in_range(2, start_stage, final_stage)
             [cfg, opts] = rs_cli_configure('stage02', cfg, true, opts);
         end
-        if final_stage >= 3
+        if local_stage_in_range(3, start_stage, final_stage)
             [cfg, opts] = rs_cli_configure('stage03', cfg, true, opts);
         end
-        if final_stage >= 4
+        if local_stage_in_range(4, start_stage, final_stage)
             [cfg, opts] = rs_cli_configure('stage04', cfg, true, opts);
         end
-        if final_stage >= 5
+        if local_stage_in_range(5, start_stage, final_stage)
             [cfg, opts] = rs_cli_configure('stage05', cfg, true, opts);
         end
-        if final_stage >= 6
+        if local_stage_in_range(6, start_stage, final_stage)
             [cfg, opts] = rs_cli_configure('stage06', cfg, true, opts);
         end
-        if final_stage >= 7
+        if local_stage_in_range(7, start_stage, final_stage)
             [cfg, opts] = rs_cli_configure('stage07', cfg, true, opts);
         end
-        if final_stage >= 8
+        if local_stage_in_range(8, start_stage, final_stage)
             [cfg, opts] = rs_cli_configure('stage08', cfg, true, opts);
         end
         if run_stage09_effective
@@ -73,37 +98,39 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_s
         if run_stage10_effective
             [cfg, opts] = rs_cli_configure('stage10', cfg, true, opts);
         end
-        if final_stage >= 11
+        if local_stage_in_range(11, start_stage, final_stage)
             [cfg, opts] = rs_cli_configure('stage11', cfg, true, opts);
         end
     end
 
-    fprintf('[run_stages] ========== 全流程 Stage00 -> Stage%02d ==========\n', final_stage);
+    fprintf('[run_stages] ========== 全流程 Stage%02d -> Stage%02d ==========\n', start_stage, final_stage);
 
     outs = struct();
-    outs.stage00 = run_stage00_bootstrap(cfg, false, opts);
-    if final_stage >= 1
+    if local_stage_in_range(0, start_stage, final_stage)
+        outs.stage00 = run_stage00_bootstrap(cfg, false, opts);
+    end
+    if local_stage_in_range(1, start_stage, final_stage)
         outs.stage01 = run_stage01_scenario_disk(cfg, false, opts);
     end
-    if final_stage >= 2
+    if local_stage_in_range(2, start_stage, final_stage)
         outs.stage02 = run_stage02_hgv_nominal(cfg, false, opts);
     end
-    if final_stage >= 3
+    if local_stage_in_range(3, start_stage, final_stage)
         outs.stage03 = run_stage03_visibility_pipeline(cfg, false, opts);
     end
-    if final_stage >= 4
+    if local_stage_in_range(4, start_stage, final_stage)
         outs.stage04 = run_stage04_window_worstcase(cfg, false, opts);
     end
-    if final_stage >= 5
+    if local_stage_in_range(5, start_stage, final_stage)
         outs.stage05 = run_stage05_nominal_walker(cfg, false, opts);
     end
-    if final_stage >= 6
+    if local_stage_in_range(6, start_stage, final_stage)
         outs.stage06 = run_stage06_heading_walker(cfg, false, opts);
     end
-    if final_stage >= 7
+    if local_stage_in_range(7, start_stage, final_stage)
         outs.stage07 = run_stage07_critical_geometry(cfg, false, opts);
     end
-    if final_stage >= 8
+    if local_stage_in_range(8, start_stage, final_stage)
         outs.stage08 = run_stage08_window_selection(cfg, false, opts);
     end
 
@@ -117,16 +144,34 @@ function outs = run_all_stages(interactive, run_stage09, run_stage09_plot, run_s
     if run_stage10_effective
         outs.stage10 = run_stage10(cfg, false, opts);
     end
-    if final_stage >= 11
+    if local_stage_in_range(11, start_stage, final_stage)
         outs.stage11 = run_stage11(cfg, false, opts);
     end
 
     fprintf('[run_stages] ========== 全流程完成 ==========\n');
 end
 
-function final_stage = local_prompt_final_stage(default_stage)
+function start_stage = local_prompt_start_stage(default_stage)
+    fprintf('[run_stages] 请选择起始 Stage。\n');
+    fprintf('[run_stages] 可选范围: 0 到 11，默认值: %d\n', default_stage);
+
+    s = strtrim(input(sprintf('[run_stages] start_stage [default=%d]: ', default_stage), 's'));
+    if isempty(s)
+        start_stage = default_stage;
+        return;
+    end
+
+    parsed = str2double(s);
+    if ~isfinite(parsed) || parsed ~= floor(parsed) || parsed < 0 || parsed > 11
+        error('start_stage must be an integer between 0 and 11.');
+    end
+
+    start_stage = parsed;
+end
+
+function final_stage = local_prompt_final_stage(default_stage, min_stage)
     fprintf('[run_stages] 请选择运行到哪个最终 Stage。\n');
-    fprintf('[run_stages] 可选范围: 1 到 11，默认值: %d\n', default_stage);
+    fprintf('[run_stages] 可选范围: %d 到 11，默认值: %d\n', min_stage, default_stage);
 
     s = strtrim(input(sprintf('[run_stages] final_stage [default=%d]: ', default_stage), 's'));
     if isempty(s)
@@ -135,9 +180,13 @@ function final_stage = local_prompt_final_stage(default_stage)
     end
 
     parsed = str2double(s);
-    if ~isfinite(parsed) || parsed ~= floor(parsed) || parsed < 1 || parsed > 11
-        error('final_stage must be an integer between 1 and 11.');
+    if ~isfinite(parsed) || parsed ~= floor(parsed) || parsed < min_stage || parsed > 11
+        error('final_stage must be an integer between %d and 11.', min_stage);
     end
 
     final_stage = parsed;
+end
+
+function tf = local_stage_in_range(stage_idx, start_stage, final_stage)
+    tf = (stage_idx >= start_stage) && (stage_idx <= final_stage);
 end
