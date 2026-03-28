@@ -27,8 +27,12 @@ function out = manual_smoke_stage14_A1_formal_package(out14FR, out14FR_post, cfg
     cfg.project_stage = 'stage14_A1_formal_package';
     cfg = configure_stage_output_paths(cfg);
 
-    out_dir = cfg.paths.stage_outputs;
+    % 关键修正：
+    % cfg.paths.stage_figs 已经正确落在 outputs/stage/stage14/figs
+    % 这里取其上一级，确保表和 markdown 落在 outputs/stage/stage14
     fig_dir = cfg.paths.stage_figs;
+    out_dir = fileparts(fig_dir);
+
     if ~exist(out_dir, 'dir'); mkdir(out_dir); end
     if ~exist(fig_dir, 'dir'); mkdir(fig_dir); end
 
@@ -41,12 +45,10 @@ function out = manual_smoke_stage14_A1_formal_package(out14FR, out14FR_post, cfg
     % ------------------------------------------------------------
     % 1) 提炼正式摘要表
     % ------------------------------------------------------------
-    % 平均表现最优 F（按 pass_ratio_mean, DG_mean_mean）
     [~, idx_best_pass_mean] = max(robust_stats_table.pass_ratio_mean);
     [~, idx_best_dgm_mean] = max(robust_stats_table.DG_mean_mean);
     [~, idx_best_dgmin_mean] = max(robust_stats_table.DG_min_mean);
 
-    % 最坏-case 局部最优 F 的出现频次
     F_values = robust_stats_table.F;
     bestF_dgmin_counts = zeros(size(F_values));
     for k = 1:numel(F_values)
