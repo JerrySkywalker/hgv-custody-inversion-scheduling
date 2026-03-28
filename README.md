@@ -794,6 +794,15 @@ run_all_stages(false, true, true, true, 9)
 
 表示运行到 Stage09。
 
+也可以指定起始和终止阶段，例如：
+
+```matlab
+run_all_stages(false, true, true, true, 9, 4)
+```
+
+表示仅运行 `Stage04` 到 `Stage09`。
+其中第 5 个参数仍是 `final_stage`，第 6 个参数是新增的 `start_stage`，这样可以兼容旧调用方式。
+
 ## 10.4 运行单个 Milestone
 
 ```matlab
