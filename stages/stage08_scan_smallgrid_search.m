@@ -387,7 +387,7 @@ function out = stage08_scan_smallgrid_search(cfg, opts)
         persistent cache
 
         d81 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage08_define_window_scope_%s_*.mat', run_tag)));
+            sprintf('stage08_define_window_scope_%s_*.mat', run_tag));
         assert(~isempty(d81), 'No Stage08.1 scope cache found for run_tag=%s.', run_tag);
         [~, idx81] = max([d81.datenum]);
         stage08_scope_file = fullfile(d81(idx81).folder, d81(idx81).name);

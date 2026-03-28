@@ -55,7 +55,7 @@ function out = stage08_scan_representative_cases(cfg)
         % Load latest Stage08.1 scope
         % ============================================================
         d81 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage08_define_window_scope_%s_*.mat', run_tag)));
+            sprintf('stage08_define_window_scope_%s_*.mat', run_tag));
         assert(~isempty(d81), ...
             'No Stage08.1 scope cache found for run_tag=%s.', run_tag);
     

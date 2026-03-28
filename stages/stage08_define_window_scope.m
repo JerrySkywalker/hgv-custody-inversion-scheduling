@@ -52,7 +52,7 @@ function out = stage08_define_window_scope(cfg)
         % Load Stage07.1 reference Walker
         % ============================================================
         d71 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_select_reference_walker_%s_*.mat', cfg.stage07.run_tag)));
+            sprintf('stage07_select_reference_walker_%s_*.mat', cfg.stage07.run_tag));
         assert(~isempty(d71), ...
             'No Stage07.1 cache found for run_tag=%s.', cfg.stage07.run_tag);
     
@@ -70,7 +70,7 @@ function out = stage08_define_window_scope(cfg)
         % Load Stage07.4 selected examples
         % ============================================================
         d74 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_select_critical_examples_%s_*.mat', cfg.stage07.run_tag)));
+            sprintf('stage07_select_critical_examples_%s_*.mat', cfg.stage07.run_tag));
         assert(~isempty(d74), ...
             'No Stage07.4 cache found for run_tag=%s.', cfg.stage07.run_tag);
     
@@ -96,7 +96,7 @@ function out = stage08_define_window_scope(cfg)
         representative_entries = [];
     
         d761 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_define_paper_plot_scope_%s_*.mat', cfg.stage07.run_tag)));
+            sprintf('stage07_define_paper_plot_scope_%s_*.mat', cfg.stage07.run_tag));
         if ~isempty(d761) && cfg.stage08.rep.prefer_stage07_paper_scope
             [~, idx761] = max([d761.datenum]);
             stage07_paper_file = fullfile(d761(idx761).folder, d761(idx761).name);
@@ -125,7 +125,7 @@ function out = stage08_define_window_scope(cfg)
         stage07_risk_file = '';
         risk_table = table();
         d73 = find_stage_cache_files(cfg.paths.cache, ...
-            sprintf('stage07_scan_heading_risk_map_%s_*.mat', cfg.stage07.run_tag)));
+            sprintf('stage07_scan_heading_risk_map_%s_*.mat', cfg.stage07.run_tag));
         if ~isempty(d73)
             [~, idx73] = max([d73.datenum]);
             stage07_risk_file = fullfile(d73(idx73).folder, d73(idx73).name);
