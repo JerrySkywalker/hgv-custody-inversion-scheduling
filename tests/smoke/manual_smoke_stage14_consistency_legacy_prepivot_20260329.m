@@ -1,6 +1,9 @@
-function out = manual_smoke_stage14_consistency(cfg, overrides)
-%MANUAL_SMOKE_STAGE14_CONSISTENCY
-% Stage14.1B 一致性验证：
+function out = manual_smoke_stage14_consistency_legacy_prepivot_20260329(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_CONSISTENCY_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原 Stage14.1B） 一致性验证：
 % 在完全复用 Stage05 数据加载与 hard-case-first 逻辑的前提下，
 % 比较同一设计点上：
 %   - Stage05 evaluator
@@ -177,7 +180,7 @@ function out = manual_smoke_stage14_consistency(cfg, overrides)
     out.case_cmp = case_cmp;
     out.all_equal = all(cmp.is_equal) && all(case_cmp.is_equal);
 
-    fprintf('\n=== Stage14.1B Consistency Check ===\n');
+    fprintf('\n=== Stage14 旧版探索归档（原 Stage14.1B） Consistency Check ===\n');
     fprintf('Stage02 cache : %s\n', stage02_file);
     fprintf('Stage04 cache : %s\n', stage04_file);
     fprintf('gamma_req     : %.12e\n', gamma_req);
@@ -191,6 +194,9 @@ function out = manual_smoke_stage14_consistency(cfg, overrides)
 end
 
 function cfg = local_apply_smoke_overrides(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     % 这一层只控制“同一个设计点”的 Stage05/Stage14 对照
     % 缺省取一个最小设计点，便于先做最小一致性验证
 
@@ -218,6 +224,9 @@ function cfg = local_apply_smoke_overrides(cfg, overrides)
 end
 
 function eval_context = local_prepare_eval_context(trajs_in, cfg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     t_end_all = arrayfun(@(s) s.traj.t_s(end), trajs_in);
     t_max = max(t_end_all);
     dt = cfg.stage02.Ts_s;
@@ -227,6 +236,9 @@ function eval_context = local_prepare_eval_context(trajs_in, cfg)
 end
 
 function case_cmp = local_compare_case_table(tab05, tab14)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     vars_to_compare = {'lambda_worst', 'D_G', 'pass_flag', 't0_worst', 'mean_vis', 'dual_ratio'};
     n = height(tab05);
 
@@ -259,3 +271,4 @@ function case_cmp = local_compare_case_table(tab05, tab14)
     case_cmp.abs_diff = abs(case_cmp.stage05 - case_cmp.stage14_raan0);
     case_cmp.is_equal = case_cmp.abs_diff <= 1e-12;
 end
+

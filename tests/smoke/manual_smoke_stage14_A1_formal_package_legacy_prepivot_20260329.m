@@ -1,5 +1,8 @@
-function out = manual_smoke_stage14_A1_formal_package(out14FR, out14FR_post, cfg, overrides)
-%MANUAL_SMOKE_STAGE14_A1_FORMAL_PACKAGE
+function out = manual_smoke_stage14_A1_formal_package_legacy_prepivot_20260329(out14FR, out14FR_post, cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_A1_FORMAL_PACKAGE_LEGACY_PREPIVOT_20260329
 % 方案 A：整理 A1 的正式图表与章节口径
 %
 % 输入：
@@ -157,3 +160,4 @@ function out = manual_smoke_stage14_A1_formal_package(out14FR, out14FR_post, cfg
     fprintf('--- markdown preview ---\n');
     fprintf('%s\n', md_text);
 end
+

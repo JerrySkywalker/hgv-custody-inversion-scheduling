@@ -1,6 +1,9 @@
-function out = manual_smoke_stage14_los_matrix_compare_A1(cfg, overrides)
-%MANUAL_SMOKE_STAGE14_LOS_MATRIX_COMPARE_A1
-% Stage14.2E:
+function out = manual_smoke_stage14_los_matrix_compare_A1_legacy_prepivot_20260329(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_LOS_MATRIX_COMPARE_A1_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原 Stage14.2E）:
 % 对 A1 在 RAAN offset = 0° / 45° 下做单时刻 LOS 与信息矩阵对比。
 %
 % 目标：
@@ -129,7 +132,7 @@ function out = manual_smoke_stage14_los_matrix_compare_A1(cfg, overrides)
     out.eig0 = eig0;
     out.eig45 = eig45;
 
-    fprintf('\n=== Stage14.2E A1 LOS / W_t Compare ===\n');
+    fprintf('\n=== Stage14 旧版探索归档（原 Stage14.2E） A1 LOS / W_t Compare ===\n');
     fprintf('Stage02 cache      : %s\n', stage02_file);
     fprintf('case_index         : %d\n', case_index);
     fprintf('case_id            : %s\n', case_id);
@@ -157,6 +160,9 @@ function out = manual_smoke_stage14_los_matrix_compare_A1(cfg, overrides)
 end
 
 function walker2 = local_apply_raan_offset(walker, raan_offset_deg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     walker2 = walker;
     for k = 1:numel(walker2.sat)
         walker2.sat(k).raan_deg = mod(walker2.sat(k).raan_deg + raan_offset_deg, 360);
@@ -164,6 +170,9 @@ function walker2 = local_apply_raan_offset(walker, raan_offset_deg)
 end
 
 function rtgt_km = local_interp_target_position(traj_case, time_s)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     t = traj_case.traj.t_s(:);
     r = traj_case.traj.r_eci_km;
 
@@ -174,6 +183,9 @@ function rtgt_km = local_interp_target_position(traj_case, time_s)
 end
 
 function [visible_table, W] = local_build_visible_table_and_W(rtgt_km, satbank, cfg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     % satbank.r_eci_km: Nt x 3 x Ns；当前这里只传单时刻
     rsat = squeeze(satbank.r_eci_km(1,:,:)).';   % Ns x 3
     Ns = size(rsat,1);
@@ -213,3 +225,4 @@ function [visible_table, W] = local_build_visible_table_and_W(rtgt_km, satbank, 
     visible_table = table(sat_id, visible, range_km, los_ux, los_uy, los_uz);
     visible_table = visible_table(visible_table.visible, :);
 end
+

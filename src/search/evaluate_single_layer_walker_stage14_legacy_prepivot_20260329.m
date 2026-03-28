@@ -1,5 +1,8 @@
-function result = evaluate_single_layer_walker_stage14(row, trajs_in, gamma_req, cfg, hard_order, eval_context)
-%EVALUATE_SINGLE_LAYER_WALKER_STAGE14
+function result = evaluate_single_layer_walker_stage14_legacy_prepivot_20260329(row, trajs_in, gamma_req, cfg, hard_order, eval_context)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%EVALUATE_SINGLE_LAYER_WALKER_STAGE14_LEGACY_PREPIVOT_20260329
 % Evaluate one Walker design point on nominal family using Stage03+Stage04
 % chain, with an additional constellation-level RAAN offset.
 %
@@ -162,6 +165,9 @@ result.failed_early = failed_early;
 end
 
 function eval_context = local_build_eval_context(trajs_in, cfg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
 t_end_all = arrayfun(@(s) s.traj.t_s(end), trajs_in);
 t_max = max(t_end_all);
 dt = cfg.stage02.Ts_s;
@@ -171,8 +177,12 @@ eval_context.t_s_common = (0:dt:t_max).';
 end
 
 function walker = local_apply_raan_offset(walker, raan_offset_deg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
 walker.raan_offset_deg = raan_offset_deg;
 for k = 1:numel(walker.sat)
     walker.sat(k).raan_deg = mod(walker.sat(k).raan_deg + raan_offset_deg, 360);
 end
 end
+

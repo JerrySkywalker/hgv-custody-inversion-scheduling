@@ -1,6 +1,9 @@
-function out = manual_smoke_stage14_F_RAAN_postprocess_A1(out14FR, cfg, overrides)
-%MANUAL_SMOKE_STAGE14_F_RAAN_POSTPROCESS_A1
-% Stage14 正式第三步（后处理）：
+function out = manual_smoke_stage14_F_RAAN_postprocess_A1_legacy_prepivot_20260329(out14FR, cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_F_RAAN_POSTPROCESS_A1_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原正式第三步后处理）：
 % 对 A1 的 (F,RAAN) 二维扫描结果做定量后处理。
 %
 % 输入：
@@ -193,6 +196,9 @@ function out = manual_smoke_stage14_F_RAAN_postprocess_A1(out14FR, cfg, override
 end
 
 function S = local_periodicity_summary(RAAN_values, y)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     S = struct();
 
     S.unique_values_count = numel(unique(round(y, 10)));
@@ -207,6 +213,9 @@ function S = local_periodicity_summary(RAAN_values, y)
 end
 
 function d = local_shift_delta_maxabs(RAAN_values, y, shift_deg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     r = RAAN_values(:);
     y = y(:);
 
@@ -220,3 +229,4 @@ function d = local_shift_delta_maxabs(RAAN_values, y, shift_deg)
     end
     d = max(abs(vals), [], 'omitnan');
 end
+

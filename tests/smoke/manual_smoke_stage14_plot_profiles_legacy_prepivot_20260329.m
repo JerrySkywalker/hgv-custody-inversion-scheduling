@@ -1,6 +1,9 @@
-function out = manual_smoke_stage14_plot_profiles(cfg, overrides)
-%MANUAL_SMOKE_STAGE14_PLOT_PROFILES
-% Stage14.2B:
+function out = manual_smoke_stage14_plot_profiles_legacy_prepivot_20260329(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_PLOT_PROFILES_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原 Stage14.2B）:
 % 在现有两张正式 RAAN 曲线图基础上，补第三张：
 %   1) pass_ratio vs RAAN
 %   2) D_G_mean vs RAAN
@@ -207,7 +210,7 @@ function out = manual_smoke_stage14_plot_profiles(cfg, overrides)
     out.fig_DG_min = fig_dgmin;
     out.files = files;
 
-    fprintf('\n=== Stage14.2B Plot Profiles ===\n');
+    fprintf('\n=== Stage14 旧版探索归档（原 Stage14.2B） Plot Profiles ===\n');
     fprintf('figure dir        : %s\n', files.fig_dir);
     fprintf('pass_ratio png    : %s\n', files.pass_ratio_png);
     fprintf('D_G_mean png      : %s\n', files.DG_mean_png);
@@ -216,3 +219,4 @@ function out = manual_smoke_stage14_plot_profiles(cfg, overrides)
     fprintf('--- summary_table ---\n');
     disp(summary_table);
 end
+

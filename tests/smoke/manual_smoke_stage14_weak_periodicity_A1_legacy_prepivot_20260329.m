@@ -1,6 +1,9 @@
-function out = manual_smoke_stage14_weak_periodicity_A1(cfg, overrides)
-%MANUAL_SMOKE_STAGE14_WEAK_PERIODICITY_A1
-% Stage14.2C:
+function out = manual_smoke_stage14_weak_periodicity_A1_legacy_prepivot_20260329(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_WEAK_PERIODICITY_A1_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原 Stage14.2C）:
 % 对 A1 案例做更细 RAAN 扫描，并检查弱周期/近周期特征。
 %
 % A1:
@@ -88,7 +91,7 @@ function out = manual_smoke_stage14_weak_periodicity_A1(cfg, overrides)
     out.delta90 = delta90;
     out.delta180 = delta180;
 
-    fprintf('\n=== Stage14.2C Weak Periodicity Check: A1 ===\n');
+    fprintf('\n=== Stage14 旧版探索归档（原 Stage14.2C） Weak Periodicity Check: A1 ===\n');
     fprintf('RAAN_scan_deg                 : %s\n', mat2str(summary.RAAN_scan_deg));
     fprintf('case_count                    : %d\n', summary.case_count);
     fprintf('pass_ratio span               : %.12g\n', summary.pass_ratio_span);
@@ -121,6 +124,9 @@ function out = manual_smoke_stage14_weak_periodicity_A1(cfg, overrides)
 end
 
 function D = local_build_delta_table(T, shift_deg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     raan = T.RAAN_deg(:);
     D = table();
     D.RAAN_deg = raan;
@@ -148,3 +154,4 @@ function D = local_build_delta_table(T, shift_deg)
     D.D_G_mean_delta = D.D_G_mean_shifted - D.D_G_mean;
     D.D_G_min_delta = D.D_G_min_shifted - D.D_G_min;
 end
+

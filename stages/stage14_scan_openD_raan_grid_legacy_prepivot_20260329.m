@@ -1,6 +1,9 @@
-function out = stage14_scan_openD_raan_grid(cfg, overrides)
-%STAGE14_SCAN_OPEND_RAAN_GRID
-% Stage14.1A:
+function out = stage14_scan_openD_raan_grid_legacy_prepivot_20260329(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%STAGE14_SCAN_OPEND_RAAN_GRID_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原 Stage14.1A）:
 %   Minimal DG-only RAAN-expanded scan on (i, P, T, RAAN).
 %
 % Current scope:
@@ -127,6 +130,9 @@ log_msg(log_fid, 'INFO', 'Stage14.1A finished in %.3f s.', dt_all);
 end
 
 function [S4, stage04_file, gamma_req] = local_load_stage04_gamma(cfg, log_fid)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
 listing = find_stage_cache_files(cfg.paths.cache, 'stage04_window_worstcase_*.mat');
 assert(~isempty(listing), 'No Stage04 cache found. Please run stage04_window_worstcase first.');
 
@@ -144,6 +150,9 @@ log_msg(log_fid, 'INFO', 'Inherited gamma_req = %.6e', gamma_req);
 end
 
 function [S2, stage02_file, trajs_nominal] = local_load_stage02_nominal(cfg, log_fid)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
 listing = find_stage_cache_files(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
 assert(~isempty(listing), 'No Stage02 cache found. Please run stage02_hgv_nominal first.');
 
@@ -160,6 +169,9 @@ log_msg(log_fid, 'INFO', 'Nominal family size: %d', numel(trajs_nominal));
 end
 
 function hard_order = local_build_hard_order(S4, trajs_nominal, cfg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
 hard_order = (1:numel(trajs_nominal)).';
 
 if ~cfg.stage14.hard_case_first
@@ -213,6 +225,9 @@ end
 end
 
 function eval_context = local_prepare_eval_context(trajs_nominal, cfg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
 t_end_all = arrayfun(@(s) s.traj.t_s(end), trajs_nominal);
 t_max = max(t_end_all);
 dt = cfg.stage02.Ts_s;
@@ -222,6 +237,9 @@ eval_context.t_s_common = (0:dt:t_max).';
 end
 
 function grid = local_apply_result_to_grid(grid, idx, result)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
 grid.is_evaluated(idx) = true;
 grid.lambda_worst_min(idx) = result.lambda_worst_min;
 grid.lambda_worst_mean(idx) = result.lambda_worst_mean;
@@ -235,6 +253,9 @@ grid.failed_early(idx) = logical(result.failed_early);
 end
 
 function summary = local_build_summary(grid, cfg, stage02_file, stage04_file, gamma_req, elapsed_s)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
 feasible_rows = grid.feasible_flag;
 n_feasible = sum(feasible_rows);
 n_total = height(grid);
@@ -264,3 +285,4 @@ else
     summary.best_feasible_row = table();
 end
 end
+

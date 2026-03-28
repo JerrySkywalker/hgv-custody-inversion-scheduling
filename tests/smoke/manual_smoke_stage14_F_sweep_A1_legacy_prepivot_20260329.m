@@ -1,20 +1,23 @@
-function out = manual_smoke_stage14_F_RAAN_grid_A1(cfg, overrides)
-%MANUAL_SMOKE_STAGE14_F_RAAN_GRID_A1
-% Stage14 正式第二步（分析脚本）：
-% 对 A1 在 (F, RAAN) 上做二维扫描，并输出三张热图：
-%   1) pass_ratio(F, RAAN)
-%   2) D_G_mean(F, RAAN)
-%   3) D_G_min(F, RAAN)
+function out = manual_smoke_stage14_F_sweep_A1_legacy_prepivot_20260329(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_F_SWEEP_A1_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原正式第一步分析脚本）：
+% 对 A1 在固定 RAAN=0 下扫描 F=0:(P-1)，分析 DG-only 指标的相位敏感性。
 %
 % A1 baseline geometry:
-%   h=1000, i=40, P=8, T=6
+%   h=1000, i=40, P=8, T=6, RAAN=0
 %
 % 输出：
 %   out.summary_table
-%   out.pass_ratio_grid
-%   out.DG_mean_grid
-%   out.DG_min_grid
+%   out.case_table_sample
 %   out.files
+%
+% 图：
+%   1) pass_ratio vs F
+%   2) D_G_mean   vs F
+%   3) D_G_min    vs F
 
     startup();
 
@@ -40,11 +43,11 @@ function out = manual_smoke_stage14_F_RAAN_grid_A1(cfg, overrides)
     if ~isfield(overrides, 'T')
         overrides.T = 6;
     end
+    if ~isfield(overrides, 'RAAN_deg')
+        overrides.RAAN_deg = 0;
+    end
     if ~isfield(overrides, 'F_values')
         overrides.F_values = 0:(overrides.P-1);
-    end
-    if ~isfield(overrides, 'RAAN_values')
-        overrides.RAAN_values = 0:15:345;
     end
     if ~isfield(overrides, 'case_limit')
         overrides.case_limit = inf;
@@ -71,7 +74,7 @@ function out = manual_smoke_stage14_F_RAAN_grid_A1(cfg, overrides)
     % ------------------------------------------------------------
     % 2) 输出路径
     % ------------------------------------------------------------
-    cfg.project_stage = 'stage14_plot_F_RAAN_grid';
+    cfg.project_stage = 'stage14_plot_F_profiles';
     cfg = configure_stage_output_paths(cfg);
     fig_dir = cfg.paths.stage_figs;
     if ~exist(fig_dir, 'dir')
@@ -166,98 +169,88 @@ function out = manual_smoke_stage14_F_RAAN_grid_A1(cfg, overrides)
     eval_context = local_prepare_eval_context(trajs_nominal, cfg);
 
     % ------------------------------------------------------------
-    % 7) 扫 (F, RAAN)
+    % 7) 扫 F
     % ------------------------------------------------------------
     F_values = overrides.F_values(:).';
-    RAAN_values = overrides.RAAN_values(:).';
-
     nF = numel(F_values);
-    nR = numel(RAAN_values);
 
     rows = cell(0, 11);
-
-    pass_ratio_grid = nan(nF, nR);
-    DG_mean_grid = nan(nF, nR);
-    DG_min_grid = nan(nF, nR);
+    case_table_sample = table();
 
     for iF = 1:nF
         Fk = F_values(iF);
 
-        for iR = 1:nR
-            Rk = RAAN_values(iR);
+        cfg14 = stage14_default_config(cfg, struct( ...
+            'h_fixed_km', overrides.h_fixed_km, ...
+            'i_grid_deg', overrides.i_deg, ...
+            'P_grid', overrides.P, ...
+            'T_grid', overrides.T, ...
+            'F_fixed', Fk, ...
+            'RAAN_scan_deg', overrides.RAAN_deg, ...
+            'use_early_stop', overrides.use_early_stop, ...
+            'hard_case_first', overrides.hard_case_first, ...
+            'require_pass_ratio', overrides.require_pass_ratio, ...
+            'require_D_G_min', overrides.require_D_G_min, ...
+            'case_limit', overrides.case_limit));
 
-            cfg14 = stage14_default_config(cfg, struct( ...
-                'h_fixed_km', overrides.h_fixed_km, ...
-                'i_grid_deg', overrides.i_deg, ...
-                'P_grid', overrides.P, ...
-                'T_grid', overrides.T, ...
-                'F_fixed', Fk, ...
-                'RAAN_scan_deg', Rk, ...
-                'use_early_stop', overrides.use_early_stop, ...
-                'hard_case_first', overrides.hard_case_first, ...
-                'require_pass_ratio', overrides.require_pass_ratio, ...
-                'require_D_G_min', overrides.require_D_G_min, ...
-                'case_limit', overrides.case_limit));
+        grid14 = build_stage14_search_grid(cfg14);
+        assert(height(grid14) == 1, 'Expected exactly one design point in F sweep.');
 
-            grid14 = build_stage14_search_grid(cfg14);
-            assert(height(grid14) == 1, 'Expected exactly one design point in A1 (F,RAAN) scan.');
+        row14 = grid14(1,:);
+        row14.gamma_req = gamma_req;
 
-            row14 = grid14(1,:);
-            row14.gamma_req = gamma_req;
+        res14 = evaluate_single_layer_walker_stage14(row14, trajs_nominal, gamma_req, cfg14, hard_order, eval_context);
 
-            res14 = evaluate_single_layer_walker_stage14(row14, trajs_nominal, gamma_req, cfg14, hard_order, eval_context);
+        rows(end+1,:) = { ...
+            overrides.h_fixed_km, ...
+            overrides.i_deg, ...
+            overrides.P, ...
+            overrides.T, ...
+            Fk, ...
+            overrides.RAAN_deg, ...
+            overrides.P * overrides.T, ...
+            res14.D_G_min, ...
+            res14.D_G_mean, ...
+            res14.pass_ratio, ...
+            res14.feasible_flag ...
+            }; %#ok<AGROW>
 
-            pass_ratio_grid(iF, iR) = res14.pass_ratio;
-            DG_mean_grid(iF, iR) = res14.D_G_mean;
-            DG_min_grid(iF, iR) = res14.D_G_min;
-
-            rows(end+1,:) = { ...
-                overrides.h_fixed_km, ...
-                overrides.i_deg, ...
-                overrides.P, ...
-                overrides.T, ...
-                Fk, ...
-                Rk, ...
-                overrides.P * overrides.T, ...
-                res14.D_G_min, ...
-                res14.D_G_mean, ...
-                res14.pass_ratio, ...
-                res14.feasible_flag ...
-                }; %#ok<AGROW>
+        if iF == 1
+            case_table_sample = res14.case_table;
         end
     end
 
     summary_table = cell2table(rows, 'VariableNames', { ...
         'h_km','i_deg','P','T','F','RAAN_deg','Ns','D_G_min','D_G_mean','pass_ratio','feasible_flag'});
 
-    summary_table = sortrows(summary_table, {'F','RAAN_deg'});
+    summary_table = sortrows(summary_table, 'F');
 
     % ------------------------------------------------------------
-    % 8) 热图
+    % 8) 绘图
     % ------------------------------------------------------------
-    fig_pass = figure('Name', 'Stage14 pass ratio heatmap', ...
+    fig_pass = figure('Name', 'Stage14 pass ratio vs F', ...
         'NumberTitle', 'off', 'Visible', overrides.visible);
-    imagesc(RAAN_values, F_values, pass_ratio_grid);
-    axis xy; colorbar;
-    xlabel('RAAN (deg)');
-    ylabel('F');
-    title('Stage14 DG-only sensitivity: pass ratio(F,\Omega), A1');
+    plot(summary_table.F, summary_table.pass_ratio, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
+    grid on; box on;
+    xlabel('F');
+    ylabel('pass ratio');
+    title('Stage14 DG-only sensitivity: pass ratio vs F (A1, RAAN=0)');
 
-    fig_dgm = figure('Name', 'Stage14 D_G_mean heatmap', ...
+    fig_dgm = figure('Name', 'Stage14 D_G_mean vs F', ...
         'NumberTitle', 'off', 'Visible', overrides.visible);
-    imagesc(RAAN_values, F_values, DG_mean_grid);
-    axis xy; colorbar;
-    xlabel('RAAN (deg)');
-    ylabel('F');
-    title('Stage14 DG-only sensitivity: D_G mean(F,\Omega), A1');
+    plot(summary_table.F, summary_table.D_G_mean, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
+    grid on; box on;
+    xlabel('F');
+    ylabel('D_G mean');
+    title('Stage14 DG-only sensitivity: D_G mean vs F (A1, RAAN=0)');
 
-    fig_dgmin = figure('Name', 'Stage14 D_G_min heatmap', ...
+    fig_dgmin = figure('Name', 'Stage14 D_G_min vs F', ...
         'NumberTitle', 'off', 'Visible', overrides.visible);
-    imagesc(RAAN_values, F_values, DG_min_grid);
-    axis xy; colorbar;
-    xlabel('RAAN (deg)');
-    ylabel('F');
-    title('Stage14 DG-only sensitivity: D_G min(F,\Omega), A1');
+    plot(summary_table.F, summary_table.D_G_min, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
+    grid on; box on;
+    xlabel('F');
+    ylabel('D_G min');
+    title('Stage14 DG-only sensitivity: D_G min vs F (A1, RAAN=0)');
 
     files = struct();
     files.fig_dir = fig_dir;
@@ -266,28 +259,24 @@ function out = manual_smoke_stage14_F_RAAN_grid_A1(cfg, overrides)
     files.DG_min_png = '';
 
     if overrides.save_fig
-        files.pass_ratio_png = fullfile(fig_dir, sprintf('stage14_A1_pass_ratio_F_RAAN_%s.png', ts));
-        files.DG_mean_png = fullfile(fig_dir, sprintf('stage14_A1_DG_mean_F_RAAN_%s.png', ts));
-        files.DG_min_png = fullfile(fig_dir, sprintf('stage14_A1_DG_min_F_RAAN_%s.png', ts));
+        files.pass_ratio_png = fullfile(fig_dir, sprintf('stage14_A1_pass_ratio_vs_F_%s.png', ts));
+        files.DG_mean_png = fullfile(fig_dir, sprintf('stage14_A1_DG_mean_vs_F_%s.png', ts));
+        files.DG_min_png = fullfile(fig_dir, sprintf('stage14_A1_DG_min_vs_F_%s.png', ts));
 
-        exportgraphics(fig_pass, files.pass_ratio_png, 'Resolution', 220);
-        exportgraphics(fig_dgm, files.DG_mean_png, 'Resolution', 220);
-        exportgraphics(fig_dgmin, files.DG_min_png, 'Resolution', 220);
+        exportgraphics(fig_pass, files.pass_ratio_png, 'Resolution', 200);
+        exportgraphics(fig_dgm, files.DG_mean_png, 'Resolution', 200);
+        exportgraphics(fig_dgmin, files.DG_min_png, 'Resolution', 200);
     end
 
     out = struct();
     out.summary_table = summary_table;
-    out.pass_ratio_grid = pass_ratio_grid;
-    out.DG_mean_grid = DG_mean_grid;
-    out.DG_min_grid = DG_min_grid;
-    out.F_values = F_values;
-    out.RAAN_values = RAAN_values;
+    out.case_table_sample = case_table_sample;
     out.files = files;
     out.stage02_file = stage02_file;
     out.stage04_file = stage04_file;
     out.gamma_req = gamma_req;
 
-    fprintf('\n=== Stage14 (F,RAAN) Grid: A1 ===\n');
+    fprintf('\n=== Stage14 F Sweep: A1, fixed RAAN=0 ===\n');
     fprintf('Stage02 cache      : %s\n', stage02_file);
     fprintf('Stage04 cache      : %s\n', stage04_file);
     fprintf('gamma_req          : %.12e\n', gamma_req);
@@ -296,16 +285,14 @@ function out = manual_smoke_stage14_F_RAAN_grid_A1(cfg, overrides)
     fprintf('D_G_mean png       : %s\n', files.DG_mean_png);
     fprintf('D_G_min png        : %s\n\n', files.DG_min_png);
 
-    fprintf('Grid size          : %d x %d (F x RAAN)\n', nF, nR);
-    fprintf('pass_ratio range   : [%.12g, %.12g]\n', min(pass_ratio_grid, [], 'all'), max(pass_ratio_grid, [], 'all'));
-    fprintf('D_G_mean range     : [%.12g, %.12g]\n', min(DG_mean_grid, [], 'all'), max(DG_mean_grid, [], 'all'));
-    fprintf('D_G_min range      : [%.12g, %.12g]\n\n', min(DG_min_grid, [], 'all'), max(DG_min_grid, [], 'all'));
-
-    fprintf('--- summary_table (head) ---\n');
-    disp(summary_table(1:min(24,height(summary_table)), :));
+    fprintf('--- summary_table ---\n');
+    disp(summary_table);
 end
 
 function eval_context = local_prepare_eval_context(trajs_in, cfg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     t_end_all = arrayfun(@(s) s.traj.t_s(end), trajs_in);
     t_max = max(t_end_all);
     dt = cfg.stage02.Ts_s;
@@ -313,3 +300,4 @@ function eval_context = local_prepare_eval_context(trajs_in, cfg)
     eval_context = struct();
     eval_context.t_s_common = (0:dt:t_max).';
 end
+

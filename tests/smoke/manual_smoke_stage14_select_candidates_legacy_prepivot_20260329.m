@@ -1,13 +1,16 @@
-function out = manual_smoke_stage14_select_candidates(cfg, overrides)
-%MANUAL_SMOKE_STAGE14_SELECT_CANDIDATES
-% Stage14.1D:
+function out = manual_smoke_stage14_select_candidates_legacy_prepivot_20260329(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_SELECT_CANDIDATES_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原 Stage14.1D）:
 % 从最新 Stage05 cache 中筛选适合做 Stage14 RAAN sweep 的候选设计点。
 %
 % 当前目标：
 %   1) 不改主链；
 %   2) 不画图；
 %   3) 直接基于 Stage05 grid / feasible_table / frontier_table 做设计点筛选；
-%   4) 输出若干候选表，供后续 Stage14.1C / 14.2 使用。
+%   4) 输出若干候选表，供后续 Stage14 旧版探索归档（原 Stage14.1C） / 14.2 使用。
 %
 % 候选点类别：
 %   A. infeasible but closest-to-threshold by D_G_min
@@ -207,7 +210,7 @@ function out = manual_smoke_stage14_select_candidates(cfg, overrides)
     out.grid = Gcore;
     out.candidates = candidates;
 
-    fprintf('\n=== Stage14.1D Candidate Selection from Stage05 ===\n');
+    fprintf('\n=== Stage14 旧版探索归档（原 Stage14.1D） Candidate Selection from Stage05 ===\n');
     fprintf('Stage05 cache   : %s\n', stage05_file);
     fprintf('n_grid          : %d\n', summary.n_grid);
     fprintf('n_grid_valid    : %d\n', summary.n_grid_valid);
@@ -233,6 +236,9 @@ function out = manual_smoke_stage14_select_candidates(cfg, overrides)
 end
 
 function T = local_take_topk(T, k)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     if isempty(T)
         return;
     end
@@ -240,6 +246,9 @@ function T = local_take_topk(T, k)
 end
 
 function Tred = local_reduce_optional_table(T)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     if isempty(T) || ~istable(T)
         Tred = table();
         return;
@@ -255,6 +264,9 @@ function Tred = local_reduce_optional_table(T)
 end
 
 function Tout = local_pretty_head(T, n)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     if isempty(T)
         Tout = T;
         return;
@@ -264,3 +276,4 @@ function Tout = local_pretty_head(T, n)
                      T.Properties.VariableNames, 'stable');
     Tout = T(1:min(n,height(T)), keep);
 end
+

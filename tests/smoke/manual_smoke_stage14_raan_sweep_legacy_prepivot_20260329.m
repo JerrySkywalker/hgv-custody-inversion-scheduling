@@ -1,6 +1,9 @@
-function out = manual_smoke_stage14_raan_sweep(cfg, overrides)
-%MANUAL_SMOKE_STAGE14_RAAN_SWEEP
-% Stage14.1C 最小非平凡性验证：
+function out = manual_smoke_stage14_raan_sweep_legacy_prepivot_20260329(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_RAAN_SWEEP_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原 Stage14.1C） 最小非平凡性验证：
 % 固定一个设计点，扫描 RAAN，观察 DG-only 指标是否随 RAAN 变化。
 %
 % 当前目标：
@@ -188,7 +191,7 @@ function out = manual_smoke_stage14_raan_sweep(cfg, overrides)
     out.summary = summary;
     out.results = res_cell;
 
-    fprintf('\n=== Stage14.1C Minimal RAAN Sweep ===\n');
+    fprintf('\n=== Stage14 旧版探索归档（原 Stage14.1C） Minimal RAAN Sweep ===\n');
     fprintf('Stage02 cache        : %s\n', stage02_file);
     fprintf('Stage04 cache        : %s\n', stage04_file);
     fprintf('gamma_req            : %.12e\n', gamma_req);
@@ -206,6 +209,9 @@ function out = manual_smoke_stage14_raan_sweep(cfg, overrides)
 end
 
 function cfg = local_apply_smoke_overrides(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     if ~isfield(overrides, 'h_fixed_km'); overrides.h_fixed_km = cfg.stage05.h_fixed_km; end
     if ~isfield(overrides, 'i_grid_deg'); overrides.i_grid_deg = 60; end
     if ~isfield(overrides, 'P_grid'); overrides.P_grid = 4; end
@@ -232,6 +238,9 @@ function cfg = local_apply_smoke_overrides(cfg, overrides)
 end
 
 function eval_context = local_prepare_eval_context(trajs_in, cfg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     t_end_all = arrayfun(@(s) s.traj.t_s(end), trajs_in);
     t_max = max(t_end_all);
     dt = cfg.stage02.Ts_s;
@@ -239,3 +248,4 @@ function eval_context = local_prepare_eval_context(trajs_in, cfg)
     eval_context = struct();
     eval_context.t_s_common = (0:dt:t_max).';
 end
+

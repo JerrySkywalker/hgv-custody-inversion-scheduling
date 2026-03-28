@@ -1,5 +1,8 @@
-function cfg = stage14_default_config(base_cfg, overrides)
-%STAGE14_DEFAULT_CONFIG Build Stage14 minimal default config.
+function cfg = stage14_default_config_legacy_prepivot_20260329(base_cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%STAGE14_DEFAULT_CONFIG_LEGACY_PREPIVOT_20260329 Build Stage14 minimal default config.
 %
 % 设计原则：
 % 1) 第一轮不改 default_params.m，避免大文件整体替换。
@@ -68,6 +71,9 @@ cfg.stage14.RAAN_scan_deg = reshape(cfg.stage14.RAAN_scan_deg, 1, []);
 end
 
 function out = local_merge_struct(base, patch)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
 out = base;
 if nargin < 2 || isempty(patch) || ~isstruct(patch)
     return;
@@ -84,3 +90,4 @@ for k = 1:numel(fn)
     end
 end
 end
+

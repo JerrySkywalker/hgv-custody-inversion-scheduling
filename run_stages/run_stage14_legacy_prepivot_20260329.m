@@ -1,5 +1,8 @@
-function out = run_stage14(cfg, interactive, overrides)
-%RUN_STAGE14 Public entry for Stage14 OpenD / DG-only RAAN sensitivity scan.
+function out = run_stage14_legacy_prepivot_20260329(cfg, interactive, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%RUN_STAGE14_LEGACY_PREPIVOT_20260329 Public entry for Stage14 OpenD / DG-only RAAN sensitivity scan.
 %
 % Stage14.1A 当前仅实现最小可运行骨架：
 %   - 读取 Stage02 nominal family
@@ -49,3 +52,4 @@ out = stage14_scan_openD_raan_grid(cfg);
 
 fprintf('[run_stages] === Stage14 完成 ===\n');
 end
+

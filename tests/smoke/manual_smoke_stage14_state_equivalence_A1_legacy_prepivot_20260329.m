@@ -1,6 +1,9 @@
-function out = manual_smoke_stage14_state_equivalence_A1(cfg, overrides)
-%MANUAL_SMOKE_STAGE14_STATE_EQUIVALENCE_A1
-% Stage14.2D:
+function out = manual_smoke_stage14_state_equivalence_A1_legacy_prepivot_20260329(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_STATE_EQUIVALENCE_A1_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原 Stage14.2D）:
 % 诊断 A1 在 RAAN offset = 0° 与 45° 下的 full state set 等价性。
 %
 % A1:
@@ -147,7 +150,7 @@ function out = manual_smoke_stage14_state_equivalence_A1(cfg, overrides)
     out.nn_table = nn_table;
     out.rigid_nn_table = rigid_nn_table;
 
-    fprintf('\n=== Stage14.2D A1 State Equivalence Check ===\n');
+    fprintf('\n=== Stage14 旧版探索归档（原 Stage14.2D） A1 State Equivalence Check ===\n');
     fprintf('RAAN offset deg                  : %.6f\n', summary.raan_offset_deg);
     fprintf('time_s                           : %.6f\n', summary.time_s);
     fprintf('Ns                               : %d\n', summary.Ns);
@@ -178,6 +181,9 @@ function out = manual_smoke_stage14_state_equivalence_A1(cfg, overrides)
 end
 
 function walker2 = local_apply_raan_offset(walker, raan_offset_deg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     walker2 = walker;
     for k = 1:numel(walker2.sat)
         walker2.sat(k).raan_deg = mod(walker2.sat(k).raan_deg + raan_offset_deg, 360);
@@ -185,6 +191,9 @@ function walker2 = local_apply_raan_offset(walker, raan_offset_deg)
 end
 
 function T = local_build_state_table(walker)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     Ns = walker.Ns;
     plane_id = zeros(Ns,1);
     sat_id_in_plane = zeros(Ns,1);
@@ -202,11 +211,17 @@ function T = local_build_state_table(walker)
 end
 
 function d = local_vec_max_abs_diff(a, b)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     assert(numel(a) == numel(b), 'Vector size mismatch.');
     d = max(abs(a(:) - b(:)));
 end
 
 function d = local_max_abs_diff_2col(T1, T2)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     assert(height(T1) == height(T2), 'Tuple height mismatch.');
     A = T1{:, :};
     B = T2{:, :};
@@ -214,6 +229,9 @@ function d = local_max_abs_diff_2col(T1, T2)
 end
 
 function [idx_nn, dist_nn] = local_nearest_neighbor(Pref, Ptest)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     n = size(Pref,1);
     m = size(Ptest,1);
     idx_nn = zeros(n,1);
@@ -233,9 +251,13 @@ function [idx_nn, dist_nn] = local_nearest_neighbor(Pref, Ptest)
 end
 
 function Prot = local_rotate_about_z(P, angle_deg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
     a = deg2rad(angle_deg);
     Rz = [cos(a), -sin(a), 0;
           sin(a),  cos(a), 0;
           0,       0,      1];
     Prot = (Rz * P.').';
 end
+

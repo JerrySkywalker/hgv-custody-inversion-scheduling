@@ -1,6 +1,9 @@
-function out = manual_smoke_stage14_batch_raan_sweep(cfg, overrides)
-%MANUAL_SMOKE_STAGE14_BATCH_RAAN_SWEEP
-% Stage14.1E:
+function out = manual_smoke_stage14_batch_raan_sweep_legacy_prepivot_20260329(cfg, overrides)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%MANUAL_SMOKE_STAGE14_BATCH_RAAN_SWEEP_LEGACY_PREPIVOT_20260329
+% Stage14 旧版探索归档（原 Stage14.1E）:
 % 对一组候选设计点批量做 RAAN sweep，并输出统一总表。
 %
 % 当前目标：
@@ -9,7 +12,7 @@ function out = manual_smoke_stage14_batch_raan_sweep(cfg, overrides)
 %   3) 先输出 table 和 summary，不画图；
 %   4) 找出真正值得进入正式 Stage14 图表开发的点。
 %
-% 默认候选点（来自 Stage14.1D 推荐）：
+% 默认候选点（来自 Stage14 旧版探索归档（原 Stage14.1D） 推荐）：
 %   #1  h=1000, i=40, P=8, T=6,  F=1, Ns=48
 %   #2  h=1000, i=30, P=6, T=8,  F=1, Ns=48
 %   #3  h=1000, i=30, P=8, T=6,  F=1, Ns=48
@@ -190,7 +193,7 @@ function out = manual_smoke_stage14_batch_raan_sweep(cfg, overrides)
     out.detail_table = detail_table;
     out.sweep_outputs = sweep_outputs;
 
-    fprintf('\n=== Stage14.1E Batch Candidate RAAN Sweep ===\n');
+    fprintf('\n=== Stage14 旧版探索归档（原 Stage14.1E） Batch Candidate RAAN Sweep ===\n');
     fprintf('candidate_count : %d\n', height(config_table));
     fprintf('RAAN_scan_deg   : %s\n', mat2str(overrides.RAAN_scan_deg));
     fprintf('case_limit      : %g\n', overrides.case_limit);
@@ -202,3 +205,4 @@ function out = manual_smoke_stage14_batch_raan_sweep(cfg, overrides)
     fprintf('--- detail_table (head) ---\n');
     disp(detail_table(1:min(40,height(detail_table)), :));
 end
+

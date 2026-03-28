@@ -1,5 +1,8 @@
-function T = build_stage14_search_grid(cfg)
-%BUILD_STAGE14_SEARCH_GRID
+function T = build_stage14_search_grid_legacy_prepivot_20260329(cfg)
+% Stage14 legacy archive note:
+% This file was renamed in-place on 20260329 after the Stage14 line of work pivoted back to the Stage05-upgraded mainline.
+% Keep logic frozen for comparison, reproduction, and later Stage14.4/14.5 reuse.
+%BUILD_STAGE14_SEARCH_GRID_LEGACY_PREPIVOT_20260329
 % Build Stage14 search grid over (h_fixed, i, P, T, F, RAAN).
 
 h_fixed_km = cfg.stage14.h_fixed_km;
@@ -74,3 +77,4 @@ T = cell2table(rows, 'VariableNames', { ...
 T.family_scope = string(T.family_scope);
 T.gamma_source = string(T.gamma_source);
 end
+
