@@ -1,24 +1,21 @@
 function out = manual_smoke_stage14_plot_profiles(cfg, overrides)
 %MANUAL_SMOKE_STAGE14_PLOT_PROFILES
-% Stage14.2A:
-% 绘制第一张正式 RAAN 曲线图（当前先做两张）：
+% Stage14.2B:
+% 在现有两张正式 RAAN 曲线图基础上，补第三张：
 %   1) pass_ratio vs RAAN
 %   2) D_G_mean vs RAAN
+%   3) D_G_min  vs RAAN
 %
 % 当前仅针对两个主候选点：
 %   - A1_Ns48_i40_P8_T6
 %   - A2_Ns48_i30_P6_T8
-%
-% 设计原则：
-%   - 不改正式 stage 主链
-%   - 复用已验证的 batch RAAN sweep smoke
-%   - 输出目录严格遵循当前工程 cfg.paths.stage_figs 习惯
 %
 % 输出：
 %   out.summary_table
 %   out.detail_table
 %   out.fig_pass_ratio
 %   out.fig_DG_mean
+%   out.fig_DG_min
 %   out.files
 
     startup();
@@ -59,7 +56,7 @@ function out = manual_smoke_stage14_plot_profiles(cfg, overrides)
     end
 
     % ------------------------------------------------------------
-    % 2) 输出路径：严格遵循当前工程习惯
+    % 2) 输出路径：遵循当前工程习惯
     % ------------------------------------------------------------
     cfg.project_stage = 'stage14_plot_raan_profiles';
     cfg = configure_stage_output_paths(cfg);
@@ -102,6 +99,8 @@ function out = manual_smoke_stage14_plot_profiles(cfg, overrides)
          'N_s=48, (P,T)=(6,8), i=30°'} ...
     );
 
+    tags = unique(detail_table.tag, 'stable');
+
     % ------------------------------------------------------------
     % 5) 图 1：pass_ratio vs RAAN
     % ------------------------------------------------------------
@@ -109,7 +108,6 @@ function out = manual_smoke_stage14_plot_profiles(cfg, overrides)
         'NumberTitle', 'off', 'Visible', overrides.visible);
     hold on; grid on; box on;
 
-    tags = unique(detail_table.tag, 'stable');
     for it = 1:numel(tags)
         sub = detail_table(detail_table.tag == tags(it), :);
         sub = sortrows(sub, 'RAAN_deg');
@@ -154,22 +152,51 @@ function out = manual_smoke_stage14_plot_profiles(cfg, overrides)
     hold off;
 
     % ------------------------------------------------------------
-    % 7) 保存图
+    % 7) 图 3：D_G_min vs RAAN
+    % ------------------------------------------------------------
+    fig_dgmin = figure('Name', 'Stage14 D_G_min vs RAAN', ...
+        'NumberTitle', 'off', 'Visible', overrides.visible);
+    hold on; grid on; box on;
+
+    for it = 1:numel(tags)
+        sub = detail_table(detail_table.tag == tags(it), :);
+        sub = sortrows(sub, 'RAAN_deg');
+        if isKey(pretty_names, char(tags(it)))
+            disp_name = pretty_names(char(tags(it)));
+        else
+            disp_name = char(tags(it));
+        end
+        plot(sub.RAAN_deg, sub.D_G_min, '-o', ...
+            'LineWidth', 1.5, 'MarkerSize', 6, ...
+            'DisplayName', disp_name);
+    end
+    xlabel('RAAN (deg)');
+    ylabel('D_G min');
+    title('Stage14 DG-only sensitivity: D_G min vs RAAN');
+    legend('Location', 'best');
+    hold off;
+
+    % ------------------------------------------------------------
+    % 8) 保存图
     % ------------------------------------------------------------
     files = struct();
     files.fig_dir = fig_dir;
     files.pass_ratio_png = '';
     files.DG_mean_png = '';
+    files.DG_min_png = '';
 
     if overrides.save_fig
         files.pass_ratio_png = fullfile(fig_dir, sprintf('stage14_pass_ratio_vs_raan_%s.png', ts));
         files.DG_mean_png = fullfile(fig_dir, sprintf('stage14_DG_mean_vs_raan_%s.png', ts));
+        files.DG_min_png = fullfile(fig_dir, sprintf('stage14_DG_min_vs_raan_%s.png', ts));
+
         exportgraphics(fig_pass, files.pass_ratio_png, 'Resolution', 200);
         exportgraphics(fig_dgm, files.DG_mean_png, 'Resolution', 200);
+        exportgraphics(fig_dgmin, files.DG_min_png, 'Resolution', 200);
     end
 
     % ------------------------------------------------------------
-    % 8) 汇总输出
+    % 9) 汇总输出
     % ------------------------------------------------------------
     out = struct();
     out.config_table = config_table;
@@ -177,12 +204,14 @@ function out = manual_smoke_stage14_plot_profiles(cfg, overrides)
     out.detail_table = detail_table;
     out.fig_pass_ratio = fig_pass;
     out.fig_DG_mean = fig_dgm;
+    out.fig_DG_min = fig_dgmin;
     out.files = files;
 
-    fprintf('\n=== Stage14.2A Plot Profiles ===\n');
+    fprintf('\n=== Stage14.2B Plot Profiles ===\n');
     fprintf('figure dir        : %s\n', files.fig_dir);
     fprintf('pass_ratio png    : %s\n', files.pass_ratio_png);
-    fprintf('D_G_mean png      : %s\n\n', files.DG_mean_png);
+    fprintf('D_G_mean png      : %s\n', files.DG_mean_png);
+    fprintf('D_G_min png       : %s\n\n', files.DG_min_png);
 
     fprintf('--- summary_table ---\n');
     disp(summary_table);
