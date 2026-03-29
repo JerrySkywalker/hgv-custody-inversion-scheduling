@@ -46,8 +46,7 @@ function files = plot_stage14_multi_i_ns_stats(summary_table_all, cfg, opts)
     end
     tag = regexprep(tag, '[^\w\-\.]', '_');
 
-    i_text = sprintf('%g_', i_list);
-    i_text(end) = [];
+    i_text = strjoin(arrayfun(@(x) sprintf('%g', x), i_list, 'UniformOutput', false), ', ');
     title_suffix = sprintf('h=%g km, F=%d, i in [%s] deg', h_km, F, i_text);
 
     files = struct();
@@ -59,7 +58,6 @@ function files = plot_stage14_multi_i_ns_stats(summary_table_all, cfg, opts)
     files.pass_min_png = '';
     files.pass_span_png = '';
 
-    % helper
     metric_defs = { ...
         'DG_env_mean',  'DG env mean',  true,  'DG_mean_png',   'stage14_multii_DGenv_mean_vs_Ns'; ...
         'DG_env_min',   'DG env min',   true,  'DG_min_png',    'stage14_multii_DGenv_min_vs_Ns'; ...
