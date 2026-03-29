@@ -46,23 +46,60 @@ function files = plot_stage14_raan_profiles(profile_table, cfg, opts)
     title_suffix = sprintf('h=%g km, i=%g deg, P=%d, T=%d, F=%d, Ns=%d', ...
         h_km, i_deg, P, TperPlane, F, Ns);
 
+    % -----------------------------
     % Figure 1: D_G_min vs RAAN
+    % -----------------------------
     fig1 = figure('Name', 'Stage14 D_G_min vs RAAN', ...
         'NumberTitle', 'off', 'Visible', char(opts.visible));
     plot(profile_table.RAAN_deg, profile_table.D_G_min, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
+    hold on;
+    yline(1.0, '--', 'LineWidth', 1.0);
+    hold off;
     grid on; box on;
-    xlabel('RAAN_{rel} (deg)');
-    ylabel('D_G min');
-    title(sprintf('Stage14.2 fixed-design profile: D_G min vs RAAN_{rel}\n%s', title_suffix));
+    xlabel('RAAN_{rel} (deg)', 'Interpreter', 'tex');
+    ylabel('D_G min', 'Interpreter', 'tex');
+    title(sprintf('Stage14.2 fixed-design profile: D_G min vs RAAN_{rel}\n%s', title_suffix), ...
+        'Interpreter', 'tex');
 
+    dg_min = min(profile_table.D_G_min, [], 'omitnan');
+    dg_max = max(profile_table.D_G_min, [], 'omitnan');
+    if isfinite(dg_min) && isfinite(dg_max)
+        if abs(dg_max - dg_min) < 1e-12
+            pad = max(0.05, 0.1 * max(abs(dg_max), 1));
+        else
+            pad = 0.08 * (dg_max - dg_min);
+        end
+        ymin = min(dg_min - pad, 1 - pad);
+        ymax = max(dg_max + pad, 1 + pad);
+        if ymin == ymax
+            ymax = ymin + 1;
+        end
+        ylim([ymin, ymax]);
+    end
+
+    % -----------------------------
     % Figure 2: pass_ratio vs RAAN
+    % -----------------------------
     fig2 = figure('Name', 'Stage14 pass ratio vs RAAN', ...
         'NumberTitle', 'off', 'Visible', char(opts.visible));
     plot(profile_table.RAAN_deg, profile_table.pass_ratio, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
     grid on; box on;
-    xlabel('RAAN_{rel} (deg)');
-    ylabel('pass ratio');
-    title(sprintf('Stage14.2 fixed-design profile: pass ratio vs RAAN_{rel}\n%s', title_suffix));
+    xlabel('RAAN_{rel} (deg)', 'Interpreter', 'tex');
+    ylabel('pass ratio', 'Interpreter', 'tex');
+
+    pr_min = min(profile_table.pass_ratio, [], 'omitnan');
+    pr_max = max(profile_table.pass_ratio, [], 'omitnan');
+    pr_span = pr_max - pr_min;
+
+    if pr_span < 1e-12
+        title(sprintf('Stage14.2 fixed-design profile: pass ratio vs RAAN_{rel} (constant profile)\n%s', title_suffix), ...
+            'Interpreter', 'tex');
+    else
+        title(sprintf('Stage14.2 fixed-design profile: pass ratio vs RAAN_{rel}\n%s', title_suffix), ...
+            'Interpreter', 'tex');
+    end
+
+    ylim([0, 1]);
 
     files = struct();
     files.fig_dir = fig_dir;
