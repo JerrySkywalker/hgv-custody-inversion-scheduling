@@ -5,6 +5,7 @@ function out = stage14_joint_phase_orientation(cfg, opts)
 % Current architecture:
 %   - raw grid      : frozen legacy A1 grid
 %   - postprocess   : official Stage14 postprocess layer
+%   - analysis      : official reusable Stage14 analysis interface
 %   - formal export : official Stage14 formal package layer
 %
 % Current scope:
@@ -36,6 +37,7 @@ function out = stage14_joint_phase_orientation(cfg, opts)
     local.visible = 'on';
 
     local.do_postprocess = true;
+    local.do_analysis = true;
     local.do_formal_package = true;
     local.quiet = false;
 
@@ -51,6 +53,7 @@ function out = stage14_joint_phase_orientation(cfg, opts)
     required_funcs = { ...
         'manual_smoke_stage14_F_RAAN_grid_A1_legacy_prepivot_20260329', ...
         'stage14_postprocess_joint_phase_orientation', ...
+        'stage14_analyze_joint_phase_orientation', ...
         'stage14_formal_package_joint_phase_orientation' ...
     };
     for k = 1:numel(required_funcs)
@@ -94,7 +97,7 @@ function out = stage14_joint_phase_orientation(cfg, opts)
     out.grid = manual_smoke_stage14_F_RAAN_grid_A1_legacy_prepivot_20260329(cfg, grid_overrides);
 
     % ------------------------------------------------------------
-    % B2 / B2-dual postprocess: official Stage14 postprocess layer
+    % Legacy-compatible postprocess output for current formal chain
     % ------------------------------------------------------------
     if local.do_postprocess
         out.post = stage14_postprocess_joint_phase_orientation( ...
@@ -104,6 +107,19 @@ function out = stage14_joint_phase_orientation(cfg, opts)
                 'save_table', false));
     else
         out.post = [];
+    end
+
+    % ------------------------------------------------------------
+    % Official reusable analysis interface
+    % ------------------------------------------------------------
+    if local.do_analysis
+        out.analysis = stage14_analyze_joint_phase_orientation( ...
+            out.grid.summary_table, ...
+            struct( ...
+                'scope_name', "A1", ...
+                'quiet', local.quiet));
+    else
+        out.analysis = [];
     end
 
     % ------------------------------------------------------------
