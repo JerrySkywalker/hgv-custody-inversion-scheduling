@@ -1,18 +1,6 @@
 function out = run_stage14_openD(cfg, interactive, opts)
 %RUN_STAGE14_OPEND
 % Unified runner for Stage14 mainline A and Stage14.4 entry.
-%
-% Supported presets:
-%   - smoke
-%   - production_stage05_aligned
-%
-% Notes:
-%   - mainline A fixes F = F_ref and expands RAAN_rel externally.
-%   - Stage14.1 uses full (i,P,T,RAAN) raw search.
-%   - Stage14.2/14.3 reuse the same Stage05-aligned P/T grids.
-%   - Stage14.4 currently formalizes the frozen A1 joint (F,RAAN) chain.
-%   - Ns_list MUST be derived from the Cartesian product of P_grid and T_grid,
-%     not element-wise multiplication.
 
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
@@ -44,6 +32,8 @@ function out = run_stage14_openD(cfg, interactive, opts)
     local.Ns = 48;
     local.Ns_list = [];
 
+    local.scope_name = "A1";
+
     local.RAAN_scan_deg = 0:30:330;
     local.RAAN_joint_deg = 0:15:345;
     local.F_values = [];
@@ -69,6 +59,7 @@ function out = run_stage14_openD(cfg, interactive, opts)
     local.save_cache = true;
 
     local.do_postprocess = true;
+    local.do_analysis = true;
     local.do_formal_package = true;
 
     early_fields = {'preset', 'do_startup', 'startup_force', 'startup_quiet'};
@@ -115,6 +106,7 @@ function out = run_stage14_openD(cfg, interactive, opts)
         fprintf('  ns_stats\n');
         fprintf('  multii_compare\n');
         fprintf('  joint_phase_orientation_a1\n');
+        fprintf('  joint_phase_orientation_a2\n');
         fprintf('  mainline_A_full\n\n');
         fprintf('[run_stages] Current preset: %s\n', local.preset);
         fprintf('[run_stages] Current Ns_list: ');
@@ -195,6 +187,7 @@ function out = run_stage14_openD(cfg, interactive, opts)
         case "joint_phase_orientation_a1"
             fprintf('[run_stages] === Stage14.4 B-line: joint phase-orientation sensitivity (A1) ===\n');
             out.joint_phase_orientation = stage14_joint_phase_orientation(cfg, struct( ...
+                'scope_name', "A1", ...
                 'h_fixed_km', local.h_km, ...
                 'i_deg', local.i_deg, ...
                 'P', local.P, ...
@@ -211,8 +204,22 @@ function out = run_stage14_openD(cfg, interactive, opts)
                 'visible', local.visible, ...
                 'quiet', local.quiet, ...
                 'do_postprocess', local.do_postprocess, ...
+                'do_analysis', local.do_analysis, ...
                 'do_formal_package', local.do_formal_package));
             fprintf('[run_stages] Stage14.4 B-line A1 completed.\n');
+
+        case "joint_phase_orientation_a2"
+            fprintf('[run_stages] === Stage14.4 B-line: joint phase-orientation sensitivity (A2) ===\n');
+            out.joint_phase_orientation = stage14_joint_phase_orientation(cfg, struct( ...
+                'scope_name', "A2", ...
+                'save_fig', local.save_fig, ...
+                'save_table', local.save_table, ...
+                'visible', local.visible, ...
+                'quiet', local.quiet, ...
+                'do_postprocess', local.do_postprocess, ...
+                'do_analysis', local.do_analysis, ...
+                'do_formal_package', local.do_formal_package));
+            fprintf('[run_stages] Stage14.4 B-line A2 completed.\n');
 
         case "mainline_a_full"
             fprintf('[run_stages] === Stage14 mainline A full chain ===\n');
@@ -266,7 +273,7 @@ function out = run_stage14_openD(cfg, interactive, opts)
         otherwise
             error('run_stage14_openD:UnknownMode', ...
                 ['Unknown mode "%s". Supported modes: raw_grid, raan_profile, ns_envelope, ', ...
-                 'ns_stats, multii_compare, joint_phase_orientation_a1, mainline_A_full.'], ...
+                 'ns_stats, multii_compare, joint_phase_orientation_a1, joint_phase_orientation_a2, mainline_A_full.'], ...
                 char(mode));
     end
 end
@@ -327,9 +334,6 @@ function raw_opts = local_make_raw_grid_opts(local)
 end
 
 function Ns_list = local_unique_ns_from_grids(P_grid, T_grid)
-%LOCAL_UNIQUE_NS_FROM_GRIDS
-% Build Stage05-aligned unique Ns list from Cartesian product of P and T.
-
     [Pm, Tm] = ndgrid(P_grid(:), T_grid(:));
     Ns_list = unique(Pm(:) .* Tm(:))';
 end
@@ -366,6 +370,5 @@ function local_prepare_parallel_pool(cfg)
     try
         ensure_parallel_pool(profile_name, num_workers);
     catch
-        % stage14_scan_openD_raan_grid will retry and fall back to serial if needed.
     end
 end
