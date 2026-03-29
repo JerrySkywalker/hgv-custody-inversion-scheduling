@@ -90,9 +90,54 @@ function out = stage09_build_feasible_domain(cfg, opts)
     result_bank(1) = first_result;
 
     t_scan = tic;
-    use_parallel = local_prepare_stage09_parallel(cfg, log_fid);
+    pool_info = local_prepare_stage09_parallel(cfg, log_fid);
     disable_progress = isfield(cfg.stage09, 'disable_progress') && cfg.stage09.disable_progress;
-    if use_parallel
+    progress_every = max(1, cfg.stage09.scan_log_every);
+    started_count = 1;
+    completed_count = 1;
+    feasible_count_live = double(first_result.feasible_flag);
+
+    if pool_info.use_parallel && pool_info.use_live_progress
+        futures(max(nTheta - 1, 0), 1) = parallel.FevalFuture;
+        future_to_row_idx = 2:nTheta;
+
+        for idx = 1:numel(future_to_row_idx)
+            it = future_to_row_idx(idx);
+            row = row_bank(it);
+            started_count = started_count + 1;
+
+            if ~disable_progress && (mod(started_count, progress_every) == 0 || it == 2 || it == nTheta)
+                msg = sprintf(['[SUBMIT   ] %3d/%3d | h=%4.0f km | i=%4.0f deg | P=%2d | T=%2d | ' ...
+                               'Ns=%3d | elapsed=%.1fs'], ...
+                    started_count, nTheta, row.h_km, row.i_deg, row.P, row.T, row.Ns, toc(t_scan));
+                fprintf('%s\n', msg);
+                log_msg(log_fid, 'INFO', '%s', msg);
+            end
+
+            futures(idx) = parfeval(pool_info.pool, @evaluate_single_layer_walker_stage09, 1, ...
+                row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
+        end
+
+        for k = 1:numel(future_to_row_idx)
+            [completed_idx, res] = fetchNext(futures);
+            it = future_to_row_idx(completed_idx);
+            row = row_bank(it);
+            result_bank(it) = res;
+            completed_count = completed_count + 1;
+            feasible_count_live = feasible_count_live + double(res.feasible_flag);
+
+            if ~disable_progress && (mod(completed_count, progress_every) == 0 || completed_count == 2 || completed_count == nTheta)
+                msg = sprintf(['[LIVE-DONE] %3d/%3d | h=%4.0f km | i=%4.0f deg | P=%2d | T=%2d | Ns=%3d | ' ...
+                               'DG=%.3f | DA=%.3f | DT=%.3f | feasible=%d | pass=%.3f | ' ...
+                               'feasibleSoFar=%d | elapsed=%.1fs'], ...
+                    completed_count, nTheta, row.h_km, row.i_deg, row.P, row.T, row.Ns, ...
+                    res.DG_rob, res.DA_rob, res.DT_rob, res.feasible_flag, res.pass_ratio, ...
+                    feasible_count_live, toc(t_scan));
+                fprintf('%s\n', msg);
+                log_msg(log_fid, 'INFO', '%s', msg);
+            end
+        end
+    elseif pool_info.use_parallel
         parfor it = 2:nTheta
             row = row_bank(it);
             result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
@@ -102,7 +147,7 @@ function out = stage09_build_feasible_domain(cfg, opts)
             row = row_bank(it);
             result_bank(it) = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
 
-            if ~disable_progress && (mod(it, cfg.stage09.scan_log_every) == 0 || it == 2 || it == nTheta)
+            if ~disable_progress && (mod(it, progress_every) == 0 || it == 2 || it == nTheta)
                 log_msg(log_fid, 'INFO', ...
                     'Scanned %d / %d designs (%.1f%%). Current: h=%.0f km, i=%.0f deg, P=%d, T=%d, feasible=%d', ...
                     it, nTheta, 100*it/nTheta, ...
@@ -236,10 +281,14 @@ function cfg = local_apply_stage09_opts(cfg, opts)
     if isfield(opts, 'disable_progress') && ~isempty(opts.disable_progress)
         cfg.stage09.disable_progress = logical(opts.disable_progress);
     end
+    if isfield(opts, 'use_live_progress') && ~isempty(opts.use_live_progress)
+        cfg.stage09.use_live_progress = logical(opts.use_live_progress);
+    end
 
     if isfield(opts, 'benchmark_mode') && logical(opts.benchmark_mode)
         cfg.stage09.write_csv = false;
         cfg.stage09.disable_progress = true;
+        cfg.stage09.use_live_progress = false;
         cfg.stage09.save_cache_file = false;
     end
 
@@ -261,8 +310,12 @@ function cfg = local_apply_stage09_opts(cfg, opts)
 end
 
 
-function use_parallel = local_prepare_stage09_parallel(cfg, log_fid)
-    use_parallel = false;
+function pool_info = local_prepare_stage09_parallel(cfg, log_fid)
+    pool_info = struct();
+    pool_info.pool = [];
+    pool_info.use_parallel = false;
+    pool_info.use_live_progress = false;
+    pool_info.requested_profile = "";
 
     if ~isfield(cfg.stage09, 'use_parallel') || ~cfg.stage09.use_parallel
         log_msg(log_fid, 'INFO', 'Parallel disabled by cfg.stage09.use_parallel=false.');
@@ -270,9 +323,17 @@ function use_parallel = local_prepare_stage09_parallel(cfg, log_fid)
     end
 
     requested_profile = string(cfg.stage09.parallel_pool_profile);
+    use_live_progress = isfield(cfg.stage09, 'use_live_progress') && cfg.stage09.use_live_progress && ...
+        ~(isfield(cfg.stage09, 'disable_progress') && cfg.stage09.disable_progress);
+
+    if use_live_progress && requested_profile == "threads"
+        log_msg(log_fid, 'INFO', ...
+            'Live progress is more reliable with process-based workers. Switching profile from threads to local.');
+        requested_profile = "local";
+        cfg.stage09.parallel_pool_profile = char(requested_profile);
+    end
     if isfield(cfg.stage09, 'prefer_thread_pool_for_batch') && cfg.stage09.prefer_thread_pool_for_batch && ...
-            isfield(cfg.stage09, 'disable_progress') && cfg.stage09.disable_progress && ...
-            requested_profile == "local"
+            ~use_live_progress && requested_profile == "local"
         requested_profile = "threads";
         cfg.stage09.parallel_pool_profile = char(requested_profile);
     end
@@ -281,16 +342,22 @@ function use_parallel = local_prepare_stage09_parallel(cfg, log_fid)
         pool = gcp('nocreate');
         if isempty(pool) && cfg.stage09.auto_start_pool
             pool = ensure_parallel_pool(char(requested_profile), cfg.stage09.parallel_num_workers);
+        elseif isempty(pool)
+            error(['cfg.stage09.use_parallel=true but no pool exists. ' ...
+                   'Either open pool manually or set auto_start_pool=true.']);
         end
-        use_parallel = ~isempty(pool);
-        if use_parallel
+
+        pool_info.pool = pool;
+        pool_info.use_parallel = ~isempty(pool);
+        pool_info.use_live_progress = use_live_progress;
+        pool_info.requested_profile = requested_profile;
+        if pool_info.use_parallel
             log_msg(log_fid, 'INFO', 'Parallel pool ready. %s', ...
                 get_parallel_pool_desc(pool, requested_profile));
         else
             log_msg(log_fid, 'INFO', 'No parallel pool available. Falling back to serial.');
         end
     catch ME
-        use_parallel = false;
         log_msg(log_fid, 'INFO', 'Parallel unavailable. Falling back to serial. Reason: %s', ME.message);
     end
 end

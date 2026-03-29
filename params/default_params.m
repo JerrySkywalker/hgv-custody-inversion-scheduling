@@ -1010,8 +1010,9 @@ function cfg = default_params()
     cfg.stage09.use_early_stop = false;
     cfg.stage09.use_parallel = true;
     cfg.stage09.auto_start_pool = true;
-    cfg.stage09.parallel_pool_profile = 'threads';
+    cfg.stage09.parallel_pool_profile = 'local';
     cfg.stage09.parallel_num_workers = [];
+    cfg.stage09.use_live_progress = true;
     cfg.stage09.disable_progress = false;
     cfg.stage09.prefer_thread_pool_for_batch = true;
 
@@ -1323,12 +1324,17 @@ function cfg = default_params()
     % Stage14 openD / RAAN mainline
     % ---------------------------
     cfg.stage14 = struct();
+    cfg.stage14.use_parallel = true;
+    cfg.stage14.auto_start_pool = true;
+    cfg.stage14.parallel_pool_profile = 'local';
+    cfg.stage14.parallel_num_workers = [];
+    cfg.stage14.prefer_thread_pool_for_batch = true;
+    cfg.stage14.use_live_progress = true;
+    cfg.stage14.progress_every = 25;
     cfg.stage14.parallel = struct();
-    cfg.stage14.parallel.enable = true;
-    cfg.stage14.parallel.prefer_threads = true;
-    cfg.stage14.parallel.max_workers = [];
-    cfg.stage14.parallel.progress_every = 25;
-    cfg.stage14.use_parallel = cfg.stage14.parallel.enable;
-    cfg.stage14.progress_every = cfg.stage14.parallel.progress_every;
+    cfg.stage14.parallel.enable = cfg.stage14.use_parallel;
+    cfg.stage14.parallel.prefer_threads = strcmpi(cfg.stage14.parallel_pool_profile, 'threads');
+    cfg.stage14.parallel.max_workers = cfg.stage14.parallel_num_workers;
+    cfg.stage14.parallel.progress_every = cfg.stage14.progress_every;
 end
 

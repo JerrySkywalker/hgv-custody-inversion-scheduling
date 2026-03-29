@@ -55,15 +55,18 @@ function out = stage14_scan_openD_raan_grid(cfg, overrides)
     log_msg(log_fid, 'INFO', 'Stage14 grid size: %d', nGrid);
     log_msg(log_fid, 'INFO', 'Nominal family size: %d', numel(trajs_nominal));
 
-    parallel_state = local_prepare_parallel_pool(cfg, log_fid);
-    log_msg(log_fid, 'INFO', 'Stage14 execution mode: %s', char(parallel_state.mode));
-    if parallel_state.enabled
-        log_msg(log_fid, 'INFO', 'Parallel pool profile: %s', char(parallel_state.profile));
-        log_msg(log_fid, 'INFO', 'Parallel pool workers: %d', parallel_state.num_workers);
+    pool_info = local_prepare_parallel_pool(cfg, log_fid);
+    log_msg(log_fid, 'INFO', 'Stage14 execution mode: %s', char(pool_info.mode));
+    if pool_info.use_parallel
+        log_msg(log_fid, 'INFO', 'Parallel pool ready. %s', ...
+            get_parallel_pool_desc(pool_info.pool, pool_info.requested_profile));
     end
 
     t_all = tic;
-    if parallel_state.enabled
+    if pool_info.use_parallel && pool_info.use_live_progress
+        result_rows = local_evaluate_grid_parallel_live( ...
+            grid_rows, trajs_nominal, gamma_req, cfg, hard_order, eval_context, pool_info.pool, log_fid);
+    elseif pool_info.use_parallel
         result_rows = local_evaluate_grid_parallel(grid_rows, trajs_nominal, gamma_req, cfg, hard_order, eval_context);
     else
         result_rows = local_evaluate_grid_serial(grid_rows, trajs_nominal, gamma_req, cfg, hard_order, eval_context, log_fid);
@@ -71,7 +74,7 @@ function out = stage14_scan_openD_raan_grid(cfg, overrides)
     grid = local_apply_result_rows_to_grid(grid, result_rows);
     dt_all = toc(t_all);
 
-    summary = local_build_summary(grid, cfg, stage02_file, stage04_file, gamma_req, dt_all, parallel_state);
+    summary = local_build_summary(grid, cfg, stage02_file, stage04_file, gamma_req, dt_all, pool_info);
 
     files = struct();
     files.log_file = log_file;
@@ -227,6 +230,57 @@ function result_rows = local_evaluate_grid_parallel(grid_rows, trajs_nominal, ga
     end
 end
 
+function result_rows = local_evaluate_grid_parallel_live(grid_rows, trajs_nominal, gamma_req, cfg, hard_order, eval_context, pool, log_fid)
+    nGrid = numel(grid_rows);
+    result_rows = cell(nGrid, 1);
+    futures(nGrid,1) = parallel.FevalFuture;
+    started_count = 0;
+    completed_count = 0;
+    feasible_count_live = 0;
+    t_start = tic;
+
+    for ig = 1:nGrid
+        row = grid_rows(ig);
+        started_count = started_count + 1;
+        if mod(started_count, cfg.stage14.progress_every) == 0 || ig == 1 || ig == nGrid
+            msg = sprintf(['[SUBMIT   ] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | ' ...
+                           'RAAN=%6.1f | elapsed=%.1fs'], ...
+                started_count, nGrid, row.i_deg, row.P, row.T, row.Ns, row.RAAN_deg, toc(t_start));
+            fprintf('%s\n', msg);
+            log_msg(log_fid, 'INFO', '%s', msg);
+        end
+
+        futures(ig) = parfeval(pool, @local_evaluate_single_grid_result, 1, ...
+            row, trajs_nominal, gamma_req, cfg, hard_order, eval_context);
+    end
+
+    future_to_grid_idx = 1:nGrid;
+    for k = 1:nGrid
+        [completed_idx, packed] = fetchNext(futures);
+        ig = future_to_grid_idx(completed_idx);
+        row = grid_rows(ig);
+        result_rows{ig} = packed;
+        completed_count = completed_count + 1;
+        feasible_count_live = feasible_count_live + double(packed.feasible_flag);
+
+        if mod(completed_count, cfg.stage14.progress_every) == 0 || completed_count == 1 || completed_count == nGrid
+            msg = sprintf(['[LIVE-DONE] %3d/%3d | i=%5.1f | P=%2d | T=%2d | Ns=%3d | RAAN=%6.1f | ' ...
+                           'D_G_min=%.6f | pass_ratio=%.6f | feasible=%d | nEval=%2d | early=%d | ' ...
+                           'feasibleSoFar=%d | elapsed=%.1fs'], ...
+                completed_count, nGrid, row.i_deg, row.P, row.T, row.Ns, row.RAAN_deg, ...
+                packed.D_G_min, packed.pass_ratio, packed.feasible_flag, ...
+                packed.n_case_evaluated, packed.failed_early, feasible_count_live, toc(t_start));
+            fprintf('%s\n', msg);
+            log_msg(log_fid, 'INFO', '%s', msg);
+        end
+    end
+end
+
+function packed = local_evaluate_single_grid_result(row, trajs_nominal, gamma_req, cfg, hard_order, eval_context)
+    result = evaluate_single_layer_walker_stage14(row, trajs_nominal, gamma_req, cfg, hard_order, eval_context);
+    packed = local_pack_grid_result(result);
+end
+
 function packed = local_pack_grid_result(result)
     packed = struct();
     packed.is_evaluated = true;
@@ -258,7 +312,7 @@ function grid = local_apply_result_rows_to_grid(grid, result_rows)
     end
 end
 
-function summary = local_build_summary(grid, cfg, stage02_file, stage04_file, gamma_req, dt_all, parallel_state)
+function summary = local_build_summary(grid, cfg, stage02_file, stage04_file, gamma_req, dt_all, pool_info)
     summary = struct();
     summary.stage = 'stage14.1_mainline';
     summary.mode = string(cfg.stage14.mode);
@@ -267,10 +321,11 @@ function summary = local_build_summary(grid, cfg, stage02_file, stage04_file, ga
     summary.gamma_req = gamma_req;
     summary.grid_size = height(grid);
     summary.elapsed_s = dt_all;
-    summary.parallel_enabled = parallel_state.enabled;
-    summary.parallel_mode = parallel_state.mode;
-    summary.parallel_profile = parallel_state.profile;
-    summary.parallel_workers = parallel_state.num_workers;
+    summary.parallel_enabled = pool_info.use_parallel;
+    summary.parallel_mode = pool_info.mode;
+    summary.parallel_profile = pool_info.requested_profile;
+    summary.parallel_workers = pool_info.num_workers;
+    summary.live_progress_enabled = pool_info.use_live_progress;
 
     summary.n_feasible = sum(grid.feasible_flag, 'omitnan');
     summary.best_pass_ratio = max(grid.pass_ratio, [], 'omitnan');
@@ -285,42 +340,62 @@ function summary = local_build_summary(grid, cfg, stage02_file, stage04_file, ga
     end
 end
 
-function parallel_state = local_prepare_parallel_pool(cfg, log_fid)
-    parallel_state = struct();
-    parallel_state.enabled = false;
-    parallel_state.mode = "serial";
-    parallel_state.profile = "";
-    parallel_state.num_workers = 0;
+function pool_info = local_prepare_parallel_pool(cfg, log_fid)
+    pool_info = struct();
+    pool_info.pool = [];
+    pool_info.use_parallel = false;
+    pool_info.use_live_progress = false;
+    pool_info.mode = "serial";
+    pool_info.requested_profile = "";
+    pool_info.num_workers = 0;
 
-    if ~isfield(cfg, 'stage14') || ~isstruct(cfg.stage14) || ~logical(cfg.stage14.use_parallel)
+    if ~isfield(cfg, 'stage14') || ~isstruct(cfg.stage14) || ...
+            ~isfield(cfg.stage14, 'use_parallel') || ~cfg.stage14.use_parallel
+        log_msg(log_fid, 'INFO', 'Parallel disabled by cfg.stage14.use_parallel=false.');
         return;
     end
 
-    profile_name = 'local';
-    if isfield(cfg.stage14, 'parallel') && isstruct(cfg.stage14.parallel) && ...
-            isfield(cfg.stage14.parallel, 'prefer_threads') && cfg.stage14.parallel.prefer_threads
-        profile_name = 'threads';
+    use_live_progress = isfield(cfg.stage14, 'use_live_progress') && cfg.stage14.use_live_progress;
+    requested_profile = "local";
+    if isfield(cfg.stage14, 'parallel_pool_profile') && ~isempty(cfg.stage14.parallel_pool_profile)
+        requested_profile = string(cfg.stage14.parallel_pool_profile);
+    end
+
+    if use_live_progress && requested_profile == "threads"
+        log_msg(log_fid, 'INFO', ...
+            'Live progress is more reliable with process-based workers. Switching profile from threads to local.');
+        requested_profile = "local";
+    end
+    if ~use_live_progress && requested_profile == "local" && ...
+            isfield(cfg.stage14, 'prefer_thread_pool_for_batch') && cfg.stage14.prefer_thread_pool_for_batch
+        log_msg(log_fid, 'INFO', ...
+            'Batch execution detected without live progress. Switching profile from local to threads.');
+        requested_profile = "threads";
     end
 
     num_workers = [];
-    if isfield(cfg.stage14, 'parallel') && isstruct(cfg.stage14.parallel) && ...
-            isfield(cfg.stage14.parallel, 'max_workers') && ~isempty(cfg.stage14.parallel.max_workers)
-        num_workers = cfg.stage14.parallel.max_workers;
+    if isfield(cfg.stage14, 'parallel_num_workers') && ~isempty(cfg.stage14.parallel_num_workers)
+        num_workers = cfg.stage14.parallel_num_workers;
     end
 
     try
-        pool = ensure_parallel_pool(profile_name, num_workers);
+        pool = gcp('nocreate');
         if isempty(pool)
-            log_msg(log_fid, 'WARN', 'Parallel mode requested but no pool is available. Falling back to serial.');
-            return;
+            if isfield(cfg.stage14, 'auto_start_pool') && cfg.stage14.auto_start_pool
+                pool = ensure_parallel_pool(char(requested_profile), num_workers);
+            else
+                error(['cfg.stage14.use_parallel=true but no pool exists. ' ...
+                       'Either open pool manually or set auto_start_pool=true.']);
+            end
         end
 
-        parallel_state.enabled = true;
-        parallel_state.mode = "parallel";
-        parallel_state.profile = string(profile_name);
-        parallel_state.num_workers = pool.NumWorkers;
+        pool_info.pool = pool;
+        pool_info.use_parallel = ~isempty(pool);
+        pool_info.use_live_progress = use_live_progress;
+        pool_info.mode = "parallel";
+        pool_info.requested_profile = requested_profile;
+        pool_info.num_workers = pool.NumWorkers;
     catch ME
-        log_msg(log_fid, 'WARN', 'Parallel mode requested but pool setup failed: %s', ME.message);
-        log_msg(log_fid, 'WARN', 'Falling back to serial execution for Stage14.1.');
+        log_msg(log_fid, 'WARN', 'Parallel unavailable. Falling back to serial. Reason: %s', ME.message);
     end
 end

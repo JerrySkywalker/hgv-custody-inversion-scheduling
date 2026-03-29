@@ -289,6 +289,20 @@ function raw_opts = local_make_raw_grid_opts(local)
         'save_cache', local.save_cache, ...
         'save_table', local.save_table, ...
         'make_plot', local.make_plot);
+
+    optional_fields = { ...
+        'use_parallel', ...
+        'auto_start_pool', ...
+        'parallel_pool_profile', ...
+        'parallel_num_workers', ...
+        'prefer_thread_pool_for_batch', ...
+        'use_live_progress'};
+    for k = 1:numel(optional_fields)
+        key = optional_fields{k};
+        if isfield(local, key)
+            raw_opts.(key) = local.(key);
+        end
+    end
 end
 
 function Ns_list = local_unique_ns_from_grids(P_grid, T_grid)
@@ -313,23 +327,30 @@ end
 
 function local_prepare_parallel_pool(cfg)
     if ~isfield(cfg, 'stage14') || ~isstruct(cfg.stage14) || ...
-            ~isfield(cfg.stage14, 'parallel') || ~isstruct(cfg.stage14.parallel) || ...
-            ~logical(cfg.stage14.parallel.enable)
+            ~isfield(cfg.stage14, 'use_parallel') || ~logical(cfg.stage14.use_parallel) || ...
+            ~isfield(cfg.stage14, 'auto_start_pool') || ~logical(cfg.stage14.auto_start_pool)
         return;
     end
 
-    profile_name = 'local';
-    if isfield(cfg.stage14.parallel, 'prefer_threads') && cfg.stage14.parallel.prefer_threads
-        profile_name = 'threads';
+    profile_name = "local";
+    if isfield(cfg.stage14, 'parallel_pool_profile') && ~isempty(cfg.stage14.parallel_pool_profile)
+        profile_name = string(cfg.stage14.parallel_pool_profile);
+    end
+    use_live_progress = isfield(cfg.stage14, 'use_live_progress') && cfg.stage14.use_live_progress;
+    if use_live_progress && profile_name == "threads"
+        profile_name = "local";
+    elseif ~use_live_progress && profile_name == "local" && ...
+            isfield(cfg.stage14, 'prefer_thread_pool_for_batch') && cfg.stage14.prefer_thread_pool_for_batch
+        profile_name = "threads";
     end
 
     num_workers = [];
-    if isfield(cfg.stage14.parallel, 'max_workers') && ~isempty(cfg.stage14.parallel.max_workers)
-        num_workers = cfg.stage14.parallel.max_workers;
+    if isfield(cfg.stage14, 'parallel_num_workers') && ~isempty(cfg.stage14.parallel_num_workers)
+        num_workers = cfg.stage14.parallel_num_workers;
     end
 
     try
-        ensure_parallel_pool(profile_name, num_workers);
+        ensure_parallel_pool(char(profile_name), num_workers);
     catch
         % stage14_scan_openD_raan_grid will retry and fall back to serial if needed.
     end
