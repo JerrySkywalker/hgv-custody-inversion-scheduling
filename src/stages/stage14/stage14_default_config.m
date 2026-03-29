@@ -10,6 +10,7 @@ function cfg = stage14_default_config(base_cfg, overrides)
 % Current scope:
 %   - openD / DG-only
 %   - raw grid scan over (i,P,T,RAAN)
+%   - optional explicit PT pair list
 %   - no Ns-envelope yet
 %   - no joint (F,RAAN) expansion yet
 
@@ -40,6 +41,11 @@ function cfg = stage14_default_config(base_cfg, overrides)
     cfg.stage14.P_grid = cfg.stage05.P_grid;
     cfg.stage14.T_grid = cfg.stage05.T_grid;
 
+    % New optional explicit PT pair list:
+    %   each row is [P, T]
+    %   if non-empty, build_stage14_search_grid should use this instead of P_grid x T_grid
+    cfg.stage14.PT_pairs = [];
+
     % New outer variable: relative RAAN/orientation
     cfg.stage14.RAAN_scan_deg = 0:30:330;
 
@@ -69,6 +75,14 @@ function cfg = stage14_default_config(base_cfg, overrides)
     cfg.stage14.P_grid = reshape(cfg.stage14.P_grid, 1, []);
     cfg.stage14.T_grid = reshape(cfg.stage14.T_grid, 1, []);
     cfg.stage14.RAAN_scan_deg = reshape(cfg.stage14.RAAN_scan_deg, 1, []);
+
+    % Normalize PT_pairs
+    if isempty(cfg.stage14.PT_pairs)
+        cfg.stage14.PT_pairs = [];
+    else
+        assert(isnumeric(cfg.stage14.PT_pairs) && size(cfg.stage14.PT_pairs,2) == 2, ...
+            'cfg.stage14.PT_pairs must be an N-by-2 numeric matrix [P, T].');
+    end
 end
 
 function out = local_merge_struct(base, patch)

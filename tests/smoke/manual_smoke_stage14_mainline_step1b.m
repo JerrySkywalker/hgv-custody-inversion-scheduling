@@ -12,7 +12,7 @@ function out = manual_smoke_stage14_mainline_step1b(cfg, overrides)
 %   h = 1000 km
 %   i = 40 deg
 %   F = stage05 F_fixed
-%   Ns = 48 with (P,T) in:
+%   Ns = 48 with explicit PT pairs:
 %       (4,12), (6,8), (8,6), (12,4)
 %   RAAN_rel = 0:30:330
 
@@ -30,9 +30,17 @@ function out = manual_smoke_stage14_mainline_step1b(cfg, overrides)
     ov.F_fixed = cfg.stage05.F_fixed;
     ov.i_grid_deg = 40;
 
-    % Same Ns = 48, multiple (P,T)
-    ov.P_grid = [4 6 8 12];
-    ov.T_grid = [12 8 6 4];
+    % Explicit PT pair list (fixed Ns = 48)
+    ov.PT_pairs = [
+        4 12
+        6  8
+        8  6
+        12 4
+    ];
+
+    % Keep legacy fields empty to avoid accidental Cartesian-product usage
+    ov.P_grid = [];
+    ov.T_grid = [];
 
     ov.RAAN_scan_deg = 0:30:330;
 

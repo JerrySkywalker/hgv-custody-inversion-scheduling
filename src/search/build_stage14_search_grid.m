@@ -1,23 +1,38 @@
 function T = build_stage14_search_grid(cfg)
 %BUILD_STAGE14_SEARCH_GRID
 % Build Stage14.1 raw search grid over (h_fixed, i, P, T, F_ref, RAAN).
+%
+% Priority:
+%   1) if cfg.stage14.PT_pairs is non-empty, use explicit PT pairs
+%   2) otherwise use Cartesian product P_grid x T_grid
 
     h_fixed_km = cfg.stage14.h_fixed_km;
     F_fixed = cfg.stage14.F_fixed;
     i_grid_deg = cfg.stage14.i_grid_deg(:);
-    P_grid = cfg.stage14.P_grid(:);
-    T_grid = cfg.stage14.T_grid(:);
     RAAN_scan_deg = cfg.stage14.RAAN_scan_deg(:);
+
+    use_pt_pairs = ~isempty(cfg.stage14.PT_pairs);
+
+    if use_pt_pairs
+        PT_pairs = cfg.stage14.PT_pairs;
+        assert(isnumeric(PT_pairs) && size(PT_pairs,2) == 2, ...
+            'cfg.stage14.PT_pairs must be an N-by-2 numeric matrix [P,T].');
+    else
+        P_grid = cfg.stage14.P_grid(:);
+        T_grid = cfg.stage14.T_grid(:);
+    end
 
     rows = {};
 
     for ii = 1:numel(i_grid_deg)
-        for ip = 1:numel(P_grid)
-            for it = 1:numel(T_grid)
+        i_deg = i_grid_deg(ii);
+
+        if use_pt_pairs
+            for ipt = 1:size(PT_pairs,1)
+                P = PT_pairs(ipt,1);
+                TperPlane = PT_pairs(ipt,2);
+
                 for ir = 1:numel(RAAN_scan_deg)
-                    i_deg = i_grid_deg(ii);
-                    P = P_grid(ip);
-                    TperPlane = T_grid(it);
                     RAAN_deg = RAAN_scan_deg(ir);
                     Ns = P * TperPlane;
 
@@ -43,6 +58,41 @@ function T = build_stage14_search_grid(cfg)
                         NaN, ...        % n_case_evaluated
                         false ...       % failed_early
                         }; %#ok<AGROW>
+                end
+            end
+        else
+            for ip = 1:numel(P_grid)
+                for it = 1:numel(T_grid)
+                    P = P_grid(ip);
+                    TperPlane = T_grid(it);
+
+                    for ir = 1:numel(RAAN_scan_deg)
+                        RAAN_deg = RAAN_scan_deg(ir);
+                        Ns = P * TperPlane;
+
+                        rows(end+1,:) = { ...
+                            h_fixed_km, ...
+                            i_deg, ...
+                            P, ...
+                            TperPlane, ...
+                            F_fixed, ...
+                            RAAN_deg, ...
+                            Ns, ...
+                            string(cfg.stage14.family_scope), ...
+                            string(cfg.stage14.gamma_source), ...
+                            NaN, ...        % gamma_req
+                            false, ...      % is_evaluated
+                            NaN, ...        % lambda_worst_min
+                            NaN, ...        % lambda_worst_mean
+                            NaN, ...        % D_G_min
+                            NaN, ...        % D_G_mean
+                            NaN, ...        % pass_ratio
+                            false, ...      % feasible_flag
+                            NaN, ...        % rank_score
+                            NaN, ...        % n_case_evaluated
+                            false ...       % failed_early
+                            }; %#ok<AGROW>
+                    end
                 end
             end
         end
