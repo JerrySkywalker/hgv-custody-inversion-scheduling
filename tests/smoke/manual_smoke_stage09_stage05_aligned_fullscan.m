@@ -1,93 +1,67 @@
 function out = manual_smoke_stage09_stage05_aligned_fullscan(cfg)
 %MANUAL_SMOKE_STAGE09_STAGE05_ALIGNED_FULLSCAN
-% Stage09 smoke test rewritten to fully replicate Stage05 search scope.
-%
-% Goals:
-%   1) No theta sampling, no case sampling
-%   2) Search domain exactly matches Stage05
-%   3) Casebank mode = nominal_only
-%   4) Gamma inherits from Stage04
-%   5) First verify Stage05-compatible behavior before joint-feasible behavior
-%
-% This script is intended for regression/debug use, not for paper-scale full_main scans.
+% Full-scan Stage09 smoke under Stage05-aligned domain.
+% This version respects externally provided cfg fields and only fills
+% missing defaults, so wrapper diagnose scripts can override DA / DT
+% thresholds and run tags safely.
 
     clear functions;
     rehash;
+    evalc('startup();');
+
     if nargin < 1 || isempty(cfg)
-        evalc('startup();');
         cfg = default_params();
     end
 
-    % =========================================================
-    % A. Force Stage09 into Stage05-aligned full-scan mode
-    % =========================================================
-    cfg.stage09.scheme_type = 'stage05_aligned';
-    cfg.stage09.run_tag = 'inverse_stage05_aligned_fullscan_smoke';
-
-    % Exact Stage05 search scope
-    cfg.stage09.search_domain.h_grid_km = cfg.stage05.h_fixed_km;
-    cfg.stage09.search_domain.i_grid_deg = cfg.stage05.i_grid_deg(:).';
-    cfg.stage09.search_domain.P_grid = cfg.stage05.P_grid(:).';
-    cfg.stage09.search_domain.T_grid = cfg.stage05.T_grid(:).';
-    cfg.stage09.search_domain.F_fixed = cfg.stage05.F_fixed;
-
-    % Exact Stage05-like casebank scope
-    cfg.stage09.casebank_mode = 'nominal_only';
-    cfg.stage09.casebank_include_nominal = true;
-    cfg.stage09.casebank_include_heading = false;
-    cfg.stage09.casebank_include_critical = false;
-    cfg.stage09.casebank_heading_subset_max = 0;
-
-    % =========================================================
-    % B. Disable all sampling / truncation
-    % =========================================================
-    cfg.stage09.scan_theta_limit = inf;
-    cfg.stage09.scan_case_limit = inf;
-
-    % =========================================================
-    % C. Gamma inheritance must match Stage04 / Stage05
-    % =========================================================
-    cfg.stage09.gamma_source = 'inherit_stage04';
-
-    % =========================================================
-    % D. Plot h-slice exactly at Stage05 fixed altitude
-    % =========================================================
-    cfg.stage09.plot_h_slice_km = cfg.stage05.h_fixed_km;
-
-    % =========================================================
-    % E. Threshold strategy:
-    %    First smoke goal = Stage05-compatible comparison
-    %    So DG + pass_ratio are the primary gates.
-    %
-    %    Keep joint metrics computed, but do not let DA / DT kill
-    %    the aligned smoke result at this stage.
-    % =========================================================
-    cfg.stage09.require_DG_min = cfg.stage05.require_D_G_min;
-    cfg.stage09.require_pass_ratio = cfg.stage05.require_pass_ratio;
-
-    % Relax joint-only thresholds for the aligned smoke.
-    % These are not the final paper settings; this is only to verify
-    % Stage09 can degenerate consistently back to Stage05 behavior.
-    cfg.stage09.require_DA_min = 0.0;
-    cfg.stage09.require_DT_min = 0.0;
-
-    % =========================================================
-    % F. Keep diagnostic / plotting enabled
-    % =========================================================
-    cfg.stage09.enable_stage05_compatible_feasible = true;
-    cfg.stage09.enable_joint_feasible = true;
-    cfg.stage09.refPT_mode = 'all_theta_min_pairs';
-
-    % Optional: reduce noise in smoke execution
-    if isfield(cfg, 'parallel') && isstruct(cfg.parallel)
-        if isfield(cfg.parallel, 'enable')
-            cfg.parallel.enable = false;
-        end
+    if ~isfield(cfg, 'stage09') || ~isstruct(cfg.stage09)
+        cfg.stage09 = struct();
     end
 
-    % =========================================================
-    % G. Console summary
-    % =========================================================
+    % ---------------------------------------------------------
+    % A. Default Stage09-aligned domain (only fill missing fields)
+    % ---------------------------------------------------------
+    cfg.stage09 = local_set_default(cfg.stage09, 'scheme_type', 'stage05_aligned');
+    cfg.stage09 = local_set_default(cfg.stage09, 'run_tag', 'inverse_stage05_aligned_fullscan_smoke');
+
+    if ~isfield(cfg.stage09, 'search_domain') || ~isstruct(cfg.stage09.search_domain)
+        cfg.stage09.search_domain = struct();
+    end
+    cfg.stage09.search_domain = local_set_default(cfg.stage09.search_domain, 'h_grid_km', cfg.stage05.h_fixed_km);
+    cfg.stage09.search_domain = local_set_default(cfg.stage09.search_domain, 'i_grid_deg', cfg.stage05.i_grid_deg(:).');
+    cfg.stage09.search_domain = local_set_default(cfg.stage09.search_domain, 'P_grid', cfg.stage05.P_grid(:).');
+    cfg.stage09.search_domain = local_set_default(cfg.stage09.search_domain, 'T_grid', cfg.stage05.T_grid(:).');
+    cfg.stage09.search_domain = local_set_default(cfg.stage09.search_domain, 'F_fixed', cfg.stage05.F_fixed);
+
+    cfg.stage09 = local_set_default(cfg.stage09, 'casebank_mode', 'nominal_only');
+    cfg.stage09 = local_set_default(cfg.stage09, 'casebank_include_nominal', true);
+    cfg.stage09 = local_set_default(cfg.stage09, 'casebank_include_heading', false);
+    cfg.stage09 = local_set_default(cfg.stage09, 'casebank_include_critical', false);
+    cfg.stage09 = local_set_default(cfg.stage09, 'casebank_heading_subset_max', 0);
+
+    cfg.stage09 = local_set_default(cfg.stage09, 'scan_theta_limit', inf);
+    cfg.stage09 = local_set_default(cfg.stage09, 'scan_case_limit', inf);
+    cfg.stage09 = local_set_default(cfg.stage09, 'gamma_source', 'inherit_stage04');
+    cfg.stage09 = local_set_default(cfg.stage09, 'plot_h_slice_km', cfg.stage05.h_fixed_km);
+
+    cfg.stage09 = local_set_default(cfg.stage09, 'require_DG_min', cfg.stage05.require_D_G_min);
+    cfg.stage09 = local_set_default(cfg.stage09, 'require_pass_ratio', cfg.stage05.require_pass_ratio);
+    cfg.stage09 = local_set_default(cfg.stage09, 'require_DA_min', 0.0);
+    cfg.stage09 = local_set_default(cfg.stage09, 'require_DT_min', 0.0);
+
+    cfg.stage09 = local_set_default(cfg.stage09, 'enable_stage05_compatible_feasible', true);
+    cfg.stage09 = local_set_default(cfg.stage09, 'enable_joint_feasible', true);
+    cfg.stage09 = local_set_default(cfg.stage09, 'refPT_mode', 'all_theta_min_pairs');
+    cfg.stage09 = local_set_default(cfg.stage09, 'use_parallel', false);
+    cfg.stage09 = local_set_default(cfg.stage09, 'disable_progress', false);
+    cfg.stage09 = local_set_default(cfg.stage09, 'scan_log_every', 1);
+
+    if isfield(cfg, 'parallel') && isstruct(cfg.parallel) && isfield(cfg.parallel, 'enable')
+        cfg.parallel.enable = false;
+    end
+
+    % ---------------------------------------------------------
+    % B. Console summary
+    % ---------------------------------------------------------
     fprintf('\n');
     fprintf('============================================================\n');
     fprintf('Stage09 aligned full-scan smoke\n');
@@ -100,20 +74,22 @@ function out = manual_smoke_stage09_stage05_aligned_fullscan(cfg)
     fprintf('T_grid                : [%s]\n', num2str(cfg.stage09.search_domain.T_grid));
     fprintf('F_fixed               : %g\n', cfg.stage09.search_domain.F_fixed);
     fprintf('casebank_mode         : %s\n', string(cfg.stage09.casebank_mode));
-    fprintf('scan_theta_limit      : inf\n');
-    fprintf('scan_case_limit       : inf\n');
+    fprintf('scan_theta_limit      : %s\n', local_num_to_text(cfg.stage09.scan_theta_limit));
+    fprintf('scan_case_limit       : %s\n', local_num_to_text(cfg.stage09.scan_case_limit));
     fprintf('gamma_source          : %s\n', string(cfg.stage09.gamma_source));
     fprintf('plot_h_slice_km       : %g\n', cfg.stage09.plot_h_slice_km);
     fprintf('require_DG_min        : %g\n', cfg.stage09.require_DG_min);
     fprintf('require_pass_ratio    : %g\n', cfg.stage09.require_pass_ratio);
-    fprintf('require_DA_min        : %g (relaxed for aligned smoke)\n', cfg.stage09.require_DA_min);
-    fprintf('require_DT_min        : %g (relaxed for aligned smoke)\n', cfg.stage09.require_DT_min);
+    fprintf('require_DA_min        : %g\n', cfg.stage09.require_DA_min);
+    fprintf('require_DT_min        : %g\n', cfg.stage09.require_DT_min);
+    fprintf('use_parallel          : %d\n', logical(cfg.stage09.use_parallel));
+    fprintf('scan_log_every        : %d\n', cfg.stage09.scan_log_every);
     fprintf('============================================================\n');
     fprintf('\n');
 
-    % =========================================================
-    % H. Run Stage09 pipeline
-    % =========================================================
+    % ---------------------------------------------------------
+    % C. Run Stage09 pipeline
+    % ---------------------------------------------------------
     out = struct();
 
     fprintf('[SMOKE] Stage09.1 prepare task spec...\n');
@@ -128,9 +104,9 @@ function out = manual_smoke_stage09_stage05_aligned_fullscan(cfg)
     fprintf('[SMOKE] Stage09.6 plot inverse design results...\n');
     out.s6 = stage09_plot_inverse_design_results(out.s4, out.s5, cfg);
 
-    % =========================================================
-    % I. Post-run quick summary
-    % =========================================================
+    % ---------------------------------------------------------
+    % D. Quick summary
+    % ---------------------------------------------------------
     try
         Tfull = out.s4.full_theta_table;
         fprintf('\n');
@@ -138,27 +114,42 @@ function out = manual_smoke_stage09_stage05_aligned_fullscan(cfg)
         fprintf('Total theta rows                  : %d\n', height(Tfull));
 
         if ismember('feasible_stage05_compat', Tfull.Properties.VariableNames)
-            n_stage05_feas = sum(Tfull.feasible_stage05_compat);
-            fprintf('Stage05-compatible feasible rows  : %d\n', n_stage05_feas);
+            fprintf('Stage05-compatible feasible rows  : %d\n', sum(Tfull.feasible_stage05_compat));
         end
-
         if ismember('joint_feasible', Tfull.Properties.VariableNames)
-            n_joint_feas = sum(Tfull.joint_feasible);
-            fprintf('Joint-feasible rows               : %d\n', n_joint_feas);
+            fprintf('Joint-feasible rows               : %d\n', sum(Tfull.joint_feasible));
         end
-
         if ismember('Ns', Tfull.Properties.VariableNames)
             fprintf('Ns unique                         : [%s]\n', num2str(unique(Tfull.Ns(:)).'));
         end
-
         if ismember('P', Tfull.Properties.VariableNames) && ismember('T', Tfull.Properties.VariableNames)
             PT = unique(Tfull(:, {'P','T'}), 'rows');
             fprintf('Unique (P,T) count                : %d\n', height(PT));
         end
 
+        fprintf('full csv                          : %s\n', string(out.s4.files.full_csv));
+        fprintf('summary csv                       : %s\n', string(out.s4.files.summary_csv));
         fprintf('-------------------------------------------------------\n');
         fprintf('\n');
     catch ME
         warning('Post-run summary failed: %s', ME.message);
+    end
+end
+
+
+function S = local_set_default(S, field_name, default_value)
+
+    if ~isfield(S, field_name) || isempty(S.(field_name))
+        S.(field_name) = default_value;
+    end
+end
+
+
+function txt = local_num_to_text(x)
+
+    if isinf(x)
+        txt = 'inf';
+    else
+        txt = num2str(x);
     end
 end
