@@ -25,6 +25,7 @@ function out = stage14_plot_ns_envelopes(cfg, opts)
     local.visible = "on";
     local.save_fig = true;
     local.save_table = true;
+    local.quiet = false;
 
     fn = fieldnames(opts);
     for k = 1:numel(fn)
@@ -137,16 +138,18 @@ function out = stage14_plot_ns_envelopes(cfg, opts)
     out.summary = summary;
     out.files = files;
 
-    fprintf('\n=== Stage14.2 Ns-envelope profile ===\n');
-    fprintf('scan file        : %s\n', summary.scan_file);
-    fprintf('filter           : h=%g, i=%g, F=%d, Ns=%d\n', ...
-        summary.h_km, summary.i_deg, summary.F, summary.Ns);
-    fprintf('rows             : %d\n', summary.n_rows);
-    fprintf('DG_env span      : %.6f\n', summary.DG_env_span);
-    fprintf('pass_env span    : %.6f\n', summary.pass_env_span);
-    fprintf('DG plot          : %s\n', files.DG_env_png);
-    fprintf('pass plot        : %s\n', files.pass_env_png);
-    fprintf('table file       : %s\n\n', files.table_file);
+    if ~local.quiet
+        fprintf('\n=== Stage14.2 Ns-envelope profile ===\n');
+        fprintf('scan file        : %s\n', summary.scan_file);
+        fprintf('filter           : h=%g, i=%g, F=%d, Ns=%d\n', ...
+            summary.h_km, summary.i_deg, summary.F, summary.Ns);
+        fprintf('rows             : %d\n', summary.n_rows);
+        fprintf('DG_env span      : %.6f\n', summary.DG_env_span);
+        fprintf('pass_env span    : %.6f\n', summary.pass_env_span);
+        fprintf('DG plot          : %s\n', files.DG_env_png);
+        fprintf('pass plot        : %s\n', files.pass_env_png);
+        fprintf('table file       : %s\n\n', files.table_file);
+    end
 end
 
 function [scan_out, scan_file] = local_load_latest_stage14_scan(cfg)
