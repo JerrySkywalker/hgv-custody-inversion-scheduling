@@ -69,15 +69,21 @@ function out = stage09_prepare_task_spec(cfg)
     end
 
     % ------------------------------------------------------------
-    % Resolve gamma source description
+    % Resolve gamma_req
     % ------------------------------------------------------------
-    gamma_source_label = local_resolve_gamma_source_label(cfg);
+    gamma_info = resolve_stage09_gamma_req(cfg);
+    cfg.stage04.gamma_req = gamma_info.gamma_req;
+    cfg.stage09.gamma_req = gamma_info.gamma_req;
+    cfg.stage09.gamma_eff_scalar = gamma_info.gamma_req;
+    log_msg(log_fid, 'INFO', 'gamma_source     = %s', char(gamma_info.source_label));
+    log_msg(log_fid, 'INFO', 'gamma_req        = %.6e', gamma_info.gamma_req);
+    log_msg(log_fid, 'INFO', 'gamma_cache_file = %s', char(gamma_info.cache_file));
 
     % ------------------------------------------------------------
     % Build summary tables
     % ------------------------------------------------------------
     task_spec_table = local_build_task_spec_table(cfg, stage08_5_info);
-    threshold_spec_table = local_build_threshold_spec_table(cfg, gamma_source_label);
+    threshold_spec_table = local_build_threshold_spec_table(cfg, gamma_info);
     search_domain_table = local_build_search_domain_table(cfg);
 
     % ------------------------------------------------------------
@@ -118,6 +124,7 @@ function out = stage09_prepare_task_spec(cfg)
     out = struct();
     out.cfg = cfg;
     out.stage08_5_info = stage08_5_info;
+    out.stage04_gamma_info = gamma_info;
     out.task_spec_table = task_spec_table;
     out.threshold_spec_table = threshold_spec_table;
     out.search_domain_table = search_domain_table;
@@ -145,6 +152,9 @@ function out = stage09_prepare_task_spec(cfg)
     fprintf('Tw source            : %s\n', cfg.stage09.Tw_source);
     fprintf('Tw_star [s]          : %.3f\n', cfg.stage09.Tw_star_s);
     fprintf('CA mode              : %s\n', cfg.stage09.CA_mode);
+    fprintf('gamma source         : %s\n', char(gamma_info.source_label));
+    fprintf('gamma_req            : %.6e\n', gamma_info.gamma_req);
+    fprintf('gamma cache file     : %s\n', char(gamma_info.cache_file));
     fprintf('sigma_A_req          : %.6g (%s)\n', ...
         cfg.stage09.sigma_A_req, cfg.stage09.sigma_A_req_unit);
     fprintf('dt_crit [s]          : %.3f\n', cfg.stage09.dt_crit_s);
@@ -154,17 +164,6 @@ function out = stage09_prepare_task_spec(cfg)
     fprintf('Search domain CSV    : %s\n', search_domain_csv);
     fprintf('Cache                : %s\n', cache_file);
     fprintf('=======================================\n');
-end
-
-
-function gamma_source_label = local_resolve_gamma_source_label(cfg)
-
-    switch lower(string(cfg.stage09.gamma_source))
-        case "inherit_stage04"
-            gamma_source_label = "inherit_stage04";
-        otherwise
-            gamma_source_label = string(cfg.stage09.gamma_source);
-    end
 end
 
 
@@ -200,16 +199,20 @@ function T = local_build_task_spec_table(cfg, stage08_5_info)
 end
 
 
-function T = local_build_threshold_spec_table(cfg, gamma_source_label)
+function T = local_build_threshold_spec_table(cfg, gamma_info)
 
     T = table( ...
-        gamma_source_label, ...
+        string(gamma_info.source_label), ...
+        gamma_info.gamma_req, ...
+        string(gamma_info.cache_file), ...
         cfg.stage09.sigma_A_req, ...
         string(cfg.stage09.sigma_A_req_unit), ...
         cfg.stage09.dt_crit_s, ...
         string(cfg.stage09.rank_rule), ...
         'VariableNames', { ...
             'gamma_source', ...
+            'gamma_req', ...
+            'gamma_cache_file', ...
             'sigma_A_req', ...
             'sigma_A_req_unit', ...
             'dt_crit_s', ...

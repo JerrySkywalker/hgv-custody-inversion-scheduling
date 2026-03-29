@@ -50,7 +50,14 @@ function out = stage09_validate_single_design(cfg)
     end
 
     row = Tsearch(1,:);
-    gamma_eff_scalar = 1.0;
+    gamma_info = resolve_stage09_gamma_req(cfg);
+    gamma_eff_scalar = gamma_info.gamma_req;
+    cfg.stage04.gamma_req = gamma_eff_scalar;
+    cfg.stage09.gamma_req = gamma_eff_scalar;
+    cfg.stage09.gamma_eff_scalar = gamma_eff_scalar;
+    log_msg(log_fid, 'INFO', 'gamma_source     = %s', char(gamma_info.source_label));
+    log_msg(log_fid, 'INFO', 'gamma_req        = %.6e', gamma_eff_scalar);
+    log_msg(log_fid, 'INFO', 'gamma_cache_file = %s', char(gamma_info.cache_file));
     eval_ctx = build_stage09_eval_context(trajs_in, cfg, gamma_eff_scalar);
 
     result = evaluate_single_layer_walker_stage09(row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
@@ -84,6 +91,7 @@ function out = stage09_validate_single_design(cfg)
     out.summary_table = summary_table;
     out.case_table = result.case_table;
     out.result = result;
+    out.gamma_info = gamma_info;
     out.files = struct();
     out.files.summary_csv = summary_csv;
     out.files.case_csv = case_csv;
@@ -100,6 +108,8 @@ function out = stage09_validate_single_design(cfg)
 
     fprintf('\n');
     fprintf('========== Stage09.3 Single-Design Validation ==========\n');
+    fprintf('gamma_req   : %.6e\n', gamma_eff_scalar);
+    fprintf('gamma cache : %s\n', char(gamma_info.cache_file));
     disp(summary_table);
     disp(result.case_table(1:min(10,height(result.case_table)), :));
     fprintf('Summary CSV : %s\n', summary_csv);

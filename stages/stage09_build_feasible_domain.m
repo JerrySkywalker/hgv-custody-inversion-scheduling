@@ -70,7 +70,15 @@ function out = stage09_build_feasible_domain(cfg, opts)
         error('Stage09 search domain is empty.');
     end
 
-    gamma_eff_scalar = 1.0;  % placeholder; refined later in calibration stage
+    gamma_info = resolve_stage09_gamma_req(cfg);
+    gamma_eff_scalar = gamma_info.gamma_req;
+    cfg.stage04.gamma_req = gamma_eff_scalar;
+    cfg.stage09.gamma_req = gamma_eff_scalar;
+    cfg.stage09.gamma_eff_scalar = gamma_eff_scalar;
+
+    log_msg(log_fid, 'INFO', 'gamma_source     = %s', char(gamma_info.source_label));
+    log_msg(log_fid, 'INFO', 'gamma_req        = %.6e', gamma_eff_scalar);
+    log_msg(log_fid, 'INFO', 'gamma_cache_file = %s', char(gamma_info.cache_file));
     eval_ctx = build_stage09_eval_context(trajs_in, cfg, gamma_eff_scalar);
 
     % Use the first evaluated design as the struct template, so that
@@ -147,7 +155,11 @@ function out = stage09_build_feasible_domain(cfg, opts)
     % ------------------------------------------------------------
     out = struct();
     out.cfg = cfg;
+    out.gamma_info = gamma_info;
     out.full_theta_table = S.full_theta_table;
+    if isfield(S, 'stage05_compat_theta_table')
+        out.stage05_compat_theta_table = S.stage05_compat_theta_table;
+    end
     out.feasible_theta_table = S.feasible_theta_table;
     out.infeasible_theta_table = S.infeasible_theta_table;
     out.fail_partition_table = S.fail_partition_table;
@@ -172,6 +184,7 @@ function out = stage09_build_feasible_domain(cfg, opts)
     end
 
     log_msg(log_fid, 'INFO', 'Scan elapsed time = %.3f s', elapsed_s);
+    log_msg(log_fid, 'INFO', 'gamma source cache = %s', char(gamma_info.cache_file));
     log_msg(log_fid, 'INFO', 'Total theta      = %d', height(S.full_theta_table));
     log_msg(log_fid, 'INFO', 'Feasible theta   = %d', height(S.feasible_theta_table));
     log_msg(log_fid, 'INFO', 'Infeasible theta = %d', height(S.infeasible_theta_table));
@@ -186,6 +199,8 @@ function out = stage09_build_feasible_domain(cfg, opts)
     fprintf('========== Stage09.4 Feasible-Domain Summary ==========\n');
     disp(S.summary_table);
     disp(S.fail_partition_table);
+    fprintf('gamma_req      : %.6e\n', gamma_eff_scalar);
+    fprintf('gamma cache    : %s\n', char(gamma_info.cache_file));
     if strlength(string(out.files.cache_file)) > 0
         fprintf('Cache          : %s\n', cache_file);
     end

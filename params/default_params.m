@@ -887,10 +887,11 @@ function cfg = default_params()
     % ------------------------------------------------------------
     % Stage09 scheme switch
     % ------------------------------------------------------------
+    % 'stage05_aligned'  : default Stage05-aligned domain/casebank for direct comparison
     % 'validation_small' : keep the current small-grid validation scheme
     % 'full_main'        : formal main scan inheriting Stage05/06 granularity
     % 'custom'           : fully manual control over search_domain / casebank
-    cfg.stage09.scheme_type = 'validation_small';
+    cfg.stage09.scheme_type = 'stage05_aligned';
 
     % Run tag (auto-adjusted in stage09_prepare_cfg for preset schemes
     % unless you explicitly overwrite it)
@@ -920,6 +921,7 @@ function cfg = default_params()
     % Formal thresholds used by D-series
     % ------------------------------------------------------------
     cfg.stage09.gamma_source = 'inherit_stage04';
+    cfg.stage09.gamma_req_manual = [];
     cfg.stage09.sigma_A_req = 1.0;
     cfg.stage09.sigma_A_req_unit = 'normalized';
     cfg.stage09.dt_crit_s = 60;
@@ -938,11 +940,11 @@ function cfg = default_params()
     %   stage09_prepare_cfg according to cfg.stage09.scheme_type.
     % ------------------------------------------------------------
     cfg.stage09.search_domain = struct();
-    cfg.stage09.search_domain.h_grid_km = [800 1000];
-    cfg.stage09.search_domain.i_grid_deg = [30 60 80];
-    cfg.stage09.search_domain.P_grid = [4 6];
-    cfg.stage09.search_domain.T_grid = [4 6 8];
-    cfg.stage09.search_domain.F_fixed = 1;
+    cfg.stage09.search_domain.h_grid_km = cfg.stage05.h_fixed_km;
+    cfg.stage09.search_domain.i_grid_deg = cfg.stage05.i_grid_deg;
+    cfg.stage09.search_domain.P_grid = cfg.stage05.P_grid;
+    cfg.stage09.search_domain.T_grid = cfg.stage05.T_grid;
+    cfg.stage09.search_domain.F_fixed = cfg.stage05.F_fixed;
 
     % Optional controls
     cfg.stage09.search_domain.round_to_integer = true;
@@ -954,17 +956,18 @@ function cfg = default_params()
     %   These values may also be overwritten by stage09_prepare_cfg
     %   according to cfg.stage09.scheme_type.
     % ------------------------------------------------------------
+    % 'nominal_only'     : nominal all only (Stage05-aligned default)
     % 'validation_small' : nominal all + heading subset + critical all
     % 'full74'           : nominal all + heading all + critical all
     % 'custom'           : manual control below
-    cfg.stage09.casebank_mode = 'validation_small';
+    cfg.stage09.casebank_mode = 'nominal_only';
 
     cfg.stage09.casebank_include_nominal = true;
-    cfg.stage09.casebank_include_heading = true;
-    cfg.stage09.casebank_include_critical = true;
+    cfg.stage09.casebank_include_heading = false;
+    cfg.stage09.casebank_include_critical = false;
 
     % For validation_small/custom modes
-    cfg.stage09.casebank_heading_subset_max = 10;
+    cfg.stage09.casebank_heading_subset_max = 0;
 
     % heading selection mode when subset is used
     % 'first' : take the first K heading cases
@@ -974,6 +977,10 @@ function cfg = default_params()
     % Ranking / boundary extraction
     % ------------------------------------------------------------
     cfg.stage09.rank_rule = 'min_Ns_then_max_joint_margin';
+    cfg.stage09.enable_stage05_compatible_feasible = true;
+    cfg.stage09.enable_joint_feasible = true;
+    cfg.stage09.plot_h_slice_km = cfg.stage05.h_fixed_km;
+    cfg.stage09.refPT_mode = 'all_theta_min_pairs';
 
     % ------------------------------------------------------------
     % Output controls
@@ -993,15 +1000,15 @@ function cfg = default_params()
     % ------------------------------------------------------------
     % Stage09.3 single-design evaluator controls
     % ------------------------------------------------------------
-    cfg.stage09.require_DG_min = 1.0;
+    cfg.stage09.require_DG_min = cfg.stage05.require_D_G_min;
     cfg.stage09.require_DA_min = 1.0;
     cfg.stage09.require_DT_min = 1.0;
-    cfg.stage09.require_pass_ratio = 1.0;
+    cfg.stage09.require_pass_ratio = cfg.stage05.require_pass_ratio;
 
     % For formal scans, I recommend false.
     % For smoke tests, true can save time.
     cfg.stage09.use_early_stop = false;
-    cfg.stage09.use_parallel = false;
+    cfg.stage09.use_parallel = true;
     cfg.stage09.auto_start_pool = true;
     cfg.stage09.parallel_pool_profile = 'threads';
     cfg.stage09.parallel_num_workers = [];

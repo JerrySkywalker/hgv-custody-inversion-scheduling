@@ -89,7 +89,12 @@ function cfg = stage09_prepare_cfg(cfg)
     % Stage09 scheme preset
     % ------------------------------------------------------------
     if ~isfield(cfg.stage09, 'scheme_type') || isempty(cfg.stage09.scheme_type)
-        cfg.stage09.scheme_type = 'validation_small';
+        cfg.stage09.scheme_type = 'stage05_aligned';
+    end
+
+    valid_scheme_type = {'stage05_aligned', 'validation_small', 'full_main', 'custom'};
+    if ~ismember(char(string(cfg.stage09.scheme_type)), valid_scheme_type)
+        error('Unknown cfg.stage09.scheme_type: %s', string(cfg.stage09.scheme_type));
     end
 
     cfg.stage09 = local_apply_stage09_scheme(cfg.stage09, cfg);
@@ -193,10 +198,10 @@ function cfg = stage09_prepare_cfg(cfg)
     % Casebank settings
     % ------------------------------------------------------------
     if ~isfield(cfg.stage09, 'casebank_mode') || isempty(cfg.stage09.casebank_mode)
-        cfg.stage09.casebank_mode = 'validation_small';
+        cfg.stage09.casebank_mode = 'nominal_only';
     end
 
-    valid_casebank_mode = {'validation_small', 'full74', 'custom'};
+    valid_casebank_mode = {'nominal_only', 'validation_small', 'full74', 'custom'};
     if ~ismember(char(string(cfg.stage09.casebank_mode)), valid_casebank_mode)
         error('Unknown cfg.stage09.casebank_mode: %s', string(cfg.stage09.casebank_mode));
     end
@@ -214,6 +219,14 @@ function cfg = stage09_prepare_cfg(cfg)
         cfg.stage09.casebank_heading_subset_max = 10;
     end
     if ~isfield(cfg.stage09, 'casebank_heading_subset_mode') || isempty(cfg.stage09.casebank_heading_subset_mode)
+        cfg.stage09.casebank_heading_subset_mode = 'first';
+    end
+
+    if strcmpi(string(cfg.stage09.casebank_mode), "nominal_only")
+        cfg.stage09.casebank_include_nominal = true;
+        cfg.stage09.casebank_include_heading = false;
+        cfg.stage09.casebank_include_critical = false;
+        cfg.stage09.casebank_heading_subset_max = 0;
         cfg.stage09.casebank_heading_subset_mode = 'first';
     end
 
@@ -252,9 +265,29 @@ function cfg = stage09_prepare_cfg(cfg)
     if ~isfield(cfg.stage09, 'write_csv') || isempty(cfg.stage09.write_csv)
         cfg.stage09.write_csv = true;
     end
+    if ~isfield(cfg.stage09, 'enable_stage05_compatible_feasible') || isempty(cfg.stage09.enable_stage05_compatible_feasible)
+        cfg.stage09.enable_stage05_compatible_feasible = true;
+    end
+    if ~isfield(cfg.stage09, 'enable_joint_feasible') || isempty(cfg.stage09.enable_joint_feasible)
+        cfg.stage09.enable_joint_feasible = true;
+    end
+    if ~isfield(cfg.stage09, 'plot_h_slice_km') || isempty(cfg.stage09.plot_h_slice_km)
+        cfg.stage09.plot_h_slice_km = cfg.stage05.h_fixed_km;
+    end
+    if ~isfield(cfg.stage09, 'refPT_mode') || isempty(cfg.stage09.refPT_mode)
+        cfg.stage09.refPT_mode = 'all_theta_min_pairs';
+    end
+    if ~isfield(cfg.stage09, 'gamma_req_manual')
+        cfg.stage09.gamma_req_manual = [];
+    end
 
     if cfg.stage09.scan_log_every < 1
         cfg.stage09.scan_log_every = 10;
+    end
+
+    valid_refPT_mode = {'first_theta_min', 'all_theta_min_pairs', 'user_fixed'};
+    if ~ismember(char(string(cfg.stage09.refPT_mode)), valid_refPT_mode)
+        error('Unknown cfg.stage09.refPT_mode: %s', string(cfg.stage09.refPT_mode));
     end
 
 
@@ -272,12 +305,28 @@ function s9 = local_apply_stage09_scheme(s9, cfg)
         s9.run_tag = local_default_stage09_run_tag(scheme);
     else
         rt = string(s9.run_tag);
-        if any(rt == ["inverse","inverse_small","inverse_full","inverse_custom"])
+        if any(rt == ["inverse","inverse_aligned","inverse_small","inverse_full","inverse_custom"])
             s9.run_tag = local_default_stage09_run_tag(scheme);
         end
     end
 
     switch scheme
+        case "stage05_aligned"
+            % Default direct-comparison mode: align Stage09 search domain
+            % and casebank with the Stage05 nominal baseline.
+            s9.search_domain.h_grid_km = cfg.stage05.h_fixed_km;
+            s9.search_domain.i_grid_deg = cfg.stage05.i_grid_deg;
+            s9.search_domain.P_grid = cfg.stage05.P_grid;
+            s9.search_domain.T_grid = cfg.stage05.T_grid;
+            s9.search_domain.F_fixed = cfg.stage05.F_fixed;
+
+            s9.casebank_mode = 'nominal_only';
+            s9.casebank_include_nominal = true;
+            s9.casebank_include_heading = false;
+            s9.casebank_include_critical = false;
+            s9.casebank_heading_subset_max = 0;
+            s9.casebank_heading_subset_mode = 'first';
+
         case "validation_small"
             % Keep the currently proven small-grid validation scheme
             s9.search_domain.h_grid_km = [800 1000];
@@ -325,6 +374,8 @@ end
 function run_tag = local_default_stage09_run_tag(scheme)
 
     switch lower(string(scheme))
+        case "stage05_aligned"
+            run_tag = 'inverse_aligned';
         case "validation_small"
             run_tag = 'inverse_small';
         case "full_main"

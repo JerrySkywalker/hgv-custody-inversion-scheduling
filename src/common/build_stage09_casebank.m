@@ -3,6 +3,7 @@ function trajs_in = build_stage09_casebank(cfg)
 % Build Stage09 casebank according to cfg.stage09.casebank_mode.
 %
 % Supported modes:
+%   'nominal_only'     : nominal all only
 %   'validation_small' : nominal all + heading subset + critical all
 %   'full74'           : nominal all + heading all + critical all
 %   'custom'           : manual include flags + heading subset controls
@@ -27,6 +28,11 @@ function trajs_in = build_stage09_casebank(cfg)
     critical_cases = repmat(struct(), 0, 1);
 
     switch lower(string(cfg.stage09.casebank_mode))
+        case "nominal_only"
+            nominal_cases = casebank.nominal(:);
+            heading_cases = repmat(struct(), 0, 1);
+            critical_cases = repmat(struct(), 0, 1);
+
         case "validation_small"
             if cfg.stage09.casebank_include_nominal
                 nominal_cases = casebank.nominal(:);
