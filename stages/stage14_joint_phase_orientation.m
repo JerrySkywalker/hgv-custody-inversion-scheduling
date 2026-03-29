@@ -2,23 +2,12 @@ function out = stage14_joint_phase_orientation(cfg, opts)
 %STAGE14_JOINT_PHASE_ORIENTATION
 % Official Stage14.4 entry for joint phase-orientation sensitivity.
 %
-% This function does NOT rewrite legacy A1 logic.
-% It formally wraps the frozen pre-pivot assets into a stable Stage14.4 stage:
-%   1) joint (F, RAAN_rel) grid
-%   2) postprocess
-%   3) formal package
+% This function keeps the frozen A1 legacy grid as the current raw source,
+% but upgrades the postprocess layer to the formal Stage14 postprocess
+% implementation.
 %
 % Current scope:
 %   - A1 only: h=1000 km, i=40 deg, P=8, T=6
-%
-% Inputs:
-%   cfg  : project config
-%   opts : struct overrides
-%
-% Outputs:
-%   out.grid
-%   out.post
-%   out.formal
 
     if nargin < 1 || isempty(cfg)
         cfg = default_params();
@@ -60,19 +49,18 @@ function out = stage14_joint_phase_orientation(cfg, opts)
 
     required_funcs = { ...
         'manual_smoke_stage14_F_RAAN_grid_A1_legacy_prepivot_20260329', ...
-        'manual_smoke_stage14_F_RAAN_postprocess_A1_legacy_prepivot_20260329', ...
-        'manual_smoke_stage14_A1_formal_package_legacy_prepivot_20260329' ...
+        'manual_smoke_stage14_A1_formal_package_legacy_prepivot_20260329', ...
+        'stage14_postprocess_joint_phase_orientation' ...
     };
     for k = 1:numel(required_funcs)
         assert(exist(required_funcs{k}, 'file') == 2, ...
             'stage14_joint_phase_orientation:MissingDependency', ...
-            'Required legacy helper not found: %s', required_funcs{k});
+            'Required helper not found: %s', required_funcs{k});
     end
 
     if ~local.quiet
         fprintf('[stage14] === Stage14.4 joint phase-orientation sensitivity (A1) ===\n');
-        fprintf('[stage14] h = %.0f km, i = %.0f deg, P = %d, T = %d\n', ...
-            local.h_fixed_km, local.i_deg, local.P, local.T);
+        fprintf('[stage14] h = 1000 km, i = 40 deg, P = 8, T = 6\n');
         fprintf('[stage14] F_values = ');
         disp(local.F_values);
         fprintf('[stage14] RAAN_values = ');
@@ -99,18 +87,27 @@ function out = stage14_joint_phase_orientation(cfg, opts)
     out.scope = 'A1';
     out.options = local;
 
+    % ------------------------------------------------------------
+    % B1 raw grid: keep legacy A1 grid as frozen asset
+    % ------------------------------------------------------------
     out.grid = manual_smoke_stage14_F_RAAN_grid_A1_legacy_prepivot_20260329(cfg, grid_overrides);
 
+    % ------------------------------------------------------------
+    % B2 / B2-dual postprocess: use the official Stage14 postprocess layer
+    % ------------------------------------------------------------
     if local.do_postprocess
-        post_overrides = struct( ...
-            'save_fig', local.save_fig, ...
-            'visible', local.visible);
-        out.post = manual_smoke_stage14_F_RAAN_postprocess_A1_legacy_prepivot_20260329( ...
-            out.grid, cfg, post_overrides);
+        out.post = stage14_postprocess_joint_phase_orientation( ...
+            out.grid.summary_table, ...
+            struct( ...
+                'scope_name', "A1", ...
+                'save_table', false));
     else
         out.post = [];
     end
 
+    % ------------------------------------------------------------
+    % Formal package: still reuse legacy formal exporter for now
+    % ------------------------------------------------------------
     if local.do_formal_package
         assert(~isempty(out.post), ...
             'stage14_joint_phase_orientation:PostprocessRequired', ...
