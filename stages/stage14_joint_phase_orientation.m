@@ -2,9 +2,10 @@ function out = stage14_joint_phase_orientation(cfg, opts)
 %STAGE14_JOINT_PHASE_ORIENTATION
 % Official Stage14.4 entry for joint phase-orientation sensitivity.
 %
-% This function keeps the frozen A1 legacy grid as the current raw source,
-% but upgrades the postprocess layer to the formal Stage14 postprocess
-% implementation.
+% Current architecture:
+%   - raw grid      : frozen legacy A1 grid
+%   - postprocess   : official Stage14 postprocess layer
+%   - formal export : official Stage14 formal package layer
 %
 % Current scope:
 %   - A1 only: h=1000 km, i=40 deg, P=8, T=6
@@ -49,8 +50,8 @@ function out = stage14_joint_phase_orientation(cfg, opts)
 
     required_funcs = { ...
         'manual_smoke_stage14_F_RAAN_grid_A1_legacy_prepivot_20260329', ...
-        'manual_smoke_stage14_A1_formal_package_legacy_prepivot_20260329', ...
-        'stage14_postprocess_joint_phase_orientation' ...
+        'stage14_postprocess_joint_phase_orientation', ...
+        'stage14_formal_package_joint_phase_orientation' ...
     };
     for k = 1:numel(required_funcs)
         assert(exist(required_funcs{k}, 'file') == 2, ...
@@ -93,7 +94,7 @@ function out = stage14_joint_phase_orientation(cfg, opts)
     out.grid = manual_smoke_stage14_F_RAAN_grid_A1_legacy_prepivot_20260329(cfg, grid_overrides);
 
     % ------------------------------------------------------------
-    % B2 / B2-dual postprocess: use the official Stage14 postprocess layer
+    % B2 / B2-dual postprocess: official Stage14 postprocess layer
     % ------------------------------------------------------------
     if local.do_postprocess
         out.post = stage14_postprocess_joint_phase_orientation( ...
@@ -106,15 +107,19 @@ function out = stage14_joint_phase_orientation(cfg, opts)
     end
 
     % ------------------------------------------------------------
-    % Formal package: still reuse legacy formal exporter for now
+    % Formal package: official Stage14 formal export layer
     % ------------------------------------------------------------
     if local.do_formal_package
         assert(~isempty(out.post), ...
             'stage14_joint_phase_orientation:PostprocessRequired', ...
             'Formal package requires postprocess output.');
-        formal_overrides = struct();
-        out.formal = manual_smoke_stage14_A1_formal_package_legacy_prepivot_20260329( ...
-            out.grid, out.post, cfg, formal_overrides);
+
+        out.formal = stage14_formal_package_joint_phase_orientation( ...
+            out.grid, out.post, cfg, struct( ...
+                'scope_name', "A1", ...
+                'save_table', local.save_table, ...
+                'save_markdown', true, ...
+                'quiet', local.quiet));
     else
         out.formal = [];
     end
