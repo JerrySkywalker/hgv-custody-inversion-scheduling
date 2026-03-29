@@ -1,23 +1,11 @@
 function out = run_stage14_openD(cfg, interactive, opts)
 %RUN_STAGE14_OPEND
-% Unified entry for Stage14 mainline A (openD / fixed F_ref):
+% Unified runner for Stage14 mainline A.
 %
-% Supported modes:
-%   - raw_grid
-%   - raan_profile
-%   - ns_envelope
-%   - ns_stats
-%   - multii_compare
-%   - mainline_A_full
-%
-% Notes:
-%   Stage14 mainline A corresponds to:
-%     Stage14.1 : raw RAAN-expanded grid
-%     Stage14.2 : fixed-design RAAN profile + Ns-envelope profile
-%     Stage14.3 : Ns-level aggregate stats + multi-i comparison
-%
-%   This runner only handles mainline A. Legacy joint (F,RAAN) exploration
-%   remains archived and is NOT invoked here.
+% New additions:
+%   - preset = 'smoke' | 'production_stage05_aligned'
+%   - ns_stats now defaults to Stage05-aligned production Ns_list
+%   - mainline_A_full defaults to Stage05-aligned production search range
 
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
@@ -27,7 +15,7 @@ function out = run_stage14_openD(cfg, interactive, opts)
         cfg = default_params();
     end
     if nargin < 2 || isempty(interactive)
-        interactive = (nargin == 0);
+        interactive = false;
     end
     if nargin < 3 || isempty(opts)
         opts = struct();
@@ -35,8 +23,8 @@ function out = run_stage14_openD(cfg, interactive, opts)
 
     local = struct();
     local.mode = 'mainline_A_full';
+    local.preset = 'production_stage05_aligned';
 
-    % shared mainline A defaults
     local.h_km = 1000;
     local.F = cfg.stage05.F_fixed;
     local.i_deg = 40;
@@ -45,7 +33,10 @@ function out = run_stage14_openD(cfg, interactive, opts)
     local.T = 6;
     local.Ns = 48;
     local.Ns_list = [];
+
     local.RAAN_scan_deg = 0:30:330;
+    local.P_grid = [4 6 8 10 12];
+    local.T_grid = [4 6 8 10 12];
 
     local.visible = "on";
     local.save_fig = true;
@@ -53,9 +44,6 @@ function out = run_stage14_openD(cfg, interactive, opts)
     local.make_plot = false;
     local.quiet = false;
 
-    % Stage14.1 search-grid defaults
-    local.P_grid = [4 6 8 10 12];
-    local.T_grid = [4 6 8 10 12];
     local.case_limit = inf;
     local.use_early_stop = false;
     local.hard_case_first = true;
@@ -69,19 +57,23 @@ function out = run_stage14_openD(cfg, interactive, opts)
         local.(fn{k}) = opts.(fn{k});
     end
 
-    if interactive
-        fprintf('[run_stages] Stage14 mainline A modes:\n');
-        fprintf('  raw_grid       : Stage14.1 raw (i,P,T,RAAN) grid\n');
-        fprintf('  raan_profile   : Stage14.2 fixed-design RAAN profile\n');
-        fprintf('  ns_envelope    : Stage14.2 fixed-(i,Ns) PT-envelope over RAAN\n');
-        fprintf('  ns_stats       : Stage14.3 single-i multi-Ns stats\n');
-        fprintf('  multii_compare : Stage14.3 multi-i multi-Ns comparison\n');
-        fprintf('  mainline_A_full: run the mainline A chain\n\n');
-    end
+    local = local_apply_preset(local);
 
     mode = lower(string(local.mode));
     out = struct();
     out.mode = char(mode);
+    out.preset = local.preset;
+
+    if interactive
+        fprintf('[run_stages] Stage14 mainline A modes:\n');
+        fprintf('  raw_grid\n');
+        fprintf('  raan_profile\n');
+        fprintf('  ns_envelope\n');
+        fprintf('  ns_stats\n');
+        fprintf('  multii_compare\n');
+        fprintf('  mainline_A_full\n\n');
+        fprintf('[run_stages] Current preset: %s\n\n', local.preset);
+    end
 
     switch mode
         case "raw_grid"
@@ -142,11 +134,10 @@ function out = run_stage14_openD(cfg, interactive, opts)
 
         case "mainline_a_full"
             fprintf('[run_stages] === Stage14 mainline A full chain ===\n');
+            fprintf('[run_stages] preset = %s\n', local.preset);
 
-            % Stage14.1
             out.raw_grid = stage14_scan_openD_raan_grid(cfg, local_make_raw_grid_opts(local));
 
-            % Stage14.2 fixed-design profile
             out.raan_profile = stage14_plot_raan_profiles(cfg, struct( ...
                 'h_km', local.h_km, ...
                 'i_deg', local.i_deg, ...
@@ -157,7 +148,6 @@ function out = run_stage14_openD(cfg, interactive, opts)
                 'save_fig', local.save_fig, ...
                 'save_table', local.save_table));
 
-            % Stage14.2 Ns-envelope
             out.ns_envelope = stage14_plot_ns_envelopes(cfg, struct( ...
                 'h_km', local.h_km, ...
                 'i_deg', local.i_deg, ...
@@ -168,7 +158,6 @@ function out = run_stage14_openD(cfg, interactive, opts)
                 'save_table', local.save_table, ...
                 'quiet', local.quiet));
 
-            % Stage14.3 single-i stats
             out.ns_stats = stage14_plot_multi_ns_stats(cfg, struct( ...
                 'h_km', local.h_km, ...
                 'i_deg', local.i_deg, ...
@@ -179,7 +168,6 @@ function out = run_stage14_openD(cfg, interactive, opts)
                 'save_table', local.save_table, ...
                 'quiet', local.quiet));
 
-            % Stage14.3 multi-i comparison
             out.multii_compare = stage14_plot_multi_i_ns_stats(cfg, struct( ...
                 'h_km', local.h_km, ...
                 'i_list', local.i_list, ...
@@ -195,6 +183,42 @@ function out = run_stage14_openD(cfg, interactive, opts)
             error('run_stage14_openD:UnknownMode', ...
                 'Unknown mode "%s". Supported modes: raw_grid, raan_profile, ns_envelope, ns_stats, multii_compare, mainline_A_full.', ...
                 char(mode));
+    end
+end
+
+function local = local_apply_preset(local)
+    preset = lower(string(local.preset));
+
+    switch preset
+        case "smoke"
+            if isempty(local.i_list)
+                local.i_list = local.i_deg;
+            end
+            if isempty(local.Ns_list)
+                local.Ns_list = unique(local.P_grid(:) .* local.T_grid(:))';
+            end
+
+        case "production_stage05_aligned"
+            local.P_grid = [4 6 8 10 12];
+            local.T_grid = [4 6 8 10 12];
+            local.RAAN_scan_deg = 0:30:330;
+            local.case_limit = inf;
+            local.use_early_stop = false;
+            local.hard_case_first = true;
+            local.require_pass_ratio = 1.0;
+            local.require_D_G_min = 1.0;
+
+            if isempty(local.i_list)
+                local.i_list = [30 40 50 60 70 80 90];
+            end
+            if isempty(local.Ns_list)
+                local.Ns_list = unique(local.P_grid(:) .* local.T_grid(:))';
+            end
+
+        otherwise
+            error('run_stage14_openD:UnknownPreset', ...
+                'Unknown preset "%s". Supported presets: smoke, production_stage05_aligned.', ...
+                char(preset));
     end
 end
 
@@ -215,11 +239,4 @@ function raw_opts = local_make_raw_grid_opts(local)
         'save_cache', local.save_cache, ...
         'save_table', local.save_table, ...
         'make_plot', local.make_plot);
-
-    % If caller explicitly wants a single inclination in raw_grid mode,
-    % local.i_list can be set to scalar via opts.i_list, or local.i_deg can
-    % be mirrored manually.
-    if isscalar(local.i_list) && ~isnan(local.i_list)
-        raw_opts.i_grid_deg = local.i_list;
-    end
 end
