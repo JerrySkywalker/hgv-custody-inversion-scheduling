@@ -2,7 +2,7 @@ function post = stage14_postprocess_joint_phase_orientation(summary_table, opts)
 %STAGE14_POSTPROCESS_JOINT_PHASE_ORIENTATION
 % Official postprocess layer for Stage14.4 joint (F, RAAN) sensitivity.
 
-    if nargin < 2
+    if nargin < 2 || isempty(opts)
         opts = struct();
     end
 
@@ -16,9 +16,7 @@ function post = stage14_postprocess_joint_phase_orientation(summary_table, opts)
     assert(istable(summary_table) && ~isempty(summary_table), ...
         'summary_table must be a non-empty table.');
 
-    required_vars = { ...
-        'F', 'RAAN_deg', 'pass_ratio', 'D_G_mean', 'D_G_min' ...
-    };
+    required_vars = {'F', 'RAAN_deg', 'pass_ratio', 'D_G_mean', 'D_G_min'};
     for k = 1:numel(required_vars)
         assert(any(strcmp(summary_table.Properties.VariableNames, required_vars{k})), ...
             'summary_table missing required variable: %s', required_vars{k});
@@ -32,9 +30,12 @@ function post = stage14_postprocess_joint_phase_orientation(summary_table, opts)
     dgmin_switch_table = i_build_dgmin_switch_table(bestF_table, F_values);
     periodicity = i_build_periodicity(summary_table);
     key_summary = i_build_key_summary(robust_stats_table);
-    formal_summary_md = i_build_formal_summary_md(summary_table, key_summary, periodicity);
+    formal_summary_md = i_build_formal_summary_md(summary_table, key_summary, periodicity, local.scope_name, F_values, RAAN_values);
 
     post = struct();
+    post.scope_name = string(local.scope_name);
+    post.F_values = F_values;
+    post.RAAN_values = RAAN_values;
     post.bestF_table = bestF_table;
     post.robust_stats_table = robust_stats_table;
     post.dgmin_switch_table = dgmin_switch_table;
@@ -83,7 +84,12 @@ function bestF_table = i_build_bestF_table(summary_table, RAAN_values)
         RAAN_deg, ...
         bestF_pass_ratio, best_pass_ratio, ...
         bestF_DG_mean, best_DG_mean, ...
-        bestF_DG_min, best_DG_min);
+        bestF_DG_min, best_DG_min, ...
+        'VariableNames', { ...
+            'RAAN_deg', ...
+            'bestF_pass_ratio', 'best_pass_ratio', ...
+            'bestF_DG_mean', 'best_DG_mean', ...
+            'bestF_DG_min', 'best_DG_min'});
 end
 
 function robust_stats_table = i_build_robust_stats_table(summary_table, F_values)
@@ -136,7 +142,13 @@ function robust_stats_table = i_build_robust_stats_table(summary_table, F_values
         pass_ratio_mean, pass_ratio_min, pass_ratio_max, pass_ratio_span, ...
         DG_mean_mean, DG_mean_min, DG_mean_max, DG_mean_span, ...
         DG_min_mean, DG_min_min, DG_min_max, DG_min_span, ...
-        pass_ratio_std, DG_mean_std, DG_min_std);
+        pass_ratio_std, DG_mean_std, DG_min_std, ...
+        'VariableNames', { ...
+            'F', ...
+            'pass_ratio_mean', 'pass_ratio_min', 'pass_ratio_max', 'pass_ratio_span', ...
+            'DG_mean_mean', 'DG_mean_min', 'DG_mean_max', 'DG_mean_span', ...
+            'DG_min_mean', 'DG_min_min', 'DG_min_max', 'DG_min_span', ...
+            'pass_ratio_std', 'DG_mean_std', 'DG_min_std'});
 end
 
 function dgmin_switch_table = i_build_dgmin_switch_table(bestF_table, F_values)
@@ -197,18 +209,22 @@ function key_summary = i_build_key_summary(robust_stats_table)
     key_summary = table(metric1, F1, value1, metric2, F2, value2, metric3, F3, value3);
 end
 
-function md = i_build_formal_summary_md(summary_table, key_summary, periodicity)
+function md = i_build_formal_summary_md(summary_table, key_summary, periodicity, scope_name, F_values, RAAN_values)
     h_km = summary_table.h_km(1);
     i_deg = summary_table.i_deg(1);
     P = summary_table.P(1);
     T = summary_table.T(1);
     Ns = summary_table.Ns(1);
 
+    F_scan_desc = i_format_scan_axis(F_values, 'F');
+    RAAN_scan_desc = i_format_scan_axis(RAAN_values, 'RAAN');
+    scope_name = string(scope_name);
+
     md = sprintf([ ...
-        '# Stage14 A1 正式结果摘要\n\n' ...
+        '# Stage14 %s 正式结果摘要\n\n' ...
         '## 1. 实验对象\n' ...
-        '- 构型：A1, h=%g km, i=%g deg, P=%g, T=%g, Ns=%g\n' ...
-        '- 扫描变量：F = 0:7, RAAN = 0:15:345\n' ...
+        '- 构型：%s, h=%g km, i=%g deg, P=%g, T=%g, Ns=%g\n' ...
+        '- 扫描变量：%s, %s\n' ...
         '- 指标：D_G_min, D_G_mean, pass_ratio\n\n' ...
         '## 2. 核心结论\n' ...
         '- 平均表现最优相位：F=%g（pass_ratio_mean=%.6f, DG_mean_mean=%.6f）\n' ...
@@ -219,7 +235,8 @@ function md = i_build_formal_summary_md(summary_table, key_summary, periodicity)
         '- pass_ratio: max|Δ45|=%g, max|Δ90|=%g, max|Δ180|=%g, max|Δ30|=%g\n' ...
         '- DG_mean:   max|Δ45|=%g, max|Δ90|=%g, max|Δ180|=%g, max|Δ30|=%g\n' ...
         '- DG_min:    max|Δ45|=%g, max|Δ90|=%g, max|Δ180|=%g, max|Δ30|=%g\n'], ...
-        h_km, i_deg, P, T, Ns, ...
+        char(scope_name), char(scope_name), h_km, i_deg, P, T, Ns, ...
+        F_scan_desc, RAAN_scan_desc, ...
         key_summary.F1(1), key_summary.value1(1), key_summary.value2(1), ...
         key_summary.F3(1), key_summary.value3(1), ...
         periodicity.pass_ratio.max_abs_delta45, periodicity.pass_ratio.max_abs_delta90, ...
@@ -230,31 +247,51 @@ function md = i_build_formal_summary_md(summary_table, key_summary, periodicity)
         periodicity.DG_min.max_abs_delta180, periodicity.DG_min.max_abs_delta30);
 end
 
+function desc = i_format_scan_axis(values, label)
+    values = values(:)';
+    if isempty(values)
+        desc = sprintf('%s = []', label);
+        return;
+    end
+    if numel(values) == 1
+        desc = sprintf('%s = %g', label, values(1));
+        return;
+    end
+
+    diffs = diff(values);
+    if all(abs(diffs - diffs(1)) < 1e-12)
+        desc = sprintf('%s = %g:%g:%g', label, values(1), diffs(1), values(end));
+    else
+        desc = sprintf('%s = [%s]', label, strjoin(arrayfun(@(v) sprintf('%g', v), values, 'UniformOutput', false), ', '));
+    end
+end
+
 function i_save_outputs(post, local)
     outdir = char(local.output_dir);
     if ~exist(outdir, 'dir')
         mkdir(outdir);
     end
     tag = char(local.timestamp);
+    scope = char(string(local.scope_name));
 
-    writetable(post.bestF_table, fullfile(outdir, ['stage14_' char(local.scope_name) '_bestF_table_' tag '.csv']));
-    writetable(post.robust_stats_table, fullfile(outdir, ['stage14_' char(local.scope_name) '_robust_stats_' tag '.csv']));
-    writetable(post.dgmin_switch_table, fullfile(outdir, ['stage14_' char(local.scope_name) '_bestF_DGmin_counts_' tag '.csv']));
-    writetable(post.key_summary, fullfile(outdir, ['stage14_' char(local.scope_name) '_key_summary_' tag '.csv']));
+    writetable(post.bestF_table, fullfile(outdir, sprintf('stage14_%s_bestF_table_%s.csv', scope, tag)));
+    writetable(post.robust_stats_table, fullfile(outdir, sprintf('stage14_%s_robust_stats_%s.csv', scope, tag)));
+    writetable(post.dgmin_switch_table, fullfile(outdir, sprintf('stage14_%s_bestF_DGmin_counts_%s.csv', scope, tag)));
+    writetable(post.key_summary, fullfile(outdir, sprintf('stage14_%s_key_summary_%s.csv', scope, tag)));
 
-    mdfile = fullfile(outdir, ['stage14_' char(local.scope_name) '_formal_summary_' tag '.md']);
-    fid = fopen(mdfile, 'w');
+    fid = fopen(fullfile(outdir, sprintf('stage14_%s_formal_summary_%s.md', scope, tag)), 'w');
     assert(fid > 0, 'Failed to open markdown output file.');
-    cleaner = onCleanup(@() fclose(fid));
+    cleanup = onCleanup(@() fclose(fid));
     fprintf(fid, '%s\n', post.formal_summary_md);
 end
 
-function s = i_apply_defaults(s, defaults)
-    names = fieldnames(defaults);
-    for k = 1:numel(names)
-        name = names{k};
-        if ~isfield(s, name) || isempty(s.(name))
-            s.(name) = defaults.(name);
-        end
+function out = i_apply_defaults(in, defaults)
+    out = defaults;
+    if isempty(in)
+        return;
+    end
+    fn = fieldnames(in);
+    for k = 1:numel(fn)
+        out.(fn{k}) = in.(fn{k});
     end
 end

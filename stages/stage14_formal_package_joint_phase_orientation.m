@@ -51,11 +51,12 @@ function pkg = stage14_formal_package_joint_phase_orientation(grid_out, post_out
     if local.save_markdown
         fid = fopen(formal_md, 'w');
         assert(fid > 0, 'Failed to open markdown output file.');
-        cleanup = onCleanup(@() fclose(fid));
+        cleanup = onCleanup(@() fclose(fid)); %#ok<NASGU>
         fprintf(fid, '%s\n', post_out.formal_summary_md);
     end
 
     pkg = struct();
+    pkg.scope_name = local.scope_name;
     pkg.out_dir = local.output_dir;
     pkg.bestF_csv = bestF_csv;
     pkg.robust_stats_csv = robust_stats_csv;
@@ -64,8 +65,12 @@ function pkg = stage14_formal_package_joint_phase_orientation(grid_out, post_out
     pkg.formal_md = formal_md;
     pkg.key_summary = post_out.key_summary;
 
+    if isstruct(grid_out) && isfield(grid_out, 'files')
+        pkg.raw_grid_files = grid_out.files;
+    end
+
     if ~local.quiet
-        fprintf('\n=== Stage14.4 Formal Package ===\n');
+        fprintf('\n=== Stage14.4 Formal Package (%s) ===\n', scope);
         fprintf('output dir         : %s\n', pkg.out_dir);
         fprintf('bestF csv          : %s\n', pkg.bestF_csv);
         fprintf('robust stats csv   : %s\n', pkg.robust_stats_csv);
