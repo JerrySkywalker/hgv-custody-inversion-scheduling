@@ -1,6 +1,6 @@
 function out = run_stage14_openD(cfg, interactive, opts)
 %RUN_STAGE14_OPEND
-% Unified runner for Stage14 mainline A.
+% Unified runner for Stage14 mainline A and Stage14.4 entry.
 %
 % Supported presets:
 %   - smoke
@@ -10,6 +10,7 @@ function out = run_stage14_openD(cfg, interactive, opts)
 %   - mainline A fixes F = F_ref and expands RAAN_rel externally.
 %   - Stage14.1 uses full (i,P,T,RAAN) raw search.
 %   - Stage14.2/14.3 reuse the same Stage05-aligned P/T grids.
+%   - Stage14.4 currently formalizes the frozen A1 joint (F,RAAN) chain.
 %   - Ns_list MUST be derived from the Cartesian product of P_grid and T_grid,
 %     not element-wise multiplication.
 
@@ -44,6 +45,9 @@ function out = run_stage14_openD(cfg, interactive, opts)
     local.Ns_list = [];
 
     local.RAAN_scan_deg = 0:30:330;
+    local.RAAN_joint_deg = 0:15:345;
+    local.F_values = [];
+
     local.P_grid = [4 6 8 10 12];
     local.T_grid = [4 6 8 10 12];
 
@@ -63,6 +67,9 @@ function out = run_stage14_openD(cfg, interactive, opts)
     local.require_D_G_min = 1.0;
     local.progress_every = 25;
     local.save_cache = true;
+
+    local.do_postprocess = true;
+    local.do_formal_package = true;
 
     early_fields = {'preset', 'do_startup', 'startup_force', 'startup_quiet'};
     for k = 1:numel(early_fields)
@@ -90,6 +97,10 @@ function out = run_stage14_openD(cfg, interactive, opts)
         local.(fn{k}) = opts.(fn{k});
     end
 
+    if isempty(local.F_values)
+        local.F_values = 0:(local.P - 1);
+    end
+
     mode = lower(string(local.mode));
     out = struct();
     out.mode = char(mode);
@@ -97,12 +108,13 @@ function out = run_stage14_openD(cfg, interactive, opts)
     out.Ns_list = local.Ns_list;
 
     if interactive
-        fprintf('[run_stages] Stage14 mainline A modes:\n');
+        fprintf('[run_stages] Stage14 modes:\n');
         fprintf('  raw_grid\n');
         fprintf('  raan_profile\n');
         fprintf('  ns_envelope\n');
         fprintf('  ns_stats\n');
         fprintf('  multii_compare\n');
+        fprintf('  joint_phase_orientation_a1\n');
         fprintf('  mainline_A_full\n\n');
         fprintf('[run_stages] Current preset: %s\n', local.preset);
         fprintf('[run_stages] Current Ns_list: ');
@@ -180,6 +192,28 @@ function out = run_stage14_openD(cfg, interactive, opts)
                 'quiet', local.quiet));
             fprintf('[run_stages] Stage14.3 multi-i comparison completed.\n');
 
+        case "joint_phase_orientation_a1"
+            fprintf('[run_stages] === Stage14.4 B-line: joint phase-orientation sensitivity (A1) ===\n');
+            out.joint_phase_orientation = stage14_joint_phase_orientation(cfg, struct( ...
+                'h_fixed_km', local.h_km, ...
+                'i_deg', local.i_deg, ...
+                'P', local.P, ...
+                'T', local.T, ...
+                'F_values', local.F_values, ...
+                'RAAN_values', local.RAAN_joint_deg, ...
+                'case_limit', local.case_limit, ...
+                'use_early_stop', local.use_early_stop, ...
+                'hard_case_first', local.hard_case_first, ...
+                'require_pass_ratio', local.require_pass_ratio, ...
+                'require_D_G_min', local.require_D_G_min, ...
+                'save_fig', local.save_fig, ...
+                'save_table', local.save_table, ...
+                'visible', local.visible, ...
+                'quiet', local.quiet, ...
+                'do_postprocess', local.do_postprocess, ...
+                'do_formal_package', local.do_formal_package));
+            fprintf('[run_stages] Stage14.4 B-line A1 completed.\n');
+
         case "mainline_a_full"
             fprintf('[run_stages] === Stage14 mainline A full chain ===\n');
             fprintf('[run_stages] preset = %s\n', local.preset);
@@ -231,7 +265,8 @@ function out = run_stage14_openD(cfg, interactive, opts)
 
         otherwise
             error('run_stage14_openD:UnknownMode', ...
-                'Unknown mode "%s". Supported modes: raw_grid, raan_profile, ns_envelope, ns_stats, multii_compare, mainline_A_full.', ...
+                ['Unknown mode "%s". Supported modes: raw_grid, raan_profile, ns_envelope, ', ...
+                 'ns_stats, multii_compare, joint_phase_orientation_a1, mainline_A_full.'], ...
                 char(mode));
     end
 end
@@ -289,20 +324,6 @@ function raw_opts = local_make_raw_grid_opts(local)
         'save_cache', local.save_cache, ...
         'save_table', local.save_table, ...
         'make_plot', local.make_plot);
-
-    optional_fields = { ...
-        'use_parallel', ...
-        'auto_start_pool', ...
-        'parallel_pool_profile', ...
-        'parallel_num_workers', ...
-        'prefer_thread_pool_for_batch', ...
-        'use_live_progress'};
-    for k = 1:numel(optional_fields)
-        key = optional_fields{k};
-        if isfield(local, key)
-            raw_opts.(key) = local.(key);
-        end
-    end
 end
 
 function Ns_list = local_unique_ns_from_grids(P_grid, T_grid)
@@ -327,30 +348,23 @@ end
 
 function local_prepare_parallel_pool(cfg)
     if ~isfield(cfg, 'stage14') || ~isstruct(cfg.stage14) || ...
-            ~isfield(cfg.stage14, 'use_parallel') || ~logical(cfg.stage14.use_parallel) || ...
-            ~isfield(cfg.stage14, 'auto_start_pool') || ~logical(cfg.stage14.auto_start_pool)
+            ~isfield(cfg.stage14, 'parallel') || ~isstruct(cfg.stage14.parallel) || ...
+            ~logical(cfg.stage14.parallel.enable)
         return;
     end
 
-    profile_name = "local";
-    if isfield(cfg.stage14, 'parallel_pool_profile') && ~isempty(cfg.stage14.parallel_pool_profile)
-        profile_name = string(cfg.stage14.parallel_pool_profile);
-    end
-    use_live_progress = isfield(cfg.stage14, 'use_live_progress') && cfg.stage14.use_live_progress;
-    if use_live_progress && profile_name == "threads"
-        profile_name = "local";
-    elseif ~use_live_progress && profile_name == "local" && ...
-            isfield(cfg.stage14, 'prefer_thread_pool_for_batch') && cfg.stage14.prefer_thread_pool_for_batch
-        profile_name = "threads";
+    profile_name = 'local';
+    if isfield(cfg.stage14.parallel, 'prefer_threads') && cfg.stage14.parallel.prefer_threads
+        profile_name = 'threads';
     end
 
     num_workers = [];
-    if isfield(cfg.stage14, 'parallel_num_workers') && ~isempty(cfg.stage14.parallel_num_workers)
-        num_workers = cfg.stage14.parallel_num_workers;
+    if isfield(cfg.stage14.parallel, 'max_workers') && ~isempty(cfg.stage14.parallel.max_workers)
+        num_workers = cfg.stage14.parallel.max_workers;
     end
 
     try
-        ensure_parallel_pool(char(profile_name), num_workers);
+        ensure_parallel_pool(profile_name, num_workers);
     catch
         % stage14_scan_openD_raan_grid will retry and fall back to serial if needed.
     end

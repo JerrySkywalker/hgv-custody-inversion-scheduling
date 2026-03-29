@@ -1,109 +1,128 @@
-function out = stage14_joint_phase_orientation(cfg, overrides)
+function out = stage14_joint_phase_orientation(cfg, opts)
 %STAGE14_JOINT_PHASE_ORIENTATION
-% Stage14.4 formal wrapper for B1 joint phase-orientation sensitivity.
+% Official Stage14.4 entry for joint phase-orientation sensitivity.
 %
-% This stage intentionally reuses the frozen A1 legacy exploration asset
-% as the first formal Stage14.4 implementation.
+% This function does NOT rewrite legacy A1 logic.
+% It formally wraps the frozen pre-pivot assets into a stable Stage14.4 stage:
+%   1) joint (F, RAAN_rel) grid
+%   2) postprocess
+%   3) formal package
 %
-% Current formal scope:
-%   - representative case A1
-%   - fixed (h,i,P,T) = A1 baseline
-%   - scan F and Omega_rel (RAAN)
+% Current scope:
+%   - A1 only: h=1000 km, i=40 deg, P=8, T=6
 %
-% Output:
-%   out.raw          : raw result returned by legacy grid script
-%   out.meta         : formal metadata for Stage14.4
-%   out.files        : propagated file bundle
+% Inputs:
+%   cfg  : project config
+%   opts : struct overrides
+%
+% Outputs:
+%   out.grid
+%   out.post
+%   out.formal
 
     if nargin < 1 || isempty(cfg)
         cfg = default_params();
     end
-    if nargin < 2 || isempty(overrides)
-        overrides = struct();
+    if nargin < 2 || isempty(opts)
+        opts = struct();
     end
 
     local = struct();
-    local.case_name = "A1";
     local.h_fixed_km = 1000;
     local.i_deg = 40;
     local.P = 8;
     local.T = 6;
-    local.F_values = 0:7;
+    local.F_values = [];
     local.RAAN_values = 0:15:345;
+
     local.case_limit = inf;
     local.use_early_stop = false;
     local.hard_case_first = true;
     local.require_pass_ratio = 1.0;
     local.require_D_G_min = 1.0;
-    local.save_fig = true;
-    local.visible = "on";
 
-    fn = fieldnames(overrides);
+    local.save_fig = true;
+    local.save_table = true;
+    local.visible = 'on';
+
+    local.do_postprocess = true;
+    local.do_formal_package = true;
+    local.quiet = false;
+
+    fn = fieldnames(opts);
     for k = 1:numel(fn)
-        local.(fn{k}) = overrides.(fn{k});
+        local.(fn{k}) = opts.(fn{k});
     end
 
-    raw_overrides = struct();
-    raw_overrides.h_fixed_km = local.h_fixed_km;
-    raw_overrides.i_deg = local.i_deg;
-    raw_overrides.P = local.P;
-    raw_overrides.T = local.T;
-    raw_overrides.F_values = local.F_values;
-    raw_overrides.RAAN_values = local.RAAN_values;
-    raw_overrides.case_limit = local.case_limit;
-    raw_overrides.use_early_stop = local.use_early_stop;
-    raw_overrides.hard_case_first = local.hard_case_first;
-    raw_overrides.require_pass_ratio = local.require_pass_ratio;
-    raw_overrides.require_D_G_min = local.require_D_G_min;
-    raw_overrides.save_fig = local.save_fig;
-    raw_overrides.visible = char(local.visible);
+    if isempty(local.F_values)
+        local.F_values = 0:(local.P - 1);
+    end
 
-    legacy_name = local_resolve_legacy_joint_grid();
-    assert(~isempty(legacy_name), ...
-        'Stage14.4 wrapper cannot find legacy A1 joint grid function.');
+    required_funcs = { ...
+        'manual_smoke_stage14_F_RAAN_grid_A1_legacy_prepivot_20260329', ...
+        'manual_smoke_stage14_F_RAAN_postprocess_A1_legacy_prepivot_20260329', ...
+        'manual_smoke_stage14_A1_formal_package_legacy_prepivot_20260329' ...
+    };
+    for k = 1:numel(required_funcs)
+        assert(exist(required_funcs{k}, 'file') == 2, ...
+            'stage14_joint_phase_orientation:MissingDependency', ...
+            'Required legacy helper not found: %s', required_funcs{k});
+    end
 
-    raw = feval(legacy_name, cfg, raw_overrides);
+    if ~local.quiet
+        fprintf('[stage14] === Stage14.4 joint phase-orientation sensitivity (A1) ===\n');
+        fprintf('[stage14] h = %.0f km, i = %.0f deg, P = %d, T = %d\n', ...
+            local.h_fixed_km, local.i_deg, local.P, local.T);
+        fprintf('[stage14] F_values = ');
+        disp(local.F_values);
+        fprintf('[stage14] RAAN_values = ');
+        disp(local.RAAN_values);
+    end
+
+    grid_overrides = struct( ...
+        'h_fixed_km', local.h_fixed_km, ...
+        'i_deg', local.i_deg, ...
+        'P', local.P, ...
+        'T', local.T, ...
+        'F_values', local.F_values, ...
+        'RAAN_values', local.RAAN_values, ...
+        'case_limit', local.case_limit, ...
+        'use_early_stop', local.use_early_stop, ...
+        'hard_case_first', local.hard_case_first, ...
+        'require_pass_ratio', local.require_pass_ratio, ...
+        'require_D_G_min', local.require_D_G_min, ...
+        'save_fig', local.save_fig, ...
+        'visible', local.visible);
 
     out = struct();
-    out.raw = raw;
-    out.meta = struct();
-    out.meta.stage = "Stage14.4";
-    out.meta.substage = "B1";
-    out.meta.case_name = local.case_name;
-    out.meta.description = "joint phase-orientation sensitivity";
-    out.meta.h_fixed_km = local.h_fixed_km;
-    out.meta.i_deg = local.i_deg;
-    out.meta.P = local.P;
-    out.meta.T = local.T;
-    out.meta.F_values = local.F_values;
-    out.meta.RAAN_values = local.RAAN_values;
+    out.stage = 'stage14_joint_phase_orientation';
+    out.scope = 'A1';
+    out.options = local;
 
-    if isfield(raw, 'files')
-        out.files = raw.files;
+    out.grid = manual_smoke_stage14_F_RAAN_grid_A1_legacy_prepivot_20260329(cfg, grid_overrides);
+
+    if local.do_postprocess
+        post_overrides = struct( ...
+            'save_fig', local.save_fig, ...
+            'visible', local.visible);
+        out.post = manual_smoke_stage14_F_RAAN_postprocess_A1_legacy_prepivot_20260329( ...
+            out.grid, cfg, post_overrides);
     else
-        out.files = struct();
+        out.post = [];
     end
 
-    fprintf('\n=== Stage14.4 B1 Joint Phase-Orientation ===\n');
-    fprintf('legacy source    : %s\n', legacy_name);
-    fprintf('case             : %s\n', local.case_name);
-    fprintf('design           : h=%g, i=%g, P=%d, T=%d\n', ...
-        local.h_fixed_km, local.i_deg, local.P, local.T);
-    fprintf('F range          : [%g .. %g], count=%d\n', ...
-        local.F_values(1), local.F_values(end), numel(local.F_values));
-    fprintf('Omega_rel count  : %d\n\n', numel(local.RAAN_values));
-end
+    if local.do_formal_package
+        assert(~isempty(out.post), ...
+            'stage14_joint_phase_orientation:PostprocessRequired', ...
+            'Formal package requires postprocess output.');
+        formal_overrides = struct();
+        out.formal = manual_smoke_stage14_A1_formal_package_legacy_prepivot_20260329( ...
+            out.grid, out.post, cfg, formal_overrides);
+    else
+        out.formal = [];
+    end
 
-function name = local_resolve_legacy_joint_grid()
-    candidates = { ...
-        'manual_smoke_stage14_F_RAAN_grid_A1_legacy_prepivot_20260329', ...
-        'manual_smoke_stage14_F_RAAN_grid_A1' ...
-        };
-    name = "";
-    for k = 1:numel(candidates)
-        if exist(candidates{k}, 'file') == 2
-            name = string(candidates{k});
-            return;
-        end
+    if ~local.quiet
+        fprintf('[stage14] Stage14.4 joint phase-orientation sensitivity completed.\n');
     end
 end
