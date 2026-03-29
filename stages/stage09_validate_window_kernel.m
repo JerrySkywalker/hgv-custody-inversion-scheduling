@@ -7,9 +7,9 @@ function out = stage09_validate_window_kernel(cfg)
 %   2) direction-sensitive CA projection affects DA
 %   3) mildly singular Wr can still be handled numerically
 
-    startup();
-
-    if nargin < 1 || isempty(cfg)
+    cfg_missing = (nargin < 1 || isempty(cfg));
+    if cfg_missing
+        evalc('startup(''force'', false);');
         cfg = default_params();
     end
     cfg = stage09_prepare_cfg(cfg);

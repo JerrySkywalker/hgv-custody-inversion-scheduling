@@ -1,4 +1,4 @@
-function out = manual_smoke_stage09_stage05_aligned_fullscan()
+function out = manual_smoke_stage09_stage05_aligned_fullscan(cfg)
 %MANUAL_SMOKE_STAGE09_STAGE05_ALIGNED_FULLSCAN
 % Stage09 smoke test rewritten to fully replicate Stage05 search scope.
 %
@@ -13,9 +13,10 @@ function out = manual_smoke_stage09_stage05_aligned_fullscan()
 
     clear functions;
     rehash;
-    startup;
-
-    cfg = default_params();
+    if nargin < 1 || isempty(cfg)
+        evalc('startup();');
+        cfg = default_params();
+    end
 
     % =========================================================
     % A. Force Stage09 into Stage05-aligned full-scan mode

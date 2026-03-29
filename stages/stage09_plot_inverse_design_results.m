@@ -8,9 +8,9 @@ function out = stage09_plot_inverse_design_results(out9_4, out9_5, cfg)
 %   out = stage09_plot_inverse_design_results(out9_4, out9_5);
 %   out = stage09_plot_inverse_design_results(out9_4, out9_5, cfg);
 
-    startup();
-
-    if nargin < 3 || isempty(cfg)
+    cfg_missing = (nargin < 3 || isempty(cfg));
+    if cfg_missing
+        evalc('startup(''force'', false);');
         cfg = default_params();
     end
     cfg = stage09_prepare_cfg(cfg);

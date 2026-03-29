@@ -13,6 +13,8 @@
 %   run_stage09_inverse_design(cfg, true, opts)
 
 function out = run_stage09_inverse_design(cfg, interactive, opts)
+    cfg_missing = (nargin < 1 || isempty(cfg));
+
     if nargin < 1
         cfg = [];
     end
@@ -28,7 +30,8 @@ function out = run_stage09_inverse_design(cfg, interactive, opts)
     out = struct();
 
     % 只在入口层交互一次
-    if isempty(cfg)
+    if cfg_missing
+        evalc('startup(''force'', false);');
         cfg = default_params();
     end
     [cfg, opts] = rs_cli_configure('stage09', cfg, interactive, opts);

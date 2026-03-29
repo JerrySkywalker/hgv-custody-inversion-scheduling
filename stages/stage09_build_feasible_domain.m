@@ -14,9 +14,9 @@ function out = stage09_build_feasible_domain(cfg, opts)
 % This stage is the first true "inverse-design domain" stage:
 %   Theta  -->  {DG_rob, DA_rob, DT_rob}  -->  feasible domain
 
-    startup();
-
-    if nargin < 1 || isempty(cfg)
+    cfg_missing = (nargin < 1 || isempty(cfg));
+    if cfg_missing
+        evalc('startup(''force'', false);');
         cfg = default_params();
     end
     if nargin < 2 || isempty(opts)
@@ -98,10 +98,15 @@ function out = stage09_build_feasible_domain(cfg, opts)
     feasible_count_live = double(first_result.feasible_flag);
 
     if pool_info.use_parallel && pool_info.use_live_progress
-        futures(max(nTheta - 1, 0), 1) = parallel.FevalFuture;
         future_to_row_idx = 2:nTheta;
+        nFuture = numel(future_to_row_idx);
+        if nFuture > 0
+            futures(nFuture, 1) = parallel.FevalFuture;
+        else
+            futures = parallel.FevalFuture.empty(0, 1);
+        end
 
-        for idx = 1:numel(future_to_row_idx)
+        for idx = 1:nFuture
             it = future_to_row_idx(idx);
             row = row_bank(it);
             started_count = started_count + 1;
@@ -118,7 +123,7 @@ function out = stage09_build_feasible_domain(cfg, opts)
                 row, trajs_in, gamma_eff_scalar, cfg, eval_ctx);
         end
 
-        for k = 1:numel(future_to_row_idx)
+        for k = 1:nFuture
             [completed_idx, res] = fetchNext(futures);
             it = future_to_row_idx(completed_idx);
             row = row_bank(it);

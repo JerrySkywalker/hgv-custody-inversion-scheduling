@@ -19,8 +19,9 @@ function out = stage01_scenario_disk(cfg, opts)
         % ------------------------------------------------------------
         % Init
         % ------------------------------------------------------------
-        startup();
-        if nargin < 1 || isempty(cfg)
+        cfg_missing = (nargin < 1 || isempty(cfg));
+        if cfg_missing
+            evalc('startup(''force'', false);');
             cfg = default_params();
         end
         if nargin < 2

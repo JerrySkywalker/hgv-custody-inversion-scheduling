@@ -12,9 +12,9 @@ function out = stage09_validate_single_design(cfg)
 % NOTE:
 %   This is a validation / debug script, not the full domain scan.
 
-    startup();
-
-    if nargin < 1 || isempty(cfg)
+    cfg_missing = (nargin < 1 || isempty(cfg));
+    if cfg_missing
+        evalc('startup(''force'', false);');
         cfg = default_params();
     end
     cfg = stage09_prepare_cfg(cfg);

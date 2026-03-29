@@ -17,9 +17,10 @@ function out = run_stage09_inverse_plot(cfg, interactive, opts)
         addpath(proj_root);
         addpath(fullfile(proj_root, 'run_stages'));
     end
-    startup();
 
-    if nargin < 1 || isempty(cfg)
+    cfg_missing = (nargin < 1 || isempty(cfg));
+    if cfg_missing
+        evalc('startup(''force'', false);');
         cfg = default_params();
     end
     if nargin < 2 || isempty(interactive)

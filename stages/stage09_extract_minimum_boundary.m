@@ -9,9 +9,9 @@ function out = stage09_extract_minimum_boundary(stage09_4_out, cfg)
 %   out = stage09_extract_minimum_boundary(out9_4);
 %   out = stage09_extract_minimum_boundary([], cfg);
 
-    startup();
-
-    if nargin < 2 || isempty(cfg)
+    cfg_missing = (nargin < 2 || isempty(cfg));
+    if cfg_missing
+        evalc('startup(''force'', false);');
         cfg = default_params();
     end
     cfg = stage09_prepare_cfg(cfg);
