@@ -7,7 +7,7 @@ function out = manual_smoke_stage14_mainline_step5(cfg, opts)
 %   h=1000, i=40, F=1
 %
 % Default Ns_list:
-%   inferred from latest Stage14.1 raw grid
+%   inferred from latest Stage14.1 raw grid under stage14 stage-scoped cache
 
     startup();
 
@@ -17,6 +17,11 @@ function out = manual_smoke_stage14_mainline_step5(cfg, opts)
     if nargin < 2 || isempty(opts)
         opts = struct();
     end
+
+    % IMPORTANT:
+    % switch to stage14-scoped output paths before probing cache
+    cfg.project_stage = 'stage14_analyze_multi_ns_envelopes';
+    cfg = configure_stage_output_paths(cfg);
 
     local = struct();
     local.h_km = 1000;
@@ -33,7 +38,8 @@ function out = manual_smoke_stage14_mainline_step5(cfg, opts)
 
     if isempty(local.Ns_list)
         listing = dir(fullfile(cfg.paths.cache, 'stage14_scan_openD_raan_grid_*.mat'));
-        assert(~isempty(listing), 'No Stage14.1 cache found.');
+        assert(~isempty(listing), 'No Stage14.1 cache found in stage14 cache path: %s', cfg.paths.cache);
+
         [~, idx] = max([listing.datenum]);
         S = load(fullfile(listing(idx).folder, listing(idx).name));
         grid = S.out.grid;
