@@ -2,10 +2,16 @@ function out = run_stage14_openD(cfg, interactive, opts)
 %RUN_STAGE14_OPEND
 % Unified runner for Stage14 mainline A.
 %
-% New additions:
-%   - preset = 'smoke' | 'production_stage05_aligned'
-%   - ns_stats now defaults to Stage05-aligned production Ns_list
-%   - mainline_A_full defaults to Stage05-aligned production search range
+% Supported presets:
+%   - smoke
+%   - production_stage05_aligned
+%
+% Notes:
+%   - mainline A fixes F = F_ref and expands RAAN_rel externally.
+%   - Stage14.1 uses full (i,P,T,RAAN) raw search.
+%   - Stage14.2/14.3 reuse the same Stage05-aligned P/T grids.
+%   - Ns_list MUST be derived from the Cartesian product of P_grid and T_grid,
+%     not element-wise multiplication.
 
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
@@ -29,6 +35,7 @@ function out = run_stage14_openD(cfg, interactive, opts)
     local.F = cfg.stage05.F_fixed;
     local.i_deg = 40;
     local.i_list = [30 40 50 60 70 80 90];
+
     local.P = 8;
     local.T = 6;
     local.Ns = 48;
@@ -62,7 +69,8 @@ function out = run_stage14_openD(cfg, interactive, opts)
     mode = lower(string(local.mode));
     out = struct();
     out.mode = char(mode);
-    out.preset = local.preset;
+    out.preset = char(local.preset);
+    out.Ns_list = local.Ns_list;
 
     if interactive
         fprintf('[run_stages] Stage14 mainline A modes:\n');
@@ -72,7 +80,10 @@ function out = run_stage14_openD(cfg, interactive, opts)
         fprintf('  ns_stats\n');
         fprintf('  multii_compare\n');
         fprintf('  mainline_A_full\n\n');
-        fprintf('[run_stages] Current preset: %s\n\n', local.preset);
+        fprintf('[run_stages] Current preset: %s\n', local.preset);
+        fprintf('[run_stages] Current Ns_list: ');
+        disp(local.Ns_list);
+        fprintf('\n');
     end
 
     switch mode
@@ -109,6 +120,10 @@ function out = run_stage14_openD(cfg, interactive, opts)
 
         case "ns_stats"
             fprintf('[run_stages] === Stage14.3 mainline: multi-Ns stats ===\n');
+            fprintf('[run_stages] preset = %s\n', local.preset);
+            fprintf('[run_stages] Ns_list = ');
+            disp(local.Ns_list);
+
             out.ns_stats = stage14_plot_multi_ns_stats(cfg, struct( ...
                 'h_km', local.h_km, ...
                 'i_deg', local.i_deg, ...
@@ -122,6 +137,10 @@ function out = run_stage14_openD(cfg, interactive, opts)
 
         case "multii_compare"
             fprintf('[run_stages] === Stage14.3 mainline: multi-i comparison ===\n');
+            fprintf('[run_stages] preset = %s\n', local.preset);
+            fprintf('[run_stages] Ns_list = ');
+            disp(local.Ns_list);
+
             out.multii_compare = stage14_plot_multi_i_ns_stats(cfg, struct( ...
                 'h_km', local.h_km, ...
                 'i_list', local.i_list, ...
@@ -135,6 +154,8 @@ function out = run_stage14_openD(cfg, interactive, opts)
         case "mainline_a_full"
             fprintf('[run_stages] === Stage14 mainline A full chain ===\n');
             fprintf('[run_stages] preset = %s\n', local.preset);
+            fprintf('[run_stages] Ns_list = ');
+            disp(local.Ns_list);
 
             out.raw_grid = stage14_scan_openD_raan_grid(cfg, local_make_raw_grid_opts(local));
 
@@ -195,7 +216,7 @@ function local = local_apply_preset(local)
                 local.i_list = local.i_deg;
             end
             if isempty(local.Ns_list)
-                local.Ns_list = unique(local.P_grid(:) .* local.T_grid(:))';
+                local.Ns_list = local_unique_ns_from_grids(local.P_grid, local.T_grid);
             end
 
         case "production_stage05_aligned"
@@ -212,7 +233,7 @@ function local = local_apply_preset(local)
                 local.i_list = [30 40 50 60 70 80 90];
             end
             if isempty(local.Ns_list)
-                local.Ns_list = unique(local.P_grid(:) .* local.T_grid(:))';
+                local.Ns_list = local_unique_ns_from_grids(local.P_grid, local.T_grid);
             end
 
         otherwise
@@ -239,4 +260,12 @@ function raw_opts = local_make_raw_grid_opts(local)
         'save_cache', local.save_cache, ...
         'save_table', local.save_table, ...
         'make_plot', local.make_plot);
+end
+
+function Ns_list = local_unique_ns_from_grids(P_grid, T_grid)
+%LOCAL_UNIQUE_NS_FROM_GRIDS
+% Build Stage05-aligned unique Ns list from Cartesian product of P and T.
+
+    [Pm, Tm] = ndgrid(P_grid(:), T_grid(:));
+    Ns_list = unique(Pm(:) .* Tm(:))';
 end
