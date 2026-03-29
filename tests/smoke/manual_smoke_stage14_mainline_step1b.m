@@ -16,9 +16,8 @@ function out = manual_smoke_stage14_mainline_step1b(cfg, overrides)
 %       (4,12), (6,8), (8,6), (12,4)
 %   RAAN_rel = 0:30:330
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)

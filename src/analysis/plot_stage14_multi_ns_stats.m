@@ -55,7 +55,7 @@ function files = plot_stage14_multi_ns_stats(summary_table_all, cfg, opts)
     end
     tag = regexprep(tag, '[^\w\-\.]', '_');
 
-    title_suffix = sprintf('h=%g km, i=%g deg, F=%d', h_km, i_deg, F);
+    title_suffix = sprintf('$h=%g\\ \\mathrm{km},\\ i=%g^\\circ,\\ F=%d$', h_km, i_deg, F);
 
     files = struct();
     files.fig_dir = fig_dir;
@@ -66,97 +66,54 @@ function files = plot_stage14_multi_ns_stats(summary_table_all, cfg, opts)
     files.pass_min_png = '';
     files.pass_span_png = '';
 
-    % -----------------------------
-    % DG_env_mean vs Ns
-    % -----------------------------
-    fig1 = figure('Name', 'Stage14 DG env mean vs Ns', ...
-        'NumberTitle', 'off', 'Visible', char(opts.visible));
-    plot(T.Ns, T.DG_env_mean, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
-    grid on; box on;
-    xlabel('N_s', 'Interpreter', 'tex');
-    ylabel('DG env mean', 'Interpreter', 'tex');
-    title(sprintf('Stage14.3 multi-N_s stats: DG env mean vs N_s\n%s', title_suffix), ...
-        'Interpreter', 'tex');
+    figs = struct();
+    metric_defs = { ...
+        'DG_env_mean',   '$D_G$ env mean',             false, false, 'DG_mean_png',   'stage14_DGenv_mean_vs_Ns'; ...
+        'DG_env_min',    '$D_G$ env min',              true,  false, 'DG_min_png',    'stage14_DGenv_min_vs_Ns'; ...
+        'DG_env_span',   '$D_G$ env span',             false, false, 'DG_span_png',   'stage14_DGenv_span_vs_Ns'; ...
+        'pass_env_mean', '$\mathrm{pass\ env\ mean}$', false, true,  'pass_mean_png', 'stage14_passenv_mean_vs_Ns'; ...
+        'pass_env_min',  '$\mathrm{pass\ env\ min}$',  false, true,  'pass_min_png',  'stage14_passenv_min_vs_Ns'; ...
+        'pass_env_span', '$\mathrm{pass\ env\ span}$', false, true,  'pass_span_png', 'stage14_passenv_span_vs_Ns' ...
+        };
 
-    % -----------------------------
-    % DG_env_min vs Ns
-    % -----------------------------
-    fig2 = figure('Name', 'Stage14 DG env min vs Ns', ...
-        'NumberTitle', 'off', 'Visible', char(opts.visible));
-    plot(T.Ns, T.DG_env_min, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
-    hold on;
-    yline(1.0, '--', 'LineWidth', 1.0);
-    hold off;
-    grid on; box on;
-    xlabel('N_s', 'Interpreter', 'tex');
-    ylabel('DG env min', 'Interpreter', 'tex');
-    title(sprintf('Stage14.3 multi-N_s stats: DG env min vs N_s\n%s', title_suffix), ...
-        'Interpreter', 'tex');
+    for m = 1:size(metric_defs, 1)
+        metric_name = metric_defs{m, 1};
+        ylabel_text = metric_defs{m, 2};
+        add_threshold = metric_defs{m, 3};
+        clamp_unit_interval = metric_defs{m, 4};
+        out_field = metric_defs{m, 5};
+        fig_name = metric_defs{m, 6};
 
-    % -----------------------------
-    % DG_env_span vs Ns
-    % -----------------------------
-    fig3 = figure('Name', 'Stage14 DG env span vs Ns', ...
-        'NumberTitle', 'off', 'Visible', char(opts.visible));
-    plot(T.Ns, T.DG_env_span, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
-    grid on; box on;
-    xlabel('N_s', 'Interpreter', 'tex');
-    ylabel('DG env span', 'Interpreter', 'tex');
-    title(sprintf('Stage14.3 multi-N_s stats: DG env span vs N_s\n%s', title_suffix), ...
-        'Interpreter', 'tex');
+        fig = figure('Name', sprintf('Stage14 %s vs Ns', metric_name), ...
+            'NumberTitle', 'off', 'Visible', char(opts.visible));
+        plot(T.Ns, T.(metric_name), '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
+        if add_threshold
+            hold on;
+            yline(1.0, '--', 'LineWidth', 1.0);
+            hold off;
+        end
+        grid on; box on;
+        xlabel('$N_s$', 'Interpreter', 'latex');
+        ylabel(ylabel_text, 'Interpreter', 'latex');
+        title({ ...
+            sprintf('Stage14.3 multi-$N_s$ stats: %s vs $N_s$', ylabel_text), ...
+            title_suffix}, 'Interpreter', 'latex');
 
-    % -----------------------------
-    % pass_env_mean vs Ns
-    % -----------------------------
-    fig4 = figure('Name', 'Stage14 pass env mean vs Ns', ...
-        'NumberTitle', 'off', 'Visible', char(opts.visible));
-    plot(T.Ns, T.pass_env_mean, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
-    grid on; box on;
-    ylim([0, 1]);
-    xlabel('N_s', 'Interpreter', 'tex');
-    ylabel('pass env mean', 'Interpreter', 'tex');
-    title(sprintf('Stage14.3 multi-N_s stats: pass env mean vs N_s\n%s', title_suffix), ...
-        'Interpreter', 'tex');
+        if clamp_unit_interval
+            ylim([0, 1]);
+        end
 
-    % -----------------------------
-    % pass_env_min vs Ns
-    % -----------------------------
-    fig5 = figure('Name', 'Stage14 pass env min vs Ns', ...
-        'NumberTitle', 'off', 'Visible', char(opts.visible));
-    plot(T.Ns, T.pass_env_min, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
-    grid on; box on;
-    ylim([0, 1]);
-    xlabel('N_s', 'Interpreter', 'tex');
-    ylabel('pass env min', 'Interpreter', 'tex');
-    title(sprintf('Stage14.3 multi-N_s stats: pass env min vs N_s\n%s', title_suffix), ...
-        'Interpreter', 'tex');
-
-    % -----------------------------
-    % pass_env_span vs Ns
-    % -----------------------------
-    fig6 = figure('Name', 'Stage14 pass env span vs Ns', ...
-        'NumberTitle', 'off', 'Visible', char(opts.visible));
-    plot(T.Ns, T.pass_env_span, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
-    grid on; box on;
-    ylim([0, 1]);
-    xlabel('N_s', 'Interpreter', 'tex');
-    ylabel('pass env span', 'Interpreter', 'tex');
-    title(sprintf('Stage14.3 multi-N_s stats: pass env span vs N_s\n%s', title_suffix), ...
-        'Interpreter', 'tex');
+        figs.(out_field) = fig;
+        files.(out_field) = '';
+        metric_defs{m, 6} = fig_name;
+    end
 
     if opts.save_fig
-        files.DG_mean_png = fullfile(fig_dir, sprintf('stage14_DGenv_mean_vs_Ns_%s_%s.png', tag, timestamp));
-        files.DG_min_png = fullfile(fig_dir, sprintf('stage14_DGenv_min_vs_Ns_%s_%s.png', tag, timestamp));
-        files.DG_span_png = fullfile(fig_dir, sprintf('stage14_DGenv_span_vs_Ns_%s_%s.png', tag, timestamp));
-        files.pass_mean_png = fullfile(fig_dir, sprintf('stage14_passenv_mean_vs_Ns_%s_%s.png', tag, timestamp));
-        files.pass_min_png = fullfile(fig_dir, sprintf('stage14_passenv_min_vs_Ns_%s_%s.png', tag, timestamp));
-        files.pass_span_png = fullfile(fig_dir, sprintf('stage14_passenv_span_vs_Ns_%s_%s.png', tag, timestamp));
-
-        exportgraphics(fig1, files.DG_mean_png, 'Resolution', 220);
-        exportgraphics(fig2, files.DG_min_png, 'Resolution', 220);
-        exportgraphics(fig3, files.DG_span_png, 'Resolution', 220);
-        exportgraphics(fig4, files.pass_mean_png, 'Resolution', 220);
-        exportgraphics(fig5, files.pass_min_png, 'Resolution', 220);
-        exportgraphics(fig6, files.pass_span_png, 'Resolution', 220);
+        for m = 1:size(metric_defs, 1)
+            out_field = metric_defs{m, 5};
+            file_prefix = metric_defs{m, 6};
+            files.(out_field) = fullfile(fig_dir, sprintf('%s_%s_%s.png', file_prefix, tag, timestamp));
+            exportgraphics(figs.(out_field), files.(out_field), 'Resolution', 220);
+        end
     end
 end

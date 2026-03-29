@@ -4,12 +4,10 @@ function out = stage14_scan_openD_raan_grid(cfg, overrides)
 %   Raw DG-only scan over (i, P, T, RAAN) with fixed F_ref.
 %
 % Current scope:
-%   - serial execution only
+%   - serial/parallel execution
 %   - no plots
 %   - cache + csv export
 %   - strict Stage05-compatible DG-only pass criterion
-
-    startup();
 
     if nargin < 1 || isempty(cfg)
         cfg = default_params();
@@ -52,27 +50,28 @@ function out = stage14_scan_openD_raan_grid(cfg, overrides)
     grid = build_stage14_search_grid(cfg);
     grid.gamma_req(:) = gamma_req;
     nGrid = height(grid);
+    grid_rows = table2struct(grid);
 
     log_msg(log_fid, 'INFO', 'Stage14 grid size: %d', nGrid);
     log_msg(log_fid, 'INFO', 'Nominal family size: %d', numel(trajs_nominal));
 
-    t_all = tic;
-    for ig = 1:nGrid
-        row = grid(ig, :);
-        result = evaluate_single_layer_walker_stage14(row, trajs_nominal, gamma_req, cfg, hard_order, eval_context);
-        grid = local_apply_result_to_grid(grid, ig, result);
-
-        if mod(ig, cfg.stage14.progress_every) == 0 || ig == nGrid
-            log_msg(log_fid, 'INFO', ...
-                '[%d/%d] i=%.1f, P=%d, T=%d, RAAN=%.1f, Ns=%d, D_G_min=%.6f, pass_ratio=%.6f, feasible=%d, n_eval=%d, early=%d', ...
-                ig, nGrid, row.i_deg, row.P, row.T, row.RAAN_deg, row.Ns, ...
-                result.D_G_min, result.pass_ratio, logical(result.feasible_flag), ...
-                result.n_case_evaluated, logical(result.failed_early));
-        end
+    parallel_state = local_prepare_parallel_pool(cfg, log_fid);
+    log_msg(log_fid, 'INFO', 'Stage14 execution mode: %s', char(parallel_state.mode));
+    if parallel_state.enabled
+        log_msg(log_fid, 'INFO', 'Parallel pool profile: %s', char(parallel_state.profile));
+        log_msg(log_fid, 'INFO', 'Parallel pool workers: %d', parallel_state.num_workers);
     end
+
+    t_all = tic;
+    if parallel_state.enabled
+        result_rows = local_evaluate_grid_parallel(grid_rows, trajs_nominal, gamma_req, cfg, hard_order, eval_context);
+    else
+        result_rows = local_evaluate_grid_serial(grid_rows, trajs_nominal, gamma_req, cfg, hard_order, eval_context, log_fid);
+    end
+    grid = local_apply_result_rows_to_grid(grid, result_rows);
     dt_all = toc(t_all);
 
-    summary = local_build_summary(grid, cfg, stage02_file, stage04_file, gamma_req, dt_all);
+    summary = local_build_summary(grid, cfg, stage02_file, stage04_file, gamma_req, dt_all, parallel_state);
 
     files = struct();
     files.log_file = log_file;
@@ -198,20 +197,68 @@ function eval_context = local_prepare_eval_context(trajs_in, cfg)
     eval_context.t_s_common = (0:dt:t_max).';
 end
 
-function grid = local_apply_result_to_grid(grid, ig, result)
-    grid.is_evaluated(ig) = true;
-    grid.lambda_worst_min(ig) = result.lambda_worst_min;
-    grid.lambda_worst_mean(ig) = result.lambda_worst_mean;
-    grid.D_G_min(ig) = result.D_G_min;
-    grid.D_G_mean(ig) = result.D_G_mean;
-    grid.pass_ratio(ig) = result.pass_ratio;
-    grid.feasible_flag(ig) = result.feasible_flag;
-    grid.rank_score(ig) = result.rank_score;
-    grid.n_case_evaluated(ig) = result.n_case_evaluated;
-    grid.failed_early(ig) = result.failed_early;
+function result_rows = local_evaluate_grid_serial(grid_rows, trajs_nominal, gamma_req, cfg, hard_order, eval_context, log_fid)
+    nGrid = numel(grid_rows);
+    result_rows = cell(nGrid, 1);
+
+    for ig = 1:nGrid
+        row = grid_rows(ig);
+        result = evaluate_single_layer_walker_stage14(row, trajs_nominal, gamma_req, cfg, hard_order, eval_context);
+        result_rows{ig} = local_pack_grid_result(result);
+
+        if mod(ig, cfg.stage14.progress_every) == 0 || ig == nGrid
+            log_msg(log_fid, 'INFO', ...
+                '[%d/%d] i=%.1f, P=%d, T=%d, RAAN=%.1f, Ns=%d, D_G_min=%.6f, pass_ratio=%.6f, feasible=%d, n_eval=%d, early=%d', ...
+                ig, nGrid, row.i_deg, row.P, row.T, row.RAAN_deg, row.Ns, ...
+                result.D_G_min, result.pass_ratio, logical(result.feasible_flag), ...
+                result.n_case_evaluated, logical(result.failed_early));
+        end
+    end
 end
 
-function summary = local_build_summary(grid, cfg, stage02_file, stage04_file, gamma_req, dt_all)
+function result_rows = local_evaluate_grid_parallel(grid_rows, trajs_nominal, gamma_req, cfg, hard_order, eval_context)
+    nGrid = numel(grid_rows);
+    result_rows = cell(nGrid, 1);
+
+    parfor ig = 1:nGrid
+        row = grid_rows(ig);
+        result = evaluate_single_layer_walker_stage14(row, trajs_nominal, gamma_req, cfg, hard_order, eval_context);
+        result_rows{ig} = local_pack_grid_result(result);
+    end
+end
+
+function packed = local_pack_grid_result(result)
+    packed = struct();
+    packed.is_evaluated = true;
+    packed.lambda_worst_min = result.lambda_worst_min;
+    packed.lambda_worst_mean = result.lambda_worst_mean;
+    packed.D_G_min = result.D_G_min;
+    packed.D_G_mean = result.D_G_mean;
+    packed.pass_ratio = result.pass_ratio;
+    packed.feasible_flag = logical(result.feasible_flag);
+    packed.rank_score = result.rank_score;
+    packed.n_case_evaluated = result.n_case_evaluated;
+    packed.failed_early = logical(result.failed_early);
+end
+
+function grid = local_apply_result_rows_to_grid(grid, result_rows)
+    nGrid = numel(result_rows);
+    for ig = 1:nGrid
+        result = result_rows{ig};
+        grid.is_evaluated(ig) = result.is_evaluated;
+        grid.lambda_worst_min(ig) = result.lambda_worst_min;
+        grid.lambda_worst_mean(ig) = result.lambda_worst_mean;
+        grid.D_G_min(ig) = result.D_G_min;
+        grid.D_G_mean(ig) = result.D_G_mean;
+        grid.pass_ratio(ig) = result.pass_ratio;
+        grid.feasible_flag(ig) = result.feasible_flag;
+        grid.rank_score(ig) = result.rank_score;
+        grid.n_case_evaluated(ig) = result.n_case_evaluated;
+        grid.failed_early(ig) = result.failed_early;
+    end
+end
+
+function summary = local_build_summary(grid, cfg, stage02_file, stage04_file, gamma_req, dt_all, parallel_state)
     summary = struct();
     summary.stage = 'stage14.1_mainline';
     summary.mode = string(cfg.stage14.mode);
@@ -220,6 +267,10 @@ function summary = local_build_summary(grid, cfg, stage02_file, stage04_file, ga
     summary.gamma_req = gamma_req;
     summary.grid_size = height(grid);
     summary.elapsed_s = dt_all;
+    summary.parallel_enabled = parallel_state.enabled;
+    summary.parallel_mode = parallel_state.mode;
+    summary.parallel_profile = parallel_state.profile;
+    summary.parallel_workers = parallel_state.num_workers;
 
     summary.n_feasible = sum(grid.feasible_flag, 'omitnan');
     summary.best_pass_ratio = max(grid.pass_ratio, [], 'omitnan');
@@ -231,5 +282,45 @@ function summary = local_build_summary(grid, cfg, stage02_file, stage04_file, ga
         summary.min_feasible_Ns = feasible_grid.Ns(idx);
     else
         summary.min_feasible_Ns = NaN;
+    end
+end
+
+function parallel_state = local_prepare_parallel_pool(cfg, log_fid)
+    parallel_state = struct();
+    parallel_state.enabled = false;
+    parallel_state.mode = "serial";
+    parallel_state.profile = "";
+    parallel_state.num_workers = 0;
+
+    if ~isfield(cfg, 'stage14') || ~isstruct(cfg.stage14) || ~logical(cfg.stage14.use_parallel)
+        return;
+    end
+
+    profile_name = 'local';
+    if isfield(cfg.stage14, 'parallel') && isstruct(cfg.stage14.parallel) && ...
+            isfield(cfg.stage14.parallel, 'prefer_threads') && cfg.stage14.parallel.prefer_threads
+        profile_name = 'threads';
+    end
+
+    num_workers = [];
+    if isfield(cfg.stage14, 'parallel') && isstruct(cfg.stage14.parallel) && ...
+            isfield(cfg.stage14.parallel, 'max_workers') && ~isempty(cfg.stage14.parallel.max_workers)
+        num_workers = cfg.stage14.parallel.max_workers;
+    end
+
+    try
+        pool = ensure_parallel_pool(profile_name, num_workers);
+        if isempty(pool)
+            log_msg(log_fid, 'WARN', 'Parallel mode requested but no pool is available. Falling back to serial.');
+            return;
+        end
+
+        parallel_state.enabled = true;
+        parallel_state.mode = "parallel";
+        parallel_state.profile = string(profile_name);
+        parallel_state.num_workers = pool.NumWorkers;
+    catch ME
+        log_msg(log_fid, 'WARN', 'Parallel mode requested but pool setup failed: %s', ME.message);
+        log_msg(log_fid, 'WARN', 'Falling back to serial execution for Stage14.1.');
     end
 end

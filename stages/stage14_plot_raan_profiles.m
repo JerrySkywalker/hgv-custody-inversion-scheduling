@@ -11,8 +11,6 @@ function out = stage14_plot_raan_profiles(cfg, opts)
 %   - no Ns-envelope yet
 %   - no RAAN aggregated statistics yet
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
         cfg = default_params();
     end

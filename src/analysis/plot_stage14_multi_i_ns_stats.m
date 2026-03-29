@@ -46,8 +46,7 @@ function files = plot_stage14_multi_i_ns_stats(summary_table_all, cfg, opts)
     end
     tag = regexprep(tag, '[^\w\-\.]', '_');
 
-    i_text = strjoin(arrayfun(@(x) sprintf('%g', x), i_list, 'UniformOutput', false), ', ');
-    title_suffix = sprintf('h=%g km, F=%d, i in [%s] deg', h_km, F, i_text);
+    title_suffix = sprintf('$h=%g\\ \\mathrm{km},\\ F=%d$', h_km, F);
 
     files = struct();
     files.fig_dir = fig_dir;
@@ -59,12 +58,12 @@ function files = plot_stage14_multi_i_ns_stats(summary_table_all, cfg, opts)
     files.pass_span_png = '';
 
     metric_defs = { ...
-        'DG_env_mean',  'DG env mean',  true,  'DG_mean_png',   'stage14_multii_DGenv_mean_vs_Ns'; ...
-        'DG_env_min',   'DG env min',   true,  'DG_min_png',    'stage14_multii_DGenv_min_vs_Ns'; ...
-        'DG_env_span',  'DG env span',  false, 'DG_span_png',   'stage14_multii_DGenv_span_vs_Ns'; ...
-        'pass_env_mean','pass env mean',false, 'pass_mean_png', 'stage14_multii_passenv_mean_vs_Ns'; ...
-        'pass_env_min', 'pass env min', false, 'pass_min_png',  'stage14_multii_passenv_min_vs_Ns'; ...
-        'pass_env_span','pass env span',false, 'pass_span_png', 'stage14_multii_passenv_span_vs_Ns' ...
+        'DG_env_mean',   '$D_G$ env mean',              false, 'DG_mean_png',   'stage14_multii_DGenv_mean_vs_Ns'; ...
+        'DG_env_min',    '$D_G$ env min',               true,  'DG_min_png',    'stage14_multii_DGenv_min_vs_Ns'; ...
+        'DG_env_span',   '$D_G$ env span',              false, 'DG_span_png',   'stage14_multii_DGenv_span_vs_Ns'; ...
+        'pass_env_mean', '$\mathrm{pass\ env\ mean}$',  false, 'pass_mean_png', 'stage14_multii_passenv_mean_vs_Ns'; ...
+        'pass_env_min',  '$\mathrm{pass\ env\ min}$',   false, 'pass_min_png',  'stage14_multii_passenv_min_vs_Ns'; ...
+        'pass_env_span', '$\mathrm{pass\ env\ span}$',  false, 'pass_span_png', 'stage14_multii_passenv_span_vs_Ns' ...
         };
 
     for m = 1:size(metric_defs,1)
@@ -84,7 +83,7 @@ function files = plot_stage14_multi_i_ns_stats(summary_table_all, cfg, opts)
             Ti = T(T.i_deg == i_deg, :);
             Ti = sortrows(Ti, 'Ns');
             plot(Ti.Ns, Ti.(metric_name), '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
-            legends{ii} = sprintf('i=%g deg', i_deg);
+            legends{ii} = sprintf('$i=%g^\\circ$', i_deg);
         end
 
         if add_threshold
@@ -93,16 +92,17 @@ function files = plot_stage14_multi_i_ns_stats(summary_table_all, cfg, opts)
 
         hold off;
         grid on; box on;
-        xlabel('N_s', 'Interpreter', 'tex');
-        ylabel(ylabel_text, 'Interpreter', 'tex');
+        xlabel('$N_s$', 'Interpreter', 'latex');
+        ylabel(ylabel_text, 'Interpreter', 'latex');
 
         if startsWith(metric_name, 'pass_')
             ylim([0,1]);
         end
 
-        title(sprintf('Stage14.3 multi-i comparison: %s vs N_s\n%s', ylabel_text, title_suffix), ...
-            'Interpreter', 'tex');
-        legend(legends, 'Location', 'best');
+        title({ ...
+            sprintf('Stage14.3 multi-$i$ comparison: %s vs $N_s$', ylabel_text), ...
+            title_suffix}, 'Interpreter', 'latex');
+        legend(legends, 'Interpreter', 'latex', 'Location', 'best');
 
         if opts.save_fig
             out_path = fullfile(fig_dir, sprintf('%s_%s_%s.png', file_prefix, tag, timestamp));

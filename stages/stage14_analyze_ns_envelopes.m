@@ -8,8 +8,6 @@ function out = stage14_analyze_ns_envelopes(cfg, opts)
 %   - output one summary table
 %   - no B2 / B2-dual yet
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
         cfg = default_params();
     end

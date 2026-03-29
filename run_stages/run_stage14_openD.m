@@ -15,11 +15,8 @@ function out = run_stage14_openD(cfg, interactive, opts)
 
     proj_root = fileparts(fileparts(mfilename('fullpath')));
     if ~isempty(proj_root), addpath(proj_root); end
-    startup();
+    cfg_missing = (nargin < 1 || isempty(cfg));
 
-    if nargin < 1 || isempty(cfg)
-        cfg = default_params();
-    end
     if nargin < 2 || isempty(interactive)
         interactive = false;
     end
@@ -27,12 +24,17 @@ function out = run_stage14_openD(cfg, interactive, opts)
         opts = struct();
     end
 
+    default_F = 1;
+    if ~cfg_missing && isfield(cfg, 'stage05') && isstruct(cfg.stage05) && isfield(cfg.stage05, 'F_fixed')
+        default_F = cfg.stage05.F_fixed;
+    end
+
     local = struct();
     local.mode = 'mainline_A_full';
     local.preset = 'production_stage05_aligned';
 
     local.h_km = 1000;
-    local.F = cfg.stage05.F_fixed;
+    local.F = default_F;
     local.i_deg = 40;
     local.i_list = [30 40 50 60 70 80 90];
 
@@ -50,6 +52,9 @@ function out = run_stage14_openD(cfg, interactive, opts)
     local.save_table = true;
     local.make_plot = false;
     local.quiet = false;
+    local.do_startup = cfg_missing;
+    local.startup_force = false;
+    local.startup_quiet = true;
 
     local.case_limit = inf;
     local.use_early_stop = false;
@@ -59,12 +64,31 @@ function out = run_stage14_openD(cfg, interactive, opts)
     local.progress_every = 25;
     local.save_cache = true;
 
+    early_fields = {'preset', 'do_startup', 'startup_force', 'startup_quiet'};
+    for k = 1:numel(early_fields)
+        key = early_fields{k};
+        if isfield(opts, key)
+            local.(key) = opts.(key);
+        end
+    end
+
+    if local.do_startup
+        local_run_startup(local.startup_force, local.startup_quiet);
+    end
+
+    if cfg_missing
+        cfg = default_params();
+    end
+    if ~isfield(opts, 'F') && isfield(cfg, 'stage05') && isfield(cfg.stage05, 'F_fixed')
+        local.F = cfg.stage05.F_fixed;
+    end
+
+    local = local_apply_preset(local);
+
     fn = fieldnames(opts);
     for k = 1:numel(fn)
         local.(fn{k}) = opts.(fn{k});
     end
-
-    local = local_apply_preset(local);
 
     mode = lower(string(local.mode));
     out = struct();
@@ -84,6 +108,11 @@ function out = run_stage14_openD(cfg, interactive, opts)
         fprintf('[run_stages] Current Ns_list: ');
         disp(local.Ns_list);
         fprintf('\n');
+    end
+
+    if any(mode == ["raw_grid", "mainline_a_full"])
+        raw_cfg = stage14_default_config(cfg, local_make_raw_grid_opts(local));
+        local_prepare_parallel_pool(raw_cfg);
     end
 
     switch mode
@@ -268,4 +297,40 @@ function Ns_list = local_unique_ns_from_grids(P_grid, T_grid)
 
     [Pm, Tm] = ndgrid(P_grid(:), T_grid(:));
     Ns_list = unique(Pm(:) .* Tm(:))';
+end
+
+function local_run_startup(force_startup, quiet_startup)
+    if quiet_startup
+        if force_startup
+            evalc('startup(''force'', true);');
+        else
+            evalc('startup(''force'', false);');
+        end
+    else
+        startup('force', logical(force_startup));
+    end
+end
+
+function local_prepare_parallel_pool(cfg)
+    if ~isfield(cfg, 'stage14') || ~isstruct(cfg.stage14) || ...
+            ~isfield(cfg.stage14, 'parallel') || ~isstruct(cfg.stage14.parallel) || ...
+            ~logical(cfg.stage14.parallel.enable)
+        return;
+    end
+
+    profile_name = 'local';
+    if isfield(cfg.stage14.parallel, 'prefer_threads') && cfg.stage14.parallel.prefer_threads
+        profile_name = 'threads';
+    end
+
+    num_workers = [];
+    if isfield(cfg.stage14.parallel, 'max_workers') && ~isempty(cfg.stage14.parallel.max_workers)
+        num_workers = cfg.stage14.parallel.max_workers;
+    end
+
+    try
+        ensure_parallel_pool(profile_name, num_workers);
+    catch
+        % stage14_scan_openD_raan_grid will retry and fall back to serial if needed.
+    end
 end

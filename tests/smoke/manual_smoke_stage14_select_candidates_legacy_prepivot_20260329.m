@@ -29,9 +29,8 @@ function out = manual_smoke_stage14_select_candidates_legacy_prepivot_20260329(c
 %   disp(out.candidates.top_by_DGmean)
 %   disp(out.candidates.sameNs_multiPT)
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)
@@ -276,4 +275,3 @@ function Tout = local_pretty_head(T, n)
                      T.Properties.VariableNames, 'stable');
     Tout = T(1:min(n,height(T)), keep);
 end
-

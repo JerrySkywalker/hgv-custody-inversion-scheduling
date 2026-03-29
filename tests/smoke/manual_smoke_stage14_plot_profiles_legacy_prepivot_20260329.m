@@ -21,9 +21,8 @@ function out = manual_smoke_stage14_plot_profiles_legacy_prepivot_20260329(cfg, 
 %   out.fig_DG_min
 %   out.files
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)
@@ -219,4 +218,3 @@ function out = manual_smoke_stage14_plot_profiles_legacy_prepivot_20260329(cfg, 
     fprintf('--- summary_table ---\n');
     disp(summary_table);
 end
-

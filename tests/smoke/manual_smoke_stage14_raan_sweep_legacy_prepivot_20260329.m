@@ -17,9 +17,8 @@ function out = manual_smoke_stage14_raan_sweep_legacy_prepivot_20260329(cfg, ove
 %   - 仍然复用当前工程里的 Stage02 / Stage04 cache 加载方式。
 %   - 仍然复用 Stage05/14 当前 evaluator 链路。
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)
@@ -248,4 +247,3 @@ function eval_context = local_prepare_eval_context(trajs_in, cfg)
     eval_context = struct();
     eval_context.t_s_common = (0:dt:t_max).';
 end
-

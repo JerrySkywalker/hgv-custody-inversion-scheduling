@@ -3,8 +3,6 @@ function out = stage14_analyze_multi_ns_envelopes(cfg, opts)
 % Stage14.3 second step:
 %   aggregate Stage14 Ns-envelope statistics across multiple Ns values.
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
         cfg = default_params();
     end

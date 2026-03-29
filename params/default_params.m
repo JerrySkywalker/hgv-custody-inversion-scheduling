@@ -1312,5 +1312,16 @@ function cfg = default_params()
     cfg.stage11.diagnosis_verbose = true;
     cfg.stage11.use_parallel = false;
 
+    % ---------------------------
+    % Stage14 openD / RAAN mainline
+    % ---------------------------
+    cfg.stage14 = struct();
+    cfg.stage14.parallel = struct();
+    cfg.stage14.parallel.enable = true;
+    cfg.stage14.parallel.prefer_threads = true;
+    cfg.stage14.parallel.max_workers = [];
+    cfg.stage14.parallel.progress_every = 25;
+    cfg.stage14.use_parallel = cfg.stage14.parallel.enable;
+    cfg.stage14.progress_every = cfg.stage14.parallel.progress_every;
 end
 

@@ -6,9 +6,8 @@ function out = manual_smoke_stage14_mainline_step4(cfg, opts)
 % Default target filter:
 %   h=1000, i=40, Ns=48, F=1
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(opts)

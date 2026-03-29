@@ -19,9 +19,8 @@ function out = manual_smoke_stage14_F_sweep_A1_legacy_prepivot_20260329(cfg, ove
 %   2) D_G_mean   vs F
 %   3) D_G_min    vs F
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)
@@ -300,4 +299,3 @@ function eval_context = local_prepare_eval_context(trajs_in, cfg)
     eval_context = struct();
     eval_context.t_s_common = (0:dt:t_max).';
 end
-

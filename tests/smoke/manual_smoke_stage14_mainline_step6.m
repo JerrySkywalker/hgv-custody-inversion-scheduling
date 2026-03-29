@@ -9,9 +9,8 @@ function out = manual_smoke_stage14_mainline_step6(cfg, opts)
 % Default Ns_list:
 %   inferred from latest Stage14.1 raw grid
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(opts)

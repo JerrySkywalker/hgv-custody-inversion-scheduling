@@ -55,10 +55,15 @@ function cfg = stage14_default_config(base_cfg, overrides)
     cfg.stage14.rank_rule = cfg.stage05.rank_rule;
 
     % Execution controls
-    cfg.stage14.use_parallel = false;
+    cfg.stage14.parallel = struct();
+    cfg.stage14.parallel.enable = false;
+    cfg.stage14.parallel.prefer_threads = true;
+    cfg.stage14.parallel.max_workers = [];
+    cfg.stage14.parallel.progress_every = 10;
+    cfg.stage14.use_parallel = cfg.stage14.parallel.enable;
     cfg.stage14.use_early_stop = cfg.stage05.use_early_stop;
     cfg.stage14.hard_case_first = cfg.stage05.hard_case_first;
-    cfg.stage14.progress_every = 10;
+    cfg.stage14.progress_every = cfg.stage14.parallel.progress_every;
     cfg.stage14.case_limit = inf;
 
     % Output controls
@@ -75,6 +80,45 @@ function cfg = stage14_default_config(base_cfg, overrides)
     cfg.stage14.P_grid = reshape(cfg.stage14.P_grid, 1, []);
     cfg.stage14.T_grid = reshape(cfg.stage14.T_grid, 1, []);
     cfg.stage14.RAAN_scan_deg = reshape(cfg.stage14.RAAN_scan_deg, 1, []);
+    if ~isfield(cfg.stage14, 'parallel') || ~isstruct(cfg.stage14.parallel)
+        cfg.stage14.parallel = struct();
+    end
+
+    if ~isfield(cfg.stage14.parallel, 'enable') || isempty(cfg.stage14.parallel.enable)
+        cfg.stage14.parallel.enable = false;
+    end
+    if ~isfield(cfg.stage14.parallel, 'prefer_threads') || isempty(cfg.stage14.parallel.prefer_threads)
+        cfg.stage14.parallel.prefer_threads = true;
+    end
+    if ~isfield(cfg.stage14.parallel, 'max_workers')
+        cfg.stage14.parallel.max_workers = [];
+    end
+    if ~isfield(cfg.stage14.parallel, 'progress_every') || isempty(cfg.stage14.parallel.progress_every)
+        cfg.stage14.parallel.progress_every = cfg.stage14.progress_every;
+    end
+
+    cfg.stage14.parallel.enable = logical(cfg.stage14.parallel.enable);
+    cfg.stage14.parallel.prefer_threads = logical(cfg.stage14.parallel.prefer_threads);
+    cfg.stage14.parallel.progress_every = local_validate_positive_integer( ...
+        cfg.stage14.parallel.progress_every, 10, 'cfg.stage14.parallel.progress_every');
+
+    if isempty(cfg.stage14.parallel.max_workers)
+        cfg.stage14.parallel.max_workers = [];
+    else
+        assert(isnumeric(cfg.stage14.parallel.max_workers) && isscalar(cfg.stage14.parallel.max_workers) && ...
+            isfinite(cfg.stage14.parallel.max_workers) && cfg.stage14.parallel.max_workers >= 1, ...
+            'cfg.stage14.parallel.max_workers must be empty or a finite scalar >= 1.');
+        cfg.stage14.parallel.max_workers = round(cfg.stage14.parallel.max_workers);
+    end
+
+    if ~isfield(cfg.stage14, 'use_parallel') || isempty(cfg.stage14.use_parallel)
+        cfg.stage14.use_parallel = cfg.stage14.parallel.enable;
+    else
+        cfg.stage14.use_parallel = logical(cfg.stage14.use_parallel);
+    end
+    cfg.stage14.parallel.enable = cfg.stage14.use_parallel;
+    cfg.stage14.progress_every = local_validate_positive_integer( ...
+        cfg.stage14.progress_every, cfg.stage14.parallel.progress_every, 'cfg.stage14.progress_every');
 
     % Normalize PT_pairs
     if isempty(cfg.stage14.PT_pairs)
@@ -101,4 +145,21 @@ function out = local_merge_struct(base, patch)
             out.(key) = val;
         end
     end
+end
+
+function value = local_validate_positive_integer(value, fallback, label)
+    if nargin < 2 || isempty(fallback)
+        fallback = 1;
+    end
+    if nargin < 3 || isempty(label)
+        label = 'value';
+    end
+
+    if isempty(value)
+        value = fallback;
+    end
+
+    assert(isnumeric(value) && isscalar(value) && isfinite(value) && value >= 1, ...
+        '%s must be a finite scalar >= 1.', label);
+    value = round(value);
 end

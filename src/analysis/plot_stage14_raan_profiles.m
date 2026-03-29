@@ -43,7 +43,7 @@ function files = plot_stage14_raan_profiles(profile_table, cfg, opts)
     end
     tag = regexprep(tag, '[^\w\-\.]', '_');
 
-    title_suffix = sprintf('h=%g km, i=%g deg, P=%d, T=%d, F=%d, Ns=%d', ...
+    title_suffix = sprintf('$h=%g\\ \\mathrm{km},\\ i=%g^\\circ,\\ P=%d,\\ T=%d,\\ F=%d,\\ N_s=%d$', ...
         h_km, i_deg, P, TperPlane, F, Ns);
 
     % -----------------------------
@@ -56,10 +56,11 @@ function files = plot_stage14_raan_profiles(profile_table, cfg, opts)
     yline(1.0, '--', 'LineWidth', 1.0);
     hold off;
     grid on; box on;
-    xlabel('RAAN_{rel} (deg)', 'Interpreter', 'tex');
-    ylabel('D_G min', 'Interpreter', 'tex');
-    title(sprintf('Stage14.2 fixed-design profile: D_G min vs RAAN_{rel}\n%s', title_suffix), ...
-        'Interpreter', 'tex');
+    xlabel('$\mathrm{RAAN}_{\mathrm{rel}}\ (\mathrm{deg})$', 'Interpreter', 'latex');
+    ylabel('$D_G$ min', 'Interpreter', 'latex');
+    title({ ...
+        'Stage14.2 fixed-design profile: $D_G$ min vs $\mathrm{RAAN}_{\mathrm{rel}}$', ...
+        title_suffix}, 'Interpreter', 'latex');
 
     dg_min = min(profile_table.D_G_min, [], 'omitnan');
     dg_max = max(profile_table.D_G_min, [], 'omitnan');
@@ -84,19 +85,21 @@ function files = plot_stage14_raan_profiles(profile_table, cfg, opts)
         'NumberTitle', 'off', 'Visible', char(opts.visible));
     plot(profile_table.RAAN_deg, profile_table.pass_ratio, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
     grid on; box on;
-    xlabel('RAAN_{rel} (deg)', 'Interpreter', 'tex');
-    ylabel('pass ratio', 'Interpreter', 'tex');
+    xlabel('$\mathrm{RAAN}_{\mathrm{rel}}\ (\mathrm{deg})$', 'Interpreter', 'latex');
+    ylabel('$\mathrm{pass\ ratio}$', 'Interpreter', 'latex');
 
     pr_min = min(profile_table.pass_ratio, [], 'omitnan');
     pr_max = max(profile_table.pass_ratio, [], 'omitnan');
     pr_span = pr_max - pr_min;
 
     if pr_span < 1e-12
-        title(sprintf('Stage14.2 fixed-design profile: pass ratio vs RAAN_{rel} (constant profile)\n%s', title_suffix), ...
-            'Interpreter', 'tex');
+        title({ ...
+            'Stage14.2 fixed-design profile: $\mathrm{pass\ ratio}$ vs $\mathrm{RAAN}_{\mathrm{rel}}$ (constant profile)', ...
+            title_suffix}, 'Interpreter', 'latex');
     else
-        title(sprintf('Stage14.2 fixed-design profile: pass ratio vs RAAN_{rel}\n%s', title_suffix), ...
-            'Interpreter', 'tex');
+        title({ ...
+            'Stage14.2 fixed-design profile: $\mathrm{pass\ ratio}$ vs $\mathrm{RAAN}_{\mathrm{rel}}$', ...
+            title_suffix}, 'Interpreter', 'latex');
     end
 
     ylim([0, 1]);

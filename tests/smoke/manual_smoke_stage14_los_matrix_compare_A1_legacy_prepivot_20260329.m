@@ -25,9 +25,8 @@ function out = manual_smoke_stage14_los_matrix_compare_A1_legacy_prepivot_202603
 %   out.eig0
 %   out.eig45
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)
@@ -225,4 +224,3 @@ function [visible_table, W] = local_build_visible_table_and_W(rtgt_km, satbank, 
     visible_table = table(sat_id, visible, range_km, los_ux, los_uy, los_uz);
     visible_table = visible_table(visible_table.visible, :);
 end
-

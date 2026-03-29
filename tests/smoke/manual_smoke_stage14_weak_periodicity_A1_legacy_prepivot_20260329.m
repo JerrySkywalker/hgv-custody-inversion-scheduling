@@ -16,9 +16,8 @@ function out = manual_smoke_stage14_weak_periodicity_A1_legacy_prepivot_20260329
 %   out.delta90
 %   out.delta180
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)
@@ -154,4 +153,3 @@ function D = local_build_delta_table(T, shift_deg)
     D.D_G_mean_delta = D.D_G_mean_shifted - D.D_G_mean;
     D.D_G_min_delta = D.D_G_min_shifted - D.D_G_min;
 end
-

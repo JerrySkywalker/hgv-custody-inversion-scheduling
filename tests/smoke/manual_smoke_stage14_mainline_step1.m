@@ -8,9 +8,8 @@ function out = manual_smoke_stage14_mainline_step1(cfg, overrides)
 %   - verify csv/cache/log are generated
 %   - verify RAAN=0 path is computable under new mainline naming
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)

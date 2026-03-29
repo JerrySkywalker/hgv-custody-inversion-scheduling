@@ -23,9 +23,8 @@ function out = manual_smoke_stage14_batch_raan_sweep_legacy_prepivot_20260329(cf
 %   out.detail_table  : 每个设计点、每个 RAAN 的逐点结果
 %   out.config_table  : 候选点配置表
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)
@@ -205,4 +204,3 @@ function out = manual_smoke_stage14_batch_raan_sweep_legacy_prepivot_20260329(cf
     fprintf('--- detail_table (head) ---\n');
     disp(detail_table(1:min(40,height(detail_table)), :));
 end
-

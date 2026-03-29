@@ -22,9 +22,8 @@ function out = manual_smoke_stage14_mainline_step1_fulltable(cfg, overrides)
 %       case_limit = inf
 %       use_early_stop = false
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)

@@ -24,9 +24,8 @@ function out = manual_smoke_stage14_state_equivalence_A1_legacy_prepivot_2026032
 %   out.position_table45
 %   out.nn_table
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)
@@ -260,4 +259,3 @@ function Prot = local_rotate_about_z(P, angle_deg)
           0,       0,      1];
     Prot = (Rz * P.').';
 end
-

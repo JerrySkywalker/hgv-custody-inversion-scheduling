@@ -2,8 +2,6 @@ function out = stage14_plot_multi_i_ns_stats(cfg, opts)
 %STAGE14_PLOT_MULTI_I_NS_STATS
 % Mainline A: compare multi-Ns aggregate statistics across multiple i values.
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
         cfg = default_params();
     end

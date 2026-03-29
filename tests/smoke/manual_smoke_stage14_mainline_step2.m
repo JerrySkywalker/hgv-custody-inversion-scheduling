@@ -6,9 +6,8 @@ function out = manual_smoke_stage14_mainline_step2(cfg, opts)
 % Default target design matches Stage14.1 step1 smoke:
 %   h=1000, i=40, P=8, T=6, F=1
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(opts)

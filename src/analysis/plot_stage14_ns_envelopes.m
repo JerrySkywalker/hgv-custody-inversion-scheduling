@@ -39,7 +39,7 @@ function files = plot_stage14_ns_envelopes(envelope_table, cfg, opts)
     end
     tag = regexprep(tag, '[^\w\-\.]', '_');
 
-    title_suffix = sprintf('h=%g km, i=%g deg, F=%d, Ns=%d', h_km, i_deg, F, Ns);
+    title_suffix = sprintf('$h=%g\\ \\mathrm{km},\\ i=%g^\\circ,\\ F=%d,\\ N_s=%d$', h_km, i_deg, F, Ns);
 
     % Figure 1: max_PT D_G_min vs RAAN
     fig1 = figure('Name', 'Stage14 max_PT D_G_min vs RAAN', ...
@@ -49,10 +49,11 @@ function files = plot_stage14_ns_envelopes(envelope_table, cfg, opts)
     yline(1.0, '--', 'LineWidth', 1.0);
     hold off;
     grid on; box on;
-    xlabel('RAAN_{rel} (deg)', 'Interpreter', 'tex');
-    ylabel('max_{PT} D_G min', 'Interpreter', 'tex');
-    title(sprintf('Stage14.2 Ns-envelope: max_{PT} D_G min vs RAAN_{rel}\n%s', title_suffix), ...
-        'Interpreter', 'tex');
+    xlabel('$\mathrm{RAAN}_{\mathrm{rel}}\ (\mathrm{deg})$', 'Interpreter', 'latex');
+    ylabel('$D_G$ env max', 'Interpreter', 'latex');
+    title({ ...
+        'Stage14.2 $N_s$-envelope: $D_G$ env max vs $\mathrm{RAAN}_{\mathrm{rel}}$', ...
+        title_suffix}, 'Interpreter', 'latex');
 
     dg_min = min(envelope_table.DG_env_max, [], 'omitnan');
     dg_max = max(envelope_table.DG_env_max, [], 'omitnan');
@@ -75,19 +76,21 @@ function files = plot_stage14_ns_envelopes(envelope_table, cfg, opts)
         'NumberTitle', 'off', 'Visible', char(opts.visible));
     plot(envelope_table.RAAN_deg, envelope_table.pass_env_max, '-o', 'LineWidth', 1.5, 'MarkerSize', 6);
     grid on; box on;
-    xlabel('RAAN_{rel} (deg)', 'Interpreter', 'tex');
-    ylabel('max_{PT} pass ratio', 'Interpreter', 'tex');
+    xlabel('$\mathrm{RAAN}_{\mathrm{rel}}\ (\mathrm{deg})$', 'Interpreter', 'latex');
+    ylabel('$\mathrm{pass\ env\ max}$', 'Interpreter', 'latex');
 
     pr_min = min(envelope_table.pass_env_max, [], 'omitnan');
     pr_max = max(envelope_table.pass_env_max, [], 'omitnan');
     pr_span = pr_max - pr_min;
 
     if pr_span < 1e-12
-        title(sprintf('Stage14.2 Ns-envelope: max_{PT} pass ratio vs RAAN_{rel} (constant profile)\n%s', title_suffix), ...
-            'Interpreter', 'tex');
+        title({ ...
+            'Stage14.2 $N_s$-envelope: $\mathrm{pass\ env\ max}$ vs $\mathrm{RAAN}_{\mathrm{rel}}$ (constant profile)', ...
+            title_suffix}, 'Interpreter', 'latex');
     else
-        title(sprintf('Stage14.2 Ns-envelope: max_{PT} pass ratio vs RAAN_{rel}\n%s', title_suffix), ...
-            'Interpreter', 'tex');
+        title({ ...
+            'Stage14.2 $N_s$-envelope: $\mathrm{pass\ env\ max}$ vs $\mathrm{RAAN}_{\mathrm{rel}}$', ...
+            title_suffix}, 'Interpreter', 'latex');
     end
 
     ylim([0, 1]);

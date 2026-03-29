@@ -15,9 +15,8 @@ function out = manual_smoke_stage14_mainline_step7(cfg, opts)
 %       case_limit = inf
 %       use_early_stop = false
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(opts)

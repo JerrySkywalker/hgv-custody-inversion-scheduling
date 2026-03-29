@@ -5,8 +5,6 @@ function out = stage14_plot_ns_envelopes(cfg, opts)
 %     - max_PT D_G_min vs RAAN_rel
 %     - max_PT pass_ratio vs RAAN_rel
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
         cfg = default_params();
     end

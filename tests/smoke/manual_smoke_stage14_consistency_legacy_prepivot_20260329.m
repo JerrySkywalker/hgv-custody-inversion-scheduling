@@ -17,9 +17,8 @@ function out = manual_smoke_stage14_consistency_legacy_prepivot_20260329(cfg, ov
 %   先用小样本 + early stop 做最小一致性验证；
 %   再用 full nominal family 做严格一致性验证。
 
-    startup();
-
     if nargin < 1 || isempty(cfg)
+        evalc('startup();');
         cfg = default_params();
     end
     if nargin < 2 || isempty(overrides)
@@ -271,4 +270,3 @@ function case_cmp = local_compare_case_table(tab05, tab14)
     case_cmp.abs_diff = abs(case_cmp.stage05 - case_cmp.stage14_raan0);
     case_cmp.is_equal = case_cmp.abs_diff <= 1e-12;
 end
-
