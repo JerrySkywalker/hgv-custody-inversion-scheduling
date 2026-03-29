@@ -16,7 +16,7 @@ function out = stage14_plot_multi_i_ns_stats(cfg, opts)
 
     local = struct();
     local.h_km = 1000;
-    local.i_list = [40 60];
+    local.i_list = [30 40 50 60 70 80 90];
     local.F = cfg.stage05.F_fixed;
     local.Ns_list = [];
     local.visible = "on";

@@ -1,12 +1,12 @@
 function out = manual_smoke_stage14_mainline_step7(cfg, opts)
 %MANUAL_SMOKE_STAGE14_MAINLINE_STEP7
-% Mainline A second-inclination comparison smoke:
-%   1) rebuild full-table raw grid with two i values
+% Mainline A multi-inclination comparison smoke:
+%   1) rebuild full-table raw grid with multiple i values
 %   2) produce multi-i vs Ns comparison plots
 %
 % Default:
 %   h = 1000 km
-%   i_list = [40 60]
+%   i_list = [30 40 50 60 70 80 90]
 %   F = stage05.F_fixed
 
     startup();
@@ -20,7 +20,7 @@ function out = manual_smoke_stage14_mainline_step7(cfg, opts)
 
     local = struct();
     local.h_km = 1000;
-    local.i_list = [40 60];
+    local.i_list = [30 40 50 60 70 80 90];
     local.F = cfg.stage05.F_fixed;
     local.visible = "on";
     local.save_fig = true;
@@ -31,7 +31,7 @@ function out = manual_smoke_stage14_mainline_step7(cfg, opts)
         local.(fn{k}) = opts.(fn{k});
     end
 
-    % Step 1: rebuild Stage14.1 full-table raw grid with two inclination values
+    % Step 1: rebuild Stage14.1 full-table raw grid with multiple inclination values
     out_raw = manual_smoke_stage14_mainline_step1_fulltable(cfg, struct( ...
         'h_fixed_km', local.h_km, ...
         'i_grid_deg', local.i_list, ...
@@ -42,7 +42,7 @@ function out = manual_smoke_stage14_mainline_step7(cfg, opts)
         'case_limit', 3, ...
         'use_early_stop', false, ...
         'hard_case_first', true, ...
-        'progress_every', 10, ...
+        'progress_every', 25, ...
         'save_cache', true, ...
         'save_table', true, ...
         'make_plot', false));
