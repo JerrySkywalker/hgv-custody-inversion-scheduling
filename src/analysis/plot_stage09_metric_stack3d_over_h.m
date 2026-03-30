@@ -49,7 +49,7 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
         mkdir(out_dir_tbl);
     end
 
-    plot_cfg = local_resolve_plot_cfg(base);
+    [plot_cfg, config_source] = local_resolve_plot_cfg(base);
 
     timestamp = local_nowstamp();
     z_gap = plot_cfg.z_gap;
@@ -162,8 +162,9 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
         string(mode_tag), ...
         string(timestamp), ...
         canonical_name, ...
+        string(config_source), ...
         string(fig_path), ...
-        'VariableNames', {'run_tag','mode_tag','timestamp','metric_name','fig_metric_stack3d'});
+        'VariableNames', {'run_tag','mode_tag','timestamp','metric_name','config_source','fig_metric_stack3d'});
 
     figure_index_csv = fullfile(out_dir_tbl, ...
         sprintf('stage09_%s_stack3d_over_h_figure_index_%s_%s_%s.csv', ...
@@ -182,12 +183,14 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     out.figure_index = figure_index;
     out.layer_summary = layer_summary;
     out.metric_name = canonical_name;
+    out.config_source = config_source;
 
     fprintf('\n');
     fprintf('================ Stage09 Metric Stack3D Summary ================\n');
     fprintf('metric       : %s\n', canonical_name);
     fprintf('run_tag      : %s\n', run_tag);
     fprintf('mode_tag     : %s\n', mode_tag);
+    fprintf('config source: %s\n', config_source);
     fprintf('z_gap        : %.4f\n', plot_cfg.z_gap);
     fprintf('face_alpha   : %.4f\n', plot_cfg.face_alpha);
     fprintf('view_az      : %.4f\n', plot_cfg.view_az);
@@ -197,22 +200,9 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     fprintf('===============================================================\n\n');
 end
 
-function plot_cfg = local_resolve_plot_cfg(base)
+function [plot_cfg, config_source] = local_resolve_plot_cfg(base)
     plot_cfg = struct();
 
-    % ============================================================
-    % Phase5 default stack3d plotting parameters
-    % This default group is frozen from the validated visual result:
-    %   z_gap          = 55
-    %   face_alpha     = 0.92
-    %   edge_alpha     = 0.0
-    %   grid_alpha     = 0.0
-    %   view_az        = -18
-    %   view_el        = 8
-    %   figure_position= [80 40 1100 2000]
-    %   axes_position  = [0.08 0.05 0.68 0.90]
-    %   infeasible     = none
-    % ============================================================
     plot_cfg.z_gap = 55;
     plot_cfg.face_alpha = 0.92;
 
@@ -239,12 +229,16 @@ function plot_cfg = local_resolve_plot_cfg(base)
     plot_cfg.infeasible_marker_size = 5.5;
     plot_cfg.infeasible_linewidth = 0.8;
 
+    config_source = "frozen_defaults";
+
     if isstruct(base) && isfield(base, 'cfg') && isstruct(base.cfg) ...
             && isfield(base.cfg, 'stage09') && isstruct(base.cfg.stage09)
+
         s9 = base.cfg.stage09;
 
         if isfield(s9, 'plot3d_stack') && isstruct(s9.plot3d_stack)
             p = s9.plot3d_stack;
+            config_source = "base_override";
 
             if isfield(p, 'z_gap') && ~isempty(p.z_gap)
                 plot_cfg.z_gap = p.z_gap;
@@ -301,7 +295,7 @@ function [cube_this, canonical_name, metric_label] = local_resolve_metric_cube(m
     switch name
         case {'joint','joint_feasible_ratio'}
             idx = local_find_name(closure_names, 'joint_feasible_ratio');
-            cube_this = squeeze(cube_closure(idx, :, :, :)); % h x i x P
+            cube_this = squeeze(cube_closure(idx, :, :, :));
             canonical_name = "joint";
             metric_label = "joint feasible ratio";
 
