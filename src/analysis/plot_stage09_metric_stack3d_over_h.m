@@ -58,6 +58,8 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     ax = axes(fig, 'Position', plot_cfg.axes_position);
     hold(ax, 'on');
 
+    camproj(ax, 'orthographic');
+
     [X, Y] = meshgrid(i_vals, P_vals);
 
     global_vals = cube_this(isfinite(cube_this));
@@ -144,26 +146,6 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     zticks(ax, (0:numel(h_vals)-1) * z_gap);
     zticklabels(ax, compose('%g km', h_vals));
 
-    % ------------------------------------------------------------
-    % IMPORTANT:
-    % Do NOT use pbaspect / daspect here.
-    %
-    % Earlier versions over-constrained the 3D box shape and caused the
-    % x-y surfaces to collapse visually into thin slivers.
-    %
-    % The current strategy is:
-    %   1) use z_gap to separate layers in data space
-    %   2) use a taller figure canvas
-    %   3) use a larger/taller axes position
-    %   4) use a milder viewing angle
-    %
-    % If layers still look crowded, tune:
-    %   plot_cfg.z_gap
-    %   plot_cfg.figure_position
-    %   plot_cfg.axes_position
-    %   plot_cfg.view_az / plot_cfg.view_el
-    % ------------------------------------------------------------
-
     grid(ax, 'on');
     ax.GridAlpha = plot_cfg.grid_alpha;
     ax.LineWidth = plot_cfg.axis_linewidth;
@@ -207,6 +189,7 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     fprintf('run_tag      : %s\n', run_tag);
     fprintf('mode_tag     : %s\n', mode_tag);
     fprintf('z_gap        : %.4f\n', plot_cfg.z_gap);
+    fprintf('face_alpha   : %.4f\n', plot_cfg.face_alpha);
     fprintf('view_az      : %.4f\n', plot_cfg.view_az);
     fprintf('view_el      : %.4f\n', plot_cfg.view_el);
     fprintf('figure index : %s\n', figure_index_csv);
@@ -218,79 +201,32 @@ function plot_cfg = local_resolve_plot_cfg(base)
     plot_cfg = struct();
 
     % ============================================================
-    % MAIN TUNING KNOB 1:
-    % z_gap controls the separation between altitude layers.
-    %
-    % Increase this if layers overlap too much.
-    %
-    % Recommended range:
-    %   2.0 ~ 4.5
-    %
-    % Current default:
-    %   3.2
+    % Phase5 default stack3d plotting parameters
+    % This default group is frozen from the validated visual result:
+    %   z_gap          = 55
+    %   face_alpha     = 0.92
+    %   edge_alpha     = 0.0
+    %   grid_alpha     = 0.0
+    %   view_az        = -18
+    %   view_el        = 8
+    %   figure_position= [80 40 1100 2000]
+    %   axes_position  = [0.08 0.05 0.68 0.90]
+    %   infeasible     = none
     % ============================================================
-    plot_cfg.z_gap = 3.2;
+    plot_cfg.z_gap = 55;
+    plot_cfg.face_alpha = 0.92;
 
-    % ============================================================
-    % MAIN TUNING KNOB 2:
-    % face_alpha controls surface transparency.
-    %
-    % Recommended range:
-    %   0.80 ~ 0.92
-    %
-    % Current default:
-    %   0.84
-    % ============================================================
-    plot_cfg.face_alpha = 0.84;
-
-    % ============================================================
-    % MAIN TUNING KNOB 3:
-    % edge_alpha controls layer grid-line visibility.
-    %
-    %   0.0  -> hidden
-    %   >0   -> visible
-    %
-    % Current default:
-    %   0.0
-    % ============================================================
     plot_cfg.edge_alpha = 0.0;
     plot_cfg.edge_color = [0.55 0.55 0.55];
     plot_cfg.edge_linewidth = 0.55;
 
-    % ============================================================
-    % MAIN TUNING KNOB 4:
-    % grid_alpha controls background grid visibility.
-    %
-    % Current default:
-    %   0.06
-    % ============================================================
-    plot_cfg.grid_alpha = 0.06;
+    plot_cfg.grid_alpha = 0.0;
 
-    % ============================================================
-    % MAIN TUNING KNOB 5:
-    % view_az / view_el control camera angle.
-    %
-    % Avoid too edge-on a view, otherwise each layer may visually collapse
-    % into a thin strip.
-    %
-    % Current default:
-    %   az = -38
-    %   el = 22
-    % ============================================================
-    plot_cfg.view_az = -38;
-    plot_cfg.view_el = 22;
+    plot_cfg.view_az = -18;
+    plot_cfg.view_el = 8;
 
-    % ============================================================
-    % MAIN TUNING KNOB 6:
-    % Make the canvas taller and let axes occupy a taller area.
-    % This improves vertical readability without forcing pbaspect.
-    %
-    % Current defaults:
-    %   figure_position = [100 60 1500 1100]
-    %   axes_position   = [0.07 0.08 0.72 0.84]
-    % ============================================================
-    plot_cfg.figure_position = [100 60 1500 1100];
-    plot_cfg.axes_position = [0.07 0.08 0.72 0.84];
+    plot_cfg.figure_position = [80 40 1100 2000];
+    plot_cfg.axes_position = [0.08 0.05 0.68 0.90];
 
     plot_cfg.axis_linewidth = 0.9;
 
@@ -298,9 +234,6 @@ function plot_cfg = local_resolve_plot_cfg(base)
     plot_cfg.h_label_fontsize = 11;
     plot_cfg.h_label_color = [0.15 0.15 0.15];
 
-    % infeasible marker policy:
-    %   'none'   : do not plot infeasible marks (recommended default)
-    %   'gray_x' : plot light-gray x marks
     plot_cfg.infeasible_style = 'none';
     plot_cfg.infeasible_color = [0.60 0.60 0.60];
     plot_cfg.infeasible_marker_size = 5.5;
