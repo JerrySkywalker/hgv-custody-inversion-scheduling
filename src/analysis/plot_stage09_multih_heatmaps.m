@@ -83,10 +83,12 @@ end
 function [cube_metric, cube_closure, h_vals, i_vals, P_vals] = local_unpack_cubes(cubes)
 
     cube_metric = local_pick_first_existing_field(cubes, { ...
+        'metric_over_h_i_P', ...
         'cube_metric', ...
         'cube_metric_over_h_i_P'});
 
     cube_closure = local_pick_first_existing_field(cubes, { ...
+        'closure_over_h_i_P', ...
         'cube_closure', ...
         'cube_closure_over_h_i_P'});
 
@@ -100,14 +102,25 @@ function [cube_metric, cube_closure, h_vals, i_vals, P_vals] = local_unpack_cube
             'Closure cube must be a 4-D numeric array.');
     end
 
-    h_vals = local_pick_axis_values(cubes, ...
-        {'h_values_km','h_grid_km','h_values'}, size(cube_metric, 2), 1);
+    if isfield(cubes, 'index_tables') && isstruct(cubes.index_tables)
+        idx = cubes.index_tables;
+        h_vals = local_pick_first_existing_field(idx, {'h','h_values_km','h_grid_km','h_values'});
+        i_vals = local_pick_first_existing_field(idx, {'i','i_values_deg','i_grid_deg','i_values'});
+        P_vals = local_pick_first_existing_field(idx, {'P','P_values','P_grid'});
+    else
+        h_vals = local_pick_axis_values(cubes, ...
+            {'h_values_km','h_grid_km','h_values'}, size(cube_metric, 2), 1);
 
-    i_vals = local_pick_axis_values(cubes, ...
-        {'i_values_deg','i_grid_deg','i_values'}, size(cube_metric, 3), 1);
+        i_vals = local_pick_axis_values(cubes, ...
+            {'i_values_deg','i_grid_deg','i_values'}, size(cube_metric, 3), 1);
 
-    P_vals = local_pick_axis_values(cubes, ...
-        {'P_values','P_grid'}, size(cube_metric, 4), 1);
+        P_vals = local_pick_axis_values(cubes, ...
+            {'P_values','P_grid'}, size(cube_metric, 4), 1);
+    end
+
+    h_vals = h_vals(:)';
+    i_vals = i_vals(:)';
+    P_vals = P_vals(:)';
 end
 
 
