@@ -10,12 +10,13 @@ function out = plot_stage09_bundle_all_packs(base, mode_tag)
         mode_tag = char(mode_tag);
     end
 
-    if ~isstruct(base) || ~isfield(base, 'cfg')
+    if ~isstruct(base) || ~isfield(base, 'views') || ~isfield(base, 'frontiers')
         error('plot_stage09_bundle_all_packs:InvalidBase', ...
-            'Input base must be the output struct returned by manual_smoke_stage09_phase1_metric_views.');
+            ['Input base must be the Phase1-B output struct and contain at least:' newline ...
+             '  views, frontiers, and recoverable cfg (cfg / s5.cfg / s4.cfg / s1.cfg).']);
     end
 
-    cfg = base.cfg;
+    cfg = local_pick_cfg(base);
     run_tag = local_get_run_tag(cfg);
     time_tag = datestr(now, 'yyyymmdd_HHMMSS');
 
@@ -70,6 +71,33 @@ function out = plot_stage09_bundle_all_packs(base, mode_tag)
     fprintf('Joint figure index  : %s\n', local_get_figure_index_csv(bundle.joint));
     fprintf('=============================================================\n');
     fprintf('\n');
+end
+
+function cfg = local_pick_cfg(base)
+
+    if isfield(base, 'cfg') && isstruct(base.cfg)
+        cfg = base.cfg;
+        return;
+    end
+
+    if isfield(base, 's5') && isstruct(base.s5) && isfield(base.s5, 'cfg') && isstruct(base.s5.cfg)
+        cfg = base.s5.cfg;
+        return;
+    end
+
+    if isfield(base, 's4') && isstruct(base.s4) && isfield(base.s4, 'cfg') && isstruct(base.s4.cfg)
+        cfg = base.s4.cfg;
+        return;
+    end
+
+    if isfield(base, 's1') && isstruct(base.s1) && isfield(base.s1, 'cfg') && isstruct(base.s1.cfg)
+        cfg = base.s1.cfg;
+        return;
+    end
+
+    error('plot_stage09_bundle_all_packs:MissingCfg', ...
+        ['Unable to locate cfg from Phase1-B base.' newline ...
+         'Checked: cfg, s5.cfg, s4.cfg, s1.cfg']);
 end
 
 function run_tag = local_get_run_tag(cfg)
