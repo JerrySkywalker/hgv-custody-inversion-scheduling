@@ -30,7 +30,7 @@ function out = manual_smoke_stage09_diagnose_joint_metrics(cfg)
     cfg.stage09.require_DA_min = 1.0;
     cfg.stage09.require_DT_min = 1.0;
 
-    cfg.stage09.use_parallel = false;
+    cfg.stage09.use_parallel = true;
     cfg.stage09.disable_progress = false;
     cfg.stage09.scan_log_every = 1;
 
