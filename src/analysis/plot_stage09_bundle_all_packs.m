@@ -145,33 +145,79 @@ function rows = local_flatten_figure_index(pack_name, pack_out)
     end
 
     T = pack_out.figure_index;
-    if isempty(T) || height(T) < 1
+    source_csv = repmat(local_get_figure_index_csv(pack_out), 0, 1);
+
+    % Case A: DG / DA / DT ninepack output
+    if all(ismember({'figure_name', 'figure_path'}, T.Properties.VariableNames))
+        n = height(T);
+        rows = table( ...
+            repmat(string(pack_name), n, 1), ...
+            string(T.figure_name), ...
+            string(T.figure_path), ...
+            repmat(local_get_figure_index_csv(pack_out), n, 1), ...
+            'VariableNames', {'pack_name', 'figure_key', 'figure_path', 'source_index_csv'});
         return;
     end
 
-    keys = string(T.Properties.VariableNames(:));
-    n = numel(keys);
-    values = strings(n, 1);
+    % Case B: joint closure wide one-row table
+    if height(T) == 1
+        keys = string(T.Properties.VariableNames(:));
+        n = numel(keys);
+        values = strings(n, 1);
 
-    for k = 1:n
-        value = T{1, k};
-        if iscell(value)
-            value = value{1};
+        for k = 1:n
+            value = T{1, k};
+            if iscell(value)
+                value = value{1};
+            end
+
+            if isstring(value)
+                values(k) = value(1);
+            elseif ischar(value)
+                values(k) = string(value);
+            else
+                values(k) = string(missing);
+            end
         end
 
-        if isstring(value)
-            values(k) = value(1);
-        elseif ischar(value)
-            values(k) = string(value);
-        else
-            values(k) = string(missing);
+        rows = table( ...
+            repmat(string(pack_name), n, 1), ...
+            keys, ...
+            values, ...
+            repmat(local_get_figure_index_csv(pack_out), n, 1), ...
+            'VariableNames', {'pack_name', 'figure_key', 'figure_path', 'source_index_csv'});
+        return;
+    end
+
+    % Fallback: flatten by row/column
+    keys = strings(0,1);
+    vals = strings(0,1);
+    for r = 1:height(T)
+        for c = 1:width(T)
+            key = sprintf('%s_r%d', T.Properties.VariableNames{c}, r);
+            value = T{r, c};
+            if iscell(value)
+                value = value{1};
+            end
+
+            if isstring(value)
+                sval = value(1);
+            elseif ischar(value)
+                sval = string(value);
+            else
+                sval = string(missing);
+            end
+
+            keys(end+1,1) = string(key); %#ok<AGROW>
+            vals(end+1,1) = sval; %#ok<AGROW>
         end
     end
 
+    n = numel(keys);
     rows = table( ...
         repmat(string(pack_name), n, 1), ...
         keys, ...
-        values, ...
+        vals, ...
         repmat(local_get_figure_index_csv(pack_out), n, 1), ...
         'VariableNames', {'pack_name', 'figure_key', 'figure_path', 'source_index_csv'});
 end
