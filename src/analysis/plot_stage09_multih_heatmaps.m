@@ -1,14 +1,6 @@
 function out = plot_stage09_multih_heatmaps(base, mode_tag)
 %PLOT_STAGE09_MULTIH_HEATMAPS
 % Multi-height heatmap pack for Stage09 Phase4-A.
-%
-% Input
-%   base     : cached output from manual_smoke_stage09_phase1_metric_views_cached
-%   mode_tag : output suffix tag, e.g. 'phase4_multih'
-%
-% Output
-%   out.files.figure_index_csv
-%   out.figure_index
 
     if nargin < 2 || isempty(mode_tag)
         mode_tag = 'phase4_multih';
@@ -22,11 +14,9 @@ function out = plot_stage09_multih_heatmaps(base, mode_tag)
     [cube_metric, cube_closure, h_vals, i_vals, P_vals, metric_names, closure_names] = ...
         local_unpack_cubes(base.cubes);
 
-    run_tag = local_pick_first_existing_field(base.cfg.stage09, ...
-        {'run_tag','mode_tag','export_tag'}, 'inverse_aligned');
+    run_tag = local_resolve_run_tag(base);
+    [out_dir_fig, out_dir_tbl] = local_resolve_output_dirs(base);
 
-    out_dir_fig = fullfile(base.cfg.paths.outputs.stage09_figs, 'multih_heatmaps');
-    out_dir_tbl = fullfile(base.cfg.paths.outputs.stage09_tables, 'multih_heatmaps');
     if ~exist(out_dir_fig, 'dir'); mkdir(out_dir_fig); end
     if ~exist(out_dir_tbl, 'dir'); mkdir(out_dir_tbl); end
 
@@ -54,17 +44,19 @@ function out = plot_stage09_multih_heatmaps(base, mode_tag)
                 metric_idx = local_find_name(metric_names, spec.metric_name);
                 cube_this = squeeze(cube_metric(metric_idx, :, :, :)); % h x i x P
                 global_vals = cube_this(isfinite(cube_this));
+
             case 'metric_minNs'
-                metric_idx = local_find_name(metric_names, spec.metric_name);
-                cube_this = squeeze(cube_metric(metric_idx, :, :, :)); % h x i x P
-                cube_this = local_build_minNs_cube(cube_this);
+                cube_this = local_resolve_metric_minNs_cube(base, cube_metric, metric_names, spec.metric_name);
                 global_vals = cube_this(isfinite(cube_this));
+
             case 'closure'
                 layer_idx = local_find_name(closure_names, spec.layer_name);
                 cube_this = squeeze(cube_closure(layer_idx, :, :, :)); % h x i x P
                 global_vals = cube_this(isfinite(cube_this));
+
             otherwise
-                error('plot_stage09_multih_heatmaps:UnknownSpec', 'Unknown spec.kind %s', spec.kind);
+                error('plot_stage09_multih_heatmaps:UnknownSpec', ...
+                    'Unknown spec.kind %s', spec.kind);
         end
 
         if isempty(global_vals)
@@ -81,7 +73,6 @@ function out = plot_stage09_multih_heatmaps(base, mode_tag)
         end
 
         ax_list = gobjects(1, nH);
-        hm_list = gobjects(1, nH);
 
         for ih = 1:nH
             ax = nexttile(tl);
@@ -91,8 +82,7 @@ function out = plot_stage09_multih_heatmaps(base, mode_tag)
             mat_plot = mat.';                   % P x i
             feasible_mask = isfinite(mat_plot);
 
-            hm = imagesc(ax, i_vals, P_vals, mat_plot, 'AlphaData', double(feasible_mask));
-            hm_list(ih) = hm;
+            imagesc(ax, i_vals, P_vals, mat_plot, 'AlphaData', double(feasible_mask));
             set(ax, 'YDir', 'normal');
 
             hold(ax, 'on');
@@ -133,11 +123,11 @@ function out = plot_stage09_multih_heatmaps(base, mode_tag)
     fig_index.run_tag = string(run_tag);
     fig_index.mode_tag = string(mode_tag);
     fig_index.timestamp = string(timestamp);
-
     fig_index = movevars(fig_index, {'run_tag','mode_tag','timestamp'}, 'Before', 1);
 
     figure_index_csv = fullfile(out_dir_tbl, ...
-        sprintf('stage09_multih_heatmaps_figure_index_%s_%s_%s.csv', run_tag, mode_tag, timestamp));
+        sprintf('stage09_multih_heatmaps_figure_index_%s_%s_%s.csv', ...
+        run_tag, mode_tag, timestamp));
     writetable(fig_index, figure_index_csv);
 
     out = struct();
@@ -152,8 +142,53 @@ function out = plot_stage09_multih_heatmaps(base, mode_tag)
     fprintf('===============================================================\n\n');
 end
 
+function run_tag = local_resolve_run_tag(base)
+    run_tag = '';
+
+    if isstruct(base) && isfield(base, 'cfg') && isstruct(base.cfg) ...
+            && isfield(base.cfg, 'stage09') && isstruct(base.cfg.stage09)
+        run_tag = local_pick_first_existing_field(base.cfg.stage09, ...
+            {'run_tag','mode_tag','export_tag'}, '');
+    end
+
+    if isempty(run_tag) && isstruct(base) && isfield(base, 'cubes') ...
+            && isstruct(base.cubes) && isfield(base.cubes, 'files') ...
+            && isstruct(base.cubes.files)
+        run_tag = local_pick_first_existing_field(base.cubes.files, ...
+            {'run_tag','mode_tag','export_tag'}, '');
+    end
+
+    if isempty(run_tag)
+        run_tag = 'inverse_aligned';
+    end
+end
+
+function [out_dir_fig, out_dir_tbl] = local_resolve_output_dirs(base)
+    out_dir_fig = '';
+    out_dir_tbl = '';
+
+    if isstruct(base) && isfield(base, 'cfg') && isstruct(base.cfg) ...
+            && isfield(base.cfg, 'paths') && isstruct(base.cfg.paths)
+        if isfield(base.cfg.paths, 'outputs') && isstruct(base.cfg.paths.outputs)
+            if isfield(base.cfg.paths.outputs, 'stage09_figs')
+                out_dir_fig = fullfile(base.cfg.paths.outputs.stage09_figs, 'multih_heatmaps');
+            end
+            if isfield(base.cfg.paths.outputs, 'stage09_tables')
+                out_dir_tbl = fullfile(base.cfg.paths.outputs.stage09_tables, 'multih_heatmaps');
+            end
+        end
+    end
+
+    if isempty(out_dir_fig)
+        out_dir_fig = fullfile(pwd, 'outputs', 'stage', 'stage09', 'figs', 'multih_heatmaps');
+    end
+    if isempty(out_dir_tbl)
+        out_dir_tbl = fullfile(pwd, 'outputs', 'stage', 'stage09', 'tables', 'multih_heatmaps');
+    end
+end
+
 function [cube_metric, cube_closure, h_vals, i_vals, P_vals, metric_names, closure_names] = local_unpack_cubes(cubes)
-    cube_metric  = local_pick_first_existing_field(cubes, ...
+    cube_metric = local_pick_first_existing_field(cubes, ...
         {'metric_over_h_i_P','cube_metric_over_h_i_P'}, []);
     cube_closure = local_pick_first_existing_field(cubes, ...
         {'closure_over_h_i_P','cube_closure_over_h_i_P'}, []);
@@ -195,7 +230,6 @@ function vals = local_extract_axis_vector(obj, fallback_name)
 
     if istable(obj)
         vars = obj.Properties.VariableNames;
-
         if numel(vars) == 1
             vals = obj.(vars{1});
         else
@@ -256,19 +290,18 @@ function idx = local_find_name(names, target)
     end
 end
 
-function cube_minNs = local_build_minNs_cube(cube_metric)
-    % Input cube_metric: h x i x P, values are best metric among feasible designs.
-    % Output cube_minNs:  h x i x P, proxy minimum feasible N_s encoded by P*T-like stage09 convention.
-    %
-    % This function assumes the passed cube has already been assembled from the
-    % Phase1 metric views for each (h,i,P) cell and that finite cells are feasible.
-    % Since multi-H pack is a visualization layer only, minimum N_s should be taken
-    % from the cached cube if already embedded; otherwise this fallback keeps the
-    % shape valid and prevents false all-yellow rendering.
-    %
-    % Here we interpret finite cells as already carrying min-N_s when values are
-    % large integer-like; otherwise we preserve original values.
-    cube_minNs = cube_metric;
+function cube_this = local_resolve_metric_minNs_cube(base, cube_metric, metric_names, metric_name)
+    if isstruct(base.cubes) && isfield(base.cubes, 'metric_minNs_over_h_i_P')
+        raw = base.cubes.metric_minNs_over_h_i_P;
+        if ndims(raw) == 4
+            metric_idx = local_find_name(metric_names, metric_name);
+            cube_this = squeeze(raw(metric_idx, :, :, :));
+            return;
+        end
+    end
+
+    metric_idx = local_find_name(metric_names, metric_name);
+    cube_this = squeeze(cube_metric(metric_idx, :, :, :));
 end
 
 function [nRows, nCols] = local_tile_shape(n)
