@@ -113,6 +113,7 @@ function out = plot_stage09_multih_heatmaps(base, mode_tag)
 
         fig_name = sprintf('stage09_multih_%s_%s_%s_%s.png', ...
             spec.name, run_tag, mode_tag, timestamp);
+        fig_path = Join-Path $out_dir_fig $fig_name; %#ok<NASGU>
         fig_path = fullfile(out_dir_fig, fig_name);
         exportgraphics(fig, fig_path, 'Resolution', 220);
         close(fig);
@@ -256,16 +257,29 @@ function names = local_extract_name_list(obj, default_names)
         return;
     end
 
+    raw = [];
+
     if istable(obj)
         vars = obj.Properties.VariableNames;
-        if any(strcmpi(vars, 'name'))
-            raw = obj.('name');
-        elseif any(strcmpi(vars, 'metric'))
-            raw = obj.('metric');
-        elseif any(strcmpi(vars, 'layer'))
-            raw = obj.('layer');
+        preferred_vars = {'name','metric','layer','label'};
+
+        hit = '';
+        for k = 1:numel(preferred_vars)
+            idx = find(strcmpi(vars, preferred_vars{k}), 1, 'first');
+            if ~isempty(idx)
+                hit = vars{idx};
+                break;
+            end
+        end
+
+        if isempty(hit)
+            if width(obj) == 1
+                raw = table2array(obj(:,1));
+            else
+                raw = table2array(obj(:,1));
+            end
         else
-            raw = table2cell(obj(:,1));
+            raw = obj.(hit);
         end
     else
         raw = obj;
@@ -273,13 +287,40 @@ function names = local_extract_name_list(obj, default_names)
 
     if isstring(raw)
         names = cellstr(raw(:).');
-    elseif iscell(raw)
-        names = cellfun(@char, raw(:).', 'UniformOutput', false);
-    elseif ischar(raw)
-        names = {raw};
-    else
-        names = default_names;
+        return;
     end
+
+    if ischar(raw)
+        names = {raw};
+        return;
+    end
+
+    if isnumeric(raw) || islogical(raw)
+        raw = raw(:).';
+        n = min(numel(raw), numel(default_names));
+        names = default_names(1:n);
+        return;
+    end
+
+    if iscell(raw)
+        if all(cellfun(@ischar, raw))
+            names = raw(:).';
+            return;
+        end
+
+        if all(cellfun(@(x) isstring(x) && isscalar(x), raw))
+            names = cellfun(@char, raw(:).', 'UniformOutput', false);
+            return;
+        end
+
+        if all(cellfun(@(x) isnumeric(x) || islogical(x), raw))
+            n = min(numel(raw), numel(default_names));
+            names = default_names(1:n);
+            return;
+        end
+    end
+
+    names = default_names;
 end
 
 function idx = local_find_name(names, target)
