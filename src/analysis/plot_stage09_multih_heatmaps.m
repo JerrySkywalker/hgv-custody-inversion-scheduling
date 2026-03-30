@@ -182,11 +182,28 @@ function [out_dir_fig, out_dir_tbl] = local_resolve_output_dirs(base)
         end
     end
 
-    if isempty(out_dir_fig)
-        out_dir_fig = fullfile(pwd, 'outputs', 'stage', 'stage09', 'figs', 'multih_heatmaps');
+    if isempty(out_dir_fig) || isempty(out_dir_tbl)
+        project_root = local_resolve_project_root();
+
+        if isempty(out_dir_fig)
+            out_dir_fig = fullfile(project_root, 'outputs', 'stage', 'stage09', 'figs', 'multih_heatmaps');
+        end
+        if isempty(out_dir_tbl)
+            out_dir_tbl = fullfile(project_root, 'outputs', 'stage', 'stage09', 'tables', 'multih_heatmaps');
+        end
     end
-    if isempty(out_dir_tbl)
-        out_dir_tbl = fullfile(pwd, 'outputs', 'stage', 'stage09', 'tables', 'multih_heatmaps');
+end
+
+function project_root = local_resolve_project_root()
+    project_root = '';
+
+    startup_path = which('startup.m');
+    if ~isempty(startup_path)
+        project_root = fileparts(startup_path);
+    end
+
+    if isempty(project_root)
+        project_root = pwd;
     end
 end
 
