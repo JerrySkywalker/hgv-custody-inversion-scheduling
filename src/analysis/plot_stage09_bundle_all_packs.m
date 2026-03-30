@@ -38,7 +38,7 @@ function out = plot_stage09_bundle_all_packs(base, mode_tag)
     figJoint = local_flatten_figure_index('joint_closure_pack', bundle.joint);
     master_index = [figDG; figDA; figDT; figJoint];
 
-    table_dir = fullfile(pwd, 'outputs', 'stage', 'stage09', 'tables', 'bundle_pack');
+    table_dir = fullfile(cfg.paths.tables, 'bundle_pack');
     if ~exist(table_dir, 'dir')
         mkdir(table_dir);
     end
