@@ -1,19 +1,23 @@
-function out = manual_smoke_stage09_phase2_allpacks()
+function out = manual_smoke_stage09_phase2_allpacks(base)
 %MANUAL_SMOKE_STAGE09_PHASE2_ALLPACKS
-% Run Phase1-B once, then generate DG / DA / DT / joint Stage05-style packs.
+% Plot-only smoke: generate DG / DA / DT / joint Stage05-style packs from a precomputed base.
 
     clear functions;
     rehash;
+
+    if nargin < 1 || isempty(base)
+        error('manual_smoke_stage09_phase2_allpacks:MissingBase', ...
+            ['A precomputed base struct is required.' newline ...
+             'Run: base = manual_smoke_stage09_phase1_metric_views();']);
+    end
 
     out = struct();
 
     fprintf('\n');
     fprintf('================ Phase2-C All-Packs Smoke ================\n');
-    fprintf('Build Phase1-B metric views/frontiers once,\n');
-    fprintf('then export DG / DA / DT / joint packs.\n');
+    fprintf('Using precomputed base only. No search will be rerun.\n');
+    fprintf('Export DG / DA / DT / joint packs.\n');
     fprintf('==========================================================\n\n');
-
-    base = manual_smoke_stage09_phase1_metric_views();
 
     packDG = plot_stage09_DG_stage05_pack(base, 'phase2_DG');
     packDA = plot_stage09_DA_stage05_pack(base, 'phase2_DA');
@@ -25,7 +29,6 @@ function out = manual_smoke_stage09_phase2_allpacks()
     out.packDA = packDA;
     out.packDT = packDT;
     out.packJoint = packJ;
-    out.cfg = base.cfg;
 
     fprintf('\n');
     fprintf('================ Phase2-C All-Packs Summary ================\n');
