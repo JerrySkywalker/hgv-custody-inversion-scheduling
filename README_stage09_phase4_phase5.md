@@ -2,152 +2,186 @@
 
 ## 一、当前范围
 
-本阶段不再修改 Stage09 搜索主链，仅对已有 `base.cubes` 结果做 plot layer 和 manual smoke 组织层收口。
+当前 Stage09 后处理组织方式分为两条线：
 
-当前已完成内容包括：
+### A. 平面图线（保留原语义）
+用于表达固定切片下，不同指标的闭合关系：
 
-- Phase4-A：多高度热图 plot 层
+- Phase4-A：多高度 heatmap pack
 - Phase4-B：固定 `h` 的四层 closure heatmap
 - Phase4-C：固定 `P` 的 `h-i` closure heatmap guarded feature
-- Phase5：统一 manual smoke suite 与阶段说明收口
+
+### B. 3D 图线（Phase5 重构）
+用于表达同一指标在不同高度 `h` 下的堆叠结构：
+
+- joint 的多高度 stack3d
+- DG 的多高度 stack3d
+- DA 的多高度 stack3d
+- DT 的多高度 stack3d
 
 ---
 
-## 二、Phase4-A
+## 二、为什么这样重构
+
+原因是：
+
+- `joint / DG / DA / DT` 物理意义不同
+- 不能强行放在同一张 3D 图中共用一个色标
+- 那样会导致解释混乱、量纲不一致、可比性差
+
+因此：
+
+- 不同指标之间的关系仍由 **平面 closure heatmaps** 表达
+- 同一指标随高度的变化改由 **metric-wise stack3d-over-h** 表达
+
+---
+
+## 三、Phase4
+
+### Phase4-A
 
 入口：
 
 - `tests/manual/manual_smoke_stage09_phase4_multih_heatmaps.m`
 
-功能：
+作用：
 
 - 基于 `base.cubes.metric_over_h_i_P`
-- 输出多高度热图 pack
-- 不重跑搜索
-- 输出目录落在：
-  - `outputs/stage/stage09/figs/multih_heatmaps`
-  - `outputs/stage/stage09/tables/multih_heatmaps`
-
-说明：
-
-- 该层是 Phase4 的 plot layer 基础件
-- 已修复路径 fallback 问题
-- 已修复 metric / closure index name 解析问题
+- 输出多高度平面 heatmap pack
 
 ---
 
-## 三、Phase4-B
+### Phase4-B
 
 入口：
 
 - `tests/manual/manual_smoke_stage09_phase4_closure_heatmaps.m`
 
-功能：
+作用：
 
-- 固定一个 `h` 切片
+- 固定一个 `h`
 - 输出四层 closure heatmap：
   1. `joint_feasible_ratio`
   2. `DG_best`
   3. `DA_best`
   4. `DT_best`
 
-输出目录：
-
-- `outputs/stage/stage09/figs/closure_heatmaps`
-- `outputs/stage/stage09/tables/closure_heatmaps`
-
 说明：
 
-- 当前实验中该图已具备论文级表达价值
-- 其中 `DT_best` 在当前数据下近似常值，这是结果特性，不是绘图错误
+- 这是 closure 指标闭合关系的主表达图
+- 论文级表达仍应优先使用这一版
 
 ---
 
-## 四、Phase4-C
+### Phase4-C
 
 入口：
 
 - `tests/manual/manual_smoke_stage09_phase4_closure_heatmaps_hi.m`
 
-目标：
+状态：
 
-- 固定一个 `P` 切片
-- 输出 `h-i` 平面上的四层 closure heatmap
-
-当前状态：
-
-- **guarded feature**
+- guarded feature
 
 原因：
 
-- 当前 `base.cubes.index_tables.h` 只有单一高度层：
-  - `h_idx = 1`
-  - `h_km = 1000`
-
-因此当前数据不满足真正的 `h-i` heatmap 前提。
-若强行绘图，只会得到单行伪热图，表达无意义。
-
-当前行为：
-
-- 程序在检测到 `numel(h_vals) < 2` 时，抛出：
-
-`plot_stage09_closure_heatmaps_hi:InsufficientHLevels`
-
-这属于**预期行为**。
+- 当前若只有单一高度层，则 `h-i` 图没有真实意义
+- 程序会抛出：
+  `plot_stage09_closure_heatmaps_hi:InsufficientHLevels`
 
 ---
 
-## 五、Phase5
+## 四、Phase5
+
+## 4.1 Full-height base builder
+
+入口：
+
+- `tests/manual/manual_smoke_stage09_phase5_build_fullheight_base.m`
+
+作用：
+
+- 先放开到 full 高度范围
+- 构建真正多高度的 `base`
+- 供后续 3D 堆叠图使用
+
+---
+
+## 4.2 Metric-wise stack3d-over-h plotter
+
+核心函数：
+
+- `src/analysis/plot_stage09_metric_stack3d_over_h.m`
+
+支持指标：
+
+- `joint`
+- `DG`
+- `DA`
+- `DT`
+
+图形语义：
+
+- x 轴：`i`
+- y 轴：`P`
+- z 轴：按 `h` 堆叠
+- 每张图只对应一个指标
+
+因此：
+
+- 同一张图内色标统一
+- 物理意义单一
+- 不再混合不同量纲指标
+
+---
+
+## 4.3 Phase5 plot smoke
+
+入口：
+
+- `tests/manual/manual_smoke_stage09_phase5_stack3d_plots.m`
+
+作用：
+
+- 基于 full-height `base`
+- 输出四张 3D 图：
+  - joint
+  - DG
+  - DA
+  - DT
+
+---
+
+## 4.4 Phase5 suite
 
 入口：
 
 - `tests/manual/manual_smoke_stage09_phase5_suite.m`
 
-功能：
+作用：
 
-1. 复用 / 建立 cached base
-2. 运行 Phase4-A
-3. 运行 Phase4-B
-4. 验证 Phase4-C guard 是否按预期触发
-
-期望：
-
-- 不重跑搜索
-- Phase4-A / B 正常导出
-- Phase4-C 输出 expected guard
+1. 先构建 full-height base
+2. 再统一输出四张 metric-wise stack3d-over-h 图
 
 ---
 
-## 六、推荐测试顺序
+## 五、推荐执行顺序
 
 ```matlab
-base1 = manual_smoke_stage09_phase1_metric_views_cached();
+base5 = manual_smoke_stage09_phase5_build_fullheight_base();
+out5p = manual_smoke_stage09_phase5_stack3d_plots(base5);
 
-out4A = manual_smoke_stage09_phase4_multih_heatmaps(base1);
-out4B = manual_smoke_stage09_phase4_closure_heatmaps(base1);
+或直接：
+MATLABout5 = manual_smoke_stage09_phase5_suite();
 
-try
-    out4C = manual_smoke_stage09_phase4_closure_heatmaps_hi(base1);
-catch ME
-    fprintf('[EXPECTED GUARD] %s\n', ME.identifier);
-end
-
-out5 = manual_smoke_stage09_phase5_suite();
-
-七、当前结论
-到目前为止，Stage09 的 plot / smoke 组织层可视为阶段性收口：
+六、当前结论
+当前 Stage09 的图形表达组织为：
 
 
-A：完成
+平面 closure 图：表达指标闭合关系
 
 
-B：完成
+3D stack 图：表达单一指标随高度的堆叠结构
 
 
-C：guarded 收口
-
-
-Phase5：用于统一验证和后续交付说明
-
-
-后续若要真正启用 Phase4-C，需要先在搜索 / cube 构建层提供至少两个 h 切片。
+这比“把不同物理意义指标强行画在同一张 3D 图中”更合理。
