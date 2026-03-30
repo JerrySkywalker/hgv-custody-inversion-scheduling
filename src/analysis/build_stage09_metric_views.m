@@ -81,10 +81,15 @@ function views = build_stage09_metric_views(out, mode_tag)
          local_min_or_nan(Vda.Ns(Vda.feasible_flag)); ...
          local_min_or_nan(Vdt.Ns(Vdt.feasible_flag)); ...
          local_min_or_nan(Vjt.Ns(Vjt.feasible_flag))], ...
-        'VariableNames', {'metric_name','metric_threshold','n_metric_pass','n_pass_ratio','n_feasible','Ns_min_feasible'});
+        [local_min_positive_or_nan(Vdg.metric_value); ...
+         local_min_positive_or_nan(Vda.metric_value); ...
+         local_min_positive_or_nan(Vdt.metric_value); ...
+         local_min_positive_or_nan(Vjt.metric_value)], ...
+        [max(Vdg.metric_value); max(Vda.metric_value); max(Vdt.metric_value); max(Vjt.metric_value)], ...
+        'VariableNames', {'metric_name','metric_threshold','n_metric_pass','n_pass_ratio','n_feasible','Ns_min_feasible','metric_min_positive','metric_max_value'});
 
     fprintf('\n');
-    fprintf('=========== Stage09 Metric Views (Phase1) ===========\n');
+    fprintf('=========== Stage09 Metric Views (Phase1-B) ===========\n');
     fprintf('run_tag            : %s\n', run_tag);
     fprintf('mode_tag           : %s\n', mode_tag);
     fprintf('DG view CSV        : %s\n', dg_csv);
@@ -92,7 +97,7 @@ function views = build_stage09_metric_views(out, mode_tag)
     fprintf('DT view CSV        : %s\n', dt_csv);
     fprintf('joint view CSV     : %s\n', jt_csv);
     disp(summary);
-    fprintf('=====================================================\n\n');
+    fprintf('=======================================================\n\n');
 
     views = struct();
     views.DG = struct('table', Vdg, 'csv', dg_csv);
@@ -114,7 +119,12 @@ function V = local_make_metric_view(T, metric_name, metric_col, threshold, pass_
     V.pass_PR = isfinite(V.pass_ratio) & (V.pass_ratio >= pass_ratio_threshold);
     V.feasible_flag = V.metric_pass & V.pass_PR;
 
-    V = movevars(V, {'metric_name','metric_value','metric_threshold','metric_margin','metric_pass','pass_PR','feasible_flag'}, 'After', 'Ns');
+    V.metric_value_clipped = max(V.metric_value, 0);
+    V.metric_value_log10 = local_safe_log10(V.metric_value_clipped);
+    V.is_transition_candidate = V.metric_pass | V.pass_PR | V.feasible_flag;
+    V.is_pareto_candidate = V.feasible_flag;
+
+    V = movevars(V, {'metric_name','metric_value','metric_threshold','metric_margin','metric_pass','pass_PR','feasible_flag','metric_value_clipped','metric_value_log10','is_transition_candidate','is_pareto_candidate'}, 'After', 'Ns');
 end
 
 
@@ -132,7 +142,20 @@ function V = local_make_joint_view(T, reqDG, reqDA, reqDT, pass_ratio_threshold)
     V.metric_pass = V.pass_DG & V.pass_DA & V.pass_DT;
     V.feasible_flag = V.metric_pass & V.pass_PR;
 
-    V = movevars(V, {'metric_name','metric_value','metric_threshold','metric_margin','pass_DG','pass_DA','pass_DT','pass_PR','metric_pass','feasible_flag'}, 'After', 'Ns');
+    V.metric_value_clipped = max(V.metric_value, 0);
+    V.metric_value_log10 = local_safe_log10(V.metric_value_clipped);
+    V.is_transition_candidate = V.metric_pass | V.pass_PR | V.feasible_flag;
+    V.is_pareto_candidate = V.feasible_flag;
+
+    V = movevars(V, {'metric_name','metric_value','metric_threshold','metric_margin','pass_DG','pass_DA','pass_DT','pass_PR','metric_pass','feasible_flag','metric_value_clipped','metric_value_log10','is_transition_candidate','is_pareto_candidate'}, 'After', 'Ns');
+end
+
+
+function y = local_safe_log10(x)
+
+    y = nan(size(x));
+    mask = isfinite(x) & (x > 0);
+    y(mask) = log10(x(mask));
 end
 
 
@@ -142,5 +165,16 @@ function x = local_min_or_nan(v)
         x = NaN;
     else
         x = min(v);
+    end
+end
+
+
+function x = local_min_positive_or_nan(v)
+
+    mask = isfinite(v) & (v > 0);
+    if ~any(mask)
+        x = NaN;
+    else
+        x = min(v(mask));
     end
 end
