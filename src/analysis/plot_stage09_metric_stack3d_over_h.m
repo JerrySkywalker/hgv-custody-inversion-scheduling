@@ -55,7 +55,7 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     z_gap = plot_cfg.z_gap;
 
     fig = figure('Visible', 'off', 'Color', 'w', 'Position', plot_cfg.figure_position);
-    ax = axes(fig);
+    ax = axes(fig, 'Position', plot_cfg.axes_position);
     hold(ax, 'on');
 
     [X, Y] = meshgrid(i_vals, P_vals);
@@ -145,27 +145,24 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     zticklabels(ax, compose('%g km', h_vals));
 
     % ------------------------------------------------------------
-    % MAIN TUNING KNOB 4:
-    % z_visual_scale controls VISUAL stretching of the vertical axis.
+    % IMPORTANT:
+    % Do NOT use pbaspect / daspect here.
     %
-    % Important:
-    %   Increasing z_gap changes the data-space layer separation.
-    %   But MATLAB 3D rendering may still visually compress z.
+    % Earlier versions over-constrained the 3D box shape and caused the
+    % x-y surfaces to collapse visually into thin slivers.
     %
-    % Therefore:
-    %   z_gap           = data-space separation
-    %   z_visual_scale  = display-space vertical exaggeration
+    % The current strategy is:
+    %   1) use z_gap to separate layers in data space
+    %   2) use a taller figure canvas
+    %   3) use a larger/taller axes position
+    %   4) use a milder viewing angle
     %
-    % If z still looks compressed, increase z_visual_scale first.
-    %
-    % Recommended range:
-    %   1.2 ~ 3.0
-    %
-    % Example:
-    %   z_visual_scale = 2.2
+    % If layers still look crowded, tune:
+    %   plot_cfg.z_gap
+    %   plot_cfg.figure_position
+    %   plot_cfg.axes_position
+    %   plot_cfg.view_az / plot_cfg.view_el
     % ------------------------------------------------------------
-    pbaspect(ax, [1.35 1.0 1.75 * plot_cfg.z_visual_scale]);
-    daspect(ax, [1 1 1 / plot_cfg.z_visual_scale]);
 
     grid(ax, 'on');
     ax.GridAlpha = plot_cfg.grid_alpha;
@@ -206,13 +203,14 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
 
     fprintf('\n');
     fprintf('================ Stage09 Metric Stack3D Summary ================\n');
-    fprintf('metric         : %s\n', canonical_name);
-    fprintf('run_tag        : %s\n', run_tag);
-    fprintf('mode_tag       : %s\n', mode_tag);
-    fprintf('z_gap          : %.4f\n', plot_cfg.z_gap);
-    fprintf('z_visual_scale : %.4f\n', plot_cfg.z_visual_scale);
-    fprintf('figure index   : %s\n', figure_index_csv);
-    fprintf('layer table    : %s\n', layer_summary_csv);
+    fprintf('metric       : %s\n', canonical_name);
+    fprintf('run_tag      : %s\n', run_tag);
+    fprintf('mode_tag     : %s\n', mode_tag);
+    fprintf('z_gap        : %.4f\n', plot_cfg.z_gap);
+    fprintf('view_az      : %.4f\n', plot_cfg.view_az);
+    fprintf('view_el      : %.4f\n', plot_cfg.view_el);
+    fprintf('figure index : %s\n', figure_index_csv);
+    fprintf('layer table  : %s\n', layer_summary_csv);
     fprintf('===============================================================\n\n');
 end
 
@@ -221,46 +219,33 @@ function plot_cfg = local_resolve_plot_cfg(base)
 
     % ============================================================
     % MAIN TUNING KNOB 1:
-    % z_gap controls the separation between altitude layers in data space.
+    % z_gap controls the separation between altitude layers.
     %
-    % If layers are numerically too close, increase this.
-    % But note: large z_gap alone does NOT guarantee strong visual height,
-    % because MATLAB may still compress the z axis on screen.
+    % Increase this if layers overlap too much.
+    %
+    % Recommended range:
+    %   2.0 ~ 4.5
     %
     % Current default:
-    %   2.6
+    %   3.2
     % ============================================================
-    plot_cfg.z_gap = 2.6;
+    plot_cfg.z_gap = 3.2;
 
     % ============================================================
     % MAIN TUNING KNOB 2:
-    % z_visual_scale controls VISUAL vertical exaggeration.
+    % face_alpha controls surface transparency.
     %
-    % This is usually more effective than only increasing z_gap.
-    %
-    % Larger value -> z axis looks taller on screen.
+    % Recommended range:
+    %   0.80 ~ 0.92
     %
     % Current default:
-    %   2.2
+    %   0.84
     % ============================================================
-    plot_cfg.z_visual_scale = 2.2;
+    plot_cfg.face_alpha = 0.84;
 
     % ============================================================
     % MAIN TUNING KNOB 3:
-    % face_alpha controls surface transparency.
-    %
-    % Current default:
-    %   0.86
-    % ============================================================
-    plot_cfg.face_alpha = 0.86;
-
-    plot_cfg.view_az = -56;
-    plot_cfg.view_el = 28;
-    plot_cfg.figure_position = [100 100 1450 980];
-
-    % ============================================================
-    % MAIN TUNING KNOB 4:
-    % edge_alpha controls surface edge-line visibility.
+    % edge_alpha controls layer grid-line visibility.
     %
     %   0.0  -> hidden
     %   >0   -> visible
@@ -273,16 +258,39 @@ function plot_cfg = local_resolve_plot_cfg(base)
     plot_cfg.edge_linewidth = 0.55;
 
     % ============================================================
-    % MAIN TUNING KNOB 5:
+    % MAIN TUNING KNOB 4:
     % grid_alpha controls background grid visibility.
     %
-    %   0.0  -> nearly hidden
-    %   0.05 ~ 0.15 -> faint grid
+    % Current default:
+    %   0.06
+    % ============================================================
+    plot_cfg.grid_alpha = 0.06;
+
+    % ============================================================
+    % MAIN TUNING KNOB 5:
+    % view_az / view_el control camera angle.
+    %
+    % Avoid too edge-on a view, otherwise each layer may visually collapse
+    % into a thin strip.
     %
     % Current default:
-    %   0.08
+    %   az = -38
+    %   el = 22
     % ============================================================
-    plot_cfg.grid_alpha = 0.08;
+    plot_cfg.view_az = -38;
+    plot_cfg.view_el = 22;
+
+    % ============================================================
+    % MAIN TUNING KNOB 6:
+    % Make the canvas taller and let axes occupy a taller area.
+    % This improves vertical readability without forcing pbaspect.
+    %
+    % Current defaults:
+    %   figure_position = [100 60 1500 1100]
+    %   axes_position   = [0.07 0.08 0.72 0.84]
+    % ============================================================
+    plot_cfg.figure_position = [100 60 1500 1100];
+    plot_cfg.axes_position = [0.07 0.08 0.72 0.84];
 
     plot_cfg.axis_linewidth = 0.9;
 
@@ -308,9 +316,6 @@ function plot_cfg = local_resolve_plot_cfg(base)
             if isfield(p, 'z_gap') && ~isempty(p.z_gap)
                 plot_cfg.z_gap = p.z_gap;
             end
-            if isfield(p, 'z_visual_scale') && ~isempty(p.z_visual_scale)
-                plot_cfg.z_visual_scale = p.z_visual_scale;
-            end
             if isfield(p, 'face_alpha') && ~isempty(p.face_alpha)
                 plot_cfg.face_alpha = p.face_alpha;
             end
@@ -325,6 +330,12 @@ function plot_cfg = local_resolve_plot_cfg(base)
             end
             if isfield(p, 'view_el') && ~isempty(p.view_el)
                 plot_cfg.view_el = p.view_el;
+            end
+            if isfield(p, 'figure_position') && ~isempty(p.figure_position)
+                plot_cfg.figure_position = p.figure_position;
+            end
+            if isfield(p, 'axes_position') && ~isempty(p.axes_position)
+                plot_cfg.axes_position = p.axes_position;
             end
             if isfield(p, 'infeasible_style') && ~isempty(p.infeasible_style)
                 plot_cfg.infeasible_style = char(string(p.infeasible_style));
