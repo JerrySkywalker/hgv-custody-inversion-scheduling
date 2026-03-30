@@ -3,11 +3,8 @@ function out = plot_stage09_closure_heatmaps_hi(base, mode_tag)
 % Phase4-C:
 % Plot four-layer closure heatmaps on the h-i plane at a selected P slice.
 %
-% Layers:
-%   1. joint_feasible_ratio
-%   2. DG_best
-%   3. DA_best
-%   4. DT_best
+% Guarded feature:
+%   Requires at least 2 altitude levels in closure_over_h_i_P.
 
     if nargin < 2 || isempty(mode_tag)
         mode_tag = 'phase4_closure_hi';
@@ -18,7 +15,14 @@ function out = plot_stage09_closure_heatmaps_hi(base, mode_tag)
             'Input base must contain field base.cubes.');
     end
 
-    [cube_closure, h_vals, i_vals, P_vals, closure_names] = local_unpack_closure_cube(base.cubes);
+    [cube_closure, h_vals, i_vals, P_vals, closure_names] = local_unpack_closure_cube(base.cubes); %#ok<ASGLU>
+
+    if numel(h_vals) < 2
+        error('plot_stage09_closure_heatmaps_hi:InsufficientHLevels', ...
+            ['Phase4-C requires at least 2 altitude levels in closure_over_h_i_P, ' ...
+             'but current data has only %d. This feature is guarded and will not plot ' ...
+             'single-h pseudo heatmaps.'], numel(h_vals));
+    end
 
     run_tag = local_resolve_run_tag(base);
     [out_dir_fig, out_dir_tbl] = local_resolve_output_dirs(base);
