@@ -1,8 +1,8 @@
 function out = manual_smoke_stage09_phase1_metric_views(cfg)
 %MANUAL_SMOKE_STAGE09_PHASE1_METRIC_VIEWS
-% Phase1 smoke:
+% Phase1-B smoke:
 %   scan only (Stage09.1 + 9.4 + 9.5)
-%   then build metric views / frontiers
+%   then build metric views / frontiers / multilayer cubes
 %   no Stage09.6 plotting
 
     clear functions;
@@ -18,7 +18,7 @@ function out = manual_smoke_stage09_phase1_metric_views(cfg)
     end
 
     % -------------------------------
-    % Fast default for Phase1
+    % Fast default for Phase1-B
     % -------------------------------
     cfg.stage09 = local_set_if_empty(cfg.stage09, 'scheme_type', 'stage05_aligned');
     cfg.stage09 = local_set_if_empty(cfg.stage09, 'run_tag', 'inverse_stage09_phase1_metric_views');
@@ -30,11 +30,10 @@ function out = manual_smoke_stage09_phase1_metric_views(cfg)
     cfg.stage09 = local_set_if_empty(cfg.stage09, 'disable_progress', false);
     cfg.stage09 = local_set_if_empty(cfg.stage09, 'scan_log_every', 10);
 
-    % Keep current thresholds; Phase1 is data-layer only
     cfg = stage09_prepare_cfg(cfg);
 
     fprintf('\n');
-    fprintf('================ Phase1 Metric-View Smoke ================\n');
+    fprintf('================ Phase1-B Metric-View Smoke ================\n');
     fprintf('run_tag            : %s\n', string(cfg.stage09.run_tag));
     fprintf('scheme_type        : %s\n', string(cfg.stage09.scheme_type));
     fprintf('casebank_mode      : %s\n', string(cfg.stage09.casebank_mode));
@@ -43,27 +42,30 @@ function out = manual_smoke_stage09_phase1_metric_views(cfg)
     fprintf('require_DA_min     : %g\n', cfg.stage09.require_DA_min);
     fprintf('require_DT_min     : %g\n', cfg.stage09.require_DT_min);
     fprintf('require_pass_ratio : %g\n', cfg.stage09.require_pass_ratio);
-    fprintf('==========================================================\n\n');
+    fprintf('============================================================\n\n');
 
     out = struct();
 
-    fprintf('[PHASE1] Stage09.1 prepare task spec...\n');
+    fprintf('[PHASE1-B] Stage09.1 prepare task spec...\n');
     out.s1 = stage09_prepare_task_spec(cfg);
 
-    fprintf('[PHASE1] Stage09.4 build feasible domain...\n');
+    fprintf('[PHASE1-B] Stage09.4 build feasible domain...\n');
     out.s4 = stage09_build_feasible_domain(cfg);
 
-    fprintf('[PHASE1] Stage09.5 extract minimum boundary...\n');
+    fprintf('[PHASE1-B] Stage09.5 extract minimum boundary...\n');
     out.s5 = stage09_extract_minimum_boundary(out.s4, cfg);
 
-    fprintf('[PHASE1] Build metric views...\n');
-    out.views = build_stage09_metric_views(out, 'phase1');
+    fprintf('[PHASE1-B] Build metric views...\n');
+    out.views = build_stage09_metric_views(out, 'phase1b');
 
-    fprintf('[PHASE1] Build metric frontiers...\n');
-    out.frontiers = build_stage09_metric_frontiers(out.views, out.s4.cfg, 'phase1');
+    fprintf('[PHASE1-B] Build metric frontiers...\n');
+    out.frontiers = build_stage09_metric_frontiers(out.views, out.s4.cfg, 'phase1b');
+
+    fprintf('[PHASE1-B] Build multilayer cubes...\n');
+    out.cubes = build_stage09_multilayer_heatmaps(out.views, out.s4.cfg, 'phase1b');
 
     fprintf('\n');
-    fprintf('---------------- Phase1 Smoke Summary ----------------\n');
+    fprintf('---------------- Phase1-B Smoke Summary ----------------\n');
     disp(out.views.summary);
 
     fprintf('\nDG transition summary:\n');
@@ -78,7 +80,11 @@ function out = manual_smoke_stage09_phase1_metric_views(cfg)
     fprintf('\nJoint transition summary:\n');
     disp(out.frontiers.joint.transition_summary);
 
-    fprintf('------------------------------------------------------\n\n');
+    fprintf('\nMultilayer cube sizes:\n');
+    disp(size(out.cubes.metric_over_h_i_P))
+    disp(size(out.cubes.closure_over_h_i_P))
+
+    fprintf('--------------------------------------------------------\n\n');
 end
 
 
