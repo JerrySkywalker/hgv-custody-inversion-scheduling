@@ -11,7 +11,7 @@ function pack = plot_stage09_multih_heatmaps(base, mode_tag)
         mode_tag = char(mode_tag);
     end
 
-    if ~isstruct(base) || ~isfield(base, 'cubes')
+    if ~isstruct(base) || ~isfield(base, 'cubes') || ~isstruct(base.cubes)
         error('plot_stage09_multih_heatmaps:InvalidBase', ...
             'Input base must contain precomputed cubes from Phase1-B.');
     end
@@ -25,11 +25,7 @@ function pack = plot_stage09_multih_heatmaps(base, mode_tag)
     if ~exist(fig_dir, 'dir'); mkdir(fig_dir); end
     if ~exist(tab_dir, 'dir'); mkdir(tab_dir); end
 
-    cube_metric = base.cubes.cube_metric;
-    cube_closure = base.cubes.cube_closure;
-    h_vals = base.cubes.h_values_km(:)';
-    i_vals = base.cubes.i_values_deg(:)';
-    P_vals = base.cubes.P_values(:)';
+    [cube_metric, cube_closure, h_vals, i_vals, P_vals] = local_unpack_cubes(base.cubes);
 
     fig_DG_minNs = local_plot_metric_multih( ...
         squeeze(cube_metric(1,:,:,:)), h_vals, i_vals, P_vals, ...
@@ -84,6 +80,67 @@ function pack = plot_stage09_multih_heatmaps(base, mode_tag)
 end
 
 
+function [cube_metric, cube_closure, h_vals, i_vals, P_vals] = local_unpack_cubes(cubes)
+
+    cube_metric = local_pick_first_existing_field(cubes, { ...
+        'cube_metric', ...
+        'cube_metric_over_h_i_P'});
+
+    cube_closure = local_pick_first_existing_field(cubes, { ...
+        'cube_closure', ...
+        'cube_closure_over_h_i_P'});
+
+    if ~isnumeric(cube_metric) || ndims(cube_metric) ~= 4
+        error('plot_stage09_multih_heatmaps:InvalidCubeMetric', ...
+            'Metric cube must be a 4-D numeric array.');
+    end
+
+    if ~isnumeric(cube_closure) || ndims(cube_closure) ~= 4
+        error('plot_stage09_multih_heatmaps:InvalidCubeClosure', ...
+            'Closure cube must be a 4-D numeric array.');
+    end
+
+    h_vals = local_pick_axis_values(cubes, ...
+        {'h_values_km','h_grid_km','h_values'}, size(cube_metric, 2), 1);
+
+    i_vals = local_pick_axis_values(cubes, ...
+        {'i_values_deg','i_grid_deg','i_values'}, size(cube_metric, 3), 1);
+
+    P_vals = local_pick_axis_values(cubes, ...
+        {'P_values','P_grid'}, size(cube_metric, 4), 1);
+end
+
+
+function value = local_pick_first_existing_field(s, names)
+
+    for k = 1:numel(names)
+        name = names{k};
+        if isfield(s, name)
+            value = s.(name);
+            return;
+        end
+    end
+
+    error('plot_stage09_multih_heatmaps:MissingField', ...
+        'Missing required field. Checked: %s', strjoin(names, ', '));
+end
+
+
+function vals = local_pick_axis_values(s, names, nExpected, startValue)
+
+    for k = 1:numel(names)
+        name = names{k};
+        if isfield(s, name)
+            vals = s.(name);
+            vals = vals(:)';
+            return;
+        end
+    end
+
+    vals = startValue:(startValue + nExpected - 1);
+end
+
+
 function fig_path = local_plot_metric_multih(cube_h_i_P, h_vals, i_vals, P_vals, ttl, cbar_label, fig_path)
 
     if ndims(cube_h_i_P) == 2
@@ -125,7 +182,6 @@ function fig_path = local_plot_metric_multih(cube_h_i_P, h_vals, i_vals, P_vals,
         set(gca, 'Color', 'w');
         colormap(gca, parula);
         caxis([vmin, vmax]);
-        colorbar;
         xlabel('Inclination i [deg]');
         ylabel('P');
         title(sprintf('h = %g km', h_vals(k)));
