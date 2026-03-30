@@ -17,18 +17,21 @@ function out = plot_stage09_multih_heatmaps(base, mode_tag)
     run_tag = local_resolve_run_tag(base);
     [out_dir_fig, out_dir_tbl] = local_resolve_output_dirs(base);
 
-    if ~exist(out_dir_fig, 'dir'); mkdir(out_dir_fig); end
-    if ~exist(out_dir_tbl, 'dir'); mkdir(out_dir_tbl); end
+    if ~exist(out_dir_fig, 'dir')
+        mkdir(out_dir_fig);
+    end
+    if ~exist(out_dir_tbl, 'dir')
+        mkdir(out_dir_tbl);
+    end
 
     timestamp = local_nowstamp();
-
     fig_index = table();
 
     spec_list = { ...
-        struct('name','DG_minNs',        'kind','metric_minNs', 'metric_name','DG',    'title','DG minimum feasible N_s over (i,P)', 'cbar','DG minimum feasible N_s'), ...
-        struct('name','DA_bestMetric',   'kind','metric_best',  'metric_name','DA',    'title','DA best feasible metric over (i,P)',  'cbar','DA best feasible metric'), ...
-        struct('name','DT_bestMetric',   'kind','metric_best',  'metric_name','DT',    'title','DT best feasible metric over (i,P)',  'cbar','DT best feasible metric'), ...
-        struct('name','joint_feasible',  'kind','closure',      'layer_name','joint',  'title','Joint feasible ratio over (i,P)',     'cbar','Joint feasible ratio') ...
+        struct('name','DG_minNs',       'kind','metric_minNs', 'metric_name','DG', 'title','DG minimum feasible N_s over (i,P)', 'cbar','DG minimum feasible N_s'), ...
+        struct('name','DA_bestMetric',  'kind','metric_best',  'metric_name','DA', 'title','DA best feasible metric over (i,P)', 'cbar','DA best feasible metric'), ...
+        struct('name','DT_bestMetric',  'kind','metric_best',  'metric_name','DT', 'title','DT best feasible metric over (i,P)', 'cbar','DT best feasible metric'), ...
+        struct('name','joint_feasible', 'kind','closure',      'layer_name','joint_feasible_ratio', 'title','Joint feasible ratio over (i,P)', 'cbar','Joint feasible ratio') ...
     };
 
     for k = 1:numel(spec_list)
@@ -106,14 +109,13 @@ function out = plot_stage09_multih_heatmaps(base, mode_tag)
             ax.Box = 'on';
         end
 
-        title(tl, spec.title, 'FontWeight','bold');
+        title(tl, spec.title, 'FontWeight', 'bold');
 
         cb = colorbar(ax_list(end), 'eastoutside');
         cb.Label.String = spec.cbar;
 
         fig_name = sprintf('stage09_multih_%s_%s_%s_%s.png', ...
             spec.name, run_tag, mode_tag, timestamp);
-        fig_path = Join-Path $out_dir_fig $fig_name; %#ok<NASGU>
         fig_path = fullfile(out_dir_fig, fig_name);
         exportgraphics(fig, fig_path, 'Resolution', 220);
         close(fig);
@@ -203,7 +205,7 @@ function [cube_metric, cube_closure, h_vals, i_vals, P_vals, metric_names, closu
     metric_names = local_extract_name_list(local_pick_first_existing_field(idx, {'metric'}, []), ...
         {'DG','DA','DT'});
     closure_names = local_extract_name_list(local_pick_first_existing_field(idx, {'closure'}, []), ...
-        {'joint','DG','DA','DT'});
+        {'joint_feasible_ratio','DG_best','DA_best','DT_best'});
 end
 
 function value = local_pick_first_existing_field(s, names, default_value)
@@ -261,7 +263,7 @@ function names = local_extract_name_list(obj, default_names)
 
     if istable(obj)
         vars = obj.Properties.VariableNames;
-        preferred_vars = {'name','metric','layer','label'};
+        preferred_vars = {'name','metric_name','layer_name','metric','layer','label'};
 
         hit = '';
         for k = 1:numel(preferred_vars)
@@ -273,11 +275,7 @@ function names = local_extract_name_list(obj, default_names)
         end
 
         if isempty(hit)
-            if width(obj) == 1
-                raw = table2array(obj(:,1));
-            else
-                raw = table2array(obj(:,1));
-            end
+            raw = table2array(obj(:,1));
         else
             raw = obj.(hit);
         end
@@ -296,7 +294,6 @@ function names = local_extract_name_list(obj, default_names)
     end
 
     if isnumeric(raw) || islogical(raw)
-        raw = raw(:).';
         n = min(numel(raw), numel(default_names));
         names = default_names(1:n);
         return;
