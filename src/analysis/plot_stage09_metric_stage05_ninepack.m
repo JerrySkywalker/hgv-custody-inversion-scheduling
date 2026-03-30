@@ -48,7 +48,6 @@ function pack = plot_stage09_metric_stage05_ninepack(metric_view, metric_frontie
 
     metric_label_plain = local_metric_label_plain(metric_name);
     metric_label_tex = local_metric_label_tex(metric_name);
-    metric_threshold = local_threshold_for_metric(metric_name, cfg);
 
     V = metric_view;
     F = metric_frontiers;
@@ -76,58 +75,24 @@ function pack = plot_stage09_metric_stage05_ninepack(metric_view, metric_frontie
         "transition_metric"
         "transition_summary"];
 
-    theta_min = local_theta_min_rows(Vslice);
-
     % ---------------------------------------------------------
     % 1. feasible_scatter
     % ---------------------------------------------------------
     f1 = figure('Visible','off');
     hold on;
-
     Tall = Vslice;
-    TmetricPass = Vslice(Vslice.metric_pass, :);
     Tfeas = Vslice(Vslice.feasible_flag, :);
-
-    h_all = scatter(Tall.Ns, Tall.metric_value, 22, [0.65 0.65 0.65], 'filled', ...
-        'MarkerFaceAlpha', 0.35, 'MarkerEdgeAlpha', 0.20, 'DisplayName', 'All scanned');
-
-    if ~isempty(TmetricPass)
-        h_metric = scatter(TmetricPass.Ns, TmetricPass.metric_value, 52, 'o', ...
-            'MarkerEdgeColor', [0.20 0.20 0.20], 'MarkerFaceColor', 'none', ...
-            'LineWidth', 1.0, 'DisplayName', 'Metric-pass');
-    else
-        h_metric = plot(nan, nan, 'o', 'MarkerFaceColor', 'none', 'DisplayName', 'Metric-pass');
-    end
-
+    scatter(Tall.Ns, Tall.metric_value, 24, double(Tall.i_deg), 'filled', 'MarkerFaceAlpha', 0.20, 'MarkerEdgeAlpha', 0.20);
     if ~isempty(Tfeas)
-        h_feas = scatter(Tfeas.Ns, Tfeas.metric_value, 68, double(Tfeas.i_deg), 'filled', ...
-            'MarkerEdgeColor', 'k', 'LineWidth', 0.7, 'DisplayName', 'Feasible');
-    else
-        h_feas = plot(nan, nan, 'o', 'DisplayName', 'Feasible');
+        scatter(Tfeas.Ns, Tfeas.metric_value, 40, double(Tfeas.i_deg), 'filled', 'MarkerEdgeColor', 'k');
     end
-
-    if ~isempty(theta_min)
-        h_theta = scatter(theta_min.Ns, theta_min.metric_value, 160, ...
-            'p', 'MarkerFaceColor', 'y', 'MarkerEdgeColor', 'k', ...
-            'LineWidth', 1.1, 'DisplayName', '\Theta_{Nmin}');
-        for k = 1:height(theta_min)
-            text(theta_min.Ns(k), theta_min.metric_value(k), sprintf(' (%d,%d)', theta_min.P(k), theta_min.T(k)), ...
-                'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'left');
-        end
-    else
-        h_theta = plot(nan, nan, 'p', 'MarkerFaceColor', 'y', 'DisplayName', '\Theta_{Nmin}');
-    end
-
-    h_thr = yline(metric_threshold, '--', 'Threshold', ...
-        'Color', [0.35 0.35 0.35], 'LineWidth', 1.0, 'HandleVisibility', 'off');
-
+    yline(local_threshold_for_metric(metric_name, cfg), '--', 'Threshold');
     xlabel('Total satellites N_s');
     ylabel(metric_label_plain);
     title(sprintf('Stage09 %s feasible scatter at h=%g km', metric_name, local_display_h(h_slice)));
     cb = colorbar;
     cb.Label.String = 'Inclination i [deg]';
     grid on; box on;
-    legend([h_all, h_metric, h_feas, h_theta], 'Location', 'best');
     hold off;
     fig_files(1) = local_save_figure(f1, fig_subdir, sprintf('stage09_%s_feasible_scatter_%s_%s.png', lower(metric_name), run_tag, timestamp));
 
@@ -139,12 +104,11 @@ function pack = plot_stage09_metric_stage05_ninepack(metric_view, metric_frontie
     Tfront = F.frontier_by_i;
     if ~isempty(Tfront)
         yyaxis left;
-        h1 = plot(Tfront.i_deg, Tfront.frontier_Ns, '-o', 'LineWidth', 1.7, 'DisplayName', 'Minimum feasible N_s');
+        plot(Tfront.i_deg, Tfront.frontier_Ns, '-o', 'LineWidth', 1.5);
         ylabel('Minimum feasible N_s');
         yyaxis right;
-        h2 = plot(Tfront.i_deg, Tfront.frontier_metric, '-s', 'LineWidth', 1.7, 'DisplayName', metric_label_plain);
+        plot(Tfront.i_deg, Tfront.frontier_metric, '-s', 'LineWidth', 1.5);
         ylabel(metric_label_plain);
-
         for k = 1:height(Tfront)
             text(Tfront.i_deg(k), Tfront.frontier_metric(k), sprintf('(%d,%d)', Tfront.P(k), Tfront.T(k)), ...
                 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center');
@@ -160,24 +124,34 @@ function pack = plot_stage09_metric_stage05_ninepack(metric_view, metric_frontie
     % 3. heatmap_minNs
     % ---------------------------------------------------------
     f3 = figure('Visible','off');
-    [X_i, Y_P, Z_minNs, txt_minNs, mask_minNs] = local_heatmap_minNs(F.minNs_by_iP, Vslice);
-    local_plot_masked_heatmap(X_i, Y_P, Z_minNs, txt_minNs, mask_minNs, ...
-        sprintf('Stage09 %s minimum feasible N_s over (i,P) at h=%g km', metric_name, local_display_h(h_slice)), ...
-        'Inclination i [deg]', 'P');
+    [X_i, Y_P, Z_minNs, txt_minNs] = local_heatmap_minNs(F.minNs_by_iP);
+    imagesc(X_i, Y_P, Z_minNs);
+    axis xy;
+    xlabel('Inclination i [deg]');
+    ylabel('P');
+    title(sprintf('Stage09 %s minimum feasible N_s over (i,P) at h=%g km', metric_name, local_display_h(h_slice)));
+    colorbar;
+    grid on; box on;
+    local_overlay_heatmap_text(X_i, Y_P, txt_minNs);
     fig_files(3) = local_save_figure(f3, fig_subdir, sprintf('stage09_%s_heatmap_minNs_%s_%s.png', lower(metric_name), run_tag, timestamp));
 
     % ---------------------------------------------------------
     % 4. heatmap_bestMetric
     % ---------------------------------------------------------
     f4 = figure('Visible','off');
-    [X_i2, Y_P2, Z_best, txt_best, mask_best] = local_heatmap_bestMetric(F.bestMetric_by_iP, Vslice);
-    local_plot_masked_heatmap(X_i2, Y_P2, Z_best, txt_best, mask_best, ...
-        sprintf('Stage09 %s best feasible metric over (i,P) at h=%g km', metric_name, local_display_h(h_slice)), ...
-        'Inclination i [deg]', 'P');
+    [X_i2, Y_P2, Z_best, txt_best] = local_heatmap_bestMetric(F.bestMetric_by_iP);
+    imagesc(X_i2, Y_P2, Z_best);
+    axis xy;
+    xlabel('Inclination i [deg]');
+    ylabel('P');
+    title(sprintf('Stage09 %s best feasible metric over (i,P) at h=%g km', metric_name, local_display_h(h_slice)));
+    colorbar;
+    grid on; box on;
+    local_overlay_heatmap_text(X_i2, Y_P2, txt_best);
     fig_files(4) = local_save_figure(f4, fig_subdir, sprintf('stage09_%s_heatmap_bestMetric_%s_%s.png', lower(metric_name), run_tag, timestamp));
 
     % ---------------------------------------------------------
-    % 5. passratio_profile (raw envelope by i)
+    % 5. passratio_profile
     % ---------------------------------------------------------
     f5 = figure('Visible','off');
     hold on;
@@ -187,7 +161,7 @@ function pack = plot_stage09_metric_stage05_ninepack(metric_view, metric_frontie
         Ti = Tpr(Tpr.i_deg == iu(k), :);
         plot(Ti.Ns, Ti.pass_ratio, '-o', 'LineWidth', 1.2, 'DisplayName', sprintf('i=%d', iu(k)));
     end
-    yline(1, '--', 'pass=1', 'Color', [0.35 0.35 0.35], 'HandleVisibility', 'off');
+    yline(1, '--', 'pass=1');
     xlabel('Total satellites N_s');
     ylabel('Pass ratio');
     title(sprintf('Stage09 %s pass-ratio profile at h=%g km', metric_name, local_display_h(h_slice)));
@@ -203,7 +177,7 @@ function pack = plot_stage09_metric_stage05_ninepack(metric_view, metric_frontie
     hold on;
     Tp = F.pareto_frontier;
     if ~isempty(Tp)
-        plot(Tp.Ns, Tp.metric_value, '-o', 'LineWidth', 1.6);
+        plot(Tp.Ns, Tp.metric_value, '-o', 'LineWidth', 1.5);
         for k = 1:height(Tp)
             text(Tp.Ns(k), Tp.metric_value(k), sprintf('(%d,%d)', Tp.P(k), Tp.T(k)), ...
                 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center');
@@ -220,29 +194,20 @@ function pack = plot_stage09_metric_stage05_ninepack(metric_view, metric_frontie
     fig_files(6) = local_save_figure(f6, fig_subdir, sprintf('stage09_%s_pareto_frontier_%s_%s.png', lower(metric_name), run_tag, timestamp));
 
     % ---------------------------------------------------------
-    % 7. transition_passratio -> threshold crossing diagnostic
+    % 7. transition_passratio
     % ---------------------------------------------------------
     f7 = figure('Visible','off');
     hold on;
-    Ts = F.transition_summary;
-    Tvalid = Ts(~isnan(Ts.first_Ns_passratio1), :);
-    if ~isempty(Tvalid)
-        plot(Tvalid.i_deg, Tvalid.first_Ns_passratio1, '-o', 'LineWidth', 1.5, 'DisplayName', 'First N_s with pass-ratio=1');
-        for k = 1:height(Tvalid)
-            text(Tvalid.i_deg(k), Tvalid.first_Ns_passratio1(k), sprintf(' %d', Tvalid.first_Ns_passratio1(k)), ...
-                'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center');
-        end
+    Tpr = F.transition_passratio;
+    iu = unique(Tpr.i_deg(:));
+    for k = 1:numel(iu)
+        Ti = Tpr(Tpr.i_deg == iu(k), :);
+        plot(Ti.Ns, Ti.pass_ratio, '-o', 'LineWidth', 1.2, 'DisplayName', sprintf('i=%d', iu(k)));
     end
-
-    Tinfeas = Ts(isnan(Ts.first_Ns_passratio1), :);
-    if ~isempty(Tinfeas)
-        scatter(Tinfeas.i_deg, ones(height(Tinfeas),1)*min(Ts.first_Ns_feasible(~isnan(Ts.first_Ns_feasible))) * 0.9, ...
-            50, 'x', 'MarkerEdgeColor', [0.4 0.4 0.4], 'LineWidth', 1.2, 'DisplayName', 'No pass-ratio crossing');
-    end
-
-    xlabel('Inclination i [deg]');
-    ylabel('First N_s with pass-ratio=1');
-    title(sprintf('Threshold crossing diagnostic: first pass-ratio=1 versus i (%s)', metric_name));
+    yline(1, '--', 'Threshold');
+    xlabel('Total satellites N_s');
+    ylabel('Pass-ratio envelope');
+    title(sprintf('Threshold diagnostic: pass-ratio envelope versus N_s (%s)', metric_name));
     grid on; box on;
     legend('Location','eastoutside');
     hold off;
@@ -259,7 +224,7 @@ function pack = plot_stage09_metric_stage05_ninepack(metric_view, metric_frontie
         Ti = Tm(Tm.i_deg == iu(k), :);
         plot(Ti.Ns, Ti.metric_value, '-o', 'LineWidth', 1.2, 'DisplayName', sprintf('i=%d', iu(k)));
     end
-    yline(metric_threshold, '--', 'Threshold', 'Color', [0.35 0.35 0.35], 'HandleVisibility', 'off');
+    yline(local_threshold_for_metric(metric_name, cfg), '--', 'Threshold');
     xlabel('Total satellites N_s');
     ylabel(metric_label_plain);
     title(sprintf('Threshold diagnostic: %s envelope versus N_s', metric_label_tex));
@@ -274,38 +239,19 @@ function pack = plot_stage09_metric_stage05_ninepack(metric_view, metric_frontie
     f9 = figure('Visible','off');
     hold on;
     Ts = F.transition_summary;
-
-    if strcmpi(metric_name, 'DG')
-        yyaxis left;
-        h_nf = plot(Ts.i_deg, Ts.first_Ns_feasible, '-^', 'LineWidth', 1.8, 'DisplayName', 'first N_s feasible');
-        ylabel('N_s');
-
-        yyaxis right;
-        h_fm = plot(Ts.i_deg, Ts.frontier_metric, '-v', 'LineWidth', 1.8, 'DisplayName', 'frontier metric');
-        ylabel(metric_label_plain);
-
-        xlabel('Inclination i [deg]');
-        title(sprintf('Stage09 %s inclination-wise frontier summary', metric_name));
-        grid on; box on;
-        legend([h_nf, h_fm], 'Location', 'eastoutside');
-    else
-        yyaxis left;
-        h1 = plot(Ts.i_deg, Ts.first_Ns_passratio1, '-o', 'LineWidth', 1.2, 'DisplayName', 'first N_s pass=1');
-        h2 = plot(Ts.i_deg, Ts.first_Ns_metric_pass, '-s', 'LineWidth', 1.2, 'DisplayName', 'first N_s metric pass');
-        h3 = plot(Ts.i_deg, Ts.first_Ns_feasible, '-d', 'LineWidth', 1.2, 'DisplayName', 'first N_s feasible');
-        h4 = plot(Ts.i_deg, Ts.frontier_Ns, '-^', 'LineWidth', 1.5, 'DisplayName', 'frontier N_s');
-        ylabel('N_s');
-
-        yyaxis right;
-        h5 = plot(Ts.i_deg, Ts.frontier_metric, '-v', 'LineWidth', 1.5, 'DisplayName', 'frontier metric');
-        ylabel(metric_label_plain);
-
-        xlabel('Inclination i [deg]');
-        title(sprintf('Stage09 %s inclination-wise frontier summary', metric_name));
-        grid on; box on;
-        legend([h1,h2,h3,h4,h5], 'Location', 'eastoutside');
-    end
-
+    yyaxis left;
+    plot(Ts.i_deg, Ts.first_Ns_passratio1, '-o', 'LineWidth', 1.2, 'DisplayName', 'first N_s pass=1');
+    plot(Ts.i_deg, Ts.first_Ns_metric_pass, '-s', 'LineWidth', 1.2, 'DisplayName', 'first N_s metric pass');
+    plot(Ts.i_deg, Ts.first_Ns_feasible, '-d', 'LineWidth', 1.2, 'DisplayName', 'first N_s feasible');
+    plot(Ts.i_deg, Ts.frontier_Ns, '-^', 'LineWidth', 1.5, 'DisplayName', 'frontier N_s');
+    ylabel('N_s');
+    yyaxis right;
+    plot(Ts.i_deg, Ts.frontier_metric, '-v', 'LineWidth', 1.5, 'DisplayName', 'frontier metric');
+    ylabel(metric_label_plain);
+    xlabel('Inclination i [deg]');
+    title(sprintf('Stage09 %s inclination-wise frontier summary', metric_name));
+    grid on; box on;
+    legend('Location','eastoutside');
     hold off;
     fig_files(9) = local_save_figure(f9, fig_subdir, sprintf('stage09_%s_transition_summary_%s_%s.png', lower(metric_name), run_tag, timestamp));
 
@@ -396,33 +342,20 @@ function h = local_display_h(h_in)
 end
 
 
-function Ttheta = local_theta_min_rows(V)
+function [X_i, Y_P, Z, txt] = local_heatmap_minNs(T)
 
-    Tfeas = V(V.feasible_flag, :);
-    if isempty(Tfeas)
-        Ttheta = Tfeas;
+    if isempty(T)
+        X_i = [];
+        Y_P = [];
+        Z = [];
+        txt = [];
         return;
     end
 
-    nsmin = min(Tfeas.Ns);
-    Ttheta = Tfeas(Tfeas.Ns == nsmin, :);
-    Ttheta = sortrows(Ttheta, {'metric_value','P','T','h_km'}, {'descend','ascend','ascend','ascend'});
-end
-
-
-function [X_i, Y_P, Z, txt, mask] = local_heatmap_minNs(T, Vslice)
-
-    X_i = unique(Vslice.i_deg(:)).';
-    Y_P = unique(Vslice.P(:)).';
+    X_i = unique(T.i_deg(:)).';
+    Y_P = unique(T.P(:)).';
     Z = nan(numel(Y_P), numel(X_i));
     txt = strings(numel(Y_P), numel(X_i));
-    mask = false(numel(Y_P), numel(X_i));
-
-    for pp = 1:numel(Y_P)
-        for ii = 1:numel(X_i)
-            mask(pp, ii) = any(Vslice.i_deg == X_i(ii) & Vslice.P == Y_P(pp) & Vslice.feasible_flag);
-        end
-    end
 
     for r = 1:height(T)
         ii = find(X_i == T.i_deg(r), 1);
@@ -433,19 +366,20 @@ function [X_i, Y_P, Z, txt, mask] = local_heatmap_minNs(T, Vslice)
 end
 
 
-function [X_i, Y_P, Z, txt, mask] = local_heatmap_bestMetric(T, Vslice)
+function [X_i, Y_P, Z, txt] = local_heatmap_bestMetric(T)
 
-    X_i = unique(Vslice.i_deg(:)).';
-    Y_P = unique(Vslice.P(:)).';
+    if isempty(T)
+        X_i = [];
+        Y_P = [];
+        Z = [];
+        txt = [];
+        return;
+    end
+
+    X_i = unique(T.i_deg(:)).';
+    Y_P = unique(T.P(:)).';
     Z = nan(numel(Y_P), numel(X_i));
     txt = strings(numel(Y_P), numel(X_i));
-    mask = false(numel(Y_P), numel(X_i));
-
-    for pp = 1:numel(Y_P)
-        for ii = 1:numel(X_i)
-            mask(pp, ii) = any(Vslice.i_deg == X_i(ii) & Vslice.P == Y_P(pp) & Vslice.feasible_flag);
-        end
-    end
 
     for r = 1:height(T)
         ii = find(X_i == T.i_deg(r), 1);
@@ -456,48 +390,15 @@ function [X_i, Y_P, Z, txt, mask] = local_heatmap_bestMetric(T, Vslice)
 end
 
 
-function local_plot_masked_heatmap(X_i, Y_P, Z, txt, mask, ttl, xlbl, ylbl)
+function local_overlay_heatmap_text(X_i, Y_P, txt)
 
-    if isempty(X_i) || isempty(Y_P)
-        axis off;
-        title(ttl);
-        return;
-    end
-
-    % white background for infeasible / missing
-    base = ones(size(Z));
-    imagesc(X_i, Y_P, base);
-    axis xy;
-    colormap(gca, gray(2));
-    caxis([0 1]);
-    set(gca, 'Color', 'w');
-    hold on;
-
-    % overlay feasible colored cells only
-    Zoverlay = Z;
-    Zoverlay(~mask) = NaN;
-    imagesc(X_i, Y_P, Zoverlay, 'AlphaData', double(mask));
-    axis xy;
-    colormap(gca, parula);
-
-    xlabel(xlbl);
-    ylabel(ylbl);
-    title(ttl);
-    colorbar;
-    grid on; box on;
-
-    % feasible values
     for pp = 1:numel(Y_P)
         for ii = 1:numel(X_i)
-            if mask(pp, ii) && strlength(txt(pp,ii)) > 0
+            if strlength(txt(pp,ii)) > 0
                 text(X_i(ii), Y_P(pp), txt(pp,ii), ...
                     'HorizontalAlignment', 'center', ...
                     'VerticalAlignment', 'middle');
-            elseif ~mask(pp, ii)
-                plot(X_i(ii), Y_P(pp), 'x', 'Color', [0.15 0.15 0.15], 'LineWidth', 1.2, 'MarkerSize', 9);
             end
         end
     end
-
-    hold off;
 end
