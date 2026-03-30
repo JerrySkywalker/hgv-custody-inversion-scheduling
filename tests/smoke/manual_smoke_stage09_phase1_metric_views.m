@@ -20,15 +20,15 @@ function out = manual_smoke_stage09_phase1_metric_views(cfg)
     % -------------------------------
     % Fast default for Phase1
     % -------------------------------
-    cfg.stage09.scheme_type = local_set_if_empty(cfg.stage09, 'scheme_type', 'stage05_aligned');
-    cfg.stage09.run_tag = local_set_if_empty(cfg.stage09, 'run_tag', 'inverse_stage09_phase1_metric_views');
-    cfg.stage09.casebank_mode = local_set_if_empty(cfg.stage09, 'casebank_mode', 'nominal_only');
-    cfg.stage09.scan_theta_limit = local_set_if_empty(cfg.stage09, 'scan_theta_limit', inf);
-    cfg.stage09.scan_case_limit = local_set_if_empty(cfg.stage09, 'scan_case_limit', inf);
-    cfg.stage09.gamma_source = local_set_if_empty(cfg.stage09, 'gamma_source', 'inherit_stage04');
-    cfg.stage09.use_parallel = local_set_if_empty(cfg.stage09, 'use_parallel', false);
-    cfg.stage09.disable_progress = local_set_if_empty(cfg.stage09, 'disable_progress', false);
-    cfg.stage09.scan_log_every = local_set_if_empty(cfg.stage09, 'scan_log_every', 10);
+    cfg.stage09 = local_set_if_empty(cfg.stage09, 'scheme_type', 'stage05_aligned');
+    cfg.stage09 = local_set_if_empty(cfg.stage09, 'run_tag', 'inverse_stage09_phase1_metric_views');
+    cfg.stage09 = local_set_if_empty(cfg.stage09, 'casebank_mode', 'nominal_only');
+    cfg.stage09 = local_set_if_empty(cfg.stage09, 'scan_theta_limit', inf);
+    cfg.stage09 = local_set_if_empty(cfg.stage09, 'scan_case_limit', inf);
+    cfg.stage09 = local_set_if_empty(cfg.stage09, 'gamma_source', 'inherit_stage04');
+    cfg.stage09 = local_set_if_empty(cfg.stage09, 'use_parallel', false);
+    cfg.stage09 = local_set_if_empty(cfg.stage09, 'disable_progress', false);
+    cfg.stage09 = local_set_if_empty(cfg.stage09, 'scan_log_every', 10);
 
     % Keep current thresholds; Phase1 is data-layer only
     cfg = stage09_prepare_cfg(cfg);
