@@ -13,13 +13,27 @@ end
 
 function [metric_view, metric_frontiers, cfg] = local_unpack_inputs(in)
 
-    if isstruct(in) && isfield(in, 'metric_view') && isfield(in, 'metric_frontiers') && isfield(in, 'cfg')
+    if ~isstruct(in)
+        error('plot_stage09_DA_stage05_pack:InvalidInput', ...
+            'Input must be a struct.');
+    end
+
+    if isfield(in, 'metric_view') && isfield(in, 'metric_frontiers') && isfield(in, 'cfg')
         metric_view = in.metric_view;
         metric_frontiers = in.metric_frontiers;
         cfg = in.cfg;
         return;
     end
 
+    if isfield(in, 'views') && isfield(in, 'frontiers') && isfield(in, 'cfg')
+        metric_view = in.views;
+        metric_frontiers = in.frontiers;
+        cfg = in.cfg;
+        return;
+    end
+
     error('plot_stage09_DA_stage05_pack:InvalidInput', ...
-        'Input must be the output struct from manual_smoke_stage09_phase1_metric_views.');
+        ['Input must be either:' newline ...
+         '  (1) struct with fields metric_view, metric_frontiers, cfg' newline ...
+         '  (2) struct with fields views, frontiers, cfg']);
 end
