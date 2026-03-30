@@ -18,7 +18,7 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
             'metric_name is required.');
     end
     if nargin < 3 || isempty(mode_tag)
-        mode_tag = 'phase5_metric_stack3d';
+        mode_tag = 'phase5_stack3d';
     end
 
     if ~isstruct(base) || ~isfield(base, 'cubes')
@@ -49,10 +49,13 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
         mkdir(out_dir_tbl);
     end
 
-    timestamp = local_nowstamp();
-    z_gap = 1.0;
+    % ---------------- plot configuration ----------------
+    plot_cfg = local_resolve_plot_cfg(base);
 
-    fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 1300 900]);
+    timestamp = local_nowstamp();
+    z_gap = plot_cfg.z_gap;
+
+    fig = figure('Visible', 'off', 'Color', 'w', 'Position', plot_cfg.figure_position);
     ax = axes(fig);
     hold(ax, 'on');
 
@@ -97,17 +100,20 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
         C(~feasible_mask) = NaN;
 
         surf(ax, X, Y, Z, C, ...
-            'EdgeColor', [0.55 0.55 0.55], ...
-            'LineWidth', 0.6, ...
-            'FaceColor', 'interp');
+            'EdgeColor', plot_cfg.edge_color, ...
+            'LineWidth', plot_cfg.edge_linewidth, ...
+            'FaceColor', 'interp', ...
+            'FaceAlpha', plot_cfg.face_alpha);
 
-        local_plot_infeasible_crosses_3d(ax, feasible_mask, i_vals, P_vals, (ih - 1) * z_gap);
+        local_plot_infeasible_marks_3d(ax, feasible_mask, i_vals, P_vals, ...
+            (ih - 1) * z_gap, plot_cfg);
 
-        text(ax, max(i_vals) + 2, mean(P_vals), (ih - 1) * z_gap, ...
+        text(ax, max(i_vals) + plot_cfg.h_label_x_offset, mean(P_vals), (ih - 1) * z_gap, ...
             sprintf('h=%g', h_vals(ih)), ...
-            'FontSize', 11, ...
+            'FontSize', plot_cfg.h_label_fontsize, ...
             'HorizontalAlignment', 'left', ...
-            'VerticalAlignment', 'middle');
+            'VerticalAlignment', 'middle', ...
+            'Color', plot_cfg.h_label_color);
     end
 
     hold(ax, 'off');
@@ -117,7 +123,7 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     cb = colorbar(ax, 'eastoutside');
     cb.Label.String = sprintf('%s value', metric_label);
 
-    view(ax, [-35 24]);
+    view(ax, plot_cfg.view_az, plot_cfg.view_el);
     xlabel(ax, 'Inclination i [deg]');
     ylabel(ax, 'P');
     zlabel(ax, 'Altitude stack');
@@ -127,10 +133,10 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     xticks(ax, i_vals);
     yticks(ax, P_vals);
     zticks(ax, (0:numel(h_vals)-1) * z_gap);
-    zticklabels(ax, cellstr(string(h_vals) + " km"));
+    zticklabels(ax, compose('%g km', h_vals));
     grid(ax, 'on');
-    ax.GridAlpha = 0.18;
-    ax.LineWidth = 0.9;
+    ax.GridAlpha = plot_cfg.grid_alpha;
+    ax.LineWidth = plot_cfg.axis_linewidth;
     ax.Box = 'on';
 
     fig_name = sprintf('stage09_%s_stack3d_over_h_%s_%s_%s.png', ...
@@ -173,6 +179,56 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     fprintf('figure index : %s\n', figure_index_csv);
     fprintf('layer table  : %s\n', layer_summary_csv);
     fprintf('===============================================================\n\n');
+end
+
+function plot_cfg = local_resolve_plot_cfg(base)
+    plot_cfg = struct();
+
+    plot_cfg.z_gap = 1.6;
+    plot_cfg.view_az = -52;
+    plot_cfg.view_el = 28;
+    plot_cfg.figure_position = [100 100 1400 920];
+
+    plot_cfg.edge_color = [0.55 0.55 0.55];
+    plot_cfg.edge_linewidth = 0.55;
+    plot_cfg.face_alpha = 0.98;
+
+    plot_cfg.grid_alpha = 0.18;
+    plot_cfg.axis_linewidth = 0.9;
+
+    plot_cfg.h_label_x_offset = 2.0;
+    plot_cfg.h_label_fontsize = 11;
+    plot_cfg.h_label_color = [0.15 0.15 0.15];
+
+    % infeasible marker policy:
+    %   'none'   : do not plot infeasible marks (recommended default)
+    %   'gray_x' : plot light-gray x marks
+    plot_cfg.infeasible_style = 'none';
+    plot_cfg.infeasible_color = [0.60 0.60 0.60];
+    plot_cfg.infeasible_marker_size = 5.5;
+    plot_cfg.infeasible_linewidth = 0.8;
+
+    if isstruct(base) && isfield(base, 'cfg') && isstruct(base.cfg) ...
+            && isfield(base.cfg, 'stage09') && isstruct(base.cfg.stage09)
+        s9 = base.cfg.stage09;
+
+        if isfield(s9, 'plot3d_stack') && isstruct(s9.plot3d_stack)
+            p = s9.plot3d_stack;
+
+            if isfield(p, 'z_gap') && ~isempty(p.z_gap)
+                plot_cfg.z_gap = p.z_gap;
+            end
+            if isfield(p, 'view_az') && ~isempty(p.view_az)
+                plot_cfg.view_az = p.view_az;
+            end
+            if isfield(p, 'view_el') && ~isempty(p.view_el)
+                plot_cfg.view_el = p.view_el;
+            end
+            if isfield(p, 'infeasible_style') && ~isempty(p.infeasible_style)
+                plot_cfg.infeasible_style = char(string(p.infeasible_style));
+            end
+        end
+    end
 end
 
 function [cube_metric, cube_closure, h_vals, i_vals, P_vals, metric_names, closure_names] = local_unpack_cubes(cubes)
@@ -307,32 +363,65 @@ function value = local_pick_first_existing_field(s, names, default_value)
         'Missing required field. Checked: %s', strjoin(names, ', '));
 end
 
-function vals = local_extract_axis_vector(obj, fallback_name)
+function vals = local_extract_axis_vector(obj, axis_name)
     if isempty(obj)
         error('plot_stage09_metric_stack3d_over_h:MissingAxis', ...
-            'Missing axis table/vector for %s.', fallback_name);
+            'Missing axis table/vector for %s.', axis_name);
     end
 
     if istable(obj)
         vars = obj.Properties.VariableNames;
-        if numel(vars) == 1
-            vals = obj.(vars{1});
-        else
-            hit = find(strcmpi(vars, fallback_name), 1, 'first');
-            if isempty(hit)
-                hit = find(contains(lower(vars), lower(fallback_name)), 1, 'first');
-            end
-            if isempty(hit)
-                vals = table2array(obj(:,1));
+        vars_lower = lower(vars);
+
+        switch lower(axis_name)
+            case 'h'
+                preferred = {'h_km','altitude_km','height_km','h'};
+            case 'i'
+                preferred = {'i_deg','inclination_deg','inclination','i'};
+            case 'p'
+                preferred = {'p'};
+            otherwise
+                preferred = {axis_name};
+        end
+
+        hit = local_find_first_var(vars, vars_lower, preferred);
+
+        if isempty(hit)
+            non_index = ~contains(vars_lower, 'idx');
+            if any(non_index)
+                idx_first = find(non_index, 1, 'first');
+                vals = obj.(vars{idx_first});
             else
-                vals = obj.(vars{hit});
+                vals = table2array(obj(:,1));
             end
+        else
+            vals = obj.(hit);
         end
     else
         vals = obj;
     end
 
     vals = vals(:).';
+end
+
+function hit = local_find_first_var(vars, vars_lower, preferred)
+    hit = '';
+
+    for k = 1:numel(preferred)
+        idx = find(strcmpi(vars, preferred{k}), 1, 'first');
+        if ~isempty(idx)
+            hit = vars{idx};
+            return;
+        end
+    end
+
+    for k = 1:numel(preferred)
+        idx = find(contains(vars_lower, lower(preferred{k})), 1, 'first');
+        if ~isempty(idx)
+            hit = vars{idx};
+            return;
+        end
+    end
 end
 
 function names = local_extract_name_list(obj, default_names)
@@ -410,13 +499,27 @@ function idx = local_find_name(names, target)
     end
 end
 
-function local_plot_infeasible_crosses_3d(ax, feasible_mask, i_vals, P_vals, z0)
-    [PP, II] = ndgrid(P_vals, i_vals);
-    infeasible_mask = ~feasible_mask;
-    if any(infeasible_mask(:))
-        ZZ = ones(size(II(infeasible_mask))) * z0;
-        plot3(ax, II(infeasible_mask), PP(infeasible_mask), ZZ, 'x', ...
-            'Color', [0.18 0.18 0.18], 'LineWidth', 1.0, 'MarkerSize', 7);
+function local_plot_infeasible_marks_3d(ax, feasible_mask, i_vals, P_vals, z0, plot_cfg)
+    style = lower(string(plot_cfg.infeasible_style));
+
+    switch style
+        case "none"
+            return;
+
+        case "gray_x"
+            [PP, II] = ndgrid(P_vals, i_vals);
+            infeasible_mask = ~feasible_mask;
+            if any(infeasible_mask(:))
+                ZZ = ones(size(II(infeasible_mask))) * z0;
+                plot3(ax, II(infeasible_mask), PP(infeasible_mask), ZZ, 'x', ...
+                    'Color', plot_cfg.infeasible_color, ...
+                    'LineWidth', plot_cfg.infeasible_linewidth, ...
+                    'MarkerSize', plot_cfg.infeasible_marker_size);
+            end
+
+        otherwise
+            error('plot_stage09_metric_stack3d_over_h:UnsupportedInfeasibleStyle', ...
+                'Unsupported infeasible_style: %s', plot_cfg.infeasible_style);
     end
 end
 
