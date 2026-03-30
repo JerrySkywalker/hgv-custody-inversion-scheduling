@@ -1,11 +1,16 @@
 function out = manual_smoke_stage09_phase4_multih_heatmaps(base)
 %MANUAL_SMOKE_STAGE09_PHASE4_MULTIH_HEATMAPS
-% Plot-only smoke for Phase4-A multi-height heatmaps.
+% Phase4-A smoke: export multi-height heatmap pack from cached/base data only.
+%
+% Usage:
+%   base = manual_smoke_stage09_phase1_metric_views_cached();
+%   out  = manual_smoke_stage09_phase4_multih_heatmaps(base);
 
     if nargin < 1 || isempty(base)
-        error('manual_smoke_stage09_phase4_multih_heatmaps:MissingBase', ...
-            ['A precomputed base struct is required.' newline ...
-             'Run: base = manual_smoke_stage09_phase1_metric_views_cached();']);
+        clear functions;
+        rehash;
+        startup;
+        base = manual_smoke_stage09_phase1_metric_views_cached();
     end
 
     fprintf('\n');

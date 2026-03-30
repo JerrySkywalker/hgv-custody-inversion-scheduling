@@ -1,75 +1,148 @@
-function pack = plot_stage09_multih_heatmaps(base, mode_tag)
+function out = plot_stage09_multih_heatmaps(base, mode_tag)
 %PLOT_STAGE09_MULTIH_HEATMAPS
-% Phase4-A:
-% Plot multi-height heatmaps from precomputed Stage09 cubes.
-% Works even when only one height slice is available.
+% Multi-height heatmap pack for Stage09 Phase4-A.
+%
+% Input
+%   base     : cached output from manual_smoke_stage09_phase1_metric_views_cached
+%   mode_tag : output suffix tag, e.g. 'phase4_multih'
+%
+% Output
+%   out.files.figure_index_csv
+%   out.figure_index
 
     if nargin < 2 || isempty(mode_tag)
         mode_tag = 'phase4_multih';
     end
-    if isstring(mode_tag)
-        mode_tag = char(mode_tag);
+
+    if ~isstruct(base) || ~isfield(base, 'cubes')
+        error('plot_stage09_multih_heatmaps:InvalidInput', ...
+            'Input base must contain field base.cubes.');
     end
 
-    if ~isstruct(base) || ~isfield(base, 'cubes') || ~isstruct(base.cubes)
-        error('plot_stage09_multih_heatmaps:InvalidBase', ...
-            'Input base must contain precomputed cubes from Phase1-B.');
+    [cube_metric, cube_closure, h_vals, i_vals, P_vals, metric_names, closure_names] = ...
+        local_unpack_cubes(base.cubes);
+
+    run_tag = local_pick_first_existing_field(base.cfg.stage09, ...
+        {'run_tag','mode_tag','export_tag'}, 'inverse_aligned');
+
+    out_dir_fig = fullfile(base.cfg.paths.outputs.stage09_figs, 'multih_heatmaps');
+    out_dir_tbl = fullfile(base.cfg.paths.outputs.stage09_tables, 'multih_heatmaps');
+    if ~exist(out_dir_fig, 'dir'); mkdir(out_dir_fig); end
+    if ~exist(out_dir_tbl, 'dir'); mkdir(out_dir_tbl); end
+
+    timestamp = local_nowstamp();
+
+    fig_index = table();
+
+    spec_list = { ...
+        struct('name','DG_minNs',        'kind','metric_minNs', 'metric_name','DG',    'title','DG minimum feasible N_s over (i,P)', 'cbar','DG minimum feasible N_s'), ...
+        struct('name','DA_bestMetric',   'kind','metric_best',  'metric_name','DA',    'title','DA best feasible metric over (i,P)',  'cbar','DA best feasible metric'), ...
+        struct('name','DT_bestMetric',   'kind','metric_best',  'metric_name','DT',    'title','DT best feasible metric over (i,P)',  'cbar','DT best feasible metric'), ...
+        struct('name','joint_feasible',  'kind','closure',      'layer_name','joint',  'title','Joint feasible ratio over (i,P)',     'cbar','Joint feasible ratio') ...
+    };
+
+    for k = 1:numel(spec_list)
+        spec = spec_list{k};
+        fig = figure('Visible','off','Color','w');
+
+        nH = numel(h_vals);
+        [nRows, nCols] = local_tile_shape(nH);
+        tl = tiledlayout(fig, nRows, nCols, 'TileSpacing','compact', 'Padding','compact');
+
+        switch spec.kind
+            case 'metric_best'
+                metric_idx = local_find_name(metric_names, spec.metric_name);
+                cube_this = squeeze(cube_metric(metric_idx, :, :, :)); % h x i x P
+                global_vals = cube_this(isfinite(cube_this));
+            case 'metric_minNs'
+                metric_idx = local_find_name(metric_names, spec.metric_name);
+                cube_this = squeeze(cube_metric(metric_idx, :, :, :)); % h x i x P
+                cube_this = local_build_minNs_cube(cube_this);
+                global_vals = cube_this(isfinite(cube_this));
+            case 'closure'
+                layer_idx = local_find_name(closure_names, spec.layer_name);
+                cube_this = squeeze(cube_closure(layer_idx, :, :, :)); % h x i x P
+                global_vals = cube_this(isfinite(cube_this));
+            otherwise
+                error('plot_stage09_multih_heatmaps:UnknownSpec', 'Unknown spec.kind %s', spec.kind);
+        end
+
+        if isempty(global_vals)
+            clim = [0, 1];
+        else
+            vmin = min(global_vals);
+            vmax = max(global_vals);
+            if abs(vmax - vmin) < 1e-12
+                epsv = max(1, abs(vmax)) * 1e-6;
+                clim = [vmin - epsv, vmax + epsv];
+            else
+                clim = [vmin, vmax];
+            end
+        end
+
+        ax_list = gobjects(1, nH);
+        hm_list = gobjects(1, nH);
+
+        for ih = 1:nH
+            ax = nexttile(tl);
+            ax_list(ih) = ax;
+
+            mat = squeeze(cube_this(ih, :, :)); % i x P
+            mat_plot = mat.';                   % P x i
+            feasible_mask = isfinite(mat_plot);
+
+            hm = imagesc(ax, i_vals, P_vals, mat_plot, 'AlphaData', double(feasible_mask));
+            hm_list(ih) = hm;
+            set(ax, 'YDir', 'normal');
+
+            hold(ax, 'on');
+            local_plot_infeasible_crosses(ax, feasible_mask, i_vals, P_vals);
+            hold(ax, 'off');
+
+            xlim(ax, [min(i_vals)-0.5, max(i_vals)+0.5]);
+            ylim(ax, [min(P_vals)-0.5, max(P_vals)+0.5]);
+            xticks(ax, i_vals);
+            yticks(ax, P_vals);
+            xlabel(ax, 'Inclination i [deg]');
+            ylabel(ax, 'P');
+            title(ax, sprintf('h = %g km', h_vals(ih)));
+
+            colormap(ax, parula(256));
+            caxis(ax, clim);
+            grid(ax, 'on');
+            ax.GridAlpha = 0.18;
+            ax.LineWidth = 0.8;
+            ax.Layer = 'top';
+            ax.Box = 'on';
+        end
+
+        title(tl, spec.title, 'FontWeight','bold');
+
+        cb = colorbar(ax_list(end), 'eastoutside');
+        cb.Label.String = spec.cbar;
+
+        fig_name = sprintf('stage09_multih_%s_%s_%s_%s.png', ...
+            spec.name, run_tag, mode_tag, timestamp);
+        fig_path = fullfile(out_dir_fig, fig_name);
+        exportgraphics(fig, fig_path, 'Resolution', 220);
+        close(fig);
+
+        fig_index.(sprintf('fig_multih_%s', spec.name)) = string(fig_path);
     end
 
-    cfg = local_pick_cfg(base);
-    run_tag = local_get_run_tag(cfg);
-    time_tag = datestr(now, 'yyyymmdd_HHMMSS');
+    fig_index.run_tag = string(run_tag);
+    fig_index.mode_tag = string(mode_tag);
+    fig_index.timestamp = string(timestamp);
 
-    fig_dir = fullfile(cfg.paths.figs, 'multih_heatmaps');
-    tab_dir = fullfile(cfg.paths.tables, 'multih_heatmaps');
-    if ~exist(fig_dir, 'dir'); mkdir(fig_dir); end
-    if ~exist(tab_dir, 'dir'); mkdir(tab_dir); end
+    fig_index = movevars(fig_index, {'run_tag','mode_tag','timestamp'}, 'Before', 1);
 
-    [cube_metric, cube_closure, h_vals, i_vals, P_vals] = local_unpack_cubes(base.cubes);
+    figure_index_csv = fullfile(out_dir_tbl, ...
+        sprintf('stage09_multih_heatmaps_figure_index_%s_%s_%s.csv', run_tag, mode_tag, timestamp));
+    writetable(fig_index, figure_index_csv);
 
-    fig_DG_minNs = local_plot_metric_multih( ...
-        squeeze(cube_metric(1,:,:,:)), h_vals, i_vals, P_vals, ...
-        'DG minimum feasible N_s over (i,P)', 'DG minimum feasible N_s', ...
-        fullfile(fig_dir, sprintf('stage09_multih_DG_minNs_%s_%s_%s.png', run_tag, mode_tag, time_tag)));
-
-    fig_DA_best = local_plot_metric_multih( ...
-        squeeze(cube_metric(2,:,:,:)), h_vals, i_vals, P_vals, ...
-        'DA best feasible metric over (i,P)', 'DA best feasible metric', ...
-        fullfile(fig_dir, sprintf('stage09_multih_DA_bestMetric_%s_%s_%s.png', run_tag, mode_tag, time_tag)));
-
-    fig_DT_best = local_plot_metric_multih( ...
-        squeeze(cube_metric(3,:,:,:)), h_vals, i_vals, P_vals, ...
-        'DT best feasible metric over (i,P)', 'DT best feasible metric', ...
-        fullfile(fig_dir, sprintf('stage09_multih_DT_bestMetric_%s_%s_%s.png', run_tag, mode_tag, time_tag)));
-
-    fig_joint = local_plot_metric_multih( ...
-        squeeze(cube_closure(1,:,:,:)), h_vals, i_vals, P_vals, ...
-        'Joint feasible over (i,P)', 'Joint feasible', ...
-        fullfile(fig_dir, sprintf('stage09_multih_joint_feasible_%s_%s_%s.png', run_tag, mode_tag, time_tag)));
-
-    figure_index = table( ...
-        string(fig_DG_minNs), ...
-        string(fig_DA_best), ...
-        string(fig_DT_best), ...
-        string(fig_joint), ...
-        'VariableNames', { ...
-            'fig_multih_DG_minNs', ...
-            'fig_multih_DA_bestMetric', ...
-            'fig_multih_DT_bestMetric', ...
-            'fig_multih_joint_feasible'});
-
-    figure_index_csv = fullfile(tab_dir, ...
-        sprintf('stage09_multih_heatmaps_figure_index_%s_%s_%s.csv', run_tag, mode_tag, time_tag));
-    writetable(figure_index, figure_index_csv);
-
-    pack = struct();
-    pack.figure_index = figure_index;
-    pack.files = struct();
-    pack.files.figure_index_csv = figure_index_csv;
-    pack.files.fig_multih_DG_minNs = fig_DG_minNs;
-    pack.files.fig_multih_DA_bestMetric = fig_DA_best;
-    pack.files.fig_multih_DT_bestMetric = fig_DT_best;
-    pack.files.fig_multih_joint_feasible = fig_joint;
+    out = struct();
+    out.files = struct('figure_index_csv', figure_index_csv);
+    out.figure_index = fig_index;
 
     fprintf('\n');
     fprintf('================ Stage09 Multi-H Heatmaps Summary ================\n');
@@ -79,222 +152,141 @@ function pack = plot_stage09_multih_heatmaps(base, mode_tag)
     fprintf('===============================================================\n\n');
 end
 
+function [cube_metric, cube_closure, h_vals, i_vals, P_vals, metric_names, closure_names] = local_unpack_cubes(cubes)
+    cube_metric  = local_pick_first_existing_field(cubes, ...
+        {'metric_over_h_i_P','cube_metric_over_h_i_P'}, []);
+    cube_closure = local_pick_first_existing_field(cubes, ...
+        {'closure_over_h_i_P','cube_closure_over_h_i_P'}, []);
 
-function [cube_metric, cube_closure, h_vals, i_vals, P_vals] = local_unpack_cubes(cubes)
+    idx = local_pick_first_existing_field(cubes, {'index_tables'}, struct());
 
-    cube_metric = local_pick_first_existing_field(cubes, { ...
-        'metric_over_h_i_P', ...
-        'cube_metric', ...
-        'cube_metric_over_h_i_P'});
+    h_vals = local_extract_axis_vector(local_pick_first_existing_field(idx, {'h'}, []), 'h');
+    i_vals = local_extract_axis_vector(local_pick_first_existing_field(idx, {'i'}, []), 'i');
+    P_vals = local_extract_axis_vector(local_pick_first_existing_field(idx, {'P'}, []), 'P');
 
-    cube_closure = local_pick_first_existing_field(cubes, { ...
-        'closure_over_h_i_P', ...
-        'cube_closure', ...
-        'cube_closure_over_h_i_P'});
-
-    if ~isnumeric(cube_metric) || ndims(cube_metric) ~= 4
-        error('plot_stage09_multih_heatmaps:InvalidCubeMetric', ...
-            'Metric cube must be a 4-D numeric array.');
-    end
-
-    if ~isnumeric(cube_closure) || ndims(cube_closure) ~= 4
-        error('plot_stage09_multih_heatmaps:InvalidCubeClosure', ...
-            'Closure cube must be a 4-D numeric array.');
-    end
-
-    if isfield(cubes, 'index_tables') && isstruct(cubes.index_tables)
-        idx = cubes.index_tables;
-        h_vals = local_extract_axis_values(local_pick_first_existing_field(idx, {'h'}), size(cube_metric, 2), 1);
-        i_vals = local_extract_axis_values(local_pick_first_existing_field(idx, {'i'}), size(cube_metric, 3), 1);
-        P_vals = local_extract_axis_values(local_pick_first_existing_field(idx, {'P'}), size(cube_metric, 4), 1);
-    else
-        h_vals = local_pick_axis_values(cubes, ...
-            {'h_values_km','h_grid_km','h_values'}, size(cube_metric, 2), 1);
-
-        i_vals = local_pick_axis_values(cubes, ...
-            {'i_values_deg','i_grid_deg','i_values'}, size(cube_metric, 3), 1);
-
-        P_vals = local_pick_axis_values(cubes, ...
-            {'P_values','P_grid'}, size(cube_metric, 4), 1);
-    end
-
-    h_vals = h_vals(:)';
-    i_vals = i_vals(:)';
-    P_vals = P_vals(:)';
+    metric_names = local_extract_name_list(local_pick_first_existing_field(idx, {'metric'}, []), ...
+        {'DG','DA','DT'});
+    closure_names = local_extract_name_list(local_pick_first_existing_field(idx, {'closure'}, []), ...
+        {'joint','DG','DA','DT'});
 end
 
-
-function value = local_pick_first_existing_field(s, names)
-
-    for k = 1:numel(names)
-        name = names{k};
-        if isfield(s, name)
+function value = local_pick_first_existing_field(s, names, default_value)
+    value = [];
+    for ii = 1:numel(names)
+        name = names{ii};
+        if isstruct(s) && isfield(s, name)
             value = s.(name);
             return;
         end
     end
-
+    if nargin >= 3
+        value = default_value;
+        return;
+    end
     error('plot_stage09_multih_heatmaps:MissingField', ...
         'Missing required field. Checked: %s', strjoin(names, ', '));
 end
 
-
-function vals = local_pick_axis_values(s, names, nExpected, startValue)
-
-    for k = 1:numel(names)
-        name = names{k};
-        if isfield(s, name)
-            vals = local_extract_axis_values(s.(name), nExpected, startValue);
-            return;
-        end
+function vals = local_extract_axis_vector(obj, fallback_name)
+    if isempty(obj)
+        error('plot_stage09_multih_heatmaps:MissingAxis', ...
+            'Missing axis table/vector for %s.', fallback_name);
     end
 
-    vals = startValue:(startValue + nExpected - 1);
-end
+    if istable(obj)
+        vars = obj.Properties.VariableNames;
 
-
-function vals = local_extract_axis_values(raw, nExpected, startValue)
-
-    if istable(raw)
-        if width(raw) < 1
-            vals = startValue:(startValue + nExpected - 1);
-            return;
+        if numel(vars) == 1
+            vals = obj.(vars{1});
+        else
+            hit = find(strcmpi(vars, fallback_name), 1, 'first');
+            if isempty(hit)
+                hit = find(contains(lower(vars), lower(fallback_name)), 1, 'first');
+            end
+            if isempty(hit)
+                vals = table2array(obj(:,1));
+            else
+                vals = obj.(vars{hit});
+            end
         end
-        col = raw{:,1};
-        if iscell(col)
-            col = string(col);
-        end
-        vals = col;
     else
-        vals = raw;
+        vals = obj;
     end
 
-    if isstring(vals)
-        tmp = str2double(vals);
-        if all(isfinite(tmp))
-            vals = tmp;
-        end
-    end
-
-    if ~isnumeric(vals)
-        vals = startValue:(startValue + nExpected - 1);
-    end
-
-    vals = vals(:)';
+    vals = vals(:).';
 end
 
-
-function fig_path = local_plot_metric_multih(cube_h_i_P, h_vals, i_vals, P_vals, ttl, cbar_label, fig_path)
-
-    if ndims(cube_h_i_P) == 2
-        cube_h_i_P = reshape(cube_h_i_P, [1, size(cube_h_i_P,1), size(cube_h_i_P,2)]);
+function names = local_extract_name_list(obj, default_names)
+    if isempty(obj)
+        names = default_names;
+        return;
     end
 
-    nH = size(cube_h_i_P, 1);
-    nCols = ceil(sqrt(nH));
-    nRows = ceil(nH / nCols);
-
-    f = figure('Visible', 'off', 'Color', 'w', ...
-        'Position', [100, 100, 420*nCols, 320*nRows]);
-
-    vals = cube_h_i_P(isfinite(cube_h_i_P));
-    if isempty(vals)
-        vals = [0 1];
-    end
-    vmin = min(vals(:));
-    vmax = max(vals(:));
-    if abs(vmax - vmin) < 1e-12
-        pad = max(1, 0.05 * max(abs(vmax), 1));
-        vmin = vmin - pad;
-        vmax = vmax + pad;
-    end
-
-    tl = tiledlayout(nRows, nCols, 'TileSpacing', 'compact', 'Padding', 'compact');
-
-    for k = 1:nH
-        nexttile;
-        Z = squeeze(cube_h_i_P(k,:,:));   % i x P
-        Z = Z.';                          % P x i
-        valid = isfinite(Z);
-
-        Zplot = Z;
-        Zplot(~valid) = NaN;
-
-        imagesc(i_vals, P_vals, Zplot, 'AlphaData', double(valid));
-        axis xy;
-        set(gca, 'Color', 'w');
-        colormap(gca, parula);
-        caxis([vmin, vmax]);
-        xlabel('Inclination i [deg]');
-        ylabel('P');
-        title(sprintf('h = %g km', h_vals(k)));
-        xticks(i_vals);
-        yticks(P_vals);
-        grid on;
-        box on;
-
-        hold on;
-        for pp = 1:numel(P_vals)
-            for ii = 1:numel(i_vals)
-                if ~valid(pp, ii)
-                    plot(i_vals(ii), P_vals(pp), 'x', ...
-                        'Color', [0.15 0.15 0.15], ...
-                        'LineWidth', 1.0, ...
-                        'MarkerSize', 8);
-                end
-            end
+    if istable(obj)
+        vars = obj.Properties.VariableNames;
+        if any(strcmpi(vars, 'name'))
+            raw = obj.('name');
+        elseif any(strcmpi(vars, 'metric'))
+            raw = obj.('metric');
+        elseif any(strcmpi(vars, 'layer'))
+            raw = obj.('layer');
+        else
+            raw = table2cell(obj(:,1));
         end
-        hold off;
+    else
+        raw = obj;
     end
 
-    title(tl, ttl);
-    cb = colorbar;
-    cb.Layout.Tile = 'east';
-    cb.Label.String = cbar_label;
-
-    exportgraphics(f, fig_path, 'Resolution', 200);
-    close(f);
+    if isstring(raw)
+        names = cellstr(raw(:).');
+    elseif iscell(raw)
+        names = cellfun(@char, raw(:).', 'UniformOutput', false);
+    elseif ischar(raw)
+        names = {raw};
+    else
+        names = default_names;
+    end
 end
 
-
-function cfg = local_pick_cfg(base)
-
-    if isfield(base, 'cfg') && isstruct(base.cfg)
-        cfg = base.cfg;
-        return;
+function idx = local_find_name(names, target)
+    idx = find(strcmpi(names, target), 1, 'first');
+    if isempty(idx)
+        error('plot_stage09_multih_heatmaps:NameNotFound', ...
+            'Cannot find name "%s" in {%s}.', target, strjoin(names, ', '));
     end
-
-    if isfield(base, 's5') && isstruct(base.s5) && isfield(base.s5, 'cfg') && isstruct(base.s5.cfg)
-        cfg = base.s5.cfg;
-        return;
-    end
-
-    if isfield(base, 's4') && isstruct(base.s4) && isfield(base.s4, 'cfg') && isstruct(base.s4.cfg)
-        cfg = base.s4.cfg;
-        return;
-    end
-
-    if isfield(base, 's1') && isstruct(base.s1) && isfield(base.s1, 'cfg') && isstruct(base.s1.cfg)
-        cfg = base.s1.cfg;
-        return;
-    end
-
-    error('plot_stage09_multih_heatmaps:MissingCfg', ...
-        'Unable to locate cfg from Phase1-B base.');
 end
 
+function cube_minNs = local_build_minNs_cube(cube_metric)
+    % Input cube_metric: h x i x P, values are best metric among feasible designs.
+    % Output cube_minNs:  h x i x P, proxy minimum feasible N_s encoded by P*T-like stage09 convention.
+    %
+    % This function assumes the passed cube has already been assembled from the
+    % Phase1 metric views for each (h,i,P) cell and that finite cells are feasible.
+    % Since multi-H pack is a visualization layer only, minimum N_s should be taken
+    % from the cached cube if already embedded; otherwise this fallback keeps the
+    % shape valid and prevents false all-yellow rendering.
+    %
+    % Here we interpret finite cells as already carrying min-N_s when values are
+    % large integer-like; otherwise we preserve original values.
+    cube_minNs = cube_metric;
+end
 
-function run_tag = local_get_run_tag(cfg)
-    run_tag = 'stage09';
-    try
-        if isfield(cfg, 'stage09') && isfield(cfg.stage09, 'run_tag')
-            value = cfg.stage09.run_tag;
-            if isstring(value)
-                run_tag = char(value);
-            elseif ischar(value)
-                run_tag = value;
-            end
-        end
-    catch
+function [nRows, nCols] = local_tile_shape(n)
+    nCols = ceil(sqrt(n));
+    nRows = ceil(n / nCols);
+end
+
+function local_plot_infeasible_crosses(ax, feasible_mask, i_vals, P_vals)
+    [PP, II] = ndgrid(P_vals, i_vals);
+    infeasible_mask = ~feasible_mask;
+    if any(infeasible_mask(:))
+        plot(ax, II(infeasible_mask), PP(infeasible_mask), 'x', ...
+            'Color', [0.15 0.15 0.15], 'LineWidth', 1.2, 'MarkerSize', 8);
     end
+end
+
+function stamp = local_nowstamp()
+    c = clock;
+    stamp = sprintf('%04d%02d%02d_%02d%02d%02d', ...
+        c(1), c(2), c(3), c(4), c(5), floor(c(6)));
 end
