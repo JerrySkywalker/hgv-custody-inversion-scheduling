@@ -7,7 +7,7 @@ function pack = plot_stage09_joint_stage05_pack(out_or_view, mode_tag)
     end
 
     [metric_view, metric_frontiers, cfg] = local_unpack_inputs(out_or_view);
-    pack = plot_stage09_metric_stage05_ninepack(metric_view.joint.table, metric_frontiers.joint, 'DG', cfg, mode_tag);
+    pack = plot_stage09_metric_stage05_ninepack(metric_view.joint.table, metric_frontiers.joint, 'joint', cfg, mode_tag);
 end
 
 
