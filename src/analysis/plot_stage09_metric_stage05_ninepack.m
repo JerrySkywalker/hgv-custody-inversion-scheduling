@@ -479,37 +479,57 @@ function local_plot_masked_heatmap(X_i, Y_P, Z, txt, mask, ttl, xlbl, ylbl)
         return;
     end
 
-    base = ones(size(Z));
-    imagesc(X_i, Y_P, base);
-    axis xy;
-    colormap(gca, gray(2));
-    caxis([0 1]);
-    set(gca, 'Color', 'w');
-    hold on;
+    valid = mask & isfinite(Z);
 
-    Zoverlay = Z;
-    Zoverlay(~mask) = NaN;
-    imagesc(X_i, Y_P, Zoverlay, 'AlphaData', double(mask));
+    Zplot = Z;
+    Zplot(~valid) = NaN;
+
+    hImg = imagesc(X_i, Y_P, Zplot, 'AlphaData', double(valid));
     axis xy;
+    set(gca, 'Color', 'w');
     colormap(gca, parula);
 
-    xlabel(xlbl);
-    ylabel(ylbl);
-    title(ttl);
-    colorbar;
-    grid on; box on;
+    vals = Z(valid);
+    if ~isempty(vals)
+        vmin = min(vals(:));
+        vmax = max(vals(:));
+        if ~(isfinite(vmin) && isfinite(vmax))
+            vmin = 0;
+            vmax = 1;
+        end
 
-    for pp = 1:numel(Y_P)
-        for ii = 1:numel(X_i)
-            if mask(pp, ii) && strlength(txt(pp,ii)) > 0
-                text(X_i(ii), Y_P(pp), txt(pp,ii), ...
-                    'HorizontalAlignment', 'center', ...
-                    'VerticalAlignment', 'middle');
-            elseif ~mask(pp, ii)
-                plot(X_i(ii), Y_P(pp), 'x', 'Color', [0.15 0.15 0.15], 'LineWidth', 1.2, 'MarkerSize', 9);
-            end
+        if abs(vmax - vmin) < 1e-12
+            pad = max(1, 0.05 * max(abs(vmax), 1));
+            caxis([vmin - pad, vmax + pad]);
+        else
+            caxis([vmin, vmax]);
         end
     end
 
+    colorbar;
+    xlabel(xlbl);
+    ylabel(ylbl);
+    title(ttl);
+    grid on;
+    box on;
+    xticks(X_i);
+    yticks(Y_P);
+
+    hold on;
+    for pp = 1:numel(Y_P)
+        for ii = 1:numel(X_i)
+            if valid(pp, ii) && strlength(txt(pp,ii)) > 0
+                text(X_i(ii), Y_P(pp), txt(pp,ii), ...
+                    'HorizontalAlignment', 'center', ...
+                    'VerticalAlignment', 'middle', ...
+                    'Color', 'k');
+            elseif ~mask(pp, ii)
+                plot(X_i(ii), Y_P(pp), 'x', ...
+                    'Color', [0.15 0.15 0.15], ...
+                    'LineWidth', 1.2, ...
+                    'MarkerSize', 9);
+            end
+        end
+    end
     hold off;
 end
