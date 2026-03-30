@@ -68,7 +68,7 @@ function frontiers = build_stage09_metric_frontiers(views, cfg, mode_tag)
     end
 
     fprintf('\n');
-    fprintf('========== Stage09 Metric Frontiers (Phase1) ==========\n');
+    fprintf('========== Stage09 Metric Frontiers (Phase1-B) ==========\n');
     fprintf('run_tag  : %s\n', run_tag);
     fprintf('mode_tag : %s\n', mode_tag);
     for k = 1:numel(metrics)
@@ -79,7 +79,7 @@ function frontiers = build_stage09_metric_frontiers(views, cfg, mode_tag)
             height(frontiers.(name).pareto_frontier), ...
             height(frontiers.(name).transition_summary));
     end
-    fprintf('=======================================================\n\n');
+    fprintf('=========================================================\n\n');
 end
 
 
@@ -109,6 +109,7 @@ function Tfront = local_frontier_by_i(V)
     Tfront.Properties.VariableNames{'Ns'} = 'frontier_Ns';
     Tfront.Properties.VariableNames{'metric_value'} = 'frontier_metric';
     Tfront.Properties.VariableNames{'metric_margin'} = 'frontier_margin';
+    Tfront.has_feasible_frontier = true(height(Tfront),1);
 end
 
 
@@ -176,7 +177,7 @@ end
 
 function Tpareto = local_pareto_frontier(V)
 
-    Tfeas = V(V.feasible_flag, :);
+    Tfeas = V(V.is_pareto_candidate, :);
     if isempty(Tfeas)
         Tpareto = table();
         return;
@@ -185,6 +186,7 @@ function Tpareto = local_pareto_frontier(V)
     Ns_unique = unique(Tfeas.Ns(:));
     rows = cell(0,1);
     current_best = -inf;
+    rank_counter = 0;
 
     for kk = 1:numel(Ns_unique)
         ns0 = Ns_unique(kk);
@@ -194,13 +196,16 @@ function Tpareto = local_pareto_frontier(V)
         Tm = sortrows(Tm, {'P','T','h_km'}, {'ascend','ascend','ascend'});
         row = Tm(1, :);
         if row.metric_value > current_best
+            rank_counter = rank_counter + 1;
+            row.pareto_rank = rank_counter;
             rows{end+1,1} = row; %#ok<AGROW>
             current_best = row.metric_value;
         end
     end
 
     Tpareto = vertcat(rows{:});
-    Tpareto = Tpareto(:, {'h_km','i_deg','P','T','F','Ns','metric_name','metric_value','pass_ratio','feasible_flag'});
+    Tpareto = Tpareto(:, {'h_km','i_deg','P','T','F','Ns','metric_name','metric_value','pass_ratio','feasible_flag','pareto_rank'});
+    Tpareto.is_degenerate_pareto = repmat(height(Tpareto) <= 1, height(Tpareto), 1);
 end
 
 
@@ -270,18 +275,22 @@ function Tsum = local_transition_summary(V, Tfront)
         Tf = Tfront(Tfront.i_deg == i0, :);
         if isempty(Tf)
             frontier_Ns = NaN; frontier_metric = NaN; frontier_h = NaN; frontier_P = NaN; frontier_T = NaN;
+            frontier_passratio = NaN; frontier_feasible_flag = false; has_feasible_frontier = false;
         else
             frontier_Ns = Tf.frontier_Ns(1);
             frontier_metric = Tf.frontier_metric(1);
             frontier_h = Tf.h_km(1);
             frontier_P = Tf.P(1);
             frontier_T = Tf.T(1);
+            frontier_passratio = Tf.pass_ratio(1);
+            frontier_feasible_flag = Tf.feasible_flag(1);
+            has_feasible_frontier = Tf.has_feasible_frontier(1);
         end
 
         rows{end+1,1} = table(i0, first_pass_ratio, first_metric_pass, first_feasible, ...
-            frontier_h, frontier_P, frontier_T, frontier_Ns, frontier_metric, ...
+            frontier_h, frontier_P, frontier_T, frontier_Ns, frontier_metric, frontier_passratio, frontier_feasible_flag, has_feasible_frontier, ...
             'VariableNames', {'i_deg','first_Ns_passratio1','first_Ns_metric_pass','first_Ns_feasible', ...
-                              'frontier_h_km','frontier_P','frontier_T','frontier_Ns','frontier_metric'}); %#ok<AGROW>
+                              'frontier_h_km','frontier_P','frontier_T','frontier_Ns','frontier_metric','frontier_passratio','frontier_feasible_flag','has_feasible_frontier'}); %#ok<AGROW>
     end
 
     Tsum = vertcat(rows{:});
