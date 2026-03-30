@@ -99,11 +99,22 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
         C = mat_plot;
         C(~feasible_mask) = NaN;
 
-        surf(ax, X, Y, Z, C, ...
-            'EdgeColor', plot_cfg.edge_color, ...
-            'LineWidth', plot_cfg.edge_linewidth, ...
+        s = surf(ax, X, Y, Z, C, ...
             'FaceColor', 'interp', ...
-            'FaceAlpha', plot_cfg.face_alpha);
+            'FaceAlpha', plot_cfg.face_alpha, ...
+            'LineWidth', plot_cfg.edge_linewidth);
+
+        if plot_cfg.edge_alpha <= 0
+            set(s, 'EdgeColor', 'none');
+        else
+            set(s, 'EdgeColor', plot_cfg.edge_color);
+            try
+                set(s, 'EdgeAlpha', plot_cfg.edge_alpha);
+            catch
+                % Fallback for MATLAB versions that do not support EdgeAlpha well.
+                set(s, 'EdgeColor', plot_cfg.edge_color);
+            end
+        end
 
         local_plot_infeasible_marks_3d(ax, feasible_mask, i_vals, P_vals, ...
             (ih - 1) * z_gap, plot_cfg);
@@ -134,6 +145,7 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     yticks(ax, P_vals);
     zticks(ax, (0:numel(h_vals)-1) * z_gap);
     zticklabels(ax, compose('%g km', h_vals));
+
     grid(ax, 'on');
     ax.GridAlpha = plot_cfg.grid_alpha;
     ax.LineWidth = plot_cfg.axis_linewidth;
@@ -184,16 +196,57 @@ end
 function plot_cfg = local_resolve_plot_cfg(base)
     plot_cfg = struct();
 
-    plot_cfg.z_gap = 1.6;
-    plot_cfg.view_az = -52;
-    plot_cfg.view_el = 28;
-    plot_cfg.figure_position = [100 100 1400 920];
+    % ============================================================
+    % MAIN TUNING KNOB 1:
+    % z_gap controls the separation between altitude layers.
+    %
+    % If the stacked layers still look crowded, increase this value.
+    % Recommended range for current Stage09 plots:
+    %   1.6 ~ 2.8
+    %
+    % Current default:
+    %   2.2
+    % ============================================================
+    plot_cfg.z_gap = 2.2;
 
+    % ============================================================
+    % MAIN TUNING KNOB 2:
+    % face_alpha controls surface transparency.
+    %
+    % Smaller value  -> more transparent
+    % Larger value   -> more solid
+    %
+    % Recommended range:
+    %   0.80 ~ 0.92
+    %
+    % Current default:
+    %   0.86
+    % ============================================================
+    plot_cfg.face_alpha = 0.86;
+
+    plot_cfg.view_az = -54;
+    plot_cfg.view_el = 30;
+    plot_cfg.figure_position = [100 100 1450 940];
+
+    % ============================================================
+    % MAIN TUNING KNOB 3:
+    % edge_alpha controls surface edge-line visibility.
+    %
+    %   0.0  -> fully hidden (recommended default)
+    %   >0   -> visible edge lines
+    %
+    % If you want faint layer grid lines on each surface, try:
+    %   edge_alpha = 0.10 ~ 0.20
+    %
+    % Current default:
+    %   0.0
+    % ============================================================
+    plot_cfg.edge_alpha = 0.0;
     plot_cfg.edge_color = [0.55 0.55 0.55];
     plot_cfg.edge_linewidth = 0.55;
-    plot_cfg.face_alpha = 0.98;
 
-    plot_cfg.grid_alpha = 0.18;
+    % background grid
+    plot_cfg.grid_alpha = 0.10;
     plot_cfg.axis_linewidth = 0.9;
 
     plot_cfg.h_label_x_offset = 2.0;
@@ -217,6 +270,15 @@ function plot_cfg = local_resolve_plot_cfg(base)
 
             if isfield(p, 'z_gap') && ~isempty(p.z_gap)
                 plot_cfg.z_gap = p.z_gap;
+            end
+            if isfield(p, 'face_alpha') && ~isempty(p.face_alpha)
+                plot_cfg.face_alpha = p.face_alpha;
+            end
+            if isfield(p, 'edge_alpha') && ~isempty(p.edge_alpha)
+                plot_cfg.edge_alpha = p.edge_alpha;
+            end
+            if isfield(p, 'grid_alpha') && ~isempty(p.grid_alpha)
+                plot_cfg.grid_alpha = p.grid_alpha;
             end
             if isfield(p, 'view_az') && ~isempty(p.view_az)
                 plot_cfg.view_az = p.view_az;
