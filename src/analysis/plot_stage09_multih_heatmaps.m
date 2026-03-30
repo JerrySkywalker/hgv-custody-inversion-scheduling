@@ -104,9 +104,9 @@ function [cube_metric, cube_closure, h_vals, i_vals, P_vals] = local_unpack_cube
 
     if isfield(cubes, 'index_tables') && isstruct(cubes.index_tables)
         idx = cubes.index_tables;
-        h_vals = local_pick_first_existing_field(idx, {'h','h_values_km','h_grid_km','h_values'});
-        i_vals = local_pick_first_existing_field(idx, {'i','i_values_deg','i_grid_deg','i_values'});
-        P_vals = local_pick_first_existing_field(idx, {'P','P_values','P_grid'});
+        h_vals = local_extract_axis_values(local_pick_first_existing_field(idx, {'h'}), size(cube_metric, 2), 1);
+        i_vals = local_extract_axis_values(local_pick_first_existing_field(idx, {'i'}), size(cube_metric, 3), 1);
+        P_vals = local_extract_axis_values(local_pick_first_existing_field(idx, {'P'}), size(cube_metric, 4), 1);
     else
         h_vals = local_pick_axis_values(cubes, ...
             {'h_values_km','h_grid_km','h_values'}, size(cube_metric, 2), 1);
@@ -144,13 +144,43 @@ function vals = local_pick_axis_values(s, names, nExpected, startValue)
     for k = 1:numel(names)
         name = names{k};
         if isfield(s, name)
-            vals = s.(name);
-            vals = vals(:)';
+            vals = local_extract_axis_values(s.(name), nExpected, startValue);
             return;
         end
     end
 
     vals = startValue:(startValue + nExpected - 1);
+end
+
+
+function vals = local_extract_axis_values(raw, nExpected, startValue)
+
+    if istable(raw)
+        if width(raw) < 1
+            vals = startValue:(startValue + nExpected - 1);
+            return;
+        end
+        col = raw{:,1};
+        if iscell(col)
+            col = string(col);
+        end
+        vals = col;
+    else
+        vals = raw;
+    end
+
+    if isstring(vals)
+        tmp = str2double(vals);
+        if all(isfinite(tmp))
+            vals = tmp;
+        end
+    end
+
+    if ~isnumeric(vals)
+        vals = startValue:(startValue + nExpected - 1);
+    end
+
+    vals = vals(:)';
 end
 
 
