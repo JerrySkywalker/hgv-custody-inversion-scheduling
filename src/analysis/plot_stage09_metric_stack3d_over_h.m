@@ -49,7 +49,6 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
         mkdir(out_dir_tbl);
     end
 
-    % ---------------- plot configuration ----------------
     plot_cfg = local_resolve_plot_cfg(base);
 
     timestamp = local_nowstamp();
@@ -111,7 +110,6 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
             try
                 set(s, 'EdgeAlpha', plot_cfg.edge_alpha);
             catch
-                % Fallback for MATLAB versions that do not support EdgeAlpha well.
                 set(s, 'EdgeColor', plot_cfg.edge_color);
             end
         end
@@ -145,6 +143,29 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
     yticks(ax, P_vals);
     zticks(ax, (0:numel(h_vals)-1) * z_gap);
     zticklabels(ax, compose('%g km', h_vals));
+
+    % ------------------------------------------------------------
+    % MAIN TUNING KNOB 4:
+    % z_visual_scale controls VISUAL stretching of the vertical axis.
+    %
+    % Important:
+    %   Increasing z_gap changes the data-space layer separation.
+    %   But MATLAB 3D rendering may still visually compress z.
+    %
+    % Therefore:
+    %   z_gap           = data-space separation
+    %   z_visual_scale  = display-space vertical exaggeration
+    %
+    % If z still looks compressed, increase z_visual_scale first.
+    %
+    % Recommended range:
+    %   1.2 ~ 3.0
+    %
+    % Example:
+    %   z_visual_scale = 2.2
+    % ------------------------------------------------------------
+    pbaspect(ax, [1.35 1.0 1.75 * plot_cfg.z_visual_scale]);
+    daspect(ax, [1 1 1 / plot_cfg.z_visual_scale]);
 
     grid(ax, 'on');
     ax.GridAlpha = plot_cfg.grid_alpha;
@@ -185,11 +206,13 @@ function out = plot_stage09_metric_stack3d_over_h(base, metric_name, mode_tag)
 
     fprintf('\n');
     fprintf('================ Stage09 Metric Stack3D Summary ================\n');
-    fprintf('metric       : %s\n', canonical_name);
-    fprintf('run_tag      : %s\n', run_tag);
-    fprintf('mode_tag     : %s\n', mode_tag);
-    fprintf('figure index : %s\n', figure_index_csv);
-    fprintf('layer table  : %s\n', layer_summary_csv);
+    fprintf('metric         : %s\n', canonical_name);
+    fprintf('run_tag        : %s\n', run_tag);
+    fprintf('mode_tag       : %s\n', mode_tag);
+    fprintf('z_gap          : %.4f\n', plot_cfg.z_gap);
+    fprintf('z_visual_scale : %.4f\n', plot_cfg.z_visual_scale);
+    fprintf('figure index   : %s\n', figure_index_csv);
+    fprintf('layer table    : %s\n', layer_summary_csv);
     fprintf('===============================================================\n\n');
 end
 
@@ -198,45 +221,49 @@ function plot_cfg = local_resolve_plot_cfg(base)
 
     % ============================================================
     % MAIN TUNING KNOB 1:
-    % z_gap controls the separation between altitude layers.
+    % z_gap controls the separation between altitude layers in data space.
     %
-    % If the stacked layers still look crowded, increase this value.
-    % Recommended range for current Stage09 plots:
-    %   1.6 ~ 2.8
+    % If layers are numerically too close, increase this.
+    % But note: large z_gap alone does NOT guarantee strong visual height,
+    % because MATLAB may still compress the z axis on screen.
+    %
+    % Current default:
+    %   2.6
+    % ============================================================
+    plot_cfg.z_gap = 2.6;
+
+    % ============================================================
+    % MAIN TUNING KNOB 2:
+    % z_visual_scale controls VISUAL vertical exaggeration.
+    %
+    % This is usually more effective than only increasing z_gap.
+    %
+    % Larger value -> z axis looks taller on screen.
     %
     % Current default:
     %   2.2
     % ============================================================
-    plot_cfg.z_gap = 2.2;
+    plot_cfg.z_visual_scale = 2.2;
 
     % ============================================================
-    % MAIN TUNING KNOB 2:
+    % MAIN TUNING KNOB 3:
     % face_alpha controls surface transparency.
-    %
-    % Smaller value  -> more transparent
-    % Larger value   -> more solid
-    %
-    % Recommended range:
-    %   0.80 ~ 0.92
     %
     % Current default:
     %   0.86
     % ============================================================
     plot_cfg.face_alpha = 0.86;
 
-    plot_cfg.view_az = -54;
-    plot_cfg.view_el = 30;
-    plot_cfg.figure_position = [100 100 1450 940];
+    plot_cfg.view_az = -56;
+    plot_cfg.view_el = 28;
+    plot_cfg.figure_position = [100 100 1450 980];
 
     % ============================================================
-    % MAIN TUNING KNOB 3:
+    % MAIN TUNING KNOB 4:
     % edge_alpha controls surface edge-line visibility.
     %
-    %   0.0  -> fully hidden (recommended default)
-    %   >0   -> visible edge lines
-    %
-    % If you want faint layer grid lines on each surface, try:
-    %   edge_alpha = 0.10 ~ 0.20
+    %   0.0  -> hidden
+    %   >0   -> visible
     %
     % Current default:
     %   0.0
@@ -245,8 +272,18 @@ function plot_cfg = local_resolve_plot_cfg(base)
     plot_cfg.edge_color = [0.55 0.55 0.55];
     plot_cfg.edge_linewidth = 0.55;
 
-    % background grid
-    plot_cfg.grid_alpha = 0.10;
+    % ============================================================
+    % MAIN TUNING KNOB 5:
+    % grid_alpha controls background grid visibility.
+    %
+    %   0.0  -> nearly hidden
+    %   0.05 ~ 0.15 -> faint grid
+    %
+    % Current default:
+    %   0.08
+    % ============================================================
+    plot_cfg.grid_alpha = 0.08;
+
     plot_cfg.axis_linewidth = 0.9;
 
     plot_cfg.h_label_x_offset = 2.0;
@@ -270,6 +307,9 @@ function plot_cfg = local_resolve_plot_cfg(base)
 
             if isfield(p, 'z_gap') && ~isempty(p.z_gap)
                 plot_cfg.z_gap = p.z_gap;
+            end
+            if isfield(p, 'z_visual_scale') && ~isempty(p.z_visual_scale)
+                plot_cfg.z_visual_scale = p.z_visual_scale;
             end
             if isfield(p, 'face_alpha') && ~isempty(p.face_alpha)
                 plot_cfg.face_alpha = p.face_alpha;
