@@ -43,8 +43,6 @@ function out = plot_stage09_closure_heatmaps(base, mode_tag)
     fig = figure('Visible','off','Color','w','Position',[100 100 760 1200]);
     tl = tiledlayout(fig, 4, 1, 'TileSpacing','compact', 'Padding','compact');
 
-    fig_paths = strings(4,1);
-
     for k = 1:numel(layer_specs)
         spec = layer_specs{k};
         layer_idx = local_find_name(closure_names, spec.layer_name);
@@ -235,32 +233,65 @@ function value = local_pick_first_existing_field(s, names, default_value)
         'Missing required field. Checked: %s', strjoin(names, ', '));
 end
 
-function vals = local_extract_axis_vector(obj, fallback_name)
+function vals = local_extract_axis_vector(obj, axis_name)
     if isempty(obj)
         error('plot_stage09_closure_heatmaps:MissingAxis', ...
-            'Missing axis table/vector for %s.', fallback_name);
+            'Missing axis table/vector for %s.', axis_name);
     end
 
     if istable(obj)
         vars = obj.Properties.VariableNames;
-        if numel(vars) == 1
-            vals = obj.(vars{1});
-        else
-            hit = find(strcmpi(vars, fallback_name), 1, 'first');
-            if isempty(hit)
-                hit = find(contains(lower(vars), lower(fallback_name)), 1, 'first');
-            end
-            if isempty(hit)
-                vals = table2array(obj(:,1));
+        vars_lower = lower(vars);
+
+        switch lower(axis_name)
+            case 'h'
+                preferred = {'h_km','altitude_km','height_km','h'};
+            case 'i'
+                preferred = {'i_deg','inclination_deg','inclination','i'};
+            case 'p'
+                preferred = {'p'};
+            otherwise
+                preferred = {axis_name};
+        end
+
+        hit = local_find_first_var(vars, vars_lower, preferred);
+
+        if isempty(hit)
+            non_index = ~contains(vars_lower, 'idx');
+            if any(non_index)
+                idx_first = find(non_index, 1, 'first');
+                vals = obj.(vars{idx_first});
             else
-                vals = obj.(vars{hit});
+                vals = table2array(obj(:,1));
             end
+        else
+            vals = obj.(hit);
         end
     else
         vals = obj;
     end
 
     vals = vals(:).';
+end
+
+function hit = local_find_first_var(vars, vars_lower, preferred)
+    hit = '';
+
+    for k = 1:numel(preferred)
+        idx = find(strcmpi(vars, preferred{k}), 1, 'first');
+        if ~isempty(idx)
+            hit = vars{idx};
+            return;
+        end
+    end
+
+    for k = 1:numel(preferred)
+        idx = find(contains(vars_lower, lower(preferred{k})), 1, 'first');
+        if ~isempty(idx)
+            hit = vars{idx};
+            return;
+        end
+    end
 end
 
 function names = local_extract_name_list(obj, default_names)

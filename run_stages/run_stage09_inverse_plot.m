@@ -135,7 +135,7 @@ function out = local_run_layered_suite(cfg, enable_multih, enable_stack3d)
          local_phase5_pack_csv(stack3d)], ...
         'VariableNames', {'component', 'skipped', 'skip_reason', 'primary_index_csv'});
 
-    table_dir = fullfile(cfg.paths.tables, 'layered_suite');
+    table_dir = local_resolve_stage09_table_dir(cfg, 'layered_suite');
     if ~exist(table_dir, 'dir')
         mkdir(table_dir);
     end
@@ -173,7 +173,6 @@ function cache_dir = local_resolve_stage09_cache_dir(cfg)
 
     cache_dir = '';
 
-    % Preferred: explicit stage09 cache fields, if present
     if isfield(cfg, 'paths') && isstruct(cfg.paths)
         if isfield(cfg.paths, 'outputs') && isstruct(cfg.paths.outputs)
             outputs = cfg.paths.outputs;
@@ -192,7 +191,6 @@ function cache_dir = local_resolve_stage09_cache_dir(cfg)
         end
     end
 
-    % Robust fallback: project-root-based canonical Stage09 cache dir
     startup_path = which('startup.m');
     if ~isempty(startup_path)
         project_root = fileparts(startup_path);
@@ -203,7 +201,6 @@ function cache_dir = local_resolve_stage09_cache_dir(cfg)
         end
     end
 
-    % Last fallback: generic cfg.paths.cache
     if isfield(cfg, 'paths') && isstruct(cfg.paths) && isfield(cfg.paths, 'cache')
         candidate = cfg.paths.cache;
         if isfolder(candidate)
@@ -214,6 +211,46 @@ function cache_dir = local_resolve_stage09_cache_dir(cfg)
 
     error('run_stage09_inverse_plot:Stage09CacheDirNotFound', ...
         'Cannot resolve Stage09 cache directory.');
+end
+
+
+function table_dir = local_resolve_stage09_table_dir(cfg, subdir)
+
+    table_dir = '';
+
+    if isfield(cfg, 'paths') && isstruct(cfg.paths)
+        if isfield(cfg.paths, 'outputs') && isstruct(cfg.paths.outputs)
+            outputs = cfg.paths.outputs;
+
+            candidate_fields = {'stage09_tables', 'tables_stage09'};
+            for k = 1:numel(candidate_fields)
+                f = candidate_fields{k};
+                if isfield(outputs, f) && ~isempty(outputs.(f))
+                    candidate = outputs.(f);
+                    if isfolder(candidate)
+                        table_dir = fullfile(candidate, subdir);
+                        return;
+                    end
+                end
+            end
+        end
+    end
+
+    startup_path = which('startup.m');
+    if ~isempty(startup_path)
+        project_root = fileparts(startup_path);
+        candidate = fullfile(project_root, 'outputs', 'stage', 'stage09', 'tables');
+        table_dir = fullfile(candidate, subdir);
+        return;
+    end
+
+    if isfield(cfg, 'paths') && isstruct(cfg.paths) && isfield(cfg.paths, 'tables')
+        table_dir = fullfile(cfg.paths.tables, subdir);
+        return;
+    end
+
+    error('run_stage09_inverse_plot:Stage09TableDirNotFound', ...
+        'Cannot resolve Stage09 table directory.');
 end
 
 
