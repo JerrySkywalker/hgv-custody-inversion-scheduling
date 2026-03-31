@@ -140,7 +140,6 @@ function out = plot_stage09_bundle_all_packs(base, mode_tag, opts)
 
     % ------------------------------------------------------------
     % 7) Master figure index
-    %    One-row summary pointing to each child figure-index CSV.
     % ------------------------------------------------------------
     master_index = table( ...
         string(run_tag), ...
@@ -335,3 +334,8 @@ function value = local_get_opt_logical(opts, field_name, default_value)
 end
 
 
+function stamp = local_nowstamp()
+    c = clock;
+    stamp = sprintf('%04d%02d%02d_%02d%02d%02d', ...
+        c(1), c(2), c(3), c(4), c(5), floor(c(6)));
+end
