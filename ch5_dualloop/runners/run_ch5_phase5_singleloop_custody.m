@@ -72,8 +72,12 @@ txt_lines = {
     '=== Chapter 5 Phase 5 T vs C Summary ==='
     ['scene_preset         = ', cfg.ch5.scene_preset]
     ['phi_threshold        = ', num2str(cfg.ch5.custody_phi_threshold, '%.6f')]
-    ['gap_weight           = ', num2str(cfg.ch5.custody_gap_weight, '%.6f')]
-    ['outage_weight        = ', num2str(cfg.ch5.custody_outage_weight, '%.6f')]
+    ['w_longest_bad        = ', num2str(cfg.ch5.custody_longest_bad_weight, '%.6f')]
+    ['w_worst_gap          = ', num2str(cfg.ch5.custody_worst_gap_weight, '%.6f')]
+    ['w_outage_frac        = ', num2str(cfg.ch5.custody_outage_frac_weight, '%.6f')]
+    ['w_mean_gap           = ', num2str(cfg.ch5.custody_mean_gap_weight, '%.6f')]
+    ['w_mean_future        = ', num2str(cfg.ch5.custody_mean_future_weight, '%.6f')]
+    ['w_switch             = ', num2str(cfg.ch5.custody_switch_weight, '%.6f')]
     ['T_mean_rmse          = ', num2str(trackingT.mean_rmse, '%.6f')]
     ['C_mean_rmse          = ', num2str(trackingC.mean_rmse, '%.6f')]
     ['T_q_worst            = ', num2str(custodyT.q_worst, '%.6f')]
@@ -93,10 +97,9 @@ log_lines = {
     ['[INFO] output_root = ', out_root]
     ['[INFO] scene_preset = ', cfg.ch5.scene_preset]
     ['[INFO] phi_threshold = ', num2str(cfg.ch5.custody_phi_threshold, '%.6f')]
-    ['[INFO] gap_weight = ', num2str(cfg.ch5.custody_gap_weight, '%.6f')]
-    ['[INFO] outage_weight = ', num2str(cfg.ch5.custody_outage_weight, '%.6f')]
-    ['[INFO] T_mean_rmse = ', num2str(trackingT.mean_rmse, '%.6f')]
-    ['[INFO] C_mean_rmse = ', num2str(trackingC.mean_rmse, '%.6f')]
+    ['[INFO] w_longest_bad = ', num2str(cfg.ch5.custody_longest_bad_weight, '%.6f')]
+    ['[INFO] w_worst_gap = ', num2str(cfg.ch5.custody_worst_gap_weight, '%.6f')]
+    ['[INFO] w_outage_frac = ', num2str(cfg.ch5.custody_outage_frac_weight, '%.6f')]
     ['[INFO] T_q_worst = ', num2str(custodyT.q_worst, '%.6f')]
     ['[INFO] C_q_worst = ', num2str(custodyC.q_worst, '%.6f')]
     ['[INFO] T_outage_ratio = ', num2str(custodyT.outage_ratio, '%.6f')]
@@ -117,8 +120,9 @@ if verbose
     disp('=== Chapter 5 Phase 5 T vs C Summary ===')
     disp(['scene_preset = ', cfg.ch5.scene_preset])
     disp(['phi_threshold = ', num2str(cfg.ch5.custody_phi_threshold, '%.6f')])
-    disp(['gap_weight = ', num2str(cfg.ch5.custody_gap_weight, '%.6f')])
-    disp(['outage_weight = ', num2str(cfg.ch5.custody_outage_weight, '%.6f')])
+    disp(['w_longest_bad = ', num2str(cfg.ch5.custody_longest_bad_weight, '%.6f')])
+    disp(['w_worst_gap = ', num2str(cfg.ch5.custody_worst_gap_weight, '%.6f')])
+    disp(['w_outage_frac = ', num2str(cfg.ch5.custody_outage_frac_weight, '%.6f')])
     disp('--- tracking T ---'); disp(trackingT)
     disp('--- tracking C ---'); disp(trackingC)
     disp('--- custody T ---'); disp(custodyT)
