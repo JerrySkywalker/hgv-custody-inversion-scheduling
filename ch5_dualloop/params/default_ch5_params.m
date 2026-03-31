@@ -65,13 +65,18 @@ cfg.ch5.custody_phi_threshold = 0.45;
 cfg.ch5.custody_gap_weight = 1.20;
 cfg.ch5.custody_outage_weight = 0.80;
 
-% Phase 5D: longest-bad-run-first weights
 cfg.ch5.custody_longest_bad_weight = 100.0;
 cfg.ch5.custody_worst_gap_weight = 10.0;
 cfg.ch5.custody_outage_frac_weight = 3.0;
 cfg.ch5.custody_mean_gap_weight = 1.0;
 cfg.ch5.custody_mean_future_weight = 0.05;
 cfg.ch5.custody_switch_weight = 0.20;
+
+% Phase 6 minimal dual-loop params
+cfg.ch5.outer_update_steps = 40;
+cfg.ch5.outer_horizon_steps = 60;
+cfg.ch5.outer_prior_weight = 2.0;
+cfg.ch5.outer_range_scale_km = 2000.0;
 
 cfg = apply_ch5_scene_preset(cfg, scene_preset);
 
