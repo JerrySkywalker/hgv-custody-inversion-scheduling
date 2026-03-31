@@ -63,6 +63,10 @@ cfg.ch5.custody_beta = 0.20;
 cfg.ch5.custody_switch_penalty = 0.25;
 cfg.ch5.custody_phi_threshold = 0.45;
 
+% Phase 5C risk-sensitive weights
+cfg.ch5.custody_gap_weight = 1.20;
+cfg.ch5.custody_outage_weight = 0.80;
+
 cfg = apply_ch5_scene_preset(cfg, scene_preset);
 
 cfg.notes = struct();
