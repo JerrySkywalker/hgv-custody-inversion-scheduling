@@ -1,10 +1,16 @@
 # Phase 6B summary
 
 ## Scope
-Validate whether standalone outerA trigger events align with bad phi segments.
+Validate whether standalone outerA alerts align with bad phi windows.
+
+## Phase 6B-1 changes
+- replace single-point bad segments with bad-window definition
+- compare two alert modes:
+  - trigger_only
+  - warn_or_trigger
 
 ## Goal
-Move from "outerA can output evidence" to "outerA evidence is meaningfully aligned with bad segments".
+Test whether outerA is a useful early-warning layer before entering true CK dual-loop scheduling.
 
 ## Files
 - analysis/match_outerA_events_to_bad_segments.m
@@ -12,12 +18,12 @@ Move from "outerA can output evidence" to "outerA evidence is meaningfully align
 - runners/run_ch5_phase6B_outerA_alignment.m
 
 ## Key outputs
-- bad segment count
-- trigger event count
-- hit count / miss count / false alarm count
-- hit rate / miss rate / false alarm rate
-- mean lead time to bad segments
+- bad window count
+- trigger_only hit / miss / false alarm metrics
+- warn_or_trigger hit / miss / false alarm metrics
+- lead-time metrics under both alert modes
 
 ## Current note
-Phase 6B still does not close the loop.
-Its purpose is to validate whether outerA is a useful trigger layer before entering real CK dual-loop design.
+If warn_or_trigger works materially better than trigger_only,
+then outerA should be interpreted as a two-level warning layer,
+not a pure hard-trigger layer.
