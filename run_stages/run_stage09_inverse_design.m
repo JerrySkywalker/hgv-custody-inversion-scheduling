@@ -11,6 +11,12 @@
 %   run_stage09_inverse_design(cfg)
 %   run_stage09_inverse_design(cfg, false)
 %   run_stage09_inverse_design(cfg, true, opts)
+%
+% 关键 opts：
+%   opts.stage09_plot_mode           = 'legacy10' | 'layered_suite'
+%   opts.stage09_run_plot_after_scan = true/false
+%   opts.stage09_enable_multih       = true/false
+%   opts.stage09_enable_stack3d      = true/false
 
 function out = run_stage09_inverse_design(cfg, interactive, opts)
     cfg_missing = (nargin < 1 || isempty(cfg));
@@ -37,11 +43,17 @@ function out = run_stage09_inverse_design(cfg, interactive, opts)
     [cfg, opts] = rs_cli_configure('stage09', cfg, interactive, opts);
     [cfg, ~] = rs_apply_parallel_policy('stage09', cfg, opts);
 
+    if ~isfield(opts, 'stage09_plot_mode') || isempty(opts.stage09_plot_mode)
+        opts.stage09_plot_mode = 'layered_suite';
+    end
+
+    fprintf('[run_stages] plot_mode : %s\n', string(opts.stage09_plot_mode));
+
     out.scan = run_stage09_inverse_scan(cfg, false, opts);
 
     run_plot = true;
     if isfield(opts, 'stage09_run_plot_after_scan')
-        run_plot = opts.stage09_run_plot_after_scan;
+        run_plot = logical(opts.stage09_run_plot_after_scan);
     end
 
     if run_plot
