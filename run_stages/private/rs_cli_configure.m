@@ -28,9 +28,9 @@ function [cfg, opts] = rs_cli_configure(stage_name, cfg, interactive, opts)
     stage_name = lower(string(stage_name));
 
     fprintf('\n[run_stages][CLI] ===== 配置 %s =====\n', stage_name);
-    fprintf('[run_stages][CLI] Phase B: 两层菜单已启用。\n');
-    fprintf('[run_stages][CLI] 第一层先显示当前默认值总览；直接回车=全部接受；输入 e=逐项编辑。\n');
-    fprintf('[run_stages][CLI] Phase C 预留：后续将在此显示“全局真值覆盖”状态与覆盖字段。\n');
+    % fprintf('[run_stages][CLI] Phase B: 两层菜单已启用。\n');
+    % fprintf('[run_stages][CLI] 第一层先显示当前默认值总览；直接回车=全部接受；输入 e=逐项编辑。\n');
+    % fprintf('[run_stages][CLI] Phase C 预留：后续将在此显示“全局真值覆盖”状态与覆盖字段。\n');
 
     local_print_stage_summary(stage_name, cfg, opts);
 
@@ -231,12 +231,12 @@ end
 
 
 function action = local_prompt_action()
-    fprintf('[run_stages][CLI] 操作选项：\n');
-    fprintf('  - 直接回车：接受全部当前默认值\n');
-    fprintf('  - e：进入逐项编辑\n');
-    fprintf('  - q：取消\n');
+    % fprintf('[run_stages][CLI] 操作选项：\n');
+    % fprintf('  - 直接回车：接受全部当前默认值\n');
+    % fprintf('  - e：进入逐项编辑\n');
+    % fprintf('  - q：取消\n');
 
-    s = strtrim(input('[run_stages][CLI] 请选择 [Enter/e/q]: ', 's'));
+    s = strtrim(input('[run_stages][CLI] 请选择 [Enter/e(dit)/q(uit)]: ', 's'));
     if isempty(s)
         action = '';
         return;

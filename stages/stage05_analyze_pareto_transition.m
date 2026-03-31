@@ -16,8 +16,6 @@ function out = stage05_analyze_pareto_transition()
     %
     % Author: ChatGPT (adapted for Stage05.2b-compatible workflow)
     
-        clc;
-    
         local_project_startup();
     
         log_fid = [];

@@ -454,7 +454,7 @@ function cfg = default_params()
     % NOTE:
     %   Wrapper-level default mode is controlled by rs_apply_parallel_policy.m.
     %   use_parallel here is a local fallback for direct stage05 calls.
-    cfg.stage05.use_parallel = false;
+    cfg.stage05.use_parallel = true;
     cfg.stage05.auto_start_pool = true;
     cfg.stage05.parallel_pool_profile = 'local';   % 'threads' or 'local'
     cfg.stage05.parallel_num_workers = [];           % [] means default
@@ -529,7 +529,7 @@ function cfg = default_params()
     % NOTE:
     %   Wrapper-level default mode is controlled by rs_apply_parallel_policy.m.
     %   use_parallel here is a local fallback for direct stage06 calls.
-    cfg.stage06.use_parallel = false;
+    cfg.stage06.use_parallel = true;
     cfg.stage06.auto_start_pool = cfg.stage05.auto_start_pool;
     cfg.stage06.parallel_pool_profile = cfg.stage05.parallel_pool_profile;
     cfg.stage06.parallel_num_workers = cfg.stage05.parallel_num_workers;
@@ -720,7 +720,7 @@ function cfg = default_params()
     % save both png and fig
     cfg.stage07.plot.save_png = true;
     cfg.stage07.plot.save_fig = true;
-    cfg.stage07.use_parallel = false;
+    cfg.stage07.use_parallel = true;
     cfg.stage07.auto_start_pool = true;
     cfg.stage07.parallel_pool_profile = 'local';
     cfg.stage07.parallel_num_workers = [];
@@ -870,7 +870,7 @@ function cfg = default_params()
     % NOTE:
     %   Wrapper-level default mode is controlled by rs_apply_parallel_policy.m.
     %   use_parallel here is a local fallback for direct Stage08c calls.
-    cfg.stage08c.use_parallel = false;
+    cfg.stage08c.use_parallel = true;
     cfg.stage08c.max_workers = inf;
     cfg.stage08c.progress_step = 1;
     cfg.stage08c.disable_progress = false;
@@ -891,7 +891,7 @@ function cfg = default_params()
     % 'validation_small' : keep the current small-grid validation scheme
     % 'full_main'        : formal main scan inheriting Stage05/06 granularity
     % 'custom'           : fully manual control over search_domain / casebank
-    cfg.stage09.scheme_type = 'stage05_aligned';
+    cfg.stage09.scheme_type = 'full_main';
 
     % Run tag (auto-adjusted in stage09_prepare_cfg for preset schemes
     % unless you explicitly overwrite it)
@@ -940,7 +940,7 @@ function cfg = default_params()
     %   stage09_prepare_cfg according to cfg.stage09.scheme_type.
     % ------------------------------------------------------------
     cfg.stage09.search_domain = struct();
-    cfg.stage09.search_domain.h_grid_km = cfg.stage05.h_fixed_km;
+    cfg.stage09.search_domain.h_grid_km = 500:100:1200;
     cfg.stage09.search_domain.i_grid_deg = cfg.stage05.i_grid_deg;
     cfg.stage09.search_domain.P_grid = cfg.stage05.P_grid;
     cfg.stage09.search_domain.T_grid = cfg.stage05.T_grid;
@@ -960,6 +960,7 @@ function cfg = default_params()
     % 'validation_small' : nominal all + heading subset + critical all
     % 'full74'           : nominal all + heading all + critical all
     % 'custom'           : manual control below
+    % cfg.stage09.casebank_mode = 'nominal_only';
     cfg.stage09.casebank_mode = 'nominal_only';
 
     cfg.stage09.casebank_include_nominal = true;
