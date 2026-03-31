@@ -72,11 +72,24 @@ cfg.ch5.custody_mean_gap_weight = 1.0;
 cfg.ch5.custody_mean_future_weight = 0.05;
 cfg.ch5.custody_switch_weight = 0.20;
 
-% Phase 6 minimal dual-loop params
+% Existing exploratory phase6-min params
 cfg.ch5.outer_update_steps = 40;
 cfg.ch5.outer_horizon_steps = 60;
 cfg.ch5.outer_prior_weight = 2.0;
 cfg.ch5.outer_range_scale_km = 2000.0;
+
+% Phase 6A standalone outerA params
+cfg.ch5.outerA_fit_window_steps = 25;
+cfg.ch5.outerA_horizon_steps = 40;
+cfg.ch5.outerA_state_dim = 3;              % [phi, nis, candidate_count_norm]
+cfg.ch5.outerA_mrhat_w_phi = 0.55;
+cfg.ch5.outerA_mrhat_w_nis = 0.25;
+cfg.ch5.outerA_mrhat_w_cand = 0.20;
+cfg.ch5.outerA_conservative_gain = 0.50;
+cfg.ch5.outerA_warn_threshold = 0.42;
+cfg.ch5.outerA_trigger_threshold = 0.58;
+cfg.ch5.outerA_omega_warn_threshold = 0.010;
+cfg.ch5.outerA_omega_trigger_threshold = 0.020;
 
 cfg = apply_ch5_scene_preset(cfg, scene_preset);
 
