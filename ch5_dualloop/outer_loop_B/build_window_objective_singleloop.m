@@ -1,8 +1,11 @@
 function score = build_window_objective_singleloop(candidate_ids, caseData, k, prev_ids, cfg)
 %BUILD_WINDOW_OBJECTIVE_SINGLELOOP  Single-loop custody objective for one candidate set.
 %
-% Phase 5A strengthened objective:
-%   score = alpha * worst_future_geom + (1-alpha) * avg_future_geom - gamma * switch_cost
+% Phase 5B strengthened objective:
+%   score = alpha * worst_future_geom
+%         + (1-alpha) * avg_future_geom
+%         - beta * std_future_geom
+%         - gamma * switch_cost
 
 if nargin < 5 || isempty(cfg)
     cfg = default_ch5_params();
@@ -15,6 +18,7 @@ end
 
 W = cfg.ch5.window_steps;
 alpha = cfg.ch5.custody_alpha;
+beta = cfg.ch5.custody_beta;
 gamma = cfg.ch5.custody_gamma;
 max_track_sats = cfg.ch5.max_track_sats;
 
@@ -51,6 +55,7 @@ end
 
 worst_future = min(future_geom);
 avg_future = mean(future_geom);
+std_future = std(future_geom);
 
 if isempty(prev_ids)
     switch_cost = 0;
@@ -59,5 +64,5 @@ else
     switch_cost = 1 - stay / max_track_sats;
 end
 
-score = alpha * worst_future + (1 - alpha) * avg_future - gamma * switch_cost;
+score = alpha * worst_future + (1 - alpha) * avg_future - beta * std_future - gamma * switch_cost;
 end
