@@ -29,8 +29,8 @@ resultC = policy_custody_singleloop(caseData, cfg);
 trackingT = eval_tracking_metrics(resultT);
 trackingC = eval_tracking_metrics(resultC);
 
-mgT = compute_mg_series(resultT, cfg);
-mgC = compute_mg_series(resultC, cfg);
+mgT = compute_mg_series(resultT, caseData, cfg);
+mgC = compute_mg_series(resultC, caseData, cfg);
 
 ttlT = compute_ttl_series(resultT, caseData, cfg);
 ttlC = compute_ttl_series(resultC, caseData, cfg);
@@ -58,16 +58,17 @@ custodyResultC.phi_series = phiC;
 custodyT = eval_custody_metrics(custodyResultT);
 custodyC = eval_custody_metrics(custodyResultC);
 
-fig_phi = fullfile(fig_dir, 'phase5_custody_phi_timeline.png');
-fig_bar = fullfile(fig_dir, 'phase5_custody_summary_bars.png');
+fig_phi = fullfile(fig_dir, ['phase5_custody_phi_timeline_', cfg.ch5.scene_preset, '.png']);
+fig_bar = fullfile(fig_dir, ['phase5_custody_summary_bars_', cfg.ch5.scene_preset, '.png']);
 
 f1 = plot_custody_phi_timeline(resultT.time, phiT, phiC, fig_phi); %#ok<NASGU>
 f2 = plot_custody_summary_bars(custodyT, custodyC, fig_bar); %#ok<NASGU>
 close all
 
-txt_path = fullfile(tbl_dir, 'phase5_singleloop_custody_summary.txt');
+txt_path = fullfile(tbl_dir, ['phase5_singleloop_custody_summary_', cfg.ch5.scene_preset, '.txt']);
 txt_lines = {
     '=== Chapter 5 Phase 5 T vs C Summary ==='
+    ['scene_preset         = ', cfg.ch5.scene_preset]
     ['T_mean_rmse          = ', num2str(trackingT.mean_rmse, '%.6f')]
     ['C_mean_rmse          = ', num2str(trackingC.mean_rmse, '%.6f')]
     ['T_q_worst            = ', num2str(custodyT.q_worst, '%.6f')]
@@ -76,13 +77,16 @@ txt_lines = {
     ['C_outage_ratio       = ', num2str(custodyC.outage_ratio, '%.6f')]
     ['T_longest_outage     = ', num2str(custodyT.longest_outage_steps)]
     ['C_longest_outage     = ', num2str(custodyC.longest_outage_steps)]
+    ['T_phi_mean           = ', num2str(custodyT.phi_mean, '%.6f')]
+    ['C_phi_mean           = ', num2str(custodyC.phi_mean, '%.6f')]
     };
 SetTxt(txt_path, txt_lines);
 
-log_path = fullfile(log_dir, 'phase5_singleloop_custody_log.txt');
+log_path = fullfile(log_dir, ['phase5_singleloop_custody_log_', cfg.ch5.scene_preset, '.txt']);
 log_lines = {
     '[INFO] run_ch5_phase5_singleloop_custody started'
     ['[INFO] output_root = ', out_root]
+    ['[INFO] scene_preset = ', cfg.ch5.scene_preset]
     ['[INFO] T_mean_rmse = ', num2str(trackingT.mean_rmse, '%.6f')]
     ['[INFO] C_mean_rmse = ', num2str(trackingC.mean_rmse, '%.6f')]
     ['[INFO] T_q_worst = ', num2str(custodyT.q_worst, '%.6f')]
@@ -93,7 +97,7 @@ log_lines = {
     };
 SetTxt(log_path, log_lines);
 
-mat_path = fullfile(mat_dir, 'phase5_singleloop_custody.mat');
+mat_path = fullfile(mat_dir, ['phase5_singleloop_custody_', cfg.ch5.scene_preset, '.mat']);
 save(mat_path, 'cfg', 'caseData', ...
     'resultT', 'resultC', ...
     'trackingT', 'trackingC', ...
@@ -103,6 +107,7 @@ save(mat_path, 'cfg', 'caseData', ...
 
 if verbose
     disp('=== Chapter 5 Phase 5 T vs C Summary ===')
+    disp(['scene_preset = ', cfg.ch5.scene_preset])
     disp('--- tracking T ---'); disp(trackingT)
     disp('--- tracking C ---'); disp(trackingC)
     disp('--- custody T ---'); disp(custodyT)
