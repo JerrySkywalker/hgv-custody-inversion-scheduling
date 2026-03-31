@@ -1,14 +1,21 @@
 function score = build_window_objective_singleloop(candidate_ids, caseData, k, prev_ids, cfg)
-%BUILD_WINDOW_OBJECTIVE_SINGLELOOP  Threshold-sensitive single-loop custody objective.
+%BUILD_WINDOW_OBJECTIVE_SINGLELOOP  Longest-bad-run-first single-loop custody objective.
 %
-% Phase 5C:
-%   score = + alpha * mean_future
-%           - gap_weight * worst_gap
-%           - beta * mean_gap
-%           - outage_weight * outage_frac
-%           - gamma * switch_cost
+% Phase 5D:
+%   score = - w1 * longest_bad_run_norm
+%           - w2 * worst_gap
+%           - w3 * outage_frac
+%           - w4 * mean_gap
+%           - w5 * switch_cost
+%           + w6 * mean_future
 %
-% where future risk is defined relative to custody_phi_threshold.
+% The design is intentionally near-lexicographic:
+%   1) cut longest bad chain
+%   2) reduce worst threshold gap
+%   3) reduce bad fraction
+%   4) reduce average gap
+%   5) keep switch cost small
+%   6) only then prefer higher average future quality
 
 if nargin < 5 || isempty(cfg)
     cfg = default_ch5_params();
@@ -20,13 +27,15 @@ if isempty(candidate_ids)
 end
 
 W = cfg.ch5.window_steps;
-alpha = cfg.ch5.custody_alpha;
-beta = cfg.ch5.custody_beta;
-gamma = cfg.ch5.custody_gamma;
-gap_weight = cfg.ch5.custody_gap_weight;
-outage_weight = cfg.ch5.custody_outage_weight;
 phi_th = cfg.ch5.custody_phi_threshold;
 max_track_sats = cfg.ch5.max_track_sats;
+
+w1 = cfg.ch5.custody_longest_bad_weight;
+w2 = cfg.ch5.custody_worst_gap_weight;
+w3 = cfg.ch5.custody_outage_frac_weight;
+w4 = cfg.ch5.custody_mean_gap_weight;
+w5 = cfg.ch5.custody_switch_weight;
+w6 = cfg.ch5.custody_mean_future_weight;
 
 N = size(caseData.candidates.visible_mask, 1);
 k2 = min(N, k + W - 1);
@@ -60,11 +69,26 @@ for tau = k:k2
 end
 
 gap = max(0, phi_th - future_geom);
+is_bad = gap > 0;
 
 worst_gap = max(gap);
 mean_gap = mean(gap);
-outage_frac = mean(gap > 0);
+outage_frac = mean(is_bad);
 mean_future = mean(future_geom);
+
+max_run = 0;
+run_len = 0;
+for idx = 1:numel(is_bad)
+    if is_bad(idx)
+        run_len = run_len + 1;
+        if run_len > max_run
+            max_run = run_len;
+        end
+    else
+        run_len = 0;
+    end
+end
+longest_bad_run_norm = max_run / W;
 
 if isempty(prev_ids)
     switch_cost = 0;
@@ -74,9 +98,10 @@ else
 end
 
 score = ...
-    + alpha * mean_future ...
-    - gap_weight * worst_gap ...
-    - beta * mean_gap ...
-    - outage_weight * outage_frac ...
-    - gamma * switch_cost;
+    - w1 * longest_bad_run_norm ...
+    - w2 * worst_gap ...
+    - w3 * outage_frac ...
+    - w4 * mean_gap ...
+    - w5 * switch_cost ...
+    + w6 * mean_future;
 end
