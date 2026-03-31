@@ -1,5 +1,15 @@
-function cfg = default_ch5_params()
+function cfg = default_ch5_params(scene_preset)
 %DEFAULT_CH5_PARAMS  Chapter 5 default parameters built on project defaults.
+%
+% Optional input:
+%   scene_preset = 'stress96' | 'ref128'
+%
+% Default:
+%   stress96
+
+if nargin < 1 || isempty(scene_preset)
+    scene_preset = 'stress96';
+end
 
 if exist('default_params', 'file') ~= 2
     error('default_params.m is not on path. Please run startup first.');
@@ -22,18 +32,18 @@ cfg.target = struct();
 cfg.target.name = 'HGV_Demo';
 cfg.target.model = 'stage02_engine_wrapped';
 
+cfg.sensor = struct();
+cfg.sensor.name = 'IR_Base';
+cfg.sensor.max_range_km = cfg.stage03.max_range_km;
+cfg.sensor.fov_deg = 5;
+
 cfg.constellation = struct();
-cfg.constellation.name = 'Walker_Stage03Aligned';
+cfg.constellation.name = 'Walker_Base';
 cfg.constellation.altitude_km = cfg.stage03.h_km;
 cfg.constellation.inclination_deg = cfg.stage03.i_deg;
 cfg.constellation.num_planes = cfg.stage03.P;
 cfg.constellation.sats_per_plane = cfg.stage03.T;
 cfg.constellation.phase_factor = cfg.stage03.F;
-
-cfg.sensor = struct();
-cfg.sensor.name = 'IR_Stage03Aligned';
-cfg.sensor.max_range_km = cfg.stage03.max_range_km;
-cfg.sensor.fov_deg = 5;
 
 cfg.ch5 = struct();
 cfg.ch5.profile_name = 'ch5_dynamic_profile_v1';
@@ -46,14 +56,16 @@ cfg.ch5.heading0_deg = 90.0;
 
 cfg.ch5.max_track_sats = 2;
 
-% Phase 5 single-loop custody settings
 cfg.ch5.window_steps = 20;
 cfg.ch5.custody_alpha = 0.65;
 cfg.ch5.custody_gamma = 0.20;
 cfg.ch5.custody_switch_penalty = 0.25;
 
+cfg = apply_ch5_scene_preset(cfg, scene_preset);
+
 cfg.notes = struct();
 cfg.notes.phase = 'Fifth chapter isolated development';
 cfg.notes.chapter4_code_modified = false;
 cfg.notes.stage03_aligned = true;
+cfg.notes.scene_preset = cfg.ch5.scene_preset;
 end
