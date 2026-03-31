@@ -82,14 +82,26 @@ cfg.ch5.outer_range_scale_km = 2000.0;
 cfg.ch5.outerA_fit_window_steps = 25;
 cfg.ch5.outerA_horizon_steps = 40;
 cfg.ch5.outerA_state_dim = 3;              % [phi, nis, candidate_count_norm]
+
 cfg.ch5.outerA_mrhat_w_phi = 0.55;
 cfg.ch5.outerA_mrhat_w_nis = 0.25;
 cfg.ch5.outerA_mrhat_w_cand = 0.20;
-cfg.ch5.outerA_conservative_gain = 0.50;
-cfg.ch5.outerA_warn_threshold = 0.42;
-cfg.ch5.outerA_trigger_threshold = 0.58;
-cfg.ch5.outerA_omega_warn_threshold = 0.010;
-cfg.ch5.outerA_omega_trigger_threshold = 0.020;
+
+% Phase 6A-1 stabilization knobs
+cfg.ch5.outerA_rho_max = 0.90;
+cfg.ch5.outerA_std_eps = 1.0e-6;
+cfg.ch5.outerA_pred_clip_phi = [-0.20, 1.20];
+cfg.ch5.outerA_pred_clip_nis = [0.00, 6.00];
+cfg.ch5.outerA_pred_clip_cand = [0.00, 1.20];
+
+cfg.ch5.outerA_conservative_gain = 0.35;
+cfg.ch5.outerA_nis_clip = 4.0;
+cfg.ch5.outerA_inflation_cap = 2.0;
+
+cfg.ch5.outerA_warn_threshold = 0.50;
+cfg.ch5.outerA_trigger_threshold = 0.70;
+cfg.ch5.outerA_omega_warn_threshold = 0.02;
+cfg.ch5.outerA_omega_trigger_threshold = 0.05;
 
 cfg = apply_ch5_scene_preset(cfg, scene_preset);
 
