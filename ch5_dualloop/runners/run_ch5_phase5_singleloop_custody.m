@@ -50,10 +50,12 @@ phiC = compute_phi_window(mgC, ttlC, switchC, cfg);
 custodyResultT = struct();
 custodyResultT.time = resultT.time;
 custodyResultT.phi_series = phiT;
+custodyResultT.threshold = cfg.ch5.custody_phi_threshold;
 
 custodyResultC = struct();
 custodyResultC.time = resultC.time;
 custodyResultC.phi_series = phiC;
+custodyResultC.threshold = cfg.ch5.custody_phi_threshold;
 
 custodyT = eval_custody_metrics(custodyResultT);
 custodyC = eval_custody_metrics(custodyResultC);
@@ -69,6 +71,7 @@ txt_path = fullfile(tbl_dir, ['phase5_singleloop_custody_summary_', cfg.ch5.scen
 txt_lines = {
     '=== Chapter 5 Phase 5 T vs C Summary ==='
     ['scene_preset         = ', cfg.ch5.scene_preset]
+    ['phi_threshold        = ', num2str(cfg.ch5.custody_phi_threshold, '%.6f')]
     ['T_mean_rmse          = ', num2str(trackingT.mean_rmse, '%.6f')]
     ['C_mean_rmse          = ', num2str(trackingC.mean_rmse, '%.6f')]
     ['T_q_worst            = ', num2str(custodyT.q_worst, '%.6f')]
@@ -87,6 +90,7 @@ log_lines = {
     '[INFO] run_ch5_phase5_singleloop_custody started'
     ['[INFO] output_root = ', out_root]
     ['[INFO] scene_preset = ', cfg.ch5.scene_preset]
+    ['[INFO] phi_threshold = ', num2str(cfg.ch5.custody_phi_threshold, '%.6f')]
     ['[INFO] T_mean_rmse = ', num2str(trackingT.mean_rmse, '%.6f')]
     ['[INFO] C_mean_rmse = ', num2str(trackingC.mean_rmse, '%.6f')]
     ['[INFO] T_q_worst = ', num2str(custodyT.q_worst, '%.6f')]
@@ -108,6 +112,7 @@ save(mat_path, 'cfg', 'caseData', ...
 if verbose
     disp('=== Chapter 5 Phase 5 T vs C Summary ===')
     disp(['scene_preset = ', cfg.ch5.scene_preset])
+    disp(['phi_threshold = ', num2str(cfg.ch5.custody_phi_threshold, '%.6f')])
     disp('--- tracking T ---'); disp(trackingT)
     disp('--- tracking C ---'); disp(trackingC)
     disp('--- custody T ---'); disp(custodyT)
