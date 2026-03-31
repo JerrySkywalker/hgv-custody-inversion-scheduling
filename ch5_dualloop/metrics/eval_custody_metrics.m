@@ -1,5 +1,5 @@
 function custody = eval_custody_metrics(result)
-%EVAL_CUSTODY_METRICS  Evaluate minimal custody metrics for chapter 5 shell.
+%EVAL_CUSTODY_METRICS  Evaluate custody metrics for chapter 5.
 
 assert(isfield(result, 'time'), 'Result must contain field: time');
 assert(isfield(result, 'phi_series'), 'Result must contain field: phi_series');
@@ -7,7 +7,12 @@ assert(isfield(result, 'phi_series'), 'Result must contain field: phi_series');
 t = result.time(:);
 phi = result.phi_series(:);
 
-threshold = 1.0;
+if isfield(result, 'threshold') && ~isempty(result.threshold)
+    threshold = result.threshold;
+else
+    threshold = 1.0;
+end
+
 is_out = (phi < threshold);
 
 custody = struct();
@@ -19,7 +24,6 @@ custody.q_worst = min(phi);
 custody.phi_mean = mean(phi);
 custody.outage_ratio = mean(is_out);
 
-% Longest consecutive outage length in samples.
 max_run = 0;
 run_len = 0;
 for k = 1:numel(is_out)
@@ -34,10 +38,9 @@ for k = 1:numel(is_out)
 end
 custody.longest_outage_steps = max_run;
 
-% Minimal SC/DC/LoC occupancy by threshold partition.
-state_sc = phi >= 1.0;
-state_dc = (phi >= 0.5) & (phi < 1.0);
-state_loc = phi < 0.5;
+state_sc = phi >= threshold;
+state_dc = (phi >= 0.5 * threshold) & (phi < threshold);
+state_loc = phi < 0.5 * threshold;
 
 custody.sc_ratio = mean(state_sc);
 custody.dc_ratio = mean(state_dc);
