@@ -47,6 +47,11 @@ H = cfg.ch5.outerA_horizon_steps;
 N = numel(time);
 d = cfg.ch5.outerA_state_dim;
 
+std_eps = cfg.ch5.outerA_std_eps;
+clip_phi = cfg.ch5.outerA_pred_clip_phi;
+clip_nis = cfg.ch5.outerA_pred_clip_nis;
+clip_cand = cfg.ch5.outerA_pred_clip_cand;
+
 mr_hat_series = zeros(N,1);
 mr_tilde_series = zeros(N,1);
 omega_series = zeros(N,1);
@@ -56,19 +61,34 @@ lead_time_steps = zeros(N,1);
 
 for k = 1:N
     i1 = max(1, k-fitW+1);
-    Xi = [phiT(i1:k), nis_series(i1:k), cand_norm(i1:k)];
+
+    Xi_raw = [phiT(i1:k), nis_series(i1:k), cand_norm(i1:k)];
+
+    mu = mean(Xi_raw, 1);
+    sigma = std(Xi_raw, 0, 1);
+    sigma = max(sigma, std_eps);
+
+    Xi = (Xi_raw - mu) ./ sigma;
+
     if size(Xi,1) < 2
         A = eye(d);
     else
-        A = rfkoopman_fit_local_operator(Xi);
+        A = rfkoopman_fit_local_operator(Xi, cfg);
     end
 
-    x0 = [phiT(k); nis_series(k); cand_norm(k)];
-    Xpred = propagate_rfkoopman_window(x0, A, H);
+    x0_raw = [phiT(k), nis_series(k), cand_norm(k)];
+    x0 = ((x0_raw - mu) ./ sigma).';
+
+    Xpred_n = propagate_rfkoopman_window(x0, A, H);
+    Xpred = Xpred_n .* sigma + mu;
 
     phi_pred = Xpred(:,1);
     nis_pred = Xpred(:,2);
     cand_pred = Xpred(:,3);
+
+    phi_pred = min(max(phi_pred, clip_phi(1)), clip_phi(2));
+    nis_pred = min(max(nis_pred, clip_nis(1)), clip_nis(2));
+    cand_pred = min(max(cand_pred, clip_cand(1)), clip_cand(2));
 
     mr_hat = compute_mr_hat(phi_pred, nis_pred, cand_pred, cfg);
     mr_tilde = conservative_mr_from_nis(mr_hat, nis_series(k), cfg);
@@ -119,6 +139,9 @@ log_lines = {
     '[INFO] run_ch5_phase6_outerA_rfkoopman started'
     ['[INFO] output_root = ', out_root]
     ['[INFO] scene_preset = ', cfg.ch5.scene_preset]
+    ['[INFO] safe_ratio = ', num2str(stats.safe_ratio, '%.6f')]
+    ['[INFO] warn_ratio = ', num2str(stats.warn_ratio, '%.6f')]
+    ['[INFO] trigger_ratio = ', num2str(stats.trigger_ratio, '%.6f')]
     ['[INFO] trigger_count = ', num2str(stats.trigger_count)]
     ['[INFO] mean_lead_time_steps = ', num2str(stats.mean_lead_time_steps, '%.6f')]
     '[INFO] run_ch5_phase6_outerA_rfkoopman finished'
