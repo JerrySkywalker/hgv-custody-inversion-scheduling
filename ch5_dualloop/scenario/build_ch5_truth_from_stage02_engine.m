@@ -2,7 +2,8 @@ function truth = build_ch5_truth_from_stage02_engine(profile, cfg)
 %BUILD_CH5_TRUTH_FROM_STAGE02_ENGINE  Build chapter 5 truth using Stage02 engine.
 %
 % This function does not modify any chapter 4 code.
-% It wraps existing Stage02 propagation capability if available.
+% It wraps existing Stage02 propagation capability with a chapter-5-specific
+% pseudo-case compatible with Stage02 interfaces.
 
 if nargin < 1 || isempty(profile)
     profile = build_ch5_target_profile(cfg);
@@ -23,26 +24,35 @@ end
 
 % Construct a lightweight pseudo-case compatible with Stage02 builders.
 case_i = struct();
-case_i.id = 'ch5_dynamic_case';
-case_i.kind = 'ch5_dynamic';
+case_i.case_id = 'ch5_dynamic_case';
+case_i.family = 'nominal';
+case_i.subfamily = 'chapter5_dynamic';
 case_i.name = 'Chapter5 Dynamic Case';
+
+case_i.heading_deg = profile.heading0_deg;
+case_i.heading_offset_deg = 0.0;
+
+% Keep these optional fields for future refinement.
 case_i.lat0_deg = profile.lat0_deg;
 case_i.lon0_deg = profile.lon0_deg;
 case_i.h0_m = profile.h0_m;
 case_i.speed0_mps = profile.speed0_mps;
 case_i.gamma0_deg = profile.gamma0_deg;
-case_i.heading0_deg = profile.heading0_deg;
 
-% Try to let Stage02 builder fill the detailed propagation config.
+% Let Stage02 builder create the detailed propagation config.
 hgv_cfg = build_hgv_cfg_from_case_stage02(case_i, cfg);
 
-% Phase-2.5A explicitly overwrites a few fields from chapter-5 profile when present.
-overrideFields = {'h0_m','speed0_mps','gamma0_deg','heading0_deg'};
-for i = 1:numel(overrideFields)
-    f = overrideFields{i};
-    if isfield(profile, f)
-        hgv_cfg.(f) = profile.(f);
-    end
+% Explicit chapter-5 overrides
+hgv_cfg.v0 = profile.speed0_mps;
+hgv_cfg.theta0 = deg2rad(profile.gamma0_deg);
+hgv_cfg.phi0 = deg2rad(profile.lat0_deg);
+hgv_cfg.lambda0 = deg2rad(profile.lon0_deg);
+hgv_cfg.h0 = profile.h0_m;
+
+% Keep sigma0 mapped by Stage02 heading convention, unless heading absent
+if isfield(profile, 'heading0_deg') && isfinite(profile.heading0_deg)
+    sigma0_deg = wrapTo180(profile.heading0_deg - 90.0);
+    hgv_cfg.sigma0 = deg2rad(sigma0_deg);
 end
 
 traj = propagate_hgv_case_stage02(case_i, cfg, hgv_cfg);
@@ -79,7 +89,9 @@ if isfield(traj, 'X')
 end
 
 truth.meta = struct();
-truth.meta.case_id = case_i.id;
+truth.meta.case_id = case_i.case_id;
+truth.meta.family = case_i.family;
+truth.meta.subfamily = case_i.subfamily;
 truth.meta.generated_by = mfilename;
 truth.meta.timestamp = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
 end
