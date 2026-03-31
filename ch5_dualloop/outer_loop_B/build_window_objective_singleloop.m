@@ -1,11 +1,14 @@
 function score = build_window_objective_singleloop(candidate_ids, caseData, k, prev_ids, cfg)
-%BUILD_WINDOW_OBJECTIVE_SINGLELOOP  Single-loop custody objective for one candidate set.
+%BUILD_WINDOW_OBJECTIVE_SINGLELOOP  Threshold-sensitive single-loop custody objective.
 %
-% Phase 5B strengthened objective:
-%   score = alpha * worst_future_geom
-%         + (1-alpha) * avg_future_geom
-%         - beta * std_future_geom
-%         - gamma * switch_cost
+% Phase 5C:
+%   score = + alpha * mean_future
+%           - gap_weight * worst_gap
+%           - beta * mean_gap
+%           - outage_weight * outage_frac
+%           - gamma * switch_cost
+%
+% where future risk is defined relative to custody_phi_threshold.
 
 if nargin < 5 || isempty(cfg)
     cfg = default_ch5_params();
@@ -20,6 +23,9 @@ W = cfg.ch5.window_steps;
 alpha = cfg.ch5.custody_alpha;
 beta = cfg.ch5.custody_beta;
 gamma = cfg.ch5.custody_gamma;
+gap_weight = cfg.ch5.custody_gap_weight;
+outage_weight = cfg.ch5.custody_outage_weight;
+phi_th = cfg.ch5.custody_phi_threshold;
 max_track_sats = cfg.ch5.max_track_sats;
 
 N = size(caseData.candidates.visible_mask, 1);
@@ -53,9 +59,12 @@ for tau = k:k2
     future_geom(tau-k+1) = min(count_term, range_term);
 end
 
-worst_future = min(future_geom);
-avg_future = mean(future_geom);
-std_future = std(future_geom);
+gap = max(0, phi_th - future_geom);
+
+worst_gap = max(gap);
+mean_gap = mean(gap);
+outage_frac = mean(gap > 0);
+mean_future = mean(future_geom);
 
 if isempty(prev_ids)
     switch_cost = 0;
@@ -64,5 +73,10 @@ else
     switch_cost = 1 - stay / max_track_sats;
 end
 
-score = alpha * worst_future + (1 - alpha) * avg_future - beta * std_future - gamma * switch_cost;
+score = ...
+    + alpha * mean_future ...
+    - gap_weight * worst_gap ...
+    - beta * mean_gap ...
+    - outage_weight * outage_frac ...
+    - gamma * switch_cost;
 end
