@@ -62,10 +62,16 @@ cfg.ch5.custody_gamma = 0.20;
 cfg.ch5.custody_beta = 0.20;
 cfg.ch5.custody_switch_penalty = 0.25;
 cfg.ch5.custody_phi_threshold = 0.45;
-
-% Phase 5C risk-sensitive weights
 cfg.ch5.custody_gap_weight = 1.20;
 cfg.ch5.custody_outage_weight = 0.80;
+
+% Phase 5D: longest-bad-run-first weights
+cfg.ch5.custody_longest_bad_weight = 100.0;
+cfg.ch5.custody_worst_gap_weight = 10.0;
+cfg.ch5.custody_outage_frac_weight = 3.0;
+cfg.ch5.custody_mean_gap_weight = 1.0;
+cfg.ch5.custody_mean_future_weight = 0.05;
+cfg.ch5.custody_switch_weight = 0.20;
 
 cfg = apply_ch5_scene_preset(cfg, scene_preset);
 
