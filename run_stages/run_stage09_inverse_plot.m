@@ -4,21 +4,6 @@
 % 双模式：
 %   1) legacy10      -> 旧 Stage09.6 十图导出
 %   2) layered_suite -> 新分层图谱导出
-%
-% 用途：
-%   - 在不重跑参数扫描的情况下反复重绘论文图
-%   - 默认自动加载最新的 Stage09.4 / Stage09.5 cache
-%
-% 使用：
-%   run_stage09_inverse_plot()
-%   run_stage09_inverse_plot(cfg)
-%   run_stage09_inverse_plot(cfg, false)
-%   run_stage09_inverse_plot(cfg, false, opts)
-%
-% 关键 opts：
-%   opts.stage09_plot_mode           = 'legacy10' | 'layered_suite'
-%   opts.stage09_enable_multih       = true/false   (default: true)
-%   opts.stage09_enable_stack3d      = true/false   (default: false)
 
 function out = run_stage09_inverse_plot(cfg, interactive, opts)
     proj_root = fileparts(fileparts(mfilename('fullpath')));
@@ -73,11 +58,14 @@ function out = local_run_layered_suite(cfg, enable_multih, enable_stack3d)
     run_tag = char(string(cfg.stage09.run_tag));
     timestamp = datestr(now, 'yyyymmdd_HHMMSS');
 
-    out9_4 = local_load_latest_cache(cfg.paths.cache, ...
+    stage09_cache_dir = local_resolve_stage09_cache_dir(cfg);
+    fprintf('[run_stages] [layered_suite] stage09 cache dir : %s\n', stage09_cache_dir);
+
+    out9_4 = local_load_latest_cache(stage09_cache_dir, ...
         sprintf('stage09_build_feasible_domain_%s_*.mat', run_tag), ...
         'stage09_build_feasible_domain_*.mat');
 
-    out9_5 = local_load_latest_cache(cfg.paths.cache, ...
+    out9_5 = local_load_latest_cache(stage09_cache_dir, ...
         sprintf('stage09_extract_minimum_boundary_%s_*.mat', run_tag), ...
         'stage09_extract_minimum_boundary_*.mat');
 
@@ -181,6 +169,54 @@ function out = local_run_layered_suite(cfg, enable_multih, enable_stack3d)
 end
 
 
+function cache_dir = local_resolve_stage09_cache_dir(cfg)
+
+    cache_dir = '';
+
+    % Preferred: explicit stage09 cache fields, if present
+    if isfield(cfg, 'paths') && isstruct(cfg.paths)
+        if isfield(cfg.paths, 'outputs') && isstruct(cfg.paths.outputs)
+            outputs = cfg.paths.outputs;
+
+            candidate_fields = {'stage09_cache', 'cache_stage09'};
+            for k = 1:numel(candidate_fields)
+                f = candidate_fields{k};
+                if isfield(outputs, f) && ~isempty(outputs.(f))
+                    candidate = outputs.(f);
+                    if isfolder(candidate)
+                        cache_dir = candidate;
+                        return;
+                    end
+                end
+            end
+        end
+    end
+
+    % Robust fallback: project-root-based canonical Stage09 cache dir
+    startup_path = which('startup.m');
+    if ~isempty(startup_path)
+        project_root = fileparts(startup_path);
+        candidate = fullfile(project_root, 'outputs', 'stage', 'stage09', 'cache');
+        if isfolder(candidate)
+            cache_dir = candidate;
+            return;
+        end
+    end
+
+    % Last fallback: generic cfg.paths.cache
+    if isfield(cfg, 'paths') && isstruct(cfg.paths) && isfield(cfg.paths, 'cache')
+        candidate = cfg.paths.cache;
+        if isfolder(candidate)
+            cache_dir = candidate;
+            return;
+        end
+    end
+
+    error('run_stage09_inverse_plot:Stage09CacheDirNotFound', ...
+        'Cannot resolve Stage09 cache directory.');
+end
+
+
 function out = local_load_latest_cache(cache_dir, pattern1, pattern2)
 
     listing = dir(fullfile(cache_dir, pattern1));
@@ -189,11 +225,13 @@ function out = local_load_latest_cache(cache_dir, pattern1, pattern2)
     end
     if isempty(listing)
         error('run_stage09_inverse_plot:NoCacheMatched', ...
-            'No cache matched patterns: %s / %s', pattern1, pattern2);
+            'No cache matched patterns in %s : %s / %s', cache_dir, pattern1, pattern2);
     end
 
     [~, idx] = max([listing.datenum]);
     cache_file = fullfile(listing(idx).folder, listing(idx).name);
+
+    fprintf('[run_stages] [layered_suite] load cache : %s\n', cache_file);
 
     S = load(cache_file);
     if ~isfield(S, 'out')
