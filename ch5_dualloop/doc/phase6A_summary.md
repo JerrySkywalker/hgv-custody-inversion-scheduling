@@ -27,6 +27,13 @@ Build demand-side risk evidence without closing the dual-loop policy.
 - replace raw omega diff with bounded growth-rate metric
 - retune warn / trigger thresholds to reduce over-triggering
 
+## Phase 6A-1b robust fitting changes
+- inspect local design matrix rank by SVD
+- use ridge least squares when full-rank
+- use low-rank subspace fitting when rank-deficient but still usable
+- fall back to identity dynamics when effective rank is too low
+- reduce singular / rank-deficient warnings at the fitter source
+
 ## Expected outputs
 - evidence timeline
 - quadrant/state ratio plot
@@ -37,3 +44,4 @@ Build demand-side risk evidence without closing the dual-loop policy.
 This phase is standalone. It does not yet claim CK superiority.
 Its purpose is to validate whether outerA can produce structured future-risk evidence.
 Phase 6A-1 focuses on numerical stabilization and threshold calibration.
+Phase 6A-1b focuses on robust local Koopman fitting under rank deficiency.
