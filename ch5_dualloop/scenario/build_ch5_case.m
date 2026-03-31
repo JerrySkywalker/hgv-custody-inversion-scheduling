@@ -1,37 +1,23 @@
 function caseData = build_ch5_case(cfg)
-%BUILD_CH5_CASE  Build a unified chapter 5 case object.
+%BUILD_CH5_CASE  Build a unified chapter 5 case object using real wrapped engines.
 %
-% Phase 1 target:
-%   - unified scenario object
-%   - no policy yet
-%   - no chapter 4 code modification
+% Phase 2.5C target:
+%   - truth from Stage02 engine wrapper
+%   - satbank from Stage03 engine wrapper
+%   - candidates from Stage03 visibility wrapper
+%   - no modification to chapter 4 code
 
 if nargin < 1 || isempty(cfg)
     cfg = default_ch5_params();
 end
 
-t = (cfg.time.t0:cfg.time.dt:cfg.time.tf).';
-num_steps = numel(t);
-num_sats = cfg.constellation.num_planes * cfg.constellation.sats_per_plane;
+profile = build_ch5_target_profile(cfg);
+truth = build_ch5_truth_from_stage02_engine(profile, cfg);
+satbank = build_ch5_satbank_from_stage03_engine(cfg, truth.t);
+candidates = build_ch5_candidates_from_stage03_engine(truth, satbank, cfg);
 
-% Minimal placeholder target truth trajectory for shell-stage development.
-truth = struct();
-truth.t = t;
-truth.x = 1000 + 2.0 * t;
-truth.y = 500 + 1.0 * t;
-truth.z = 80 + 0.05 * t;
-
-% Minimal placeholder candidate-count profile.
-candidate_count = zeros(size(t));
-for k = 1:num_steps
-    candidate_count(k) = 2 + mod(k-1, max(1, min(4, num_sats)));
-end
-
-% Minimal placeholder candidate index list.
-candidate_sets = cell(num_steps, 1);
-for k = 1:num_steps
-    candidate_sets{k} = 1:candidate_count(k);
-end
+num_steps = numel(truth.t);
+num_sats = satbank.Ns;
 
 caseData = struct();
 
@@ -41,12 +27,13 @@ caseData.meta.created_from = mfilename;
 caseData.meta.timestamp = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
 
 caseData.cfg = cfg;
+caseData.profile = profile;
 
 caseData.time = struct();
-caseData.time.t = t;
-caseData.time.t0 = cfg.time.t0;
-caseData.time.tf = cfg.time.tf;
-caseData.time.dt = cfg.time.dt;
+caseData.time.t = truth.t(:);
+caseData.time.t0 = truth.t(1);
+caseData.time.tf = truth.t(end);
+caseData.time.dt = median(diff(truth.t(:)));
 caseData.time.num_steps = num_steps;
 
 caseData.target = cfg.target;
@@ -54,21 +41,16 @@ caseData.constellation = cfg.constellation;
 caseData.sensor = cfg.sensor;
 
 caseData.truth = truth;
-
-caseData.candidates = struct();
-caseData.candidates.count = candidate_count;
-caseData.candidates.sets = candidate_sets;
-caseData.candidates.min_count = min(candidate_count);
-caseData.candidates.max_count = max(candidate_count);
-caseData.candidates.mean_count = mean(candidate_count);
+caseData.satbank = satbank;
+caseData.candidates = candidates;
 
 caseData.summary = struct();
-caseData.summary.time_start = cfg.time.t0;
-caseData.summary.time_end = cfg.time.tf;
-caseData.summary.dt = cfg.time.dt;
+caseData.summary.time_start = caseData.time.t0;
+caseData.summary.time_end = caseData.time.tf;
+caseData.summary.dt = caseData.time.dt;
 caseData.summary.num_steps = num_steps;
 caseData.summary.num_sats = num_sats;
-caseData.summary.min_candidate_count = min(candidate_count);
-caseData.summary.max_candidate_count = max(candidate_count);
-caseData.summary.mean_candidate_count = mean(candidate_count);
+caseData.summary.min_candidate_count = candidates.min_count;
+caseData.summary.max_candidate_count = candidates.max_count;
+caseData.summary.mean_candidate_count = candidates.mean_count;
 end
