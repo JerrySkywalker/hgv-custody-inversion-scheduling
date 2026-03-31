@@ -20,23 +20,56 @@ for i = 1:numel(requiredFns)
     end
 end
 
-% Build a lightweight traj_case wrapper compatible with Stage03 visibility interface.
+% Build a traj_case wrapper compatible with Stage03 visibility interface.
 traj_case = struct();
-traj_case.case_id = 'ch5_dynamic_case';
+traj_case.case = struct();
+traj_case.case.case_id = 'ch5_dynamic_case';
+traj_case.case.family = 'nominal';
+traj_case.case.subfamily = 'chapter5_dynamic';
+traj_case.case.name = 'Chapter5 Dynamic Case';
+
 traj_case.traj = struct();
 traj_case.traj.t_s = truth.t(:);
 traj_case.traj.r_eci_km = truth.r_eci_km;
 
+% Optional fields, added only when available
+if isfield(truth, 'r_ecef_km')
+    traj_case.traj.r_ecef_km = truth.r_ecef_km;
+end
+if isfield(truth, 'r_enu_km')
+    traj_case.traj.r_enu_km = truth.r_enu_km;
+end
+if isfield(truth, 'lat_deg')
+    traj_case.traj.lat_deg = truth.lat_deg(:);
+end
+if isfield(truth, 'lon_deg')
+    traj_case.traj.lon_deg = truth.lon_deg(:);
+end
+if isfield(truth, 'h_km')
+    traj_case.traj.h_km = truth.h_km(:);
+end
+if isfield(truth, 'X')
+    traj_case.traj.X = truth.X;
+end
+
 cfg_local = cfg;
 
-% Map chapter-5 sensor visibility settings into stage03 fields when available.
 if ~isfield(cfg_local, 'stage03')
     cfg_local.stage03 = struct();
 end
+
+% Map chapter-5 sensor settings into stage03 visibility settings
 cfg_local.stage03.max_range_km = cfg.sensor.max_range_km;
-cfg_local.stage03.off_nadir_max_deg = 90;
-cfg_local.stage03.min_elevation_deg = -90;
-cfg_local.stage03.enable_earth_occlusion = true;
+
+if ~isfield(cfg_local.stage03, 'off_nadir_max_deg')
+    cfg_local.stage03.off_nadir_max_deg = 90;
+end
+if ~isfield(cfg_local.stage03, 'min_elevation_deg')
+    cfg_local.stage03.min_elevation_deg = -90;
+end
+if ~isfield(cfg_local.stage03, 'enable_earth_occlusion')
+    cfg_local.stage03.enable_earth_occlusion = true;
+end
 
 vis_case = compute_visibility_matrix_stage03(traj_case, satbank, cfg_local);
 
