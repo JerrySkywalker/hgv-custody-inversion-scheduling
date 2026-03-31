@@ -19,6 +19,14 @@ Build demand-side risk evidence without closing the dual-loop policy.
 - plots/plot_outerA_quadrant_stats.m
 - runners/run_ch5_phase6_outerA_rfkoopman.m
 
+## Phase 6A-1 stabilization changes
+- add spectral-radius clipping for local Koopman operator
+- standardize fit-window evidence before operator fitting
+- clip propagated phi / nis / candidate-count predictions
+- bound NIS-driven conservative inflation
+- replace raw omega diff with bounded growth-rate metric
+- retune warn / trigger thresholds to reduce over-triggering
+
 ## Expected outputs
 - evidence timeline
 - quadrant/state ratio plot
@@ -28,3 +36,4 @@ Build demand-side risk evidence without closing the dual-loop policy.
 ## Current note
 This phase is standalone. It does not yet claim CK superiority.
 Its purpose is to validate whether outerA can produce structured future-risk evidence.
+Phase 6A-1 focuses on numerical stabilization and threshold calibration.
