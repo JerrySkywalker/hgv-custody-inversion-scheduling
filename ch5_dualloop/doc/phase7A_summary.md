@@ -1,32 +1,23 @@
-# Phase 7A / 7B summary
+# Phase 7A / 7B / eval-fix summary
 
-## What earlier diagnostics proved
-The support-based proxy can screen out obviously bad sets, but it cannot
-discriminate among many dual-satellite sets that all have:
-- longest_single_support = 0
-- single_support_ratio = 0
-- zero_support_ratio = 0
+## Why this eval-fix is needed
+The latest 7B formal results showed a suspicious pattern:
+- phi_mean improved
+- longest_outage_steps matched C
+- outage_ratio was only slightly worse
+- but q_worst became 0 in ref128
 
-As a result, residual terms such as template/switch preference dominate
-the final choice.
+This strongly suggests that the current q_worst may still reflect a pointwise minimum,
+which is not fully aligned with the chapter-5 "worst-window" interpretation.
 
-## Phase 7B-pre outcome
-- safe fallback to C
-- warn/trigger geometry tie-break
-This already reduced the custody gap, proving geometric discrimination helps.
+## Eval-fix change
+Keep both:
+- q_worst_point  = pointwise minimum of phi_series
+- q_worst_window = rolling-window minimum of phi_series mean
 
-## Phase 7B formal change
-Geometry is no longer just a tie-break.
-It is promoted into the main objective in warn/trigger:
-- reward larger angle-only information lambda-min
-- reward larger LOS crossing angle
-while keeping:
-- support-structure constraints
-- weak hard gates
-- safe fallback to C
+Then define:
+- q_worst = q_worst_window
 
 ## Purpose
-This is the first formal outerB objective that combines:
-- support-based custody protection
-- geometric observability quality
-in one score.
+This allows direct diagnosis of whether the old q_worst=0 behavior came from
+isolated point dips or from truly bad windows.
