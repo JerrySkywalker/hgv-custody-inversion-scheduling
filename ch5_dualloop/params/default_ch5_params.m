@@ -170,28 +170,9 @@ cfg.ch5.prior_match_overlap_weight = 0.35;
 cfg.ch5.phase9_window_grid = [10 20 30 40 60 80];
 
 cfg.notes.scene_preset = cfg.ch5.scene_preset;
+
+cfg = apply_phase8_continuous_prior_defaults(cfg);
 end
 
 
 
-% ----------------------------
-% Phase08 continuous prior defaults
-% ----------------------------
-if ~isfield(cfg.ch5, 'continuous_prior_enable')
-    cfg.ch5.continuous_prior_enable = false;
-end
-if ~isfield(cfg.ch5, 'continuous_prior_mode')
-    cfg.ch5.continuous_prior_mode = 'ck_plus_full_prior';
-end
-if ~isfield(cfg.ch5, 'continuous_prior_w_prior')
-    cfg.ch5.continuous_prior_w_prior = 0.15;
-end
-if ~isfield(cfg.ch5, 'continuous_prior_wf')
-    cfg.ch5.continuous_prior_wf = 1.0;
-end
-if ~isfield(cfg.ch5, 'continuous_prior_wb')
-    cfg.ch5.continuous_prior_wb = 0.5;
-end
-if ~isfield(cfg.ch5, 'continuous_prior_wr')
-    cfg.ch5.continuous_prior_wr = 1.5;
-end
