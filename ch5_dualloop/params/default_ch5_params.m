@@ -162,5 +162,8 @@ cfg.notes = struct();
 cfg.notes.phase = 'Fifth chapter isolated development';
 cfg.notes.chapter4_code_modified = false;
 cfg.notes.stage03_aligned = true;
+cfg.ch5.phase9_window_grid = [10 20 30 40 60 80];
+
 cfg.notes.scene_preset = cfg.ch5.scene_preset;
 end
+
