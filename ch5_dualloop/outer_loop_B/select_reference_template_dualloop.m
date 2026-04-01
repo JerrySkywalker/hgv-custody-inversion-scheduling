@@ -1,9 +1,6 @@
 function ref_ids = select_reference_template_dualloop(caseData, k, cfg)
 %SELECT_REFERENCE_TEMPLATE_DUALLOOP
-% Lightweight static-like reference template for current window.
-%
-% Choose the set that best protects future phi floor without considering
-% switching penalty.
+% Reference template chosen by future dual-support preference.
 
 visible_ids = find(caseData.candidates.visible_mask(k, :) > 0);
 max_sats = cfg.ch5.max_track_sats;
@@ -32,13 +29,17 @@ best_ids = all_sets{1};
 
 for i = 1:numel(all_sets)
     ids = all_sets{i};
-    d = compute_phi_window_proxy_dualloop(caseData, ids, k, cfg);
+    d = compute_support_window_proxy_dualloop(caseData, ids, k, cfg);
+
+    long_single = d.longest_single_support_steps / max(1, cfg.ch5.window_steps);
+    long_zero = d.longest_zero_support_steps / max(1, cfg.ch5.window_steps);
 
     cost = ...
-        - cfg.ch5.ck_ref_phi_min_weight  * d.phi_min ...
-        - cfg.ch5.ck_ref_phi_avg_weight  * d.phi_avg ...
-        + cfg.ch5.ck_ref_outage_weight   * d.outage_ratio ...
-        + cfg.ch5.ck_ref_longest_weight  * (d.longest_outage_steps / max(1, cfg.ch5.window_steps));
+        - cfg.ch5.ck_ref_dual_weight * d.dual_support_ratio ...
+        + cfg.ch5.ck_ref_single_weight * d.single_support_ratio ...
+        + cfg.ch5.ck_ref_zero_weight * d.zero_support_ratio ...
+        + cfg.ch5.ck_ref_longest_single_weight * long_single ...
+        + cfg.ch5.ck_ref_longest_zero_weight * long_zero;
 
     if cost < best_cost
         best_cost = cost;
