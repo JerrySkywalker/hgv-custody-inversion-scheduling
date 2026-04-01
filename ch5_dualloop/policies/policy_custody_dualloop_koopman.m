@@ -1,5 +1,8 @@
 function result = policy_custody_dualloop_koopman(caseData, cfg)
-%POLICY_CUSTODY_DUALLOOP_KOOPMAN  Minimal mode-driven CK policy.
+%POLICY_CUSTODY_DUALLOOP_KOOPMAN
+% Phase 7B-pre:
+%   - safe mode falls back to C selection
+%   - warn/trigger use support-first + geometric tie-break
 
 if nargin < 2 || isempty(cfg)
     cfg = default_ch5_params();
@@ -32,7 +35,6 @@ for k = 1:N
     prev_ids = ids;
 end
 
-% RMSE surrogate: start from inner-loop error, then mode-dependent adjustment
 rmse_scale = ones(N,1);
 
 for k = 1:N
@@ -40,9 +42,9 @@ for k = 1:N
         case 'safe'
             rmse_scale(k) = 1.00;
         case 'warn'
-            rmse_scale(k) = 0.92;
+            rmse_scale(k) = 0.96;
         otherwise
-            rmse_scale(k) = 0.85;
+            rmse_scale(k) = 0.92;
     end
 
     if tracking_sat_count(k) == 0
