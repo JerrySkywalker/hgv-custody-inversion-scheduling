@@ -57,15 +57,24 @@ txt_lines = {
     '--- CK tracking ---'
     ['mean_rmse                       = ', num2str(trackingStatsCK.mean_rmse, '%.6f')]
     ['coverage_ratio_ge2              = ', num2str(trackingStatsCK.coverage_ratio_ge2, '%.6f')]
+
     '--- T custody ---'
+    ['q_worst_point                   = ', num2str(custodyT.q_worst_point, '%.6f')]
+    ['q_worst_window                  = ', num2str(custodyT.q_worst_window, '%.6f')]
     ['q_worst                         = ', num2str(custodyT.q_worst, '%.6f')]
     ['outage_ratio                    = ', num2str(custodyT.outage_ratio, '%.6f')]
     ['longest_outage_steps            = ', num2str(custodyT.longest_outage_steps)]
+
     '--- C custody ---'
+    ['q_worst_point                   = ', num2str(custodyC.q_worst_point, '%.6f')]
+    ['q_worst_window                  = ', num2str(custodyC.q_worst_window, '%.6f')]
     ['q_worst                         = ', num2str(custodyC.q_worst, '%.6f')]
     ['outage_ratio                    = ', num2str(custodyC.outage_ratio, '%.6f')]
     ['longest_outage_steps            = ', num2str(custodyC.longest_outage_steps)]
+
     '--- CK custody ---'
+    ['q_worst_point                   = ', num2str(custodyCK.q_worst_point, '%.6f')]
+    ['q_worst_window                  = ', num2str(custodyCK.q_worst_window, '%.6f')]
     ['q_worst                         = ', num2str(custodyCK.q_worst, '%.6f')]
     ['outage_ratio                    = ', num2str(custodyCK.outage_ratio, '%.6f')]
     ['longest_outage_steps            = ', num2str(custodyCK.longest_outage_steps)]
@@ -77,8 +86,8 @@ log_lines = {
     '[INFO] run_ch5_phase7A_dualloop_ck started'
     ['[INFO] output_root = ', out_root]
     ['[INFO] scene_preset = ', cfg.ch5.scene_preset]
-    ['[INFO] C q_worst = ', num2str(custodyC.q_worst, '%.6f')]
-    ['[INFO] CK q_worst = ', num2str(custodyCK.q_worst, '%.6f')]
+    ['[INFO] C q_worst_window = ', num2str(custodyC.q_worst_window, '%.6f')]
+    ['[INFO] CK q_worst_window = ', num2str(custodyCK.q_worst_window, '%.6f')]
     ['[INFO] C outage_ratio = ', num2str(custodyC.outage_ratio, '%.6f')]
     ['[INFO] CK outage_ratio = ', num2str(custodyCK.outage_ratio, '%.6f')]
     '[INFO] run_ch5_phase7A_dualloop_ck finished'
