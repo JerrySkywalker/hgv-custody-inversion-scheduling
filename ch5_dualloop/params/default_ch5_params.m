@@ -105,7 +105,7 @@ cfg.ch5.outerA_rank_rel_tol = 1.0e-6;
 cfg.ch5.outerA_rank_fallback_min = 2;
 
 % ============================================================
-% Phase 7B-pre: safe fallback + geometric tie-break
+% Phase 7B formal: safe fallback + geometry enters main objective
 % ============================================================
 cfg.ch5.ck_safe_fallback_to_C = true;
 
@@ -114,7 +114,7 @@ cfg.ch5.ck_force_two_sat_in_trigger = true;
 cfg.ch5.ck_force_two_sat_in_safe = false;
 cfg.ch5.ck_allow_single_fallback = true;
 
-% reference-template weights (required by select_reference_template_dualloop)
+% reference-template weights
 cfg.ch5.ck_ref_dual_weight = 2.0;
 cfg.ch5.ck_ref_single_weight = 1.5;
 cfg.ch5.ck_ref_zero_weight = 2.0;
@@ -127,26 +127,23 @@ cfg.ch5.ck_warn_single_weight = 2.0;
 cfg.ch5.ck_warn_zero_weight = 2.5;
 cfg.ch5.ck_warn_longest_single_weight = 2.0;
 cfg.ch5.ck_warn_longest_zero_weight = 2.0;
-cfg.ch5.ck_warn_base_weight = 0.15;
-cfg.ch5.ck_warn_switch_weight = 0.15;
+cfg.ch5.ck_warn_base_weight = 0.10;
+cfg.ch5.ck_warn_switch_weight = 0.10;
 
 cfg.ch5.ck_trigger_dual_weight = 2.4;
 cfg.ch5.ck_trigger_single_weight = 2.5;
 cfg.ch5.ck_trigger_zero_weight = 3.0;
 cfg.ch5.ck_trigger_longest_single_weight = 2.5;
 cfg.ch5.ck_trigger_longest_zero_weight = 2.5;
-cfg.ch5.ck_trigger_base_weight = 0.05;
-cfg.ch5.ck_trigger_switch_weight = 0.05;
+cfg.ch5.ck_trigger_base_weight = 0.03;
+cfg.ch5.ck_trigger_switch_weight = 0.03;
 
-% geometric tie-break weights
-cfg.ch5.ck_warn_geom_lambda_weight = 1.5;
-cfg.ch5.ck_warn_geom_angle_weight = 0.6;
+% geometry now enters main objective
+cfg.ch5.ck_warn_geom_lambda_weight = 1.2;
+cfg.ch5.ck_warn_geom_angle_weight = 0.4;
 
-cfg.ch5.ck_trigger_geom_lambda_weight = 2.2;
-cfg.ch5.ck_trigger_geom_angle_weight = 0.8;
-
-cfg.ch5.ck_use_geom_tiebreak_in_warn = true;
-cfg.ch5.ck_use_geom_tiebreak_in_trigger = true;
+cfg.ch5.ck_trigger_geom_lambda_weight = 2.0;
+cfg.ch5.ck_trigger_geom_angle_weight = 0.6;
 
 % keep hard gates only as weak guards
 cfg.ch5.ck_gate_warn_max_zero_ratio = 0.15;
