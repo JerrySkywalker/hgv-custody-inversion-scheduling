@@ -53,8 +53,10 @@ title('Stage15-H2: fragility score (sorted)');
 saveas(f2, fullfile(fig_dir, 'stage15h_fragility_sorted.png'));
 close(f2);
 
+region_list = arrayfun(@(s) string(s.prior.region_id), prior_dataset);
+cats = categorical(region_list);
+
 f3 = figure('Name','stage15h_region_hist');
-cats = categorical(string({prior_dataset.prior}.region_id));
 histogram(cats);
 grid on;
 xlabel('region id');
