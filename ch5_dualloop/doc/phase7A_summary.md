@@ -18,20 +18,16 @@ The custody-structure-constrained revision recovered dual-satellite support:
 - coverage_ratio_ge2 recovered to 1
 - but CK still underperformed C on custody metrics
 
-## Phase 7A-3 diagnostics
-The debug results showed:
-- hard gates screened very few candidates overall
-- zero-support-related gates almost never triggered
-- the only meaningful screening signal was longest_single_support
-Therefore, the next revision should make single-support fragility the dominant criterion.
+## Phase 7A-3 / 7A-4 outcome
+The later gate/lexicographic revisions did not change the final metrics relative to 7A-2.
 
-## Phase 7A-4 change
-- tighten longest_single gates in warn / trigger
-- greatly increase single_support and longest_single weights
-- apply lexicographic ranking in warn / trigger:
-  1) shortest longest_single_support_steps
-  2) smallest single_support_ratio
-  3) lowest total score
+## Phase 7A-select-dbg purpose
+Directly inspect:
+- when C and CK choose different sets
+- which candidate sets exist at those steps
+- how those sets differ in longest_single_support, single_support_ratio, zero_support_ratio, and total score
 
-## Current note
-This revision makes single-support fragility the primary decision axis of outerB.
+## Files
+- analysis/compare_selected_sets_dualloop.m
+- analysis/dump_candidate_scores_dualloop.m
+- runners/run_ch5_phase7A_select_debug.m
