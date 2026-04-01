@@ -1,8 +1,10 @@
 function selected_ids = select_satellite_set_custody_dualloop(caseData, k, prev_ids, mode, cfg)
 %SELECT_SATELLITE_SET_CUSTODY_DUALLOOP
 % Safe fallback to C; warn/trigger use feasible-set filtering then direct total-score selection.
+% Phase 8:
+%   - if prior is enabled, match a reference template from prior library
+%   - otherwise fall back to dynamic local template selection
 
-% safe mode: directly reuse C
 if strcmp(mode, 'safe') && cfg.ch5.ck_safe_fallback_to_C
     selected_ids = select_satellite_set_custody(caseData, k, prev_ids, cfg);
     return;
@@ -50,7 +52,14 @@ if isempty(all_sets) && cfg.ch5.ck_allow_single_fallback
     all_sets = num2cell(visible_ids(:), 2);
 end
 
-ref_ids = select_reference_template_dualloop(caseData, k, cfg);
+ref_ids = [];
+if isfield(cfg.ch5, 'prior_enable') && cfg.ch5.prior_enable && ...
+   isfield(cfg.ch5, 'prior_library') && ~isempty(cfg.ch5.prior_library)
+    ref_ids = match_reference_prior(cfg.ch5.prior_library, caseData, k, mode, cfg);
+end
+if isempty(ref_ids)
+    ref_ids = select_reference_template_dualloop(caseData, k, cfg);
+end
 
 records = struct('ids', {}, 'score', {}, 'is_feasible', {});
 
