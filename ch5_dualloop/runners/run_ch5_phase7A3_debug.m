@@ -25,7 +25,18 @@ outA = run_ch5_phase6_outerA_rfkoopman(cfg, false);
 S = load(outA.mat_file);
 outerA = S.outerA;
 
-mode_stats = summarize_outerA_mode_series(outerA.mode_series);
+% Rebuild mode_series from risk_state if mode_series is absent
+if ~isfield(outerA, 'mode_series') || isempty(outerA.mode_series)
+    rs = outerA.risk_state(:);
+    mode_series = strings(numel(rs), 1);
+    for k = 1:numel(rs)
+        mode_series(k) = string(dispatch_quadrant_policy(rs(k)));
+    end
+else
+    mode_series = string(outerA.mode_series(:));
+end
+
+mode_stats = summarize_outerA_mode_series(mode_series);
 diag = diagnose_outerB_selection_dualloop(caseData, outerA, cfg);
 
 txt_path = fullfile(tbl_dir, ['phase7a_dbg_summary_', cfg.ch5.scene_preset, '.txt']);
@@ -53,7 +64,7 @@ log_path = fullfile(log_dir, ['phase7a_dbg_log_', cfg.ch5.scene_preset, '.txt'])
 local_write_txt(log_path, lines);
 
 mat_path = fullfile(mat_dir, ['phase7a_dbg_', cfg.ch5.scene_preset, '.mat']);
-save(mat_path, 'cfg', 'caseData', 'outerA', 'mode_stats', 'diag');
+save(mat_path, 'cfg', 'caseData', 'outerA', 'mode_series', 'mode_stats', 'diag');
 
 if verbose
     disp('=== Chapter 5 Phase 7A-3-dbg Summary ===')
