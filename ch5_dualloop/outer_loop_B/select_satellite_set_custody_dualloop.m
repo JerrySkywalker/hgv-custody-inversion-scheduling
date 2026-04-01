@@ -1,10 +1,12 @@
 function selected_ids = select_satellite_set_custody_dualloop(caseData, k, prev_ids, mode, cfg)
 %SELECT_SATELLITE_SET_CUSTODY_DUALLOOP
-% Enumerate feasible subsets with custody structure constraints.
-% Prefer feasible sets; in warn/trigger, apply lexicographic ranking:
-%   1) shortest longest_single_support_steps
-%   2) smallest single_support_ratio
-%   3) lowest total score
+% Safe fallback to C; warn/trigger use support-first plus geometric tie-break.
+
+% safe mode: directly reuse C
+if strcmp(mode, 'safe') && cfg.ch5.ck_safe_fallback_to_C
+    selected_ids = select_satellite_set_custody(caseData, k, prev_ids, cfg);
+    return;
+end
 
 visible_ids = find(caseData.candidates.visible_mask(k, :) > 0);
 max_sats = cfg.ch5.max_track_sats;
@@ -16,8 +18,6 @@ end
 
 force_two = false;
 switch mode
-    case 'safe'
-        force_two = cfg.ch5.ck_force_two_sat_in_safe;
     case 'warn'
         force_two = cfg.ch5.ck_force_two_sat_in_warn;
     otherwise
@@ -53,7 +53,8 @@ end
 ref_ids = select_reference_template_dualloop(caseData, k, cfg);
 
 records = struct('ids', {}, 'score', {}, 'is_feasible', {}, ...
-                 'longest_single', {}, 'single_ratio', {});
+                 'longest_single', {}, 'single_ratio', {}, ...
+                 'lambda_min_geom', {}, 'min_crossing_angle_deg', {});
 
 for i = 1:numel(all_sets)
     ids = all_sets{i};
@@ -64,6 +65,8 @@ for i = 1:numel(all_sets)
     rec.is_feasible = logical(detail.is_feasible);
     rec.longest_single = detail.longest_single_support_steps;
     rec.single_ratio = detail.single_support_ratio;
+    rec.lambda_min_geom = detail.lambda_min_geom;
+    rec.min_crossing_angle_deg = detail.min_crossing_angle_deg;
     records(end+1) = rec; %#ok<AGROW>
 end
 
@@ -74,45 +77,45 @@ else
     cand = records;
 end
 
-use_lexi = false;
-switch mode
-    case 'warn'
-        use_lexi = cfg.ch5.ck_use_lexicographic_in_warn;
-    case 'trigger'
-        use_lexi = cfg.ch5.ck_use_lexicographic_in_trigger;
-end
-
-if use_lexi
-    best_idx = 1;
-    for i = 2:numel(cand)
-        if local_better(cand(i), cand(best_idx))
-            best_idx = i;
-        end
+best_idx = 1;
+for i = 2:numel(cand)
+    if local_better_geom(cand(i), cand(best_idx))
+        best_idx = i;
     end
-    selected_ids = cand(best_idx).ids(:).';
-else
-    scores = [cand.score];
-    [~, idx] = min(scores);
-    selected_ids = cand(idx).ids(:).';
-end
 end
 
-function tf = local_better(a, b)
+selected_ids = cand(best_idx).ids(:).';
+end
+
+function tf = local_better_geom(a, b)
+% 1) shorter longest single-support
 if a.longest_single < b.longest_single
-    tf = true;
-    return
+    tf = true; return
 elseif a.longest_single > b.longest_single
-    tf = false;
-    return
+    tf = false; return
 end
 
+% 2) smaller single-support ratio
 if a.single_ratio < b.single_ratio
-    tf = true;
-    return
+    tf = true; return
 elseif a.single_ratio > b.single_ratio
-    tf = false;
-    return
+    tf = false; return
 end
 
+% 3) larger geometry lambda-min
+if a.lambda_min_geom > b.lambda_min_geom
+    tf = true; return
+elseif a.lambda_min_geom < b.lambda_min_geom
+    tf = false; return
+end
+
+% 4) larger LOS crossing angle
+if a.min_crossing_angle_deg > b.min_crossing_angle_deg
+    tf = true; return
+elseif a.min_crossing_angle_deg < b.min_crossing_angle_deg
+    tf = false; return
+end
+
+% 5) lower total score
 tf = (a.score < b.score);
 end
