@@ -1,78 +1,71 @@
 function prior = build_stage15_continuous_prior(lambda_geom, baseline_km, crossing_angle_deg)
-% 构造 Stage15 连续几何先验
+%BUILD_STAGE15_CONTINUOUS_PRIOR
+% Map stage15-scale geometry descriptors into a continuous prior bundle.
 %
-% 输入:
-%   lambda_geom
-%   baseline_km
-%   crossing_angle_deg
+% Current design:
+%   1) map (lambda_geom, baseline_km, crossing_angle_deg) -> M_G_center (cpt3 scale)
+%   2) assign a soft region label for reporting only
+%   3) build a NON-SATURATED continuous fragility score
 %
-% 输出:
-%   prior.M_G_center
-%   prior.region_id
-%   prior.fragility_score
-%   prior.R_geo_est
-%   prior.Bxy_nominal_est
-%   prior.Bxy_conservative_est
+% Important:
+%   region_id is now descriptive only.
+%   fragility_score is continuous and keeps dynamic range inside high_M_G.
 
-assert(exist('stage15h_map_geom_to_cpt3MG_modelB', 'file') == 2, ...
-    'Missing stage15h_map_geom_to_cpt3MG_modelB on path.');
-assert(exist('stage15h_get_geometry_calibration', 'file') == 2, ...
-    'Missing stage15h_get_geometry_calibration on path.');
+arguments
+    lambda_geom (1,1) double
+    baseline_km (1,1) double
+    crossing_angle_deg (1,1) double
+end
 
-map_mat = fullfile(pwd, 'outputs', 'stage', 'stage15', 'crossscale_mapping', 'stage15h1_mapping_fit.mat');
-assert(exist(map_mat, 'file') == 2, 'Missing H1 mapping fit mat: %s', map_mat);
+thr = get_stage15_mg_thresholds();
 
-Smap = load(map_mat);
-assert(strcmp(Smap.recommended_model, 'B'), 'Expected recommended model B.');
+MG_center = stage15_map_to_mg_cpt3(lambda_geom, baseline_km, crossing_angle_deg);
 
-modelB = Smap.models.B;
-calib = stage15h_get_geometry_calibration();
+if MG_center < thr.MG_thr_12
+    region_id = "low_M_G";
+elseif MG_center < thr.MG_thr_23
+    region_id = "mid_M_G";
+else
+    region_id = "high_M_G";
+end
 
-MG_hat = stage15h_map_geom_to_cpt3MG_modelB(lambda_geom, baseline_km, modelB);
+% ------------------------------------------------
+% Continuous fragility without hard saturation
+%
+% J_f = max(eps0, (M_ref / M_G)^alpha )
+%
+% Recommended initial setting:
+%   eps0  = 0.05
+%   M_ref = 120
+%   alpha = 0.5
+% ------------------------------------------------
+eps0  = 0.05;
+M_ref = thr.MG_thr_12;
+alpha = 0.5;
+
+MG_safe = max(MG_center, 1e-6);
+fragility_score = max(eps0, (M_ref / MG_safe)^alpha);
+
+% Keep old reference outputs for downstream compatibility.
+R_geo_est = stage15_estimate_Rgeo_from_mg(MG_center);
+Bxy_nominal_est = stage15_estimate_Bxy_nominal_from_mg(MG_center);
+Bxy_conservative_est = stage15_estimate_Bxy_conservative_from_mg(MG_center);
 
 prior = struct();
 prior.lambda_geom = lambda_geom;
 prior.baseline_km = baseline_km;
 prior.crossing_angle_deg = crossing_angle_deg;
-prior.M_G_center = MG_hat;
 
-if MG_hat <= calib.M_G_thr_12
-    prior.region_id = "low_M_G";
-elseif MG_hat <= calib.M_G_thr_23
-    prior.region_id = "mid_M_G";
-else
-    prior.region_id = "high_M_G";
-end
+prior.M_G_center = MG_center;
+prior.region_id = region_id;
+prior.fragility_score = fragility_score;
 
-Rmin = calib.R_geo_trusted_min_km;
-Rmed = calib.R_geo_trusted_median_km;
-Rmax = calib.R_geo_trusted_max_km;
+prior.R_geo_est = R_geo_est;
+prior.Bxy_nominal_est = Bxy_nominal_est;
+prior.Bxy_conservative_est = Bxy_conservative_est;
 
-Bnom_min = calib.Bxy_nominal_range_km(1);
-Bnom_max = calib.Bxy_nominal_range_km(2);
-Bcon_min = calib.Bxy_conservative_range_km(1);
-Bcon_max = calib.Bxy_conservative_range_km(2);
-
-if MG_hat <= calib.M_G_thr_12
-    alpha = max(0, min(1, MG_hat / max(calib.M_G_thr_12, eps)));
-    prior.fragility_score = 1.0 - 0.4 * alpha;
-    prior.R_geo_est = 0.5 * Rmin + 0.5 * alpha * Rmin;
-    prior.Bxy_nominal_est = Bcon_min + alpha * (Bnom_min - Bcon_min);
-    prior.Bxy_conservative_est = Bcon_min + 0.5 * alpha * (Bcon_max - Bcon_min);
-elseif MG_hat <= calib.M_G_thr_23
-    alpha = (MG_hat - calib.M_G_thr_12) / max(calib.M_G_thr_23 - calib.M_G_thr_12, eps);
-    prior.fragility_score = 0.6 - 0.4 * alpha;
-    prior.R_geo_est = Rmin + alpha * (Rmax - Rmin);
-    prior.Bxy_nominal_est = Bnom_min + alpha * (Bnom_max - Bnom_min);
-    prior.Bxy_conservative_est = Bcon_min + alpha * (Bcon_max - Bcon_min);
-else
-    alpha = 1 - exp(-(MG_hat - calib.M_G_thr_23) / 50.0);
-    prior.fragility_score = max(0.05, 0.2 - 0.15 * alpha);
-    prior.R_geo_est = Rmax - 0.4 * alpha * (Rmax - Rmed);
-    prior.Bxy_nominal_est = Bnom_max - 0.3 * alpha * (Bnom_max - Bnom_min);
-    prior.Bxy_conservative_est = Bcon_max - 0.3 * alpha * (Bcon_max - Bcon_min);
-end
-
-prior.step_xy_nominal_est = calib.step_xy_nominal_km;
-prior.step_xy_conservative_est = calib.step_xy_conservative_km;
+prior.meta = struct();
+prior.meta.eps0 = eps0;
+prior.meta.M_ref = M_ref;
+prior.meta.alpha = alpha;
 end
