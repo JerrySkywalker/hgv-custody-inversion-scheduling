@@ -11,6 +11,7 @@ cfg.weights.wb = 0.5;
 cfg.weights.wr = 1.5;
 
 cfg.mode_list = {'ck_only', 'ck_plus_fragility', 'ck_plus_full_prior'};
-cfg.default_mode = 'ck_plus_full_prior';
+cfg.default_mode = 'ck_plus_fragility';
 
 end
+
