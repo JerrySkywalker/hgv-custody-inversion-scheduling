@@ -162,8 +162,14 @@ cfg.notes = struct();
 cfg.notes.phase = 'Fifth chapter isolated development';
 cfg.notes.chapter4_code_modified = false;
 cfg.notes.stage03_aligned = true;
+cfg.ch5.prior_enable = false;
+cfg.ch5.prior_anchor_count = 5;
+cfg.ch5.prior_match_deviation_weight = 0.65;
+cfg.ch5.prior_match_overlap_weight = 0.35;
+
 cfg.ch5.phase9_window_grid = [10 20 30 40 60 80];
 
 cfg.notes.scene_preset = cfg.ch5.scene_preset;
 end
+
 
