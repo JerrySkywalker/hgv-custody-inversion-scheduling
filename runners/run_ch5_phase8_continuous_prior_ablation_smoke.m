@@ -37,7 +37,7 @@ cands(3).crossing_angle_deg = 80;
 cands(3).Bxy_cand = 150;
 cands(3).Ruse = 260;
 
-records = struct([]);
+records_cell = cell(1, numel(cands) * numel(cfg0.mode_list));
 k = 0;
 
 for ic = 1:numel(cands)
@@ -57,9 +57,12 @@ for ic = 1:numel(cands)
         rec.prior_cost_used = out_score.prior_cost_used;
         rec.prior = out_score.prior;
         rec.detail = out_score.detail;
-        records(k) = rec; %#ok<AGROW>
+
+        records_cell{k} = rec;
     end
 end
+
+records = [records_cell{1:k}];
 
 txt_path = fullfile(out_root, 'phase8_continuous_prior_ablation_summary.txt');
 fid = fopen(txt_path, 'w');
