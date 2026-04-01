@@ -39,7 +39,8 @@ samples(3).crossing_angle_deg = 80;
 samples(3).Bxy_cand = 150;
 samples(3).Ruse = 260;
 
-records = struct([]);
+records_cell = cell(1, numel(samples));
+
 for i = 1:numel(samples)
     s = samples(i);
     prior = build_stage15_continuous_prior(s.lambda_geom, s.baseline_km, s.crossing_angle_deg);
@@ -56,8 +57,11 @@ for i = 1:numel(samples)
     rec.detail = detail;
     rec.score_ck = score_ck;
     rec.score_total = score_total;
-    records(i) = rec;
+
+    records_cell{i} = rec;
 end
+
+records = [records_cell{:}];
 
 txt_path = fullfile(out_root, 'phase8_continuous_prior_summary.txt');
 fid = fopen(txt_path, 'w');
