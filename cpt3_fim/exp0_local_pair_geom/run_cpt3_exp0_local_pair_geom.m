@@ -1,12 +1,15 @@
 function out = run_cpt3_exp0_local_pair_geom(verbose)
-% 第三章实验0（修正版 v3）：
+% 第三章实验0（修正版 v4）：
 % 双传感器局部几何与 M_G 稳定域实验
 %
 % 本版修正：
-% 1) 同时输出 fig3_stacked 与 fig3plus
-% 2) fig3_stacked 的 baseline 改成 500:100:1200
-% 3) fig3plus 仍用 500 / 1000 / 1200
-% 4) summary / log 同步记录 stacked 与 fig3plus 两套 baseline
+% 1) 所有图统一 LaTeX 解释器
+% 2) Fig1 与 Fig3_plus 基线统一为理论参考锚点：
+%    b = [514.462, 1108.513, 1611.071] km
+% 3) Fig5 明确说明：
+%    - 实线 = nominal
+%    - 虚线 = conservative
+%    - 右图两柱分别为 conservative / nominal 步长
 %
 % 输出目录：
 % outputs/cpt3/exp0_local_pair_geom/
@@ -25,11 +28,15 @@ if ~exist(tbl_dir, 'dir'); mkdir(tbl_dir); end
 if ~exist(mat_dir, 'dir'); mkdir(mat_dir); end
 if ~exist(log_dir, 'dir'); mkdir(log_dir); end
 
-% 清理旧输出，避免不同步
 local_safe_delete(fullfile(fig_dir, '*.png'));
 local_safe_delete(fullfile(tbl_dir, '*.txt'));
 local_safe_delete(fullfile(log_dir, '*.txt'));
 local_safe_delete(fullfile(mat_dir, '*.mat'));
+
+%% 全局 LaTeX
+set(groot, 'defaultTextInterpreter', 'latex');
+set(groot, 'defaultLegendInterpreter', 'latex');
+set(groot, 'defaultAxesTickLabelInterpreter', 'latex');
 
 %% 参数
 p = local_default_params();
@@ -54,15 +61,15 @@ for i = 1:numel(b_grid)
     crlb_weak_center(i) = met.crlb_weak_km;
 end
 
-%% 参考锚点（用于 threshold 与正文解释）
+%% 理论参考锚点（用于 threshold / Fig1 / Fig3plus）
 theta_anchor_deg = p.theta_anchor_deg(:).';
 b_anchor_km = 2*(p.h_sat_km - p.h_tgt_ref_km) .* tand(theta_anchor_deg/2);
 
-%% dense baseline（用于 Fig4 与 stacked fig3）
+%% dense baseline（用于 Fig3_stacked / Fig4）
 b_anchor_dense_km = p.baseline_dense_km(:).';
 
-%% fig3plus baseline
-b_fig3plus_km = p.baseline_fig3plus_km(:).';
+%% fig3plus baseline：统一为理论参考锚点
+b_fig3plus_km = b_anchor_km;
 
 %% 参考锚点中心 M_G 与阈值
 MG_anchor = zeros(size(theta_anchor_deg));
@@ -117,7 +124,7 @@ for ib = 1:nB
     end
 end
 
-%% dense baseline：用于 Fig4 与 stacked fig3
+%% dense baseline：用于 Fig3_stacked 与 Fig4
 nBd = numel(b_anchor_dense_km);
 R_geo_dense = zeros(nBd, nH);
 center_region_dense = strings(nBd, nH);
@@ -126,7 +133,6 @@ MG_maps_stacked = cell(1, nBd);
 for ib = 1:nBd
     b = b_anchor_dense_km(ib);
 
-    % stacked fig3 只取 h = 40 km
     [Mmap40, ~] = local_scan_MG_map(X, Y, b, p.h_tgt_ref_km, p.h_sat_km, p.sigma_theta_rad, MG_thr_12, MG_thr_23);
     MG_maps_stacked{ib} = Mmap40;
 
@@ -141,7 +147,7 @@ for ib = 1:nBd
     end
 end
 
-%% fig3plus：b=500/1000/1200, h=40 km
+%% fig3plus：理论参考锚点，h=40 km
 nBp = numel(b_fig3plus_km);
 MG_maps_fig3plus = cell(1, nBp);
 for ib = 1:nBp
@@ -174,24 +180,24 @@ end
 
 Bz_rec_half = 0.5 * (max(H_list) - min(H_list));
 
-%% 空间步长：边界保持步长
+%% 空间步长
 step_xy_candidates = R_geo_trusted / p.N_resolve;
 step_xy_rec_nominal = median(step_xy_candidates);
 step_xy_rec_conservative = min(step_xy_candidates);
 
 %% ---------------- 作图 ----------------
 
-% Fig1: 单曲线 + 锚点标注
+% Fig1
 f1 = figure('Name','exp0_fig1_baseline_vs_crossing');
 plot(b_grid, theta_num_deg, 'LineWidth', 2); hold on; grid on;
 plot(b_anchor_km, theta_anchor_deg, 'o', 'MarkerSize', 8, 'LineWidth', 1.5);
 for i = 1:numel(b_anchor_km)
     text(b_anchor_km(i)+20, theta_anchor_deg(i)+1.0, ...
-        sprintf('(%.0f km, %.0f^\\circ)', b_anchor_km(i), theta_anchor_deg(i)), ...
+        sprintf('$(%.0f\\ \\mathrm{km},\\ %.0f^{\\circ})$', b_anchor_km(i), theta_anchor_deg(i)), ...
         'FontSize', 10);
 end
-xlabel('Baseline length b (km)');
-ylabel('Crossing angle \theta (deg)');
+xlabel('Baseline length $b$ (km)');
+ylabel('Crossing angle $\theta$ (deg)');
 title('Baseline length vs crossing angle');
 saveas(f1, fullfile(fig_dir, 'exp0_fig1_baseline_vs_crossing.png'));
 close(f1);
@@ -200,16 +206,16 @@ close(f1);
 f2 = figure('Name','exp0_fig2_baseline_vs_MG_crlb');
 yyaxis left
 plot(b_grid, MG_center, 'LineWidth', 2); hold on; grid on;
-ylabel('M_G = \lambda_{min}(J)');
+ylabel('$M_G=\lambda_{\min}(J)$');
 yyaxis right
 plot(b_grid, crlb_weak_center, '--', 'LineWidth', 2);
 ylabel('Weak-direction CRLB std bound (km)');
-xlabel('Baseline length b (km)');
-title('Baseline length vs M_G / CRLB');
+xlabel('Baseline length $b$ (km)');
+title('Baseline length vs $M_G$ / CRLB');
 saveas(f2, fullfile(fig_dir, 'exp0_fig2_baseline_vs_MG_crlb.png'));
 close(f2);
 
-% Fig3_stacked: dense baseline = 500:100:1200, h=40 km
+% Fig3_stacked
 Mmin_stack = inf;
 Mmax_stack = -inf;
 for k = 1:nBd
@@ -230,20 +236,20 @@ end
 colormap(parula);
 caxis([Mmin_stack, Mmax_stack]);
 cb = colorbar;
-cb.Label.String = 'M_G';
+cb.Label.String = '$M_G$';
 
-xlabel('x (km)');
+xlabel('$x$ (km)');
 ylabel('Baseline slice index');
-zlabel('y (km)');
+zlabel('$y$ (km)');
 yticks(z_stack);
-yticklabels(compose('b=%.0f km', b_anchor_dense_km));
-title('Stacked M_G heatmaps at h=40 km');
+yticklabels(compose('$b=%.0f\\ \\mathrm{km}$', b_anchor_dense_km));
+title('Stacked $M_G$ heatmaps at $h=40$ km');
 view(85,20);
 set(gcf,'unit','normalized','position',[0.08 0.15 0.84 0.42]);
 saveas(f3s, fullfile(fig_dir, 'exp0_fig3_stacked_MG_heatmaps.png'));
 close(f3s);
 
-% Fig3_plus: 1x3, 正方形, 统一色标, 两条等值线
+% Fig3_plus
 Mmin = inf;
 Mmax = -inf;
 for k = 1:nBp
@@ -264,30 +270,36 @@ for k = 1:nBp
     axis square;
     hold on;
 
-    contour(xg, yg, Mmap, [MG_thr_12 MG_thr_12], 'w--', 'LineWidth', 1.5);
-    contour(xg, yg, Mmap, [MG_thr_23 MG_thr_23], 'r-', 'LineWidth', 1.5);
+    h1 = contour(xg, yg, Mmap, [MG_thr_12 MG_thr_12], 'w--', 'LineWidth', 1.5);
+    h2 = contour(xg, yg, Mmap, [MG_thr_23 MG_thr_23], 'r-', 'LineWidth', 1.5);
 
-    xlabel('x (km)');
-    ylabel('y (km)');
-    title(sprintf('M_G map, b=%.0f km, h=40km', b_fig3plus_km(k)));
+    xlabel('$x$ (km)');
+    ylabel('$y$ (km)');
+    title(sprintf('$M_G$ map, $b=%.0f\\ \\mathrm{km}$, $h=40\\ \\mathrm{km}$', b_fig3plus_km(k)));
     caxis([Mmin, Mmax]);
+
+    if k == 1
+        legend([h1(1), h2(1)], ...
+            {'$M_G=M_{G,\mathrm{thr12}}$', '$M_G=M_{G,\mathrm{thr23}}$'}, ...
+            'Location','southoutside');
+    end
 end
 cb = colorbar;
 cb.Layout.Tile = 'east';
-cb.Label.String = 'M_G';
+cb.Label.String = '$M_G$';
 saveas(f3p, fullfile(fig_dir, 'exp0_fig3plus_MG_contours.png'));
 close(f3p);
 
-% Fig4: dense baseline = 500:100:1200
+% Fig4
 f4 = figure('Name','exp0_fig4_Rgeo_dense');
 hold on; grid on;
 for ih = 1:nH
     plot(b_anchor_dense_km, R_geo_dense(:,ih), '-o', 'LineWidth', 2, ...
-        'DisplayName', sprintf('h=%dkm', round(H_list(ih))));
+        'DisplayName', sprintf('$h=%d\\ \\mathrm{km}$', round(H_list(ih))));
 end
-xlabel('Baseline length b (km)');
-ylabel('Empirical geometry stability radius R_{geo} (km)');
-title('M_G stability radius from simulation');
+xlabel('Baseline length $b$ (km)');
+ylabel('Empirical geometry stability radius $R_{\mathrm{geo}}$ (km)');
+title('$M_G$ stability radius from simulation');
 legend('Location','best');
 saveas(f4, fullfile(fig_dir, 'exp0_fig4_Rgeo_dense.png'));
 close(f4);
@@ -298,18 +310,20 @@ subplot(1,2,1);
 hold on; grid on;
 for iv = 1:numel(V_list)
     plot(Tw_list, Bxy_rec_nominal(iv,:), '-o', 'LineWidth', 1.6, ...
-        'DisplayName', sprintf('nominal, v=%.2f', V_list(iv)));
+        'DisplayName', sprintf('Nominal, $v=%.2f\\ \\mathrm{km/s}$', V_list(iv)));
     plot(Tw_list, Bxy_rec_conservative(iv,:), '--', 'LineWidth', 1.1, ...
+        'Color', get(gca, 'ColorOrder')(mod(iv-1,size(get(gca,'ColorOrder'),1))+1,:), ...
         'HandleVisibility', 'off');
 end
-xlabel('Window length T_w (s)');
-ylabel('Recommended B_{xy}^{rec} half-span (km)');
-title('Phase08 box half-span from simulation');
+xlabel('Window length $T_w$ (s)');
+ylabel('Recommended $B_{xy}^{\mathrm{rec}}$ half-span (km)');
+title({'Phase08 box half-span from simulation', ...
+       'Solid: nominal,\quad dashed: conservative'});
 legend('Location','eastoutside');
 
 subplot(1,2,2);
 bar([step_xy_rec_conservative, step_xy_rec_nominal]);
-set(gca, 'XTickLabel', {'\Delta s_{xy}'});
+set(gca, 'XTickLabel', {'$\Delta s_{xy}^{\mathrm{cons}}$', '$\Delta s_{xy}^{\mathrm{nom}}$'});
 ylabel('Recommended spatial step (km)');
 title('Boundary-preserving spatial step');
 saveas(f5, fullfile(fig_dir, 'exp0_fig5_phase08_box_step.png'));
@@ -349,7 +363,7 @@ fprintf(fid, 'baseline_fig3_stacked_km = ');
 fprintf(fid, '%.1f ', b_anchor_dense_km);
 fprintf(fid, '\n');
 
-fprintf(fid, '--- Fig3_plus baseline anchors ---\n');
+fprintf(fid, '--- Fig3_plus baseline anchors (same as theoretical reference anchors) ---\n');
 fprintf(fid, 'baseline_fig3plus_km = ');
 fprintf(fid, '%.1f ', b_fig3plus_km);
 fprintf(fid, '\n\n');
@@ -382,6 +396,7 @@ fprintf(fid, 'trusted_R_geo_max = %.3f km\n', max(R_geo_trusted));
 fprintf(fid, '\n');
 
 fprintf(fid, '--- Recommended Phase08 local box half-span (km) ---\n');
+fprintf(fid, 'Interpretation: solid curves = nominal, dashed curves = conservative.\n');
 fprintf(fid, 'Tw_list_s = ');
 fprintf(fid, '%d ', Tw_list);
 fprintf(fid, '\n');
@@ -543,21 +558,14 @@ p.h_tgt_list_km = [30, 40, 50];
 
 p.sigma_theta_rad = 10 / 206265;
 
-% Fig1 / Fig2
 p.baseline_grid_km = 200:100:2000;
 
-% 参考锚点（用于 threshold 与 trusted set）
 p.theta_anchor_deg = [30, 60, 80];
 
-% Fig3_stacked / Fig4
 p.baseline_dense_km = 500:100:1200;
-
-% Fig3_plus
-p.baseline_fig3plus_km = [500, 1000, 1200];
 
 p.xy_grid_km = -800:50:800;
 
-% Fig5
 p.v_tgt_list_kmps = 4.0:0.25:5.0;
 p.Tw_list_s = 10:10:60;
 
