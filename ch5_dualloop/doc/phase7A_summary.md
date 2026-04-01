@@ -12,23 +12,28 @@ The first worst-window revision also failed:
 - C remained on two-satellite support
 - CK lost dual-satellite redundancy and custody collapsed
 
-## Phase 7A-2 change
-Introduce custody-structure constraints into outerB:
+## Phase 7A-2 outcome
+The custody-structure-constrained revision recovered dual-satellite support:
+- CK no longer collapsed to one-satellite solutions
+- coverage_ratio_ge2 recovered to 1
+- but CK still underperformed C on custody metrics
 
-- in warn / trigger, prefer dual-satellite legal actions
-- explicitly score future dual-support ratio
-- explicitly penalize future single-support ratio
-- explicitly penalize future zero-support ratio
-- penalize longest single-support segment
-- penalize longest zero-support segment
-- preserve reference-template and switching regularization
+## Phase 7A-3 change
+Add hard-gated worst-window protection into outerB:
+
+- keep the dual-satellite preference from 7A-2
+- add hard feasibility gates in warn / trigger
+- reject or strongly penalize candidate sets with:
+  - too much zero-support ratio
+  - too long zero-support segments
+  - too long single-support segments
+- choose feasible custody sets first, then use fallback only if no feasible set exists
 
 ## Files
-- outer_loop_B/compute_support_window_proxy_dualloop.m
-- outer_loop_B/select_reference_template_dualloop.m
+- outer_loop_B/is_support_pattern_feasible_dualloop.m
 - outer_loop_B/build_window_objective_dualloop.m
 - outer_loop_B/select_satellite_set_custody_dualloop.m
 
 ## Current note
-This revision is intended to prevent outerB from collapsing to fragile one-satellite solutions.
-The key test is whether CK recovers dual-satellite support and stops the custody metrics from exploding.
+This revision is intended to move outerB from soft-penalty risk aversion to hard-gated worst-window protection.
+The key test is whether CK can now narrow or reverse the custody gap relative to C.
