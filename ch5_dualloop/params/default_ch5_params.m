@@ -114,6 +114,13 @@ cfg.ch5.ck_force_two_sat_in_trigger = true;
 cfg.ch5.ck_force_two_sat_in_safe = false;
 cfg.ch5.ck_allow_single_fallback = true;
 
+% reference-template weights (required by select_reference_template_dualloop)
+cfg.ch5.ck_ref_dual_weight = 2.0;
+cfg.ch5.ck_ref_single_weight = 1.5;
+cfg.ch5.ck_ref_zero_weight = 2.0;
+cfg.ch5.ck_ref_longest_single_weight = 1.2;
+cfg.ch5.ck_ref_longest_zero_weight = 1.0;
+
 % support-structure terms
 cfg.ch5.ck_warn_dual_weight = 2.0;
 cfg.ch5.ck_warn_single_weight = 2.0;
