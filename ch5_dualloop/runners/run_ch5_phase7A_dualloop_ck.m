@@ -23,17 +23,18 @@ if ~exist(log_dir, 'dir'); mkdir(log_dir); end
 
 caseData = build_ch5_case(cfg);
 
-trackingT = policy_tracking_dynamic(caseData, cfg);
-trackingC = policy_custody_singleloop(caseData, cfg);
+trackingT  = policy_tracking_dynamic(caseData, cfg);
+trackingC  = policy_custody_singleloop(caseData, cfg);
 trackingCK = policy_custody_dualloop_koopman(caseData, cfg);
 
-custodyT = eval_custody_metrics(trackingT, caseData, cfg);
-custodyC = eval_custody_metrics(trackingC, caseData, cfg);
-custodyCK = eval_custody_metrics(trackingCK, caseData, cfg);
+% Phase-1 style shell interfaces: single-input evaluators
+custodyT   = eval_custody_metrics(trackingT);
+custodyC   = eval_custody_metrics(trackingC);
+custodyCK  = eval_custody_metrics(trackingCK);
 
-trackingStatsT = eval_tracking_metrics(trackingT, caseData, cfg);
-trackingStatsC = eval_tracking_metrics(trackingC, caseData, cfg);
-trackingStatsCK = eval_tracking_metrics(trackingCK, caseData, cfg);
+trackingStatsT  = eval_tracking_metrics(trackingT);
+trackingStatsC  = eval_tracking_metrics(trackingC);
+trackingStatsCK = eval_tracking_metrics(trackingCK);
 
 fig_cmp = fullfile(fig_dir, ['phase7a_ck_vs_c_', cfg.ch5.scene_preset, '.png']);
 f1 = plot_ck_vs_c_summary(caseData.time.t(:), trackingC, trackingCK, fig_cmp); %#ok<NASGU>
