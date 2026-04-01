@@ -1,6 +1,6 @@
-# Phase 7A / 7B-pre summary
+# Phase 7A / 7B summary
 
-## What the diagnostics proved
+## What earlier diagnostics proved
 The support-based proxy can screen out obviously bad sets, but it cannot
 discriminate among many dual-satellite sets that all have:
 - longest_single_support = 0
@@ -8,22 +8,25 @@ discriminate among many dual-satellite sets that all have:
 - zero_support_ratio = 0
 
 As a result, residual terms such as template/switch preference dominate
-the final choice, producing a systematic C-vs-CK divergence.
+the final choice.
 
-## Phase 7B-pre change
-- safe mode falls back directly to C
-- warn/trigger keep dual-satellite support-first selection
-- after support screening, use geometric tie-break:
-  1) shorter longest_single_support
-  2) smaller single_support_ratio
-  3) larger angle-only information lambda-min
-  4) larger LOS crossing angle
-  5) lower residual score
+## Phase 7B-pre outcome
+- safe fallback to C
+- warn/trigger geometry tie-break
+This already reduced the custody gap, proving geometric discrimination helps.
 
-## Reused stage ideas
-- Stage03 style LOS crossing-angle geometry
-- Stage04 style angle-only information increment
+## Phase 7B formal change
+Geometry is no longer just a tie-break.
+It is promoted into the main objective in warn/trigger:
+- reward larger angle-only information lambda-min
+- reward larger LOS crossing angle
+while keeping:
+- support-structure constraints
+- weak hard gates
+- safe fallback to C
 
 ## Purpose
-This is the first revision that explicitly adds geometric discrimination
-among support-equivalent dual-satellite sets.
+This is the first formal outerB objective that combines:
+- support-based custody protection
+- geometric observability quality
+in one score.
