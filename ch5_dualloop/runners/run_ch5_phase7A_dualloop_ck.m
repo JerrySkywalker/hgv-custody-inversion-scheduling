@@ -27,10 +27,14 @@ trackingT  = policy_tracking_dynamic(caseData, cfg);
 trackingC  = policy_custody_singleloop(caseData, cfg);
 trackingCK = policy_custody_dualloop_koopman(caseData, cfg);
 
-% Phase-1 style shell interfaces: single-input evaluators
-custodyT   = eval_custody_metrics(trackingT);
-custodyC   = eval_custody_metrics(trackingC);
-custodyCK  = eval_custody_metrics(trackingCK);
+% Patch tracking results into custody-evaluable results
+resultT  = local_attach_custody_fields(trackingT, caseData, cfg);
+resultC  = local_attach_custody_fields(trackingC, caseData, cfg);
+resultCK = local_attach_custody_fields(trackingCK, caseData, cfg);
+
+custodyT   = eval_custody_metrics(resultT);
+custodyC   = eval_custody_metrics(resultC);
+custodyCK  = eval_custody_metrics(resultCK);
 
 trackingStatsT  = eval_tracking_metrics(trackingT);
 trackingStatsC  = eval_tracking_metrics(trackingC);
@@ -84,6 +88,7 @@ SetTxt(log_path, log_lines);
 mat_path = fullfile(mat_dir, ['phase7a_', cfg.ch5.scene_preset, '.mat']);
 save(mat_path, 'cfg', 'caseData', ...
     'trackingT', 'trackingC', 'trackingCK', ...
+    'resultT', 'resultC', 'resultCK', ...
     'trackingStatsT', 'trackingStatsC', 'trackingStatsCK', ...
     'custodyT', 'custodyC', 'custodyCK');
 
@@ -104,6 +109,26 @@ out.fig_file = fig_cmp;
 out.text_file = txt_path;
 out.log_file = log_path;
 out.mat_file = mat_path;
+end
+
+function result = local_attach_custody_fields(tracking, caseData, cfg)
+result = tracking;
+
+mg = compute_mg_series(tracking, caseData, cfg);
+ttl = compute_ttl_series(tracking, caseData, cfg);
+
+switch_series = zeros(size(tracking.time(:)));
+for k = 2:numel(tracking.selected_sets)
+    switch_series(k) = ~isequal(tracking.selected_sets{k-1}, tracking.selected_sets{k});
+end
+
+phi_series = compute_phi_window(mg, ttl, switch_series, cfg);
+
+result.mg_series = mg(:);
+result.ttl_series = ttl(:);
+result.switch_series = switch_series(:);
+result.phi_series = phi_series(:);
+result.threshold = cfg.ch5.custody_phi_threshold;
 end
 
 function SetTxt(pathStr, lines)
