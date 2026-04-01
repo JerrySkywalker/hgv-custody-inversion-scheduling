@@ -1,33 +1,29 @@
-# Phase 7A summary
+# Phase 7A / 7B-pre summary
 
-## Phase 7A outcome
-The first minimal CK version ran successfully but failed methodologically:
-- RMSE changed only slightly
-- custody metrics degraded
-- the policy still behaved too much like tracking / average-visibility logic
+## What the diagnostics proved
+The support-based proxy can screen out obviously bad sets, but it cannot
+discriminate among many dual-satellite sets that all have:
+- longest_single_support = 0
+- single_support_ratio = 0
+- zero_support_ratio = 0
 
-## Phase 7A-1 outcome
-The first worst-window revision also failed:
-- outerB degenerated to one-satellite solutions
-- C remained on two-satellite support
-- CK lost dual-satellite redundancy and custody collapsed
+As a result, residual terms such as template/switch preference dominate
+the final choice, producing a systematic C-vs-CK divergence.
 
-## Phase 7A-2 outcome
-The custody-structure-constrained revision recovered dual-satellite support:
-- CK no longer collapsed to one-satellite solutions
-- coverage_ratio_ge2 recovered to 1
-- but CK still underperformed C on custody metrics
+## Phase 7B-pre change
+- safe mode falls back directly to C
+- warn/trigger keep dual-satellite support-first selection
+- after support screening, use geometric tie-break:
+  1) shorter longest_single_support
+  2) smaller single_support_ratio
+  3) larger angle-only information lambda-min
+  4) larger LOS crossing angle
+  5) lower residual score
 
-## Phase 7A-3 / 7A-4 outcome
-The later gate/lexicographic revisions did not change the final metrics relative to 7A-2.
+## Reused stage ideas
+- Stage03 style LOS crossing-angle geometry
+- Stage04 style angle-only information increment
 
-## Phase 7A-select-dbg purpose
-Directly inspect:
-- when C and CK choose different sets
-- which candidate sets exist at those steps
-- how those sets differ in longest_single_support, single_support_ratio, zero_support_ratio, and total score
-
-## Files
-- analysis/compare_selected_sets_dualloop.m
-- analysis/dump_candidate_scores_dualloop.m
-- runners/run_ch5_phase7A_select_debug.m
+## Purpose
+This is the first revision that explicitly adds geometric discrimination
+among support-equivalent dual-satellite sets.
