@@ -30,4 +30,5 @@ fprintf(fid, 'delta_h1_norm = %.6f\n', rec2.kernel.delta_h1_norm);
 fprintf(fid, 'delta_h2_norm = %.6f\n', rec2.kernel.delta_h2_norm);
 fprintf(fid, 'crossing_angle_deg = %.6f\n', rec2.kernel.crossing_angle_deg);
 fprintf(fid, 'lambda_min_geom = %.6f\n', rec2.kernel.lambda_min_geom);
+fprintf(fid, 'rank_proxy = %d\n', rec2.kernel.rank_proxy);
 end
