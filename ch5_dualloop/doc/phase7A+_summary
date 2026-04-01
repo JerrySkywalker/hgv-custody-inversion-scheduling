@@ -1,0 +1,306 @@
+## 1. 当前阶段结论概览
+
+当前第五章实验已经从“单环 C 最小版”推进到“CK 双环 + 几何项进入 OuterB 主目标 + q_worst 评价修正”的阶段。总体上，CK 方法已经不再是早期版本中那种会塌缩为单星或被残余项牵引的 exploratory 方案，而是形成了较稳定的双星合法解，并在窗口最坏值、托管均值与 tracking 误差上显示出清晰优势趋势。
+
+当前最重要的收口结论有三条：
+
+1. **单靠 support / 可见性 proxy 不足以支持 CK 做出正确区分。**  
+   早期 7A 系列结果显示，若 OuterB 主要依赖 `longest_single / single_ratio / zero_ratio` 这类 support-based 量，则大量“都合法的双星组合”在 proxy 上打平，最终决策会被 template / switch 等残余项主导，导致 tracking 略好但 custody 变差。
+
+2. **把几何可观性引入 OuterB 是必要条件。**  
+   7B-pre 证明：当 `safe -> C`，而 `warn/trigger` 阶段引入几何 tie-break 后，CK 的 custody gap 开始明显缩小。  
+   7B 正式版进一步证明：当几何项（如 angle-only 信息量、LOS 交角）正式进入 OuterB 主目标后，CK 才真正实现：
+   - `q_worst_window` 提高
+   - `phi_mean` 提高
+   - `longest_outage_steps` 追平 C
+   - `mean_rmse` 仍优于 C
+
+3. **`q_worst` 的旧实现口径与论文“最坏窗口”语义不一致。**  
+   新增 `q_worst_point` 与 `q_worst_window` 后已经确认：此前 `ref128` 下出现的 `q_worst = 0` 只是孤立单点 dip，不代表坏窗口。当前更符合论文主线的正式指标应为 `q_worst_window`。
+
+---
+
+## 2. 当前关键实验结果（以窗口口径重新解释）
+
+### 2.1 stress96
+
+- **C**
+  - `q_worst_window = 0.376955`
+  - `phi_mean = 0.5288`
+  - `outage_ratio = 0.012484`
+  - `longest_outage_steps = 8`
+  - `mean_rmse = 1.000400`
+
+- **CK（7B 正式版）**
+  - `q_worst_window = 0.426186`
+  - `phi_mean = 0.5317`
+  - `outage_ratio = 0.022472`
+  - `longest_outage_steps = 8`
+  - `mean_rmse = 0.974615`
+
+**解释：**
+- `q_worst_window` 高于 C
+- `phi_mean` 高于 C
+- `longest_outage_steps` 与 C 持平
+- `mean_rmse` 优于 C
+- 仅 `outage_ratio` 略高于 C
+
+因此，CK 在 stress96 下已经表现为：**提高窗口最坏值与整体均值，同时不增加最长连续坏段，并保持更优 tracking 精度。**
+
+### 2.2 ref128
+
+- **C**
+  - `q_worst_point = 0.0500`
+  - `q_worst_window = 0.398767`
+  - `phi_mean = 0.5278`
+  - `outage_ratio = 0.013733`
+  - `longest_outage_steps = 8`
+  - `mean_rmse = 1.000400`
+
+- **CK（7B 正式版）**
+  - `q_worst_point = 0`
+  - `q_worst_window = 0.434412`
+  - `phi_mean = 0.5599`
+  - `outage_ratio = 0.021223`
+  - `longest_outage_steps = 8`
+  - `mean_rmse = 0.977449`
+
+**解释：**
+- `q_worst_point = 0` 只是单点 dip
+- 真正反映最坏窗口的 `q_worst_window` 高于 C
+- `phi_mean` 明显高于 C
+- `longest_outage_steps` 与 C 持平
+- `mean_rmse` 优于 C
+- `outage_ratio` 略高于 C
+
+因此，ref128 下也应按窗口指标解释：**CK 的窗口最坏水平和均值均优于 C，唯一仍偏弱的是碎片化短坏段占比。**
+
+---
+
+## 3. 当前代码实现相对论文主张的偏差
+
+### 3.1 已经实现并与论文较一致的部分
+
+1. **四类方法的统一平台**
+   - S：Static-hold
+   - T：Tracking-oriented dynamic
+   - C：Single-loop custody
+   - CK：Dual-loop Koopman custody
+
+2. **统一的 tracking 与 custody 双层指标**
+   - tracking：coverage / RMSE
+   - custody：`phi_mean`、`outage_ratio`、`longest_outage_steps`
+   - 现已进一步扩展出 `q_worst_point / q_worst_window`
+
+3. **CK 已经不再是“单环 C + 小 bonus”**
+   当前 CK 路径已经包含：
+   - OuterA 风险状态
+   - `safe -> C` fallback
+   - `warn/trigger` 下的 OuterB 组合决策
+   - support-based 约束
+   - geometry-based 主目标项
+
+4. **几何项正式进入 OuterB 主目标**
+   这一点是最关键的收口进展，已经开始贴近你第二章、第五章里“托管不仅需要连续性约束，还需要几何可观性质量”的表达。
+
+### 3.2 仍与论文原始计划不一致的部分
+
+1. **OuterA 还不是独立完成的 6A / 6B 版本**
+   原开发指南里，Phase 6 应先完成 outerA standalone：
+   - `mr_hat`
+   - `mr_tilde`
+   - `omega_max`
+   - `risk_state`
+   - 四象限统计
+   - 触发与坏段对齐分析
+
+   当前代码虽然已有 `outerA.risk_state`，并能驱动 `dispatch_quadrant_policy`，但严格说还**没有形成完整且论文可独立成节的 outerA standalone 证据层**。
+
+2. **OuterB 目前是“可工作的正式版”，但还不是你论文草稿里的最终理想数学形式**
+   当前实现更接近：
+   - support structure penalty
+   - geometry observability reward
+   - fallback + mode dispatch
+
+   而论文草稿里更理想的形式是：
+   - 明确的滚动窗口目标
+   - 更统一的最坏窗口主项
+   - 更完整的 reference prior 正则
+   - 更强的 mode-conditioned dispatch 机制
+
+3. **reference prior 仍未正式接入**
+   当前 `ref_ids` 只是局部参考模板选择器，和第四章静态结果之间还没有真正建立：
+   - template library
+   - scene matching
+   - prior deviation cost
+   这部分属于原计划的 Phase 8，目前还没完成。
+
+4. **窗口长度主扫描尚未开展**
+   原计划里，`T_w` 主扫描是第五章唯一主自变量实验，目前尚未做 Phase 9。
+
+5. **正式 release bundle 尚未做**
+   Phase 10 里要求的：
+   - 统一图表包
+   - 汇总表
+   - release summary
+   目前还没完成。
+
+---
+
+## 4. 论文是否需要修改：建议
+
+### 4.1 建议修改 1：把正式 `Q_worst` 定义切换为窗口口径
+
+当前实验已经证明：
+- `q_worst_point` 会受到单点 dip 干扰
+- `q_worst_window` 才与“最坏窗口主导”一致
+
+**建议论文中：**
+- 正式定义 `Q_worst := q_worst_window`
+- `q_worst_point` 仅保留为诊断项或附录项
+
+这是最重要的一处修改。
+
+### 4.2 建议修改 2：明确区分“长坏段”和“碎片坏点”
+
+当前 CK 的典型特征不是简单“更好/更坏”，而是：
+
+- 窗口最坏值更高
+- 均值更高
+- 最长连续失托不更差
+- 但短时碎片化 bad points 更频繁一些
+
+所以论文中建议把 custody 失效拆成两类讨论：
+
+1. **连续型风险**：由 `longest_outage_steps` 代表  
+2. **碎片型风险**：由 `outage_ratio` 代表
+
+这样可以更准确解释为何 CK 已经明显改善“谷底”和“长坏段”，但 `outage_ratio` 仍略逊于 C。
+
+### 4.3 建议修改 3：第五章方法叙述要更贴合当前实现
+
+建议把第五章中 CK 方法的文字改成下面这种口径：
+
+- `safe` 模式下沿用单环 C，避免无谓偏离
+- `warn/trigger` 模式下，OuterB 在 support 约束基础上，结合几何可观性质量进行双星组合选择
+- 几何可观性通过窗口信息量与 LOS 交角进入主目标，而不只是 tie-break
+
+这比继续写成“纯粹 outerA/outerB 完整理想双环”更诚实，也更贴当前代码。
+
+### 4.4 建议修改 4：保守写法，不要声称“CK 全面优于 C”
+
+当前更稳妥的表述应该是：
+
+> CK 在窗口最坏值、托管均值、最长连续失托长度和 tracking 精度上均显示出优势或不劣于 C，但其失托时间占比仍略高，说明当前方法更擅长抬高谷底并打散长坏段，而不是最小化碎片化轻度失托事件。
+
+这个写法和当前结果完全一致，风险最小。
+
+---
+
+## 5. 对照 Phase 6–10 开发指南：已完成 / 未完成
+
+### 5.1 已完成或基本完成
+
+#### Phase 6（部分完成，但非原始理想口径）
+- exploratory `phase6_dualloop_min`
+- 已经验证 `CK-min` 能在某些场景与 C 接近
+- 但 **6A standalone outerA 证据层** 尚未正式完成
+- **6B 对齐验证** 尚未正式完成
+
+因此：  
+**Phase 6 只能算“探索版完成”，不能算原计划意义上的完整完成。**
+
+#### Phase 7A（基本完成）
+- 已经有正式 `run_ch5_phase7A_dualloop_ck`
+- 已完成多个修正轮
+- 最终 7B 正式版的实质结果已经可视作 7A/7B 主方法收口成果的一部分
+- 已经证明：
+  - 几何项进入主目标是必要的
+  - `safe -> C` fallback 是有效的
+
+#### 评价修正（新增但很重要）
+- `q_worst_point / q_worst_window`
+- 已经完成评价口径修正
+
+### 5.2 未完成
+
+#### Phase 6A（未完成）
+原计划文件里要求：
+- `rfkoopman_fit_local_operator.m`
+- `propagate_rfkoopman_window.m`
+- `compute_mr_hat.m`
+- `conservative_mr_from_nis.m`
+- `compute_omega_max.m`
+- `classify_outerA_risk_state.m`
+- `run_ch5_phase6_outerA_rfkoopman.m`
+- 对应图与 summary
+
+当前并未完整形成这条 standalone 证据链。
+
+#### Phase 6B（未完成）
+- `match_outerA_events_to_bad_segments.m`
+- `plot_outerA_vs_phi_alignment.m`
+- `run_ch5_phase6B_outerA_alignment.m`
+- lead time / hit rate / false alarm 等统计
+
+#### Phase 7B（未完成）
+开发指南里要求的 CK 消融实验尚未正式完成：
+- 去掉 outerA
+- 去掉 mode switching
+- 去掉 `mr_tilde`
+- 形成 `plot_ck_ablation_summary.m`
+- `run_ch5_phase7B_ablation.m`
+
+当前虽然做了很多修正轮，但还**没有正式 Phase 7B 消融 runner 和配套图表**。
+
+#### Phase 8（未完成）
+- `build_reference_prior_library.m`
+- `match_reference_prior.m`
+- `compute_prior_deviation_cost.m`
+- prior ablation
+
+这部分和第四章结果的正式对接还没做。
+
+#### Phase 9（未完成）
+- `run_ch5_phase9_window_sweep.m`
+- `plot_window_sweep_curves.m`
+
+这是原计划中非常关键的一步，目前还没开始。
+
+#### Phase 10（未完成）
+- `summarize_method_result.m`
+- `plot_release_bundle_index.m`
+- `run_ch5_release_bundle.m`
+- `outputs/cpt5/release/`
+
+---
+
+## 6. 建议的后续优先级
+
+如果目标是尽快把第五章写出来，而不是继续无限优化方法，我建议后续优先级是：
+
+### 优先级 1：补实验日志与论文文字
+- 固定当前 7B 正式版结果
+- 把“support proxy 不足 → geometry 必要 → q_worst_window 修正”写入论文
+- 先让文字与代码统一
+
+### 优先级 2：补一个正式 `phase7B_ablation`
+只做最有价值的消融，不要做太多：
+- CK full
+- CK without geometry
+- C baseline  
+这样就能直接证明“geometry enters main objective” 的贡献。
+
+### 优先级 3：做 Phase 9 的 `T_w` 主扫描
+这是最适合形成论文主图的后续工作。
+
+### 优先级 4：Phase 8 prior
+如果时间够，再把第四章的静态先验正式接进来。
+
+---
+
+## 7. 当前可直接写进论文的核心结论
+
+可以直接抽成论文语言的一版简洁结论：
+
+> 当前实验表明，仅依赖 support-based 连续性代理时，双环 CK 方法难以在大量合法双星组合中分辨真正的托管优劣，易被模板偏好与切换代价牵引。将几何可观性质量正式并入 OuterB 主目标后，CK 在两个代表性场景中均实现了更高的窗口最坏托管水平与更高的托管均值，并将最长连续失托时长压缩至与单环 C 方法相当，同时保持更优的 tracking 精度。进一步的评价修正表明，此前出现的 `q_worst=0` 现象主要来自单点 dip，而非真正坏窗口；按窗口口径重新评估后，当前 CK 方案已在“谷底抬升、长坏段抑制、tracking 精度保持”三方面形成稳定优势。其当前主要不足在于失托事件总占比仍略高，说明方法更擅长打散长时连续坏段，而非最小化零散短时失托点。
