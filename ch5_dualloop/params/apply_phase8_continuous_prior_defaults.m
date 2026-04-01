@@ -24,4 +24,11 @@ end
 if ~isfield(cfg.ch5, 'continuous_prior_wr')
     cfg.ch5.continuous_prior_wr = 1.5;
 end
+
+if ~isfield(cfg.ch5, 'continuous_prior_debug_enable')
+    cfg.ch5.continuous_prior_debug_enable = false;
+end
+if ~isfield(cfg.ch5, 'continuous_prior_debug_csv')
+    cfg.ch5.continuous_prior_debug_csv = '';
+end
 end
