@@ -1,6 +1,6 @@
 function [score, detail] = build_window_objective_dualloop(mode, selected_ids, prev_ids, ref_ids, caseData, k, cfg)
 %BUILD_WINDOW_OBJECTIVE_DUALLOOP
-% Custody-structure-constrained outerB scoring.
+% Custody-structure-constrained outerB scoring with hard gate.
 %
 % Lower score is better.
 
@@ -23,6 +23,8 @@ if nargin < 3 || isempty(prev_ids)
 else
     c_switch = numel(setxor(selected_ids(:).', prev_ids(:).')) / max(1, cfg.ch5.max_track_sats);
 end
+
+[is_ok, gate_reason] = is_support_pattern_feasible_dualloop(mode, d, cfg);
 
 long_single = d.longest_single_support_steps / max(1, cfg.ch5.window_steps);
 long_zero = d.longest_zero_support_steps / max(1, cfg.ch5.window_steps);
@@ -63,8 +65,14 @@ score = ...
     + w_base * d_base ...
     + w_sw * c_switch;
 
+if ~is_ok
+    score = score + cfg.ch5.ck_gate_penalty;
+end
+
 detail = d;
 detail.d_base = d_base;
 detail.c_switch = c_switch;
 detail.mode = mode;
+detail.is_feasible = is_ok;
+detail.gate_reason = gate_reason;
 end
