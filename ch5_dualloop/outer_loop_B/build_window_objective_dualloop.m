@@ -1,6 +1,6 @@
 function [score, detail] = build_window_objective_dualloop(mode, selected_ids, prev_ids, ref_ids, caseData, k, cfg)
 %BUILD_WINDOW_OBJECTIVE_DUALLOOP
-% Custody-structure-constrained outerB scoring with hard gate.
+% Custody-structure-constrained outerB scoring with formal geometry terms.
 %
 % Lower score is better.
 
@@ -11,11 +11,12 @@ if isempty(selected_ids)
 end
 
 d = compute_support_window_proxy_dualloop(caseData, selected_ids, k, cfg);
+g = compute_geometry_tiebreak_dualloop(caseData, selected_ids, k, cfg);
 
 if nargin < 4 || isempty(ref_ids)
     d_base = 0;
 else
-    d_base = numel(setxor(selected_ids(:).', ref_ids(:).')) / max(1, cfg.ch5.max_track_sats);
+    d_base = compute_prior_deviation_cost(selected_ids, ref_ids, cfg);
 end
 
 if nargin < 3 || isempty(prev_ids)
@@ -31,13 +32,16 @@ long_zero = d.longest_zero_support_steps / max(1, cfg.ch5.window_steps);
 
 switch mode
     case 'safe'
-        w_dual = cfg.ch5.ck_safe_dual_weight;
-        w_single = cfg.ch5.ck_safe_single_weight;
-        w_zero = cfg.ch5.ck_safe_zero_weight;
-        w_lsingle = cfg.ch5.ck_safe_longest_single_weight;
-        w_lzero = cfg.ch5.ck_safe_longest_zero_weight;
-        w_base = cfg.ch5.ck_safe_base_weight;
-        w_sw = cfg.ch5.ck_safe_switch_weight;
+        w_dual = 0.8;
+        w_single = 0.6;
+        w_zero = 0.8;
+        w_lsingle = 0.6;
+        w_lzero = 0.5;
+        w_base = 1.0;
+        w_sw = 0.8;
+        w_geom_lambda = 0.0;
+        w_geom_angle = 0.0;
+
     case 'warn'
         w_dual = cfg.ch5.ck_warn_dual_weight;
         w_single = cfg.ch5.ck_warn_single_weight;
@@ -46,6 +50,9 @@ switch mode
         w_lzero = cfg.ch5.ck_warn_longest_zero_weight;
         w_base = cfg.ch5.ck_warn_base_weight;
         w_sw = cfg.ch5.ck_warn_switch_weight;
+        w_geom_lambda = cfg.ch5.ck_warn_geom_lambda_weight;
+        w_geom_angle = cfg.ch5.ck_warn_geom_angle_weight;
+
     otherwise
         w_dual = cfg.ch5.ck_trigger_dual_weight;
         w_single = cfg.ch5.ck_trigger_single_weight;
@@ -54,6 +61,8 @@ switch mode
         w_lzero = cfg.ch5.ck_trigger_longest_zero_weight;
         w_base = cfg.ch5.ck_trigger_base_weight;
         w_sw = cfg.ch5.ck_trigger_switch_weight;
+        w_geom_lambda = cfg.ch5.ck_trigger_geom_lambda_weight;
+        w_geom_angle = cfg.ch5.ck_trigger_geom_angle_weight;
 end
 
 score = ...
@@ -63,7 +72,9 @@ score = ...
     + w_lsingle * long_single ...
     + w_lzero * long_zero ...
     + w_base * d_base ...
-    + w_sw * c_switch;
+    + w_sw * c_switch ...
+    - w_geom_lambda * g.lambda_min_geom ...
+    - w_geom_angle * (g.min_crossing_angle_deg / 90.0);
 
 if ~is_ok
     score = score + cfg.ch5.ck_gate_penalty;
@@ -75,4 +86,8 @@ detail.c_switch = c_switch;
 detail.mode = mode;
 detail.is_feasible = is_ok;
 detail.gate_reason = gate_reason;
+detail.lambda_min_geom = g.lambda_min_geom;
+detail.mean_trace_geom = g.mean_trace_geom;
+detail.min_crossing_angle_deg = g.min_crossing_angle_deg;
+detail.score_total = score;
 end
