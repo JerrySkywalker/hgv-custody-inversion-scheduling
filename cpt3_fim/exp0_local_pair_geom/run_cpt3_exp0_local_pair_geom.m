@@ -1,28 +1,14 @@
 function out = run_cpt3_exp0_local_pair_geom(verbose)
-% 第三章实验0（口径回正版）：
+% 第三章实验0（图形优化 + 扫描加密版）：
 % 双传感器局部几何与 M_G 稳定域实验
 %
-% 口径回正内容：
-% 1) 输出目录统一写入根目录 outputs/cpt3/exp0_local_pair_geom/
-% 2) 不再使用 fragile / safe / wide-safe 术语
-%    统一改为 low_M_G / mid_M_G / high_M_G
-% 3) 在 summary 中明确说明本实验与第三章现有算例 A/B 的衔接：
-%    - 本实验：局部双传感器几何 -> M_G 稳定域
-%    - 算例 A：几何退化路径下 M_G(\eta) 的塌陷
-%    - 算例 B：固定几何下 M_A(\alpha) 的边际递减与饱和
+% 本版修正：
+% 1) Fig1 去掉解析重合曲线，只保留数值曲线 + 锚点标注
+% 2) Fig3 改为横向堆叠热图（stacked heatmap），统一色标
+% 3) Fig4 基线锚点加密：theta = 30:10:80 deg
+% 4) Fig5 时间窗/速度扫描加密：Tw = 10:10:60, v = 4.0:0.25:5.0
 %
-% 物理设定：
-% - 卫星高度 hs = 1000 km
-% - 目标高度 ht ∈ {30,40,50} km
-% - 双传感器同高度、对称布局
-% - bearing-only Fisher 模型
-%
-% 输出图：
-%   Fig1: baseline vs crossing angle
-%   Fig2: baseline vs lambda_min / CRLB_weak
-%   Fig3: lambda_min heatmaps for low/mid/high M_G anchors
-%   Fig4: empirical geometry stability radius R_geo
-%   Fig5: recommended Phase08 box half-span and spatial step
+% 输出仍统一写入根目录 outputs/cpt3/exp0_local_pair_geom/
 
 if nargin < 1
     verbose = true;
@@ -41,7 +27,7 @@ if ~exist(log_dir, 'dir'); mkdir(log_dir); end
 %% 参数
 p = local_default_params();
 
-%% 主实验：中心点 baseline 扫描
+%% 主实验：中心点 baseline 扫描（细网格）
 b_grid = p.baseline_grid_km(:).';
 theta_num_deg = zeros(size(b_grid));
 theta_formula_deg = zeros(size(b_grid));
@@ -63,11 +49,15 @@ for i = 1:numel(b_grid)
     crlb_weak_center(i) = met.crlb_weak_km;
 end
 
-%% 三个基线锚点：由目标交叉角反推
+%% 三个参考锚点（用于图3）
 theta_anchor_deg = p.theta_anchor_deg(:).';
 b_anchor_km = 2*(p.h_sat_km - p.h_tgt_ref_km) .* tand(theta_anchor_deg/2);
 
-%% 计算 anchor 中心点 M_G，形成 low/mid/high M_G 分区阈值
+%% 加密锚点（用于图4）
+theta_anchor_dense_deg = p.theta_anchor_dense_deg(:).';
+b_anchor_dense_km = 2*(p.h_sat_km - p.h_tgt_ref_km) .* tand(theta_anchor_dense_deg/2);
+
+%% 参考锚点的中心 M_G
 MG_anchor = zeros(size(theta_anchor_deg));
 for i = 1:numel(b_anchor_km)
     b = b_anchor_km(i);
@@ -81,7 +71,7 @@ end
 MG_thr_12 = 0.5*(MG_anchor(1) + MG_anchor(2));
 MG_thr_23 = 0.5*(MG_anchor(2) + MG_anchor(3));
 
-%% 局部 (x,y) 扫描，求 M_G 稳定域
+%% 局部扫描网格
 xg = p.xy_grid_km(:).';
 yg = p.xy_grid_km(:).';
 [X, Y] = meshgrid(xg, yg);
@@ -91,6 +81,7 @@ H_list = p.h_tgt_list_km(:).';
 V_list = p.v_tgt_list_kmps(:).';
 Tw_list = p.Tw_list_s(:).';
 
+%% 三个参考锚点：用于图3与 trusted 统计
 nB = numel(b_anchor_km);
 nH = numel(H_list);
 
@@ -166,7 +157,73 @@ for ib = 1:nB
     end
 end
 
-%% Phase08 盒尺寸反推：只使用中/高 M_G 区
+%% 加密锚点：用于图4连续曲线
+nBd = numel(b_anchor_dense_km);
+R_geo_dense = zeros(nBd, nH);
+center_region_dense = strings(nBd, nH);
+
+for ib = 1:nBd
+    b = b_anchor_dense_km(ib);
+
+    for ih = 1:nH
+        ht = H_list(ih);
+
+        Mmap = zeros(size(X));
+        RegionMap = strings(size(X));
+
+        for ix = 1:size(X,1)
+            for iy = 1:size(X,2)
+                tgt = [X(ix,iy); Y(ix,iy); ht];
+                sat1 = [-b/2; 0; p.h_sat_km];
+                sat2 = [ b/2; 0; p.h_sat_km];
+
+                met = local_pair_metrics(tgt, sat1, sat2, p.sigma_theta_rad);
+                Mmap(ix,iy) = met.lambda_min;
+
+                if met.lambda_min <= MG_thr_12
+                    RegionMap(ix,iy) = "low_M_G";
+                elseif met.lambda_min <= MG_thr_23
+                    RegionMap(ix,iy) = "mid_M_G";
+                else
+                    RegionMap(ix,iy) = "high_M_G";
+                end
+            end
+        end
+
+        [~, cx] = min(abs(xg - 0));
+        [~, cy] = min(abs(yg - 0));
+        M0 = Mmap(cy, cx);
+        reg0 = RegionMap(cy, cx);
+        center_region_dense(ib,ih) = reg0;
+
+        switch char(reg0)
+            case 'low_M_G'
+                gap = MG_thr_12 - M0;
+            case 'mid_M_G'
+                gap = min(M0 - MG_thr_12, MG_thr_23 - M0);
+            otherwise
+                gap = M0 - MG_thr_23;
+        end
+        gap = max(gap, eps);
+
+        stable_mask = (RegionMap == reg0) & (abs(Mmap - M0) <= gap);
+
+        radii = unique(sort(R(:), 'ascend'));
+        r_keep = 0;
+        for ir = 1:numel(radii)
+            rr = radii(ir);
+            inside = (R <= rr + 1e-12);
+            if all(stable_mask(inside), 'all')
+                r_keep = rr;
+            else
+                break;
+            end
+        end
+        R_geo_dense(ib,ih) = r_keep;
+    end
+end
+
+%% Phase08 推荐：仍仅使用中/高 M_G 区
 trusted_mask = center_region ~= "low_M_G";
 R_geo_trusted = R_geo(trusted_mask);
 R_geo_trusted = R_geo_trusted(isfinite(R_geo_trusted) & R_geo_trusted > 0);
@@ -195,17 +252,23 @@ step_xy_candidates = R_geo_trusted / p.N_resolve;
 step_xy_rec_nominal = median(step_xy_candidates);
 step_xy_rec_conservative = min(step_xy_candidates);
 
-%% 作图
+%% ---------------- 作图 ----------------
+
+% Fig1: 单曲线 + 锚点标注
 f1 = figure('Name','exp0_fig1_baseline_vs_crossing');
 plot(b_grid, theta_num_deg, 'LineWidth', 2); hold on; grid on;
-plot(b_grid, theta_formula_deg, '--', 'LineWidth', 1.5);
-xline(b_anchor_km(1), '--'); xline(b_anchor_km(2), '--'); xline(b_anchor_km(3), '--');
+plot(b_anchor_km, theta_anchor_deg, 'o', 'MarkerSize', 8, 'LineWidth', 1.5);
+for i = 1:numel(b_anchor_km)
+    text(b_anchor_km(i)+25, theta_anchor_deg(i)+1.2, ...
+        sprintf('(%.0f km, %.0f^\\circ)', b_anchor_km(i), theta_anchor_deg(i)), ...
+        'FontSize', 10);
+end
 xlabel('Baseline length b (km)');
 ylabel('Crossing angle \theta (deg)');
-legend({'Numerical','Analytical'}, 'Location','best');
 title('Baseline length vs crossing angle');
 saveas(f1, fullfile(fig_dir, 'exp0_fig1_baseline_vs_crossing.png'));
 
+% Fig2: 保留
 f2 = figure('Name','exp0_fig2_baseline_vs_MG_crlb');
 yyaxis left
 plot(b_grid, MG_center, 'LineWidth', 2); hold on; grid on;
@@ -217,41 +280,66 @@ xlabel('Baseline length b (km)');
 title('Baseline length vs M_G / CRLB');
 saveas(f2, fullfile(fig_dir, 'exp0_fig2_baseline_vs_MG_crlb.png'));
 
-f3 = figure('Name','exp0_fig3_MG_heatmaps');
-for k = 1:3
-    subplot(1,3,k);
-    imagesc(xg, yg, MG_maps{k,2}); % h = 40 km
-    set(gca, 'YDir', 'normal');
-    xlabel('x (km)');
-    ylabel('y (km)');
-    title(sprintf('M_G map, b=%.0f km, h=40km', b_anchor_km(k)));
-    colorbar;
+% Fig3: 横向堆叠热图（shared color scale）
+Mmin = inf;
+Mmax = -inf;
+for k = 1:nB
+    Mtmp = MG_maps{k,2}; % h=40 km
+    Mmin = min(Mmin, min(Mtmp, [], 'all'));
+    Mmax = max(Mmax, max(Mtmp, [], 'all'));
 end
-saveas(f3, fullfile(fig_dir, 'exp0_fig3_MG_heatmaps.png'));
 
-f4 = figure('Name','exp0_fig4_Rgeo');
+f3 = figure('Name','exp0_fig3_MG_stacked_heatmaps');
+hold on;
+[Xs, Ys] = meshgrid(xg, yg);
+z_stack = 1:nB;
+for k = 1:nB
+    Zplane = z_stack(k) * ones(size(Xs));
+    C = MG_maps{k,2}; % h=40 km
+    surf(Xs, Zplane, Ys, C, 'EdgeColor', 'none', 'FaceColor', 'interp');
+end
+colormap(parula);
+caxis([Mmin, Mmax]);
+cb = colorbar;
+cb.Label.String = 'M_G';
+
+xlabel('x (km)');
+ylabel('Baseline slice index');
+zlabel('y (km)');
+yticks(z_stack);
+yticklabels(compose('b=%.0f km', b_anchor_km));
+title('Stacked M_G heatmaps at h=40 km');
+view(85,20);
+set(gcf,'unit','normalized','position',[0.08 0.15 0.84 0.42]);
+saveas(f3, fullfile(fig_dir, 'exp0_fig3_MG_stacked_heatmaps.png'));
+
+% Fig4: 加密锚点曲线
+f4 = figure('Name','exp0_fig4_Rgeo_dense');
 hold on; grid on;
 for ih = 1:nH
-    plot(1:nB, R_geo(:,ih), '-o', 'LineWidth', 2, 'DisplayName', sprintf('h=%dkm', round(H_list(ih))));
+    plot(b_anchor_dense_km, R_geo_dense(:,ih), '-o', 'LineWidth', 2, ...
+        'DisplayName', sprintf('h=%dkm', round(H_list(ih))));
 end
-set(gca, 'XTick', 1:nB, 'XTickLabel', compose('b=%.0f', b_anchor_km));
-xlabel('Baseline anchor');
+xlabel('Baseline length b (km)');
 ylabel('Empirical geometry stability radius R_{geo} (km)');
-title('M_G stability radius from simulation');
+title('M_G stability radius from simulation (dense baseline anchors)');
 legend('Location','best');
-saveas(f4, fullfile(fig_dir, 'exp0_fig4_Rgeo.png'));
+saveas(f4, fullfile(fig_dir, 'exp0_fig4_Rgeo_dense.png'));
 
+% Fig5: 加密 Tw / v 曲线 + 步长柱图
 f5 = figure('Name','exp0_fig5_phase08_box_step');
 subplot(1,2,1);
 hold on; grid on;
 for iv = 1:numel(V_list)
-    plot(Tw_list, Bxy_rec_nominal(iv,:), '-o', 'LineWidth', 2, 'DisplayName', sprintf('nominal, v=%.1f', V_list(iv)));
-    plot(Tw_list, Bxy_rec_conservative(iv,:), '--s', 'LineWidth', 1.5, 'DisplayName', sprintf('cons., v=%.1f', V_list(iv)));
+    plot(Tw_list, Bxy_rec_nominal(iv,:), '-o', 'LineWidth', 1.8, ...
+        'DisplayName', sprintf('nominal, v=%.2f', V_list(iv)));
+    plot(Tw_list, Bxy_rec_conservative(iv,:), '--', 'LineWidth', 1.3, ...
+        'HandleVisibility', 'off');
 end
 xlabel('Window length T_w (s)');
 ylabel('Recommended B_{xy}^{rec} half-span (km)');
-title('Phase08 box half-span from M_G stability domain');
-legend('Location','best');
+title('Phase08 box half-span from simulation');
+legend('Location','eastoutside');
 
 subplot(1,2,2);
 bar([step_xy_rec_conservative, step_xy_rec_nominal]);
@@ -288,7 +376,15 @@ fprintf(fid, 'M_G_thr_12 = %.6f\n', MG_thr_12);
 fprintf(fid, 'M_G_thr_23 = %.6f\n', MG_thr_23);
 fprintf(fid, '\n');
 
-fprintf(fid, '--- Empirical M_G stability radius R_geo (km) ---\n');
+fprintf(fid, '--- Dense baseline anchors for R_geo curve ---\n');
+fprintf(fid, 'theta_dense_deg = ');
+fprintf(fid, '%.1f ', theta_anchor_dense_deg);
+fprintf(fid, '\n');
+fprintf(fid, 'baseline_dense_km = ');
+fprintf(fid, '%.1f ', b_anchor_dense_km);
+fprintf(fid, '\n\n');
+
+fprintf(fid, '--- Empirical M_G stability radius R_geo (reference anchors) ---\n');
 for ib = 1:nB
     for ih = 1:nH
         fprintf(fid, 'b=%.3f km, h=%g km -> region=%s, R_geo=%.3f km\n', ...
@@ -308,7 +404,7 @@ fprintf(fid, '\n');
 fprintf(fid, '--- Recommended Phase08 local box half-span (km) ---\n');
 for iv = 1:numel(V_list)
     for it = 1:numel(Tw_list)
-        fprintf(fid, 'v=%.1f km/s, Tw=%d s -> nominal Bxy_half=%.3f km, conservative Bxy_half=%.3f km\n', ...
+        fprintf(fid, 'v=%.2f km/s, Tw=%d s -> nominal Bxy_half=%.3f km, conservative Bxy_half=%.3f km\n', ...
             V_list(iv), round(Tw_list(it)), Bxy_rec_nominal(iv,it), Bxy_rec_conservative(iv,it));
     end
 end
@@ -327,7 +423,7 @@ fprintf(fid, 'target altitude anchors (km): ');
 fprintf(fid, '%.1f ', H_list);
 fprintf(fid, '\n');
 fprintf(fid, 'target speed anchors (km/s): ');
-fprintf(fid, '%.1f ', V_list);
+fprintf(fid, '%.2f ', V_list);
 fprintf(fid, '\n');
 fprintf(fid, 'coarse xy step should not exceed nominal %.1f km; boundary refinement may use conservative %.1f km.\n', ...
     step_xy_rec_nominal, step_xy_rec_conservative);
@@ -348,9 +444,11 @@ fclose(fid);
 mat_path = fullfile(mat_dir, 'exp0_local_pair_geom.mat');
 save(mat_path, 'p', 'b_grid', 'theta_num_deg', 'theta_formula_deg', ...
     'MG_center', 'crlb_weak_center', 'theta_anchor_deg', 'b_anchor_km', ...
+    'theta_anchor_dense_deg', 'b_anchor_dense_km', ...
     'MG_anchor', 'MG_thr_12', 'MG_thr_23', ...
     'xg', 'yg', 'X', 'Y', 'R', 'MG_maps', 'MG_region_maps', ...
     'R_geo', 'center_region', 'center_MG', 'R_geo_trusted', ...
+    'R_geo_dense', 'center_region_dense', ...
     'H_list', 'V_list', 'Tw_list', 'Bxy_rec_nominal', 'Bxy_rec_conservative', ...
     'Bz_rec_half', 'step_xy_candidates', 'step_xy_rec_conservative', 'step_xy_rec_nominal');
 
@@ -390,13 +488,20 @@ p.h_tgt_list_km = [30, 40, 50];
 
 p.sigma_theta_rad = 10 / 206265;
 
+% Fig1 / Fig2 主扫描
 p.baseline_grid_km = 200:100:2000;
+
+% 参考锚点（用于图3与 trusted set）
 p.theta_anchor_deg = [30, 60, 80];
+
+% 加密锚点（用于图4）
+p.theta_anchor_dense_deg = 30:10:80;
 
 p.xy_grid_km = -800:50:800;
 
-p.v_tgt_list_kmps = [4.0, 4.5, 5.0];
-p.Tw_list_s = [20, 30, 40];
+% Fig5 加密扫描
+p.v_tgt_list_kmps = 4.0:0.25:5.0;
+p.Tw_list_s = 10:10:60;
 
 p.N_resolve = 4;
 end
