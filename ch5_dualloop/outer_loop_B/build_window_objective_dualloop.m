@@ -1,6 +1,6 @@
 function [score, detail] = build_window_objective_dualloop(mode, selected_ids, prev_ids, ref_ids, caseData, k, cfg)
 %BUILD_WINDOW_OBJECTIVE_DUALLOOP
-% Worst-window-oriented outerB scoring.
+% Custody-structure-constrained outerB scoring.
 %
 % Lower score is better.
 
@@ -10,53 +10,56 @@ if isempty(selected_ids)
     return;
 end
 
-d = compute_phi_window_proxy_dualloop(caseData, selected_ids, k, cfg);
+d = compute_support_window_proxy_dualloop(caseData, selected_ids, k, cfg);
 
-% Reference deviation
 if nargin < 4 || isempty(ref_ids)
     d_base = 0;
 else
     d_base = numel(setxor(selected_ids(:).', ref_ids(:).')) / max(1, cfg.ch5.max_track_sats);
 end
 
-% Switching cost
 if nargin < 3 || isempty(prev_ids)
     c_switch = 0;
 else
     c_switch = numel(setxor(selected_ids(:).', prev_ids(:).')) / max(1, cfg.ch5.max_track_sats);
 end
 
+long_single = d.longest_single_support_steps / max(1, cfg.ch5.window_steps);
+long_zero = d.longest_zero_support_steps / max(1, cfg.ch5.window_steps);
+
 switch mode
     case 'safe'
-        w_min = cfg.ch5.ck_safe_phi_min_weight;
-        w_avg = cfg.ch5.ck_safe_phi_avg_weight;
-        w_out = cfg.ch5.ck_safe_outage_weight;
-        w_long = cfg.ch5.ck_safe_longest_weight;
+        w_dual = cfg.ch5.ck_safe_dual_weight;
+        w_single = cfg.ch5.ck_safe_single_weight;
+        w_zero = cfg.ch5.ck_safe_zero_weight;
+        w_lsingle = cfg.ch5.ck_safe_longest_single_weight;
+        w_lzero = cfg.ch5.ck_safe_longest_zero_weight;
         w_base = cfg.ch5.ck_safe_base_weight;
         w_sw = cfg.ch5.ck_safe_switch_weight;
     case 'warn'
-        w_min = cfg.ch5.ck_warn_phi_min_weight;
-        w_avg = cfg.ch5.ck_warn_phi_avg_weight;
-        w_out = cfg.ch5.ck_warn_outage_weight;
-        w_long = cfg.ch5.ck_warn_longest_weight;
+        w_dual = cfg.ch5.ck_warn_dual_weight;
+        w_single = cfg.ch5.ck_warn_single_weight;
+        w_zero = cfg.ch5.ck_warn_zero_weight;
+        w_lsingle = cfg.ch5.ck_warn_longest_single_weight;
+        w_lzero = cfg.ch5.ck_warn_longest_zero_weight;
         w_base = cfg.ch5.ck_warn_base_weight;
         w_sw = cfg.ch5.ck_warn_switch_weight;
     otherwise
-        w_min = cfg.ch5.ck_trigger_phi_min_weight;
-        w_avg = cfg.ch5.ck_trigger_phi_avg_weight;
-        w_out = cfg.ch5.ck_trigger_outage_weight;
-        w_long = cfg.ch5.ck_trigger_longest_weight;
+        w_dual = cfg.ch5.ck_trigger_dual_weight;
+        w_single = cfg.ch5.ck_trigger_single_weight;
+        w_zero = cfg.ch5.ck_trigger_zero_weight;
+        w_lsingle = cfg.ch5.ck_trigger_longest_single_weight;
+        w_lzero = cfg.ch5.ck_trigger_longest_zero_weight;
         w_base = cfg.ch5.ck_trigger_base_weight;
         w_sw = cfg.ch5.ck_trigger_switch_weight;
 end
 
-long_norm = d.longest_outage_steps / max(1, cfg.ch5.window_steps);
-
 score = ...
-    - w_min * d.phi_min ...
-    - w_avg * d.phi_avg ...
-    + w_out * d.outage_ratio ...
-    + w_long * long_norm ...
+    - w_dual * d.dual_support_ratio ...
+    + w_single * d.single_support_ratio ...
+    + w_zero * d.zero_support_ratio ...
+    + w_lsingle * long_single ...
+    + w_lzero * long_zero ...
     + w_base * d_base ...
     + w_sw * c_switch;
 
