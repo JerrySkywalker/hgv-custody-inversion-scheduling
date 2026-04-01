@@ -105,36 +105,44 @@ cfg.ch5.outerA_rank_rel_tol = 1.0e-6;
 cfg.ch5.outerA_rank_fallback_min = 2;
 
 % ============================================================
-% Phase 7A-1: worst-window-oriented outerB parameters
+% Phase 7A-2: custody-structure-constrained outerB
 % ============================================================
-cfg.ch5.ck_support_threshold = 0.75;
+cfg.ch5.ck_force_two_sat_in_warn = true;
+cfg.ch5.ck_force_two_sat_in_trigger = true;
+cfg.ch5.ck_force_two_sat_in_safe = false;
 
-cfg.ch5.ck_ref_phi_min_weight = 2.0;
-cfg.ch5.ck_ref_phi_avg_weight = 0.5;
-cfg.ch5.ck_ref_outage_weight = 1.0;
-cfg.ch5.ck_ref_longest_weight = 0.5;
+cfg.ch5.ck_allow_single_fallback = true;
+
+cfg.ch5.ck_ref_dual_weight = 2.0;
+cfg.ch5.ck_ref_single_weight = 1.2;
+cfg.ch5.ck_ref_zero_weight = 2.0;
+cfg.ch5.ck_ref_longest_single_weight = 0.6;
+cfg.ch5.ck_ref_longest_zero_weight = 1.0;
 
 % safe mode
-cfg.ch5.ck_safe_phi_min_weight = 1.0;
-cfg.ch5.ck_safe_phi_avg_weight = 0.6;
-cfg.ch5.ck_safe_outage_weight = 0.6;
-cfg.ch5.ck_safe_longest_weight = 0.4;
+cfg.ch5.ck_safe_dual_weight = 0.8;
+cfg.ch5.ck_safe_single_weight = 0.4;
+cfg.ch5.ck_safe_zero_weight = 0.8;
+cfg.ch5.ck_safe_longest_single_weight = 0.3;
+cfg.ch5.ck_safe_longest_zero_weight = 0.5;
 cfg.ch5.ck_safe_base_weight = 1.0;
 cfg.ch5.ck_safe_switch_weight = 0.8;
 
 % warn mode
-cfg.ch5.ck_warn_phi_min_weight = 2.0;
-cfg.ch5.ck_warn_phi_avg_weight = 0.6;
-cfg.ch5.ck_warn_outage_weight = 1.2;
-cfg.ch5.ck_warn_longest_weight = 1.0;
+cfg.ch5.ck_warn_dual_weight = 2.0;
+cfg.ch5.ck_warn_single_weight = 1.2;
+cfg.ch5.ck_warn_zero_weight = 1.6;
+cfg.ch5.ck_warn_longest_single_weight = 1.0;
+cfg.ch5.ck_warn_longest_zero_weight = 1.2;
 cfg.ch5.ck_warn_base_weight = 0.4;
 cfg.ch5.ck_warn_switch_weight = 0.4;
 
 % trigger mode
-cfg.ch5.ck_trigger_phi_min_weight = 3.0;
-cfg.ch5.ck_trigger_phi_avg_weight = 0.4;
-cfg.ch5.ck_trigger_outage_weight = 1.8;
-cfg.ch5.ck_trigger_longest_weight = 1.6;
+cfg.ch5.ck_trigger_dual_weight = 3.0;
+cfg.ch5.ck_trigger_single_weight = 1.8;
+cfg.ch5.ck_trigger_zero_weight = 2.4;
+cfg.ch5.ck_trigger_longest_single_weight = 1.4;
+cfg.ch5.ck_trigger_longest_zero_weight = 1.8;
 cfg.ch5.ck_trigger_base_weight = 0.1;
 cfg.ch5.ck_trigger_switch_weight = 0.1;
 
