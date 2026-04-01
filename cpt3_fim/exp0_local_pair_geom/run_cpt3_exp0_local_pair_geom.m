@@ -1,17 +1,12 @@
 function out = run_cpt3_exp0_local_pair_geom(verbose)
-% 第三章实验0（修正版 v2）：
+% 第三章实验0（修正版 v3）：
 % 双传感器局部几何与 M_G 稳定域实验
 %
 % 本版修正：
-% 1) Fig4 dense baseline 改为 500:100:1200 km
-% 2) 新增 Fig3_plus：
-%    - b = 500, 1000, 1200 km
-%    - h = 40 km
-%    - 1x3 横排
-%    - 每个子图正方形
-%    - 统一色标
-%    - 叠加 M_G = M_G_thr_12 与 M_G = M_G_thr_23 两条等值线
-% 3) 运行前清理旧图 / 旧 summary / 旧 log，避免输出不同步
+% 1) 同时输出 fig3_stacked 与 fig3plus
+% 2) fig3_stacked 的 baseline 改成 500:100:1200
+% 3) fig3plus 仍用 500 / 1000 / 1200
+% 4) summary / log 同步记录 stacked 与 fig3plus 两套 baseline
 %
 % 输出目录：
 % outputs/cpt3/exp0_local_pair_geom/
@@ -30,7 +25,7 @@ if ~exist(tbl_dir, 'dir'); mkdir(tbl_dir); end
 if ~exist(mat_dir, 'dir'); mkdir(mat_dir); end
 if ~exist(log_dir, 'dir'); mkdir(log_dir); end
 
-% 先清理旧输出，防止 summary/log/fig 残留
+% 清理旧输出，避免不同步
 local_safe_delete(fullfile(fig_dir, '*.png'));
 local_safe_delete(fullfile(tbl_dir, '*.txt'));
 local_safe_delete(fullfile(log_dir, '*.txt'));
@@ -63,10 +58,10 @@ end
 theta_anchor_deg = p.theta_anchor_deg(:).';
 b_anchor_km = 2*(p.h_sat_km - p.h_tgt_ref_km) .* tand(theta_anchor_deg/2);
 
-%% dense baseline（用于 Fig4）
+%% dense baseline（用于 Fig4 与 stacked fig3）
 b_anchor_dense_km = p.baseline_dense_km(:).';
 
-%% fig3_plus baseline
+%% fig3plus baseline
 b_fig3plus_km = p.baseline_fig3plus_km(:).';
 
 %% 参考锚点中心 M_G 与阈值
@@ -122,13 +117,18 @@ for ib = 1:nB
     end
 end
 
-%% dense baseline：用于 Fig4
+%% dense baseline：用于 Fig4 与 stacked fig3
 nBd = numel(b_anchor_dense_km);
 R_geo_dense = zeros(nBd, nH);
 center_region_dense = strings(nBd, nH);
+MG_maps_stacked = cell(1, nBd);
 
 for ib = 1:nBd
     b = b_anchor_dense_km(ib);
+
+    % stacked fig3 只取 h = 40 km
+    [Mmap40, ~] = local_scan_MG_map(X, Y, b, p.h_tgt_ref_km, p.h_sat_km, p.sigma_theta_rad, MG_thr_12, MG_thr_23);
+    MG_maps_stacked{ib} = Mmap40;
 
     for ih = 1:nH
         ht = H_list(ih);
@@ -141,7 +141,7 @@ for ib = 1:nBd
     end
 end
 
-%% fig3_plus：b=500/1000/1200, h=40 km
+%% fig3plus：b=500/1000/1200, h=40 km
 nBp = numel(b_fig3plus_km);
 MG_maps_fig3plus = cell(1, nBp);
 for ib = 1:nBp
@@ -196,7 +196,7 @@ title('Baseline length vs crossing angle');
 saveas(f1, fullfile(fig_dir, 'exp0_fig1_baseline_vs_crossing.png'));
 close(f1);
 
-% Fig2: 保留
+% Fig2
 f2 = figure('Name','exp0_fig2_baseline_vs_MG_crlb');
 yyaxis left
 plot(b_grid, MG_center, 'LineWidth', 2); hold on; grid on;
@@ -208,6 +208,40 @@ xlabel('Baseline length b (km)');
 title('Baseline length vs M_G / CRLB');
 saveas(f2, fullfile(fig_dir, 'exp0_fig2_baseline_vs_MG_crlb.png'));
 close(f2);
+
+% Fig3_stacked: dense baseline = 500:100:1200, h=40 km
+Mmin_stack = inf;
+Mmax_stack = -inf;
+for k = 1:nBd
+    Mtmp = MG_maps_stacked{k};
+    Mmin_stack = min(Mmin_stack, min(Mtmp, [], 'all'));
+    Mmax_stack = max(Mmax_stack, max(Mtmp, [], 'all'));
+end
+
+f3s = figure('Name','exp0_fig3_stacked_MG_heatmaps');
+hold on;
+[Xs, Ys] = meshgrid(xg, yg);
+z_stack = 1:nBd;
+for k = 1:nBd
+    Zplane = z_stack(k) * ones(size(Xs));
+    C = MG_maps_stacked{k};
+    surf(Xs, Zplane, Ys, C, 'EdgeColor', 'none', 'FaceColor', 'interp');
+end
+colormap(parula);
+caxis([Mmin_stack, Mmax_stack]);
+cb = colorbar;
+cb.Label.String = 'M_G';
+
+xlabel('x (km)');
+ylabel('Baseline slice index');
+zlabel('y (km)');
+yticks(z_stack);
+yticklabels(compose('b=%.0f km', b_anchor_dense_km));
+title('Stacked M_G heatmaps at h=40 km');
+view(85,20);
+set(gcf,'unit','normalized','position',[0.08 0.15 0.84 0.42]);
+saveas(f3s, fullfile(fig_dir, 'exp0_fig3_stacked_MG_heatmaps.png'));
+close(f3s);
 
 % Fig3_plus: 1x3, 正方形, 统一色标, 两条等值线
 Mmin = inf;
@@ -258,7 +292,7 @@ legend('Location','best');
 saveas(f4, fullfile(fig_dir, 'exp0_fig4_Rgeo_dense.png'));
 close(f4);
 
-% Fig5: 加密 Tw / v 曲线 + 步长柱图
+% Fig5
 f5 = figure('Name','exp0_fig5_phase08_box_step');
 subplot(1,2,1);
 hold on; grid on;
@@ -310,8 +344,8 @@ fprintf(fid, 'M_G_thr_12 = %.6f\n', MG_thr_12);
 fprintf(fid, 'M_G_thr_23 = %.6f\n', MG_thr_23);
 fprintf(fid, '\n');
 
-fprintf(fid, '--- Dense baseline anchors for Fig4 ---\n');
-fprintf(fid, 'baseline_dense_km = ');
+fprintf(fid, '--- Stacked Fig3 baseline anchors ---\n');
+fprintf(fid, 'baseline_fig3_stacked_km = ');
 fprintf(fid, '%.1f ', b_anchor_dense_km);
 fprintf(fid, '\n');
 
@@ -326,6 +360,16 @@ for ib = 1:nB
         fprintf(fid, 'b=%.3f km, h=%g km -> region=%s, R_geo=%.3f km\n', ...
             b_anchor_km(ib), H_list(ih), char(center_region(ib,ih)), R_geo(ib,ih));
     end
+end
+fprintf(fid, '\n');
+
+fprintf(fid, '--- Dense baseline R_geo curves ---\n');
+for ib = 1:nBd
+    fprintf(fid, 'b=%.1f km -> ', b_anchor_dense_km(ib));
+    for ih = 1:nH
+        fprintf(fid, 'h=%g km: R_geo=%.3f km ', H_list(ih), R_geo_dense(ib,ih));
+    end
+    fprintf(fid, '\n');
 end
 fprintf(fid, '\n');
 
@@ -377,7 +421,7 @@ fid = fopen(log_path, 'w');
 assert(fid >= 0, 'Failed to open log file.');
 fprintf(fid, '[INFO] run_timestamp = %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));
 fprintf(fid, '[INFO] Experiment 0 output root: %s\n', out_root);
-fprintf(fid, '[INFO] baseline_dense_km = ');
+fprintf(fid, '[INFO] baseline_fig3_stacked_km = ');
 fprintf(fid, '%.1f ', b_anchor_dense_km);
 fprintf(fid, '\n');
 fprintf(fid, '[INFO] baseline_fig3plus_km = ');
@@ -397,7 +441,7 @@ save(mat_path, 'p', 'b_grid', 'theta_num_deg', ...
     'MG_anchor', 'MG_thr_12', 'MG_thr_23', ...
     'xg', 'yg', 'X', 'Y', 'R', 'MG_maps', 'MG_region_maps', ...
     'R_geo', 'center_region', 'center_MG', 'R_geo_trusted', ...
-    'MG_maps_fig3plus', 'R_geo_dense', 'center_region_dense', ...
+    'MG_maps_stacked', 'MG_maps_fig3plus', 'R_geo_dense', 'center_region_dense', ...
     'H_list', 'V_list', 'Tw_list', 'Bxy_rec_nominal', 'Bxy_rec_conservative', ...
     'Bz_rec_half', 'step_xy_candidates', 'step_xy_rec_conservative', 'step_xy_rec_nominal');
 
@@ -505,15 +549,15 @@ p.baseline_grid_km = 200:100:2000;
 % 参考锚点（用于 threshold 与 trusted set）
 p.theta_anchor_deg = [30, 60, 80];
 
-% Fig4 dense baseline：按你的要求改成 500:100:1200
+% Fig3_stacked / Fig4
 p.baseline_dense_km = 500:100:1200;
 
-% Fig3_plus：按你的要求
+% Fig3_plus
 p.baseline_fig3plus_km = [500, 1000, 1200];
 
 p.xy_grid_km = -800:50:800;
 
-% Fig5 保留当前加密扫描
+% Fig5
 p.v_tgt_list_kmps = 4.0:0.25:5.0;
 p.Tw_list_s = 10:10:60;
 
