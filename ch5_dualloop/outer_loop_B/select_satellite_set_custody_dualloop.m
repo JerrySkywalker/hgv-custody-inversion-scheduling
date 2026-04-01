@@ -62,11 +62,37 @@ for i = 1:numel(all_sets)
 
     rec.ids = ids;
     rec.score = s;
-    rec.is_feasible = logical(detail.is_feasible);
-    rec.longest_single = detail.longest_single_support_steps;
-    rec.single_ratio = detail.single_support_ratio;
-    rec.lambda_min_geom = detail.lambda_min_geom;
-    rec.min_crossing_angle_deg = detail.min_crossing_angle_deg;
+
+    if isfield(detail, 'is_feasible')
+        rec.is_feasible = logical(detail.is_feasible);
+    else
+        rec.is_feasible = true;
+    end
+
+    if isfield(detail, 'longest_single_support_steps')
+        rec.longest_single = detail.longest_single_support_steps;
+    else
+        rec.longest_single = inf;
+    end
+
+    if isfield(detail, 'single_support_ratio')
+        rec.single_ratio = detail.single_support_ratio;
+    else
+        rec.single_ratio = 1;
+    end
+
+    if isfield(detail, 'lambda_min_geom')
+        rec.lambda_min_geom = detail.lambda_min_geom;
+    else
+        rec.lambda_min_geom = 0;
+    end
+
+    if isfield(detail, 'min_crossing_angle_deg')
+        rec.min_crossing_angle_deg = detail.min_crossing_angle_deg;
+    else
+        rec.min_crossing_angle_deg = 0;
+    end
+
     records(end+1) = rec; %#ok<AGROW>
 end
 
