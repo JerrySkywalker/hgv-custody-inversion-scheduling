@@ -1,30 +1,34 @@
 # Phase 7A summary
 
-## Scope
-Minimal CK closed-loop based on outerA mode-driven dispatch.
-
 ## Phase 7A outcome
 The first minimal CK version ran successfully but failed methodologically:
-- RMSE improved slightly
+- RMSE changed only slightly
 - custody metrics degraded
-This indicated that the old outerB objective was still too close to tracking / average-visibility logic.
+- the policy still behaved too much like tracking / average-visibility logic
 
-## Phase 7A-1 change
-Replace the outerB objective with a worst-window-oriented custody objective:
+## Phase 7A-1 outcome
+The first worst-window revision also failed:
+- outerB degenerated to one-satellite solutions
+- C remained on two-satellite support
+- CK lost dual-satellite redundancy and custody collapsed
 
-- maximize predicted phi_min
-- maximize predicted phi_avg
-- penalize predicted outage ratio
-- penalize predicted longest outage
-- penalize deviation from reference template
-- penalize switching
+## Phase 7A-2 change
+Introduce custody-structure constraints into outerB:
+
+- in warn / trigger, prefer dual-satellite legal actions
+- explicitly score future dual-support ratio
+- explicitly penalize future single-support ratio
+- explicitly penalize future zero-support ratio
+- penalize longest single-support segment
+- penalize longest zero-support segment
+- preserve reference-template and switching regularization
 
 ## Files
-- outer_loop_B/compute_phi_window_proxy_dualloop.m
+- outer_loop_B/compute_support_window_proxy_dualloop.m
 - outer_loop_B/select_reference_template_dualloop.m
 - outer_loop_B/build_window_objective_dualloop.m
 - outer_loop_B/select_satellite_set_custody_dualloop.m
 
 ## Current note
-This is the first implementation that is truly aligned with the chapter-5 method statement.
-The key test is whether CK can stop harming custody metrics and begin improving the floor-related metrics over C.
+This revision is intended to prevent outerB from collapsing to fragile one-satellite solutions.
+The key test is whether CK recovers dual-satellite support and stops the custody metrics from exploding.
