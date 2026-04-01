@@ -105,7 +105,7 @@ cfg.ch5.outerA_rank_rel_tol = 1.0e-6;
 cfg.ch5.outerA_rank_fallback_min = 2;
 
 % ============================================================
-% Phase 7A-3: hard-gated custody outerB
+% Phase 7A-4: single-support-dominant outerB
 % ============================================================
 cfg.ch5.ck_force_two_sat_in_warn = true;
 cfg.ch5.ck_force_two_sat_in_trigger = true;
@@ -113,45 +113,48 @@ cfg.ch5.ck_force_two_sat_in_safe = false;
 cfg.ch5.ck_allow_single_fallback = true;
 
 cfg.ch5.ck_ref_dual_weight = 2.0;
-cfg.ch5.ck_ref_single_weight = 1.2;
+cfg.ch5.ck_ref_single_weight = 1.5;
 cfg.ch5.ck_ref_zero_weight = 2.0;
-cfg.ch5.ck_ref_longest_single_weight = 0.6;
+cfg.ch5.ck_ref_longest_single_weight = 1.2;
 cfg.ch5.ck_ref_longest_zero_weight = 1.0;
 
 cfg.ch5.ck_safe_dual_weight = 0.8;
-cfg.ch5.ck_safe_single_weight = 0.4;
+cfg.ch5.ck_safe_single_weight = 0.6;
 cfg.ch5.ck_safe_zero_weight = 0.8;
-cfg.ch5.ck_safe_longest_single_weight = 0.3;
+cfg.ch5.ck_safe_longest_single_weight = 0.6;
 cfg.ch5.ck_safe_longest_zero_weight = 0.5;
 cfg.ch5.ck_safe_base_weight = 1.0;
 cfg.ch5.ck_safe_switch_weight = 0.8;
 
-cfg.ch5.ck_warn_dual_weight = 2.2;
-cfg.ch5.ck_warn_single_weight = 1.6;
+cfg.ch5.ck_warn_dual_weight = 2.0;
+cfg.ch5.ck_warn_single_weight = 2.8;
 cfg.ch5.ck_warn_zero_weight = 2.2;
-cfg.ch5.ck_warn_longest_single_weight = 1.4;
+cfg.ch5.ck_warn_longest_single_weight = 3.0;
 cfg.ch5.ck_warn_longest_zero_weight = 1.8;
-cfg.ch5.ck_warn_base_weight = 0.3;
-cfg.ch5.ck_warn_switch_weight = 0.3;
+cfg.ch5.ck_warn_base_weight = 0.2;
+cfg.ch5.ck_warn_switch_weight = 0.2;
 
-cfg.ch5.ck_trigger_dual_weight = 3.5;
-cfg.ch5.ck_trigger_single_weight = 2.4;
-cfg.ch5.ck_trigger_zero_weight = 3.2;
-cfg.ch5.ck_trigger_longest_single_weight = 2.2;
-cfg.ch5.ck_trigger_longest_zero_weight = 3.0;
+cfg.ch5.ck_trigger_dual_weight = 2.4;
+cfg.ch5.ck_trigger_single_weight = 3.5;
+cfg.ch5.ck_trigger_zero_weight = 3.0;
+cfg.ch5.ck_trigger_longest_single_weight = 4.0;
+cfg.ch5.ck_trigger_longest_zero_weight = 2.4;
 cfg.ch5.ck_trigger_base_weight = 0.05;
 cfg.ch5.ck_trigger_switch_weight = 0.05;
 
-% Phase 7A-3 hard gates
 cfg.ch5.ck_gate_warn_max_zero_ratio = 0.15;
 cfg.ch5.ck_gate_warn_max_longest_zero = 4;
-cfg.ch5.ck_gate_warn_max_longest_single = 8;
+cfg.ch5.ck_gate_warn_max_longest_single = 5;
 
 cfg.ch5.ck_gate_trigger_max_zero_ratio = 0.05;
 cfg.ch5.ck_gate_trigger_max_longest_zero = 2;
-cfg.ch5.ck_gate_trigger_max_longest_single = 4;
+cfg.ch5.ck_gate_trigger_max_longest_single = 3;
 
 cfg.ch5.ck_gate_penalty = 1.0e3;
+
+% Phase 7A-4 lexicographic control
+cfg.ch5.ck_use_lexicographic_in_warn = true;
+cfg.ch5.ck_use_lexicographic_in_trigger = true;
 
 cfg = apply_ch5_scene_preset(cfg, scene_preset);
 
