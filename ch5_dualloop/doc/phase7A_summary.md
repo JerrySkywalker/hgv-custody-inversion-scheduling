@@ -18,22 +18,18 @@ The custody-structure-constrained revision recovered dual-satellite support:
 - coverage_ratio_ge2 recovered to 1
 - but CK still underperformed C on custody metrics
 
-## Phase 7A-3 change
-Add hard-gated worst-window protection into outerB:
+## Phase 7A-3 outcome
+Hard-gated worst-window protection was added, but results remained unchanged from 7A-2.
+This indicates the new gates may not actually be screening candidate sets in practice.
 
-- keep the dual-satellite preference from 7A-2
-- add hard feasibility gates in warn / trigger
-- reject or strongly penalize candidate sets with:
-  - too much zero-support ratio
-  - too long zero-support segments
-  - too long single-support segments
-- choose feasible custody sets first, then use fallback only if no feasible set exists
+## Phase 7A-3-dbg purpose
+Diagnose:
+- outerA safe / warn / trigger ratios
+- how many candidate sets are feasible each step
+- whether the selected set is feasible
+- which gate reasons are actually triggered
 
 ## Files
-- outer_loop_B/is_support_pattern_feasible_dualloop.m
-- outer_loop_B/build_window_objective_dualloop.m
-- outer_loop_B/select_satellite_set_custody_dualloop.m
-
-## Current note
-This revision is intended to move outerB from soft-penalty risk aversion to hard-gated worst-window protection.
-The key test is whether CK can now narrow or reverse the custody gap relative to C.
+- analysis/summarize_outerA_mode_series.m
+- analysis/diagnose_outerB_selection_dualloop.m
+- runners/run_ch5_phase7A3_debug.m
