@@ -15,7 +15,7 @@ function startup(varargin)
 % 4) 计时拆分为 core/logger init/logger replay，避免误解 total 的统计口径。
 
     t_total = tic;
-
+    warning('off', 'MATLAB:pcode:PcodeIsOlderThanMfile');
     % ---------------------------
     % Parse inputs
     % ---------------------------
