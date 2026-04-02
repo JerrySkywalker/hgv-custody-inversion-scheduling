@@ -122,7 +122,7 @@ for ip = 1:numel(profiles)
     records_cell{ip} = [rows_cell{:}];
 end
 
-profiles_summary = struct([]);
+profiles_summary_cell = cell(1, numel(profiles));
 for ip = 1:numel(profiles)
     rows = records_cell{ip};
     S = struct();
@@ -138,8 +138,9 @@ for ip = 1:numel(profiles)
     S.mean_compression_ratio = mean([rows.compression_ratio]);
     S.mean_match_distance_B = mean([rows.match_distance_B]);
     S.mean_match_distance_C = mean([rows.match_distance_C]);
-    profiles_summary(ip) = S; %#ok<AGROW>
+    profiles_summary_cell{ip} = S;
 end
+profiles_summary = [profiles_summary_cell{:}];
 
 recommendation = local_build_recommendation(scene_preset, profiles_summary);
 
