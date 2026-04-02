@@ -66,12 +66,15 @@ cfg_ns = local_apply_ablation_mode(cfg_ns, 'no_state_machine');
 out_ns = run_ch5_phase7A_dualloop_ck(cfg_ns, true);
 S_ns = load(out_ns.mat_file);
 
-methods = struct([]);
-
-methods(1) = local_extract_metrics(S_full, 'C-baseline', 'trackingC',  'trackingStatsC',  'custodyC');
-methods(2) = local_extract_metrics(S_full, 'CK-full',    'trackingCK', 'trackingStatsCK', 'custodyCK');
-methods(3) = local_extract_metrics(S_ng,   'CK-noGeom',  'trackingCK', 'trackingStatsCK', 'custodyCK');
-methods(4) = local_extract_metrics(S_ns,   'CK-noStateMachine', 'trackingCK', 'trackingStatsCK', 'custodyCK');
+% ------------------------------------------------
+% Assemble methods using cell first, then concatenate
+% ------------------------------------------------
+methods_cell = cell(1,4);
+methods_cell{1} = local_extract_metrics(S_full, 'C-baseline', 'trackingC',  'trackingStatsC',  'custodyC');
+methods_cell{2} = local_extract_metrics(S_full, 'CK-full',    'trackingCK', 'trackingStatsCK', 'custodyCK');
+methods_cell{3} = local_extract_metrics(S_ng,   'CK-noGeom',  'trackingCK', 'trackingStatsCK', 'custodyCK');
+methods_cell{4} = local_extract_metrics(S_ns,   'CK-noStateMachine', 'trackingCK', 'trackingStatsCK', 'custodyCK');
+methods = [methods_cell{:}];
 
 fig_path = fullfile(fig_dir, ['phase7b_ablation_', scene_preset, '.png']);
 plot_ck_ablation_summary(methods, scene_preset, fig_path);
