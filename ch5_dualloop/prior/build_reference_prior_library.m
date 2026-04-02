@@ -1,19 +1,9 @@
 function lib = build_reference_prior_library(feature_records)
 %BUILD_REFERENCE_PRIOR_LIBRARY
-% WS-3-R1
+% WS-4-R1
 % Build a minimal prototype-based template library from local-frame features.
 %
-% Input:
-%   feature_records: struct array with fields
-%       num_sats
-%       baseline_km
-%       Bxy_cand
-%       Ruse
-%       xy_radius_km
-%
-% Output:
-%   lib.templates
-%   lib.meta
+% Each template now also stores prototype_ids for reference selection.
 
 assert(isstruct(feature_records) && ~isempty(feature_records), ...
     'feature_records must be a non-empty struct array.');
@@ -42,6 +32,7 @@ for j = 1:numel(family_list)
     tpl.prototype_feature = proto;
     tpl.member_indices = idx(:).';
     tpl.member_count = numel(idx);
+    tpl.prototype_ids = feature_records(idx(1)).ids(:).';
 
     template_cells{j} = tpl;
 end

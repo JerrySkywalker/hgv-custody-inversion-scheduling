@@ -1,7 +1,8 @@
-function match = match_reference_prior(candidate_feature, lib)
+function match = match_reference_prior(lib, candidate_feature)
 %MATCH_REFERENCE_PRIOR
-% WS-3-R1
-% Match one candidate feature against a prototype library.
+% WS-4-R1
+% Match one candidate/local-frame feature against a prototype library
+% and return reference ids.
 
 assert(isstruct(candidate_feature), 'candidate_feature must be a struct.');
 assert(isstruct(lib) && isfield(lib, 'templates') && ~isempty(lib.templates), ...
@@ -24,6 +25,7 @@ match.best_template_id = lib.templates(idx).template_id;
 match.best_template_family = lib.templates(idx).template_family;
 match.best_distance = best_distance;
 match.best_index = idx;
+match.ref_ids = lib.templates(idx).prototype_ids(:).';
 match.all_distances = dist;
 end
 
