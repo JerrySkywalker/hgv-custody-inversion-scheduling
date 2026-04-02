@@ -1,63 +1,85 @@
-function prior_lib = build_reference_prior_library(caseData, cfg)
+function lib = build_reference_prior_library(feature_records)
 %BUILD_REFERENCE_PRIOR_LIBRARY
-% Build a lightweight static-like reference template library from anchor times.
+% WS-3-R1
+% Build a minimal prototype-based template library from local-frame features.
 %
-% Output fields per template:
-%   anchor_idx
-%   ref_ids
-%   visible_ids
-%   dual_support_ratio
-%   single_support_ratio
-%   zero_support_ratio
-%   longest_single_support_steps
-%   longest_zero_support_steps
+% Input:
+%   feature_records: struct array with fields
+%       num_sats
+%       baseline_km
+%       Bxy_cand
+%       Ruse
+%       xy_radius_km
+%
+% Output:
+%   lib.templates
+%   lib.meta
 
-if nargin < 2 || isempty(cfg)
-    cfg = default_ch5_params();
+assert(isstruct(feature_records) && ~isempty(feature_records), ...
+    'feature_records must be a non-empty struct array.');
+
+n = numel(feature_records);
+rows = zeros(n, 5);
+families = strings(n,1);
+
+for i = 1:n
+    rows(i,:) = local_feature_vector(feature_records(i));
+    families(i) = local_assign_family(feature_records(i));
 end
 
-N = numel(caseData.time.t);
+family_list = unique(families, 'stable');
+templates = struct([]);
 
-if ~isfield(cfg.ch5, 'prior_anchor_count') || isempty(cfg.ch5.prior_anchor_count)
-    cfg.ch5.prior_anchor_count = 5;
-end
+for j = 1:numel(family_list)
+    fam = family_list(j);
+    idx = find(families == fam);
 
-anchor_idx = unique(round(linspace(1, N, cfg.ch5.prior_anchor_count)));
-prior_lib = struct( ...
-    'anchor_idx', {}, ...
-    'ref_ids', {}, ...
-    'visible_ids', {}, ...
-    'dual_support_ratio', {}, ...
-    'single_support_ratio', {}, ...
-    'zero_support_ratio', {}, ...
-    'longest_single_support_steps', {}, ...
-    'longest_zero_support_steps', {});
-
-for i = 1:numel(anchor_idx)
-    k = anchor_idx(i);
-    visible_ids = find(caseData.candidates.visible_mask(k, :) > 0);
-
-    if isempty(visible_ids)
-        continue;
-    end
-
-    ref_ids = select_reference_template_dualloop(caseData, k, cfg);
-    if isempty(ref_ids)
-        continue;
-    end
-
-    d = compute_support_window_proxy_dualloop(caseData, ref_ids, k, cfg);
+    proto = mean(rows(idx,:), 1);
 
     tpl = struct();
-    tpl.anchor_idx = k;
-    tpl.ref_ids = ref_ids(:).';
-    tpl.visible_ids = visible_ids(:).';
-    tpl.dual_support_ratio = d.dual_support_ratio;
-    tpl.single_support_ratio = d.single_support_ratio;
-    tpl.zero_support_ratio = d.zero_support_ratio;
-    tpl.longest_single_support_steps = d.longest_single_support_steps;
-    tpl.longest_zero_support_steps = d.longest_zero_support_steps;
+    tpl.template_id = sprintf('TPL_%02d', j);
+    tpl.template_family = char(fam);
+    tpl.prototype_feature = proto;
+    tpl.member_indices = idx(:).';
+    tpl.member_count = numel(idx);
+    templates(j) = tpl; %#ok<AGROW>
+end
 
-    prior_lib(end+1) = tpl; %#ok<AGROW>
+lib = struct();
+lib.templates = templates;
+lib.meta = struct();
+lib.meta.feature_dim = 5;
+lib.meta.feature_name = {'num_sats','baseline_km_n','Bxy_cand_km_n','Ruse_km_n','mean_xy_radius_km_n'};
+lib.meta.num_input_records = n;
+lib.meta.num_templates = numel(templates);
+end
+
+function z = local_feature_vector(rec)
+xy = rec.xy_radius_km(:);
+mean_xy = mean(xy);
+
+z = [
+    double(rec.num_sats), ...
+    double(rec.baseline_km) / 1000.0, ...
+    double(rec.Bxy_cand) / 1000.0, ...
+    double(rec.Ruse) / 1000.0, ...
+    double(mean_xy) / 1000.0];
+end
+
+function fam = local_assign_family(rec)
+if rec.num_sats <= 2
+    if rec.Bxy_cand < 2200
+        fam = "pair_compact";
+    elseif rec.Bxy_cand < 3000
+        fam = "pair_medium";
+    else
+        fam = "pair_wide";
+    end
+else
+    if rec.Bxy_cand < 2600
+        fam = "multi_compact";
+    else
+        fam = "multi_wide";
+    end
 end
 end

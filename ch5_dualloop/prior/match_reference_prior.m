@@ -1,73 +1,40 @@
-function ref_ids = match_reference_prior(prior_lib, caseData, k, mode, cfg)
+function match = match_reference_prior(candidate_feature, lib)
 %MATCH_REFERENCE_PRIOR
-% Match current window to the closest reference template.
-%
-% Strategy:
-%   - only consider templates with visible overlap
-%   - prefer higher overlap and lower deviation cost
-%   - return visible-compatible ref_ids
+% WS-3-R1
+% Match one candidate feature against a prototype library.
 
-if nargin < 5 || isempty(cfg)
-    cfg = default_ch5_params();
+assert(isstruct(candidate_feature), 'candidate_feature must be a struct.');
+assert(isstruct(lib) && isfield(lib, 'templates') && ~isempty(lib.templates), ...
+    'lib.templates must be available.');
+
+z = local_feature_vector(candidate_feature);
+
+m = numel(lib.templates);
+dist = zeros(m,1);
+
+for i = 1:m
+    z_tpl = lib.templates(i).prototype_feature(:).';
+    dist(i) = norm(z - z_tpl, 2);
 end
 
-ref_ids = [];
+[best_distance, idx] = min(dist);
 
-if isempty(prior_lib)
-    return;
+match = struct();
+match.best_template_id = lib.templates(idx).template_id;
+match.best_template_family = lib.templates(idx).template_family;
+match.best_distance = best_distance;
+match.best_index = idx;
+match.all_distances = dist;
 end
 
-visible_ids = find(caseData.candidates.visible_mask(k, :) > 0);
-visible_ids = visible_ids(:).';
+function z = local_feature_vector(rec)
+xy = rec.xy_radius_km(:);
+mean_xy = mean(xy);
 
-if isempty(visible_ids)
-    return;
-end
-
-if ~isfield(cfg.ch5, 'prior_match_deviation_weight')
-    cfg.ch5.prior_match_deviation_weight = 0.65;
-end
-if ~isfield(cfg.ch5, 'prior_match_overlap_weight')
-    cfg.ch5.prior_match_overlap_weight = 0.35;
-end
-
-force_two = false;
-switch char(mode)
-    case 'warn'
-        force_two = cfg.ch5.ck_force_two_sat_in_warn;
-    case 'trigger'
-        force_two = cfg.ch5.ck_force_two_sat_in_trigger;
-    otherwise
-        force_two = false;
-end
-
-best_cost = inf;
-best_ids = [];
-
-for i = 1:numel(prior_lib)
-    tpl_ids = prior_lib(i).ref_ids(:).';
-    ids_vis = intersect(tpl_ids, visible_ids, 'stable');
-
-    if isempty(ids_vis)
-        continue;
-    end
-
-    if force_two && numel(ids_vis) < 2
-        continue;
-    end
-
-    overlap = numel(ids_vis) / max(1, numel(tpl_ids));
-    dev_cost = compute_prior_deviation_cost(ids_vis, tpl_ids, cfg);
-
-    cost = ...
-        cfg.ch5.prior_match_deviation_weight * dev_cost + ...
-        cfg.ch5.prior_match_overlap_weight * (1 - overlap);
-
-    if cost < best_cost
-        best_cost = cost;
-        best_ids = ids_vis;
-    end
-end
-
-ref_ids = best_ids(:).';
+z = [
+    double(rec.num_sats), ...
+    double(rec.baseline_km) / 1000.0, ...
+    double(rec.Bxy_cand) / 1000.0, ...
+    double(rec.Ruse) / 1000.0, ...
+    double(mean_xy) / 1000.0];
 end
