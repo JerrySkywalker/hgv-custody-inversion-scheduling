@@ -3,7 +3,7 @@ function fig_files = plot_ch5_phase9_window_sweep(rows, scene_preset, fig_dir)
 % Plot main Phase 9 sweep figures.
 
 methods = unique(string({rows.method}));
-tw_vals = unique([rows.Tw]);
+tw_vals = unique([rows.T_w]);
 
 fig_files = {};
 
@@ -13,9 +13,9 @@ hold on
 for i = 1:numel(methods)
     m = methods(i);
     sub = rows(strcmp(string({rows.method}), m));
-    [~, ord] = sort([sub.Tw]);
+    [~, ord] = sort([sub.T_w]);
     sub = sub(ord);
-    plot([sub.Tw], [sub.q_worst_window], 'LineWidth', 1.2);
+    plot([sub.T_w], [sub.q_worst_window], 'LineWidth', 1.2);
 end
 xlabel('T_w', 'Interpreter', 'none');
 ylabel('q_worst_window', 'Interpreter', 'none');
@@ -33,9 +33,9 @@ hold on
 for i = 1:numel(methods)
     m = methods(i);
     sub = rows(strcmp(string({rows.method}), m));
-    [~, ord] = sort([sub.Tw]);
+    [~, ord] = sort([sub.T_w]);
     sub = sub(ord);
-    plot([sub.Tw], [sub.outage_ratio], 'LineWidth', 1.2);
+    plot([sub.T_w], [sub.outage_ratio], 'LineWidth', 1.2);
 end
 xlabel('T_w', 'Interpreter', 'none');
 ylabel('outage_ratio', 'Interpreter', 'none');
@@ -53,9 +53,9 @@ hold on
 for i = 1:numel(methods)
     m = methods(i);
     sub = rows(strcmp(string({rows.method}), m));
-    [~, ord] = sort([sub.Tw]);
+    [~, ord] = sort([sub.T_w]);
     sub = sub(ord);
-    plot([sub.Tw], [sub.mean_rmse], 'LineWidth', 1.2);
+    plot([sub.T_w], [sub.mean_rmse], 'LineWidth', 1.2);
 end
 xlabel('T_w', 'Interpreter', 'none');
 ylabel('mean_rmse', 'Interpreter', 'none');
