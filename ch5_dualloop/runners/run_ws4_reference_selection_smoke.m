@@ -1,7 +1,8 @@
 function out = run_ws4_reference_selection_smoke(scene_preset, k)
 %RUN_WS4_REFERENCE_SELECTION_SMOKE
-% WS-4-R1
-% Build a small template library and test template-guided reference selection.
+% WS-4-R2
+% Build a pair-only template library and test template-guided reference selection
+% without self-match.
 
 if nargin < 1 || isempty(scene_preset)
     scene_preset = 'ref128';
@@ -21,9 +22,13 @@ pair_sets = pair_sets(1:min(10, size(pair_sets,1)), :);
 
 pair_feats = extract_candidate_local_features(caseData, k, pair_sets);
 multi_feat = extract_candidate_local_features(caseData, k, visible_ids(:).');
-all_feats = [pair_feats, multi_feat];
 
-lib = build_reference_prior_library(all_feats);
+% ------------------------------------------------
+% WS-4-R2 key fix:
+% library is built from pair prototypes only
+% query comes from multi-set current visible structure
+% ------------------------------------------------
+lib = build_reference_prior_library(pair_feats);
 
 cfg.ch5.prior_enable = true;
 cfg.ch5.prior_library = lib;
@@ -44,6 +49,8 @@ out = struct();
 out.scene_preset = scene_preset;
 out.k = k;
 out.visible_ids = visible_ids;
+out.pair_feats = pair_feats;
+out.multi_feat = multi_feat;
 out.library = lib;
 out.query_feat = query_feat;
 out.match = match;

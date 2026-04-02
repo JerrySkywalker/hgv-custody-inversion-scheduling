@@ -1,24 +1,44 @@
-function match = match_reference_prior(lib, candidate_feature)
+function match = match_reference_prior(lib, candidate_feature, exclude_template_ids)
 %MATCH_REFERENCE_PRIOR
-% WS-4-R1
+% WS-4-R2
 % Match one candidate/local-frame feature against a prototype library
 % and return reference ids.
+%
+% Optional:
+%   exclude_template_ids : cellstr / string array / char list of template ids
+%                          to exclude from matching
+
+if nargin < 3 || isempty(exclude_template_ids)
+    exclude_template_ids = {};
+end
 
 assert(isstruct(candidate_feature), 'candidate_feature must be a struct.');
 assert(isstruct(lib) && isfield(lib, 'templates') && ~isempty(lib.templates), ...
     'lib.templates must be available.');
 
+if ischar(exclude_template_ids)
+    exclude_template_ids = {exclude_template_ids};
+elseif isstring(exclude_template_ids)
+    exclude_template_ids = cellstr(exclude_template_ids(:));
+end
+
 z = local_feature_vector(candidate_feature);
 
 m = numel(lib.templates);
-dist = zeros(m,1);
+dist = inf(m,1);
 
 for i = 1:m
+    tpl_id = lib.templates(i).template_id;
+    if any(strcmp(exclude_template_ids, tpl_id))
+        continue
+    end
+
     z_tpl = lib.templates(i).prototype_feature(:).';
     dist(i) = norm(z - z_tpl, 2);
 end
 
 [best_distance, idx] = min(dist);
+assert(isfinite(best_distance), 'No valid template remains after exclusion.');
 
 match = struct();
 match.best_template_id = lib.templates(idx).template_id;

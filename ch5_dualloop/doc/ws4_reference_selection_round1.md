@@ -1,24 +1,31 @@
-# WS-4-R1
+# WS-4-R1 / R2
 
 ## Goal
 Integrate template matching into reference selection, not into additive score bonus.
 
-## Scope
-This round does not change:
-- build_window_objective_dualloop baseline formula
-- policy_custody_dualloop_koopman main loop
+## Round 1
+WS-4-R1 verified the interface path:
+- template library
+- match output
+- ref_ids
+- selected_ids
 
-It only changes:
-- prior library entry format
-- match_reference_prior output
-- select_satellite_set_custody_dualloop reference-id selection path
+But it also exposed a self-match issue:
+the current visible multi-set was included in the library, so best_distance became 0
+and ref_ids collapsed to visible_ids.
 
-## Logic
-1. Build local-frame query feature from current visible set
-2. Match template library
-3. Use matched template prototype ids as ref_ids
-4. Keep the rest of outerB baseline scoring unchanged
+## Round 2
+WS-4-R2 fixes this by:
+- building the template library from pair prototypes only
+- using the current visible multi-set as query
+
+Therefore:
+- query and library are separated
+- self-match is avoided
+- ref_ids become an external structural reference
 
 ## Notes
-This round is a template-guided reference-selection prototype.
-Candidate filtering is deferred to WS-5.
+This round still does not change:
+- build_window_objective_dualloop baseline formula
+- candidate filtering
+- full structural prior objective
