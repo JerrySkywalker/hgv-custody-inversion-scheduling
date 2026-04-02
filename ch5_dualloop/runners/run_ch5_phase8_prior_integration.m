@@ -1,177 +1,235 @@
 function out = run_ch5_phase8_prior_integration(cfg, verbose)
 %RUN_CH5_PHASE8_PRIOR_INTEGRATION
-% Compare CK full vs CK+prior, with C as baseline reference.
+% P-Back-1 second cut
+% Formal Phase8 integration using the balanced template prior path.
+%
+% Outputs:
+%   C
+%   CK
+%   CK-prior (balanced)
+%
+% Notes:
+%   - baseline default behavior is preserved
+%   - balanced prior is only used for CK-prior branch
+%   - prior library is built from a representative visible-set snapshot
 
 if nargin < 1 || isempty(cfg)
-    cfg = default_ch5_params('stress96');
+    cfg = default_ch5_params('ref128');
 end
 if nargin < 2
     verbose = true;
 end
 
-phase_name = 'phase8';
-out_root = fullfile(pwd, 'outputs', 'cpt5', phase_name);
+scene_preset = cfg.ch5.scene_preset;
+out_root = fullfile(pwd, 'outputs', 'cpt5', 'phase8');
 fig_dir = fullfile(out_root, 'figs');
 tbl_dir = fullfile(out_root, 'tables');
-mat_dir = fullfile(out_root, 'mats');
 log_dir = fullfile(out_root, 'logs');
-
+mat_dir = fullfile(out_root, 'mats');
 if ~exist(fig_dir, 'dir'); mkdir(fig_dir); end
 if ~exist(tbl_dir, 'dir'); mkdir(tbl_dir); end
-if ~exist(mat_dir, 'dir'); mkdir(mat_dir); end
 if ~exist(log_dir, 'dir'); mkdir(log_dir); end
+if ~exist(mat_dir, 'dir'); mkdir(mat_dir); end
 
-caseData = build_ch5_case(cfg);
+% ------------------------------------------------
+% Build a representative balanced prior library
+% ------------------------------------------------
+cfg_bal = apply_ws5_balanced_template_defaults(cfg);
+caseData = build_ch5_case(cfg_bal);
 
-trackingC = policy_custody_singleloop(caseData, cfg);
-resultC = local_attach_custody_fields(trackingC, caseData, cfg);
-custodyC = eval_custody_metrics(resultC);
-trackingStatsC = eval_tracking_metrics(trackingC);
+[k_ref, visible_ids] = local_find_reference_snapshot(caseData);
+pair_cap = cfg_bal.ch5.library_pair_cap;
 
-trackingCK = policy_custody_dualloop_koopman(caseData, cfg);
-resultCK = local_attach_custody_fields(trackingCK, caseData, cfg);
-custodyCK = eval_custody_metrics(resultCK);
-trackingStatsCK = eval_tracking_metrics(trackingCK);
+pair_sets = nchoosek(visible_ids(:).', 2);
+pair_sets = pair_sets(1:min(pair_cap, size(pair_sets,1)), :);
+pair_feats = extract_candidate_local_features(caseData, k_ref, pair_sets);
+prior_library = build_reference_prior_library(pair_feats);
 
-cfg_prior = cfg;
+% ------------------------------------------------
+% Run baseline CK branch
+% ------------------------------------------------
+cfg_base = cfg;
+cfg_base.ch5.prior_enable = false;
+cfg_base.ch5.template_filter_enable = false;
+
+out_base = run_ch5_phase7A_dualloop_ck(cfg_base, true);
+S_base = load(out_base.mat_file);
+
+% ------------------------------------------------
+% Run balanced CK-prior branch
+% ------------------------------------------------
+cfg_prior = apply_ws5_balanced_template_defaults(cfg);
 cfg_prior.ch5.prior_enable = true;
-cfg_prior.ch5.prior_library = build_reference_prior_library(caseData, cfg_prior);
+cfg_prior.ch5.template_filter_enable = true;
+cfg_prior.ch5.prior_library = prior_library;
 
-trackingCKP = policy_custody_dualloop_koopman(caseData, cfg_prior);
-resultCKP = local_attach_custody_fields(trackingCKP, caseData, cfg_prior);
-custodyCKP = eval_custody_metrics(resultCKP);
-trackingStatsCKP = eval_tracking_metrics(trackingCKP);
+out_prior = run_ch5_phase7A_dualloop_ck(cfg_prior, true);
+S_prior = load(out_prior.mat_file);
 
-methods = struct( ...
-    'name', {}, ...
-    'q_worst_window', {}, ...
-    'phi_mean', {}, ...
-    'outage_ratio', {}, ...
-    'longest_outage_steps', {}, ...
-    'mean_rmse', {}, ...
-    'switch_count', {});
+methods = struct([]);
 
-methods(end+1) = local_make_method('C', custodyC, trackingStatsC, trackingC); %#ok<AGROW>
-methods(end+1) = local_make_method('CK', custodyCK, trackingStatsCK, trackingCK); %#ok<AGROW>
-methods(end+1) = local_make_method('CK-prior', custodyCKP, trackingStatsCKP, trackingCKP); %#ok<AGROW>
+methods(1).name = 'C';
+methods(1).q_worst_window = local_get_qworst_window(S_base.custodyC);
+methods(1).phi_mean = S_base.custodyC.phi_mean;
+methods(1).outage_ratio = S_base.custodyC.outage_ratio;
+methods(1).longest_outage_steps = S_base.custodyC.longest_outage_steps;
+methods(1).mean_rmse = S_base.trackingStatsC.mean_rmse;
+methods(1).switch_count = local_count_switches(S_base, 'trackingC');
 
-scene_name = cfg.ch5.scene_preset;
-fig_path = fullfile(fig_dir, ['phase8_prior_summary_', scene_name, '.png']);
-fig = plot_prior_match_summary(scene_name, methods, fig_path); %#ok<NASGU>
-close all
+methods(2).name = 'CK';
+methods(2).q_worst_window = local_get_qworst_window(S_base.custodyCK);
+methods(2).phi_mean = S_base.custodyCK.phi_mean;
+methods(2).outage_ratio = S_base.custodyCK.outage_ratio;
+methods(2).longest_outage_steps = S_base.custodyCK.longest_outage_steps;
+methods(2).mean_rmse = S_base.trackingStatsCK.mean_rmse;
+methods(2).switch_count = local_count_switches(S_base, 'trackingCK');
 
-txt_path = fullfile(tbl_dir, ['phase8_prior_summary_', scene_name, '.txt']);
-lines = {
-    '=== Chapter 5 Phase 8 Prior Integration Summary ==='
-    ['scene_preset                    = ', scene_name]
-    ['prior_anchor_count              = ', num2str(cfg_prior.ch5.prior_anchor_count)]
-    ['prior_library_size              = ', num2str(numel(cfg_prior.ch5.prior_library))]
-    '--- C ---'
-    ['q_worst_window                  = ', num2str(custodyC.q_worst_window, '%.6f')]
-    ['phi_mean                        = ', num2str(custodyC.phi_mean, '%.6f')]
-    ['outage_ratio                    = ', num2str(custodyC.outage_ratio, '%.6f')]
-    ['longest_outage_steps            = ', num2str(custodyC.longest_outage_steps)]
-    ['mean_rmse                       = ', num2str(trackingStatsC.mean_rmse, '%.6f')]
-    ['switch_count                    = ', num2str(local_count_switches(trackingC.selected_sets))]
-    '--- CK ---'
-    ['q_worst_window                  = ', num2str(custodyCK.q_worst_window, '%.6f')]
-    ['phi_mean                        = ', num2str(custodyCK.phi_mean, '%.6f')]
-    ['outage_ratio                    = ', num2str(custodyCK.outage_ratio, '%.6f')]
-    ['longest_outage_steps            = ', num2str(custodyCK.longest_outage_steps)]
-    ['mean_rmse                       = ', num2str(trackingStatsCK.mean_rmse, '%.6f')]
-    ['switch_count                    = ', num2str(local_count_switches(trackingCK.selected_sets))]
-    '--- CK-prior ---'
-    ['q_worst_window                  = ', num2str(custodyCKP.q_worst_window, '%.6f')]
-    ['phi_mean                        = ', num2str(custodyCKP.phi_mean, '%.6f')]
-    ['outage_ratio                    = ', num2str(custodyCKP.outage_ratio, '%.6f')]
-    ['longest_outage_steps            = ', num2str(custodyCKP.longest_outage_steps)]
-    ['mean_rmse                       = ', num2str(trackingStatsCKP.mean_rmse, '%.6f')]
-    ['switch_count                    = ', num2str(local_count_switches(trackingCKP.selected_sets))]
-    };
-local_write_txt(txt_path, lines);
+methods(3).name = 'CK-prior';
+methods(3).q_worst_window = local_get_qworst_window(S_prior.custodyCK);
+methods(3).phi_mean = S_prior.custodyCK.phi_mean;
+methods(3).outage_ratio = S_prior.custodyCK.outage_ratio;
+methods(3).longest_outage_steps = S_prior.custodyCK.longest_outage_steps;
+methods(3).mean_rmse = S_prior.trackingStatsCK.mean_rmse;
+methods(3).switch_count = local_count_switches(S_prior, 'trackingCK');
 
-mat_path = fullfile(mat_dir, ['phase8_prior_integration_', scene_name, '.mat']);
-save(mat_path, 'cfg', 'cfg_prior', 'caseData', ...
-    'trackingC', 'trackingCK', 'trackingCKP', ...
-    'resultC', 'resultCK', 'resultCKP', ...
-    'custodyC', 'custodyCK', 'custodyCKP', ...
-    'trackingStatsC', 'trackingStatsCK', 'trackingStatsCKP', ...
-    'methods');
+fig_path = fullfile(fig_dir, ['phase8_prior_summary_', scene_preset, '.png']);
+local_plot_phase8_summary(methods, scene_preset, fig_path);
 
-log_path = fullfile(log_dir, ['phase8_prior_integration_log_', scene_name, '.txt']);
-local_write_txt(log_path, {
-    '=== Chapter 5 Phase 8 Prior Integration Log ==='
-    ['scene_preset = ', scene_name]
-    ['prior_library_size = ', num2str(numel(cfg_prior.ch5.prior_library))]
-    ['fig = ', fig_path]
-    ['txt = ', txt_path]
-    ['mat = ', mat_path]
-    });
+txt_path = fullfile(tbl_dir, ['phase8_prior_summary_', scene_preset, '.txt']);
+local_write_summary(txt_path, scene_preset, prior_library, k_ref, visible_ids, methods);
+
+log_path = fullfile(log_dir, ['phase8_prior_integration_log_', scene_preset, '.txt']);
+local_write_log(log_path, scene_preset, prior_library, k_ref, methods);
+
+mat_path = fullfile(mat_dir, ['phase8_prior_integration_', scene_preset, '.mat']);
+save(mat_path, 'scene_preset', 'prior_library', 'k_ref', 'visible_ids', ...
+    'cfg_base', 'cfg_prior', 'out_base', 'out_prior', 'methods');
 
 if verbose
     disp('=== Chapter 5 Phase 8 Prior Integration Summary ===')
-    disp(['scene_preset = ', scene_name])
-    disp(['prior_library_size = ', num2str(numel(cfg_prior.ch5.prior_library))])
+    disp(['scene_preset = ', scene_preset])
+    disp(['prior_library_size = ', num2str(numel(prior_library.templates))])
     disp(struct2table(methods))
-    disp(['[phase8] fig  : ', fig_path]);
-    disp(['[phase8] text : ', txt_path]);
-    disp(['[phase8] log  : ', log_path]);
-    disp(['[phase8] mat  : ', mat_path]);
+    disp(['[phase8] fig  : ', fig_path])
+    disp(['[phase8] text : ', txt_path])
+    disp(['[phase8] log  : ', log_path])
+    disp(['[phase8] mat  : ', mat_path])
 end
 
 out = struct();
-out.output_root = out_root;
 out.fig_file = fig_path;
 out.text_file = txt_path;
 out.log_file = log_path;
 out.mat_file = mat_path;
 end
 
-function method = local_make_method(name, custody, tracking, result)
-method = struct();
-method.name = name;
-method.q_worst_window = custody.q_worst_window;
-method.phi_mean = custody.phi_mean;
-method.outage_ratio = custody.outage_ratio;
-method.longest_outage_steps = custody.longest_outage_steps;
-method.mean_rmse = tracking.mean_rmse;
-method.switch_count = local_count_switches(result.selected_sets);
+function [k_ref, visible_ids] = local_find_reference_snapshot(caseData)
+k_ref = [];
+visible_ids = [];
+Nt = caseData.time.num_steps;
+
+for k = 1:Nt
+    ids = find(caseData.candidates.visible_mask(k,:) > 0);
+    if numel(ids) >= 2
+        k_ref = k;
+        visible_ids = ids(:).';
+        return
+    end
 end
 
-function result = local_attach_custody_fields(tracking, caseData, cfg)
-result = tracking;
-
-mg = compute_mg_series(tracking, caseData, cfg);
-ttl = compute_ttl_series(tracking, caseData, cfg);
-
-switch_series = zeros(size(tracking.time(:)));
-for k = 2:numel(tracking.selected_sets)
-    switch_series(k) = ~isequal(tracking.selected_sets{k-1}, tracking.selected_sets{k});
+error('No valid reference snapshot with at least two visible satellites.');
 end
 
-phi_series = compute_phi_window(mg, ttl, switch_series, cfg);
-
-result.mg_series = mg(:);
-result.ttl_series = ttl(:);
-result.switch_series = switch_series(:);
-result.phi_series = phi_series(:);
-result.threshold = cfg.ch5.custody_phi_threshold;
+function q = local_get_qworst_window(custody)
+if isfield(custody, 'q_worst_window')
+    q = custody.q_worst_window;
+else
+    q = custody.q_worst;
+end
 end
 
-function n = local_count_switches(selected_sets)
-n = 0;
-for k = 2:numel(selected_sets)
-    if ~isequal(selected_sets{k-1}, selected_sets{k})
-        n = n + 1;
+function n = local_count_switches(S, field_name)
+n = NaN;
+if isfield(S, field_name)
+    T = S.(field_name);
+    if isstruct(T) && isfield(T, 'selected_sets')
+        ss = T.selected_sets;
+        c = 0;
+        for i = 2:numel(ss)
+            c = c + ~isequal(ss{i-1}, ss{i});
+        end
+        n = c;
     end
 end
 end
 
-function local_write_txt(pathStr, lines)
-fid = fopen(pathStr, 'w');
-assert(fid >= 0, 'Failed to open file: %s', pathStr);
-cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
-for i = 1:numel(lines)
-    fprintf(fid, '%s\n', lines{i});
+function local_plot_phase8_summary(methods, scene_preset, fig_path)
+names = {methods.name};
+qw = [methods.q_worst_window];
+pm = [methods.phi_mean];
+outage = [methods.outage_ratio];
+longest = [methods.longest_outage_steps];
+rmse = [methods.mean_rmse];
+sw = [methods.switch_count];
+
+f = figure('Visible', 'off');
+tiledlayout(2,3);
+
+nexttile; bar(qw); set(gca,'XTickLabel',names); title('q worst window','Interpreter','none'); grid on
+nexttile; bar(pm); set(gca,'XTickLabel',names); title('phi mean','Interpreter','none'); grid on
+nexttile; bar(outage); set(gca,'XTickLabel',names); title('outage ratio','Interpreter','none'); grid on
+nexttile; bar(longest); set(gca,'XTickLabel',names); title('longest outage steps','Interpreter','none'); grid on
+nexttile; bar(rmse); set(gca,'XTickLabel',names); title('mean rmse','Interpreter','none'); grid on
+nexttile; bar(sw); set(gca,'XTickLabel',names); title('switch count','Interpreter','none'); grid on
+
+sgtitle(['Phase8 prior integration - ', scene_preset], 'Interpreter', 'none');
+saveas(f, fig_path);
+close(f);
 end
+
+function local_write_summary(pathStr, scene_preset, prior_library, k_ref, visible_ids, methods)
+fid = fopen(pathStr, 'w');
+assert(fid >= 0, 'Failed to open summary file.');
+cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
+
+fprintf(fid, '=== Chapter 5 Phase 8 Prior Integration Summary ===\n');
+fprintf(fid, 'scene_preset = %s\n', scene_preset);
+fprintf(fid, 'prior_library_size = %d\n', numel(prior_library.templates));
+fprintf(fid, 'reference_snapshot_k = %d\n', k_ref);
+fprintf(fid, 'reference_visible_ids = %s\n\n', local_vec_to_str(visible_ids));
+
+for i = 1:numel(methods)
+    m = methods(i);
+    fprintf(fid, '--- %s ---\n', m.name);
+    fprintf(fid, 'q_worst_window = %.6f\n', m.q_worst_window);
+    fprintf(fid, 'phi_mean = %.6f\n', m.phi_mean);
+    fprintf(fid, 'outage_ratio = %.6f\n', m.outage_ratio);
+    fprintf(fid, 'longest_outage_steps = %d\n', m.longest_outage_steps);
+    fprintf(fid, 'mean_rmse = %.6f\n', m.mean_rmse);
+    fprintf(fid, 'switch_count = %.6f\n\n', m.switch_count);
+end
+end
+
+function local_write_log(pathStr, scene_preset, prior_library, k_ref, methods)
+fid = fopen(pathStr, 'w');
+assert(fid >= 0, 'Failed to open log file.');
+cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
+
+fprintf(fid, '[INFO] phase8 prior integration\n');
+fprintf(fid, '[INFO] scene_preset = %s\n', scene_preset);
+fprintf(fid, '[INFO] prior_library_size = %d\n', numel(prior_library.templates));
+fprintf(fid, '[INFO] reference_snapshot_k = %d\n', k_ref);
+for i = 1:numel(methods)
+    fprintf(fid, '[INFO] %s q_worst_window = %.6f\n', methods(i).name, methods(i).q_worst_window);
+end
+end
+
+function s = local_vec_to_str(v)
+if isempty(v)
+    s = '[]';
+    return
+end
+v = v(:).';
+parts = arrayfun(@num2str, v, 'UniformOutput', false);
+s = ['[', strjoin(parts, ' '), ']'];
 end
