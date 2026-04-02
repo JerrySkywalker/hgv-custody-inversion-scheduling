@@ -3,6 +3,9 @@ function [score, detail] = build_window_objective_dualloop(mode, selected_ids, p
 % Custody-structure-constrained outerB scoring with formal geometry terms
 % plus optional Phase08 continuous prior penalty.
 %
+% NX-1-R2:
+%   - consume no-geometry ablation flags
+%
 % Lower score is better.
 
 if isempty(selected_ids)
@@ -18,6 +21,7 @@ if isempty(selected_ids)
     detail.prior_M_G_center = NaN;
     detail.baseline_km = NaN;
     detail.fragility_score = NaN;
+    detail.geometry_disabled = false;
     return;
 end
 
@@ -71,6 +75,12 @@ switch mode
 
     otherwise
         error('Unknown mode: %s', char(mode));
+end
+
+geometry_disabled = local_is_geometry_disabled(cfg);
+if geometry_disabled
+    w_geom_lambda = 0.0;
+    w_geom_angle = 0.0;
 end
 
 score_ck_base = ...
@@ -156,6 +166,7 @@ detail.longest_zero_support_steps = d.longest_zero_support_steps;
 detail.lambda_min_geom = g.lambda_min_geom;
 detail.mean_trace_geom = g.mean_trace_geom;
 detail.min_crossing_angle_deg = g.min_crossing_angle_deg;
+detail.geometry_disabled = geometry_disabled;
 
 detail.base_deviation = d_base;
 detail.switch_cost = c_switch;
@@ -188,5 +199,25 @@ if isfield(cfg, 'ch5') && isfield(cfg.ch5, 'continuous_prior_debug_enable') && c
     rec.gate_reason = gate_reason;
     rec.is_feasible = is_ok;
     append_phase8_candidate_diff_log(cfg, rec);
+end
+end
+
+function tf = local_is_geometry_disabled(cfg)
+tf = false;
+if ~isfield(cfg, 'ch5') || isempty(cfg.ch5)
+    return
+end
+
+names = { ...
+    'ablation_disable_geometry', ...
+    'disable_geometry_term', ...
+    'disable_ck_geometry', ...
+    'ck_disable_geometry'};
+
+for i = 1:numel(names)
+    if isfield(cfg.ch5, names{i}) && ~isempty(cfg.ch5.(names{i})) && logical(cfg.ch5.(names{i}))
+        tf = true;
+        return
+    end
 end
 end
