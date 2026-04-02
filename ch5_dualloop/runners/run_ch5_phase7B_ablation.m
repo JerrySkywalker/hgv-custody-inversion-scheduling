@@ -1,15 +1,17 @@
 function out = run_ch5_phase7B_ablation(cfg, verbose)
 %RUN_CH5_PHASE7B_ABLATION
-% WS-1-R1:
+% WS-1-R1 (revised):
 % Minimal ablation:
 %   1) C baseline
 %   2) CK full
 %   3) CK without geometry
 %
-% Plus diagnostics:
+% Diagnostics in this round:
 %   - selected-set compare
-%   - outerB selection diagnose
 %   - candidate score dumps on key differing steps
+%
+% NOTE:
+% outerB diagnose is deferred to WS-1-R2 due config-field mismatch.
 
 if nargin < 1 || isempty(cfg)
     cfg = default_ch5_params('stress96');
@@ -85,28 +87,19 @@ fig = plot_ck_ablation_summary(cfg.ch5.scene_preset, methods, fig_path); %#ok<NA
 close all
 
 % ------------------------------------------------
-% Diagnostics
+% Diagnostics kept in WS-1-R1
 % ------------------------------------------------
 cmp_C_vs_CK = compare_selected_sets_dualloop(trackingC, trackingCK);
 cmp_CK_vs_noGeom = compare_selected_sets_dualloop(trackingCK, trackingCK_noGeom);
 
-diag_CK = diagnose_outerB_selection_dualloop(caseData, trackingCK.outerA, cfg);
-diag_CK_noGeom = diagnose_outerB_selection_dualloop(caseData, trackingCK_noGeom.outerA, cfg_no_geom);
-
 cmpC_mat = fullfile(diag_dir, ['selected_set_compare_C_vs_CK_', cfg.ch5.scene_preset, '.mat']);
 cmpCK_mat = fullfile(diag_dir, ['selected_set_compare_CK_vs_noGeom_', cfg.ch5.scene_preset, '.mat']);
-diagCK_mat = fullfile(diag_dir, ['outerB_diag_CK_', cfg.ch5.scene_preset, '.mat']);
-diagNG_mat = fullfile(diag_dir, ['outerB_diag_CK_noGeom_', cfg.ch5.scene_preset, '.mat']);
 
 save(cmpC_mat, 'cmp_C_vs_CK');
 save(cmpCK_mat, 'cmp_CK_vs_noGeom');
-save(diagCK_mat, 'diag_CK');
-save(diagNG_mat, 'diag_CK_noGeom');
 
 cmpC_txt = fullfile(diag_dir, ['selected_set_compare_C_vs_CK_', cfg.ch5.scene_preset, '.txt']);
 cmpCK_txt = fullfile(diag_dir, ['selected_set_compare_CK_vs_noGeom_', cfg.ch5.scene_preset, '.txt']);
-diagCK_txt = fullfile(diag_dir, ['outerB_diag_CK_', cfg.ch5.scene_preset, '.txt']);
-diagNG_txt = fullfile(diag_dir, ['outerB_diag_CK_noGeom_', cfg.ch5.scene_preset, '.txt']);
 
 local_write_txt(cmpC_txt, {
     '=== WS-1-R1 selected-set compare: C vs CK ==='
@@ -124,40 +117,6 @@ local_write_txt(cmpCK_txt, {
     ['diff_count                      = ', num2str(cmp_CK_vs_noGeom.diff_count)]
     ['num_steps                       = ', num2str(cmp_CK_vs_noGeom.num_steps)]
     ['first_diff_idx                  = ', local_vec_to_str(cmp_CK_vs_noGeom.diff_idx(1:min(20,end)).')]
-    });
-
-local_write_txt(diagCK_txt, {
-    '=== WS-1-R1 outerB diagnose: CK ==='
-    ['scene_preset                    = ', cfg.ch5.scene_preset]
-    ['mean_all_sets                   = ', num2str(diag_CK.summary.mean_all_sets, '%.6f')]
-    ['mean_feasible_sets              = ', num2str(diag_CK.summary.mean_feasible_sets, '%.6f')]
-    ['steps_with_no_feasible          = ', num2str(diag_CK.summary.steps_with_no_feasible)]
-    ['ratio_no_feasible               = ', num2str(diag_CK.summary.ratio_no_feasible, '%.6f')]
-    ['selected_feasible_ratio         = ', num2str(diag_CK.summary.selected_feasible_ratio, '%.6f')]
-    ['selected_two_sat_ratio          = ', num2str(diag_CK.summary.selected_two_sat_ratio, '%.6f')]
-    ['warn_zero_ratio_count           = ', num2str(diag_CK.gate_counts.warn_zero_ratio)]
-    ['warn_longest_zero_count         = ', num2str(diag_CK.gate_counts.warn_longest_zero)]
-    ['warn_longest_single_count       = ', num2str(diag_CK.gate_counts.warn_longest_single)]
-    ['trigger_zero_ratio_count        = ', num2str(diag_CK.gate_counts.trigger_zero_ratio)]
-    ['trigger_longest_zero_count      = ', num2str(diag_CK.gate_counts.trigger_longest_zero)]
-    ['trigger_longest_single_count    = ', num2str(diag_CK.gate_counts.trigger_longest_single)]
-    });
-
-local_write_txt(diagNG_txt, {
-    '=== WS-1-R1 outerB diagnose: CK-noGeom ==='
-    ['scene_preset                    = ', cfg.ch5.scene_preset]
-    ['mean_all_sets                   = ', num2str(diag_CK_noGeom.summary.mean_all_sets, '%.6f')]
-    ['mean_feasible_sets              = ', num2str(diag_CK_noGeom.summary.mean_feasible_sets, '%.6f')]
-    ['steps_with_no_feasible          = ', num2str(diag_CK_noGeom.summary.steps_with_no_feasible)]
-    ['ratio_no_feasible               = ', num2str(diag_CK_noGeom.summary.ratio_no_feasible, '%.6f')]
-    ['selected_feasible_ratio         = ', num2str(diag_CK_noGeom.summary.selected_feasible_ratio, '%.6f')]
-    ['selected_two_sat_ratio          = ', num2str(diag_CK_noGeom.summary.selected_two_sat_ratio, '%.6f')]
-    ['warn_zero_ratio_count           = ', num2str(diag_CK_noGeom.gate_counts.warn_zero_ratio)]
-    ['warn_longest_zero_count         = ', num2str(diag_CK_noGeom.gate_counts.warn_longest_zero)]
-    ['warn_longest_single_count       = ', num2str(diag_CK_noGeom.gate_counts.warn_longest_single)]
-    ['trigger_zero_ratio_count        = ', num2str(diag_CK_noGeom.gate_counts.trigger_zero_ratio)]
-    ['trigger_longest_zero_count      = ', num2str(diag_CK_noGeom.gate_counts.trigger_longest_zero)]
-    ['trigger_longest_single_count    = ', num2str(diag_CK_noGeom.gate_counts.trigger_longest_single)]
     });
 
 % Candidate score dumps at first few differing steps: CK vs CK-noGeom
@@ -222,12 +181,9 @@ txt_lines = {
     ['cmp_C_vs_CK_diff_count          = ', num2str(cmp_C_vs_CK.diff_count)]
     ['cmp_CK_vs_noGeom_same_ratio     = ', num2str(cmp_CK_vs_noGeom.same_ratio, '%.6f')]
     ['cmp_CK_vs_noGeom_diff_count     = ', num2str(cmp_CK_vs_noGeom.diff_count)]
-    ['diag_CK_ratio_no_feasible       = ', num2str(diag_CK.summary.ratio_no_feasible, '%.6f')]
-    ['diag_CK_selected_two_sat_ratio  = ', num2str(diag_CK.summary.selected_two_sat_ratio, '%.6f')]
-    ['diag_NG_ratio_no_feasible       = ', num2str(diag_CK_noGeom.summary.ratio_no_feasible, '%.6f')]
-    ['diag_NG_selected_two_sat_ratio  = ', num2str(diag_CK_noGeom.summary.selected_two_sat_ratio, '%.6f')]
     ['candidate_dump_steps            = ', local_vec_to_str(dump_indices.')]
     ['diagnostics_dir                 = ', diag_dir]
+    ['note                            = outerB diagnose deferred to WS-1-R2 due config-field mismatch']
     };
 local_write_txt(txt_path, txt_lines);
 
@@ -240,8 +196,7 @@ log_lines = {
     ['[INFO] CK noGeom q_worst_window = ', num2str(custodyCK_noGeom.q_worst_window, '%.6f')]
     ['[INFO] cmp_C_vs_CK same_ratio = ', num2str(cmp_C_vs_CK.same_ratio, '%.6f')]
     ['[INFO] cmp_CK_vs_noGeom same_ratio = ', num2str(cmp_CK_vs_noGeom.same_ratio, '%.6f')]
-    ['[INFO] diag_CK ratio_no_feasible = ', num2str(diag_CK.summary.ratio_no_feasible, '%.6f')]
-    ['[INFO] diag_CK_noGeom ratio_no_feasible = ', num2str(diag_CK_noGeom.summary.ratio_no_feasible, '%.6f')]
+    ['[INFO] outerB diagnose deferred to WS-1-R2']
     '[INFO] run_ch5_phase7B_ablation finished'
     };
 local_write_txt(log_path, log_lines);
@@ -254,7 +209,6 @@ save(mat_path, 'cfg', 'cfg_no_geom', 'caseData', ...
     'trackingStatsC', 'trackingStatsCK', 'trackingStatsCK_noGeom', ...
     'methods', ...
     'cmp_C_vs_CK', 'cmp_CK_vs_noGeom', ...
-    'diag_CK', 'diag_CK_noGeom', ...
     'dump_records');
 
 if verbose
@@ -266,8 +220,6 @@ if verbose
     disp('--- diagnostics ---')
     disp(cmp_C_vs_CK)
     disp(cmp_CK_vs_noGeom)
-    disp(diag_CK.summary)
-    disp(diag_CK_noGeom.summary)
     disp(['[phase7b] fig  : ', fig_path]);
     disp(['[phase7b] text : ', txt_path]);
     disp(['[phase7b] log  : ', log_path]);
@@ -284,8 +236,6 @@ out.mat_file = mat_path;
 out.diag_dir = diag_dir;
 out.compare_C_vs_CK = cmpC_mat;
 out.compare_CK_vs_noGeom = cmpCK_mat;
-out.outerB_diag_CK = diagCK_mat;
-out.outerB_diag_CK_noGeom = diagNG_mat;
 out.candidate_dump_mat = dump_mat;
 end
 

@@ -1,7 +1,9 @@
 # WS-1-R1
 
 ## Goal
-Enhance the existing Phase 7B ablation so that it not only reports summary metrics, but also explains why geometry matters.
+Enhance the existing Phase 7B ablation so that it reports:
+- selected-set comparison
+- candidate-score dump on differing steps
 
 ## Scope
 This round keeps the minimal ablation set unchanged:
@@ -9,27 +11,17 @@ This round keeps the minimal ablation set unchanged:
 - CK full
 - CK without geometry
 
-No Phase08 prior is involved in this round.
-
-## Added diagnostics
+## Diagnostics included
 1. Selected-set comparison:
    - C vs CK
    - CK vs CK-noGeom
 
-2. OuterB selection diagnosis:
-   - feasible-set ratio
-   - no-feasible ratio
-   - selected-two-sat ratio
-   - gate reason counts
+2. Candidate score dumps on first few CK-vs-noGeom differing steps.
 
-3. Candidate score dumps on first few CK-vs-noGeom differing steps.
+## Deferred
+OuterB diagnose is deferred to WS-1-R2 because the current helper expects
+config fields that are not present in the current default_ch5_params baseline.
 
 ## Expected outcome
-This round should support a mechanism-level statement:
-geometry improves custody-oriented selection quality through outerB ranking/gating,
-rather than mainly improving tracking RMSE.
-
-## Notes
-- Phase7A baseline remains frozen.
-- This round does not modify policy_custody_dualloop_koopman.
-- This round does not change build_window_objective_dualloop baseline logic.
+This round should already support a mechanism-level statement:
+geometry changes candidate ranking / selected sets, not merely summary metrics.
