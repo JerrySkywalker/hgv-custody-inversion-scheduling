@@ -16,8 +16,8 @@ assert(isfield(caseData, 'satbank') && isfield(caseData.satbank, 'Ns'), ...
 
 Ns = caseData.satbank.Ns;
 n = local_num_candidates(candidate_sets);
-feats = struct([]);
 
+recs = cell(1, n);
 for i = 1:n
     ids = local_get_ids(candidate_sets, i, Ns);
     g = extract_local_frame_geometry(caseData, k, ids);
@@ -32,8 +32,10 @@ for i = 1:n
     rec.xy_radius_km = g.xy_radius_km;
     rec.rel_local_km = g.rel_local_km;
     rec.target_r_eci_km = g.target_r_eci_km;
-    feats(i) = rec; %#ok<AGROW>
+    recs{i} = rec;
 end
+
+feats = [recs{:}];
 end
 
 function n = local_num_candidates(candidate_sets)
@@ -111,16 +113,7 @@ if numel(row) == Ns && is_binary
     return
 end
 
-% Case B: sparse positive mask-like row (same width as Ns, but maybe nonlogical numeric)
-if numel(row) == Ns && all(row >= 0) && nnz(row > 0) <= Ns
-    vals = unique(row(row > 0));
-    if all(vals == 1)
-        ids = find(row > 0);
-        return
-    end
-end
-
-% Case C: explicit id list
+% Case B: explicit id list
 row = row(row > 0);
 ids = row;
 end

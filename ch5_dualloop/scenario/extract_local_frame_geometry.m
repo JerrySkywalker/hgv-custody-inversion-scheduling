@@ -25,8 +25,11 @@ assert(isfield(caseData.truth, 'vx') && isfield(caseData.truth, 'vy') && isfield
     'caseData.truth.vx/vy/vz are required.');
 assert(isfield(caseData, 'satbank') && isfield(caseData.satbank, 'r_eci_km'), ...
     'caseData.satbank.r_eci_km is required.');
+assert(isfield(caseData, 'time') && isfield(caseData.time, 'num_steps'), ...
+    'caseData.time.num_steps is required.');
+assert(isfield(caseData.satbank, 'Ns'), 'caseData.satbank.Ns is required.');
 
-selected_ids = selected_ids(:).';
+selected_ids = unique(selected_ids(:).', 'stable');
 num_sats = numel(selected_ids);
 
 tgt_r = caseData.truth.r_eci_km(k, :).';
@@ -35,7 +38,7 @@ tgt_v = [caseData.truth.vx(k); caseData.truth.vy(k); caseData.truth.vz(k)];
 [e_theta, e_h, e_r] = local_build_target_frame(tgt_r, tgt_v);
 R = [e_theta, e_h, e_r];
 
-sat_pos = local_extract_sat_positions(caseData.satbank.r_eci_km, k, selected_ids);
+sat_pos = local_extract_sat_positions(caseData.satbank.r_eci_km, k, selected_ids, caseData.time.num_steps, caseData.satbank.Ns);
 rel_eci = sat_pos - tgt_r.';
 rel_local = (R.' * rel_eci.').';
 
@@ -89,54 +92,55 @@ e_theta = cross(e_h, e_r);
 e_theta = e_theta / max(norm(e_theta), eps);
 end
 
-function pos = local_extract_sat_positions(Rsat, k, ids)
-% Support common layouts:
-%   [Nt, Ns, 3]
-%   [3, Ns, Nt]
-%   [Nt, 3, Ns]
-%   [Ns, Nt, 3]
+function pos = local_extract_sat_positions(Rsat, k, ids, Nt, Ns)
+% Robust extraction from any 3-D layout that contains:
+%   one dimension = 3
+%   one dimension = Nt
+%   one dimension = Ns
 
 sz = size(Rsat);
-nd = ndims(Rsat);
-assert(nd == 3, 'satbank.r_eci_km must be a 3-D array.');
+assert(numel(sz) == 3, 'satbank.r_eci_km must be 3-D.');
 
+dims3  = find(sz == 3);
+dimsNt = find(sz == Nt);
+dimsNs = find(sz == Ns);
+
+assert(~isempty(dims3), 'No coordinate dimension of size 3 found in satbank.r_eci_km.');
+assert(~isempty(dimsNt), 'No time dimension matching Nt found in satbank.r_eci_km.');
+assert(~isempty(dimsNs), 'No satellite dimension matching Ns found in satbank.r_eci_km.');
+
+ok = false;
 pos = [];
 
-% Case 1: [Nt, Ns, 3]
-if sz(3) == 3 && k <= sz(1) && max(ids) <= sz(2)
-    tmp = squeeze(Rsat(k, ids, :));
-    if size(tmp,2) == 3
-        pos = tmp;
-        return
+for d3 = dims3
+    for dt = dimsNt
+        for ds = dimsNs
+            if numel(unique([d3 dt ds])) < 3
+                continue
+            end
+
+            perm = [dt ds d3];
+            Rp = permute(Rsat, perm); % [Nt, Ns, 3]
+            if size(Rp,1) ~= Nt || size(Rp,2) ~= Ns || size(Rp,3) ~= 3
+                continue
+            end
+
+            tmp = squeeze(Rp(k, ids, :));
+            if isvector(tmp) && numel(ids) == 1
+                tmp = reshape(tmp, 1, 3);
+            end
+            if size(tmp,2) == 3
+                pos = tmp;
+                ok = true;
+                break
+            end
+        end
+        if ok, break; end
     end
+    if ok, break; end
 end
 
-% Case 2: [3, Ns, Nt]
-if sz(1) == 3 && max(ids) <= sz(2) && k <= sz(3)
-    tmp = squeeze(Rsat(:, ids, k)).';
-    if size(tmp,2) == 3
-        pos = tmp;
-        return
-    end
+if ~ok
+    error('Unsupported satbank.r_eci_km layout for current extractor.');
 end
-
-% Case 3: [Nt, 3, Ns]
-if sz(2) == 3 && k <= sz(1) && max(ids) <= sz(3)
-    tmp = squeeze(Rsat(k, :, ids)).';
-    if size(tmp,2) == 3
-        pos = tmp;
-        return
-    end
-end
-
-% Case 4: [Ns, Nt, 3]
-if sz(3) == 3 && max(ids) <= sz(1) && k <= sz(2)
-    tmp = squeeze(Rsat(ids, k, :));
-    if size(tmp,2) == 3
-        pos = tmp;
-        return
-    end
-end
-
-error('Unsupported satbank.r_eci_km layout for current extractor.');
 end
