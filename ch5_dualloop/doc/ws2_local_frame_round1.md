@@ -31,5 +31,6 @@ Further refinement is deferred to later rounds.
 extract_candidate_local_features supports:
 - cell candidate lists
 - numeric matrix candidate lists
-- struct arrays with field ids
+- struct arrays with field ids or mask
 - single numeric vector
+- binary mask rows of width Ns
