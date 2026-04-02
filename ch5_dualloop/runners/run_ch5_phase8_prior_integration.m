@@ -1,17 +1,17 @@
 function out = run_ch5_phase8_prior_integration(cfg, verbose)
 %RUN_CH5_PHASE8_PRIOR_INTEGRATION
-% P-Back-1 second cut
-% Formal Phase8 integration using the balanced template prior path.
-%
-% Outputs:
+% P-Back-1 third cut
+% Formal Phase8 integration using:
 %   C
 %   CK
-%   CK-prior (balanced)
+%   CK-ref-only
+%   CK-prior-balanced
 %
 % Notes:
 %   - baseline default behavior is preserved
-%   - balanced prior is only used for CK-prior branch
-%   - prior library is built from a representative visible-set snapshot
+%   - CK-ref-only isolates reference-selection effect
+%   - CK-prior-balanced uses balanced library cap but relaxed filter topK=8
+%     to avoid over-forcing candidate pruning at this integration stage
 
 if nargin < 1 || isempty(cfg)
     cfg = default_ch5_params('ref128');
@@ -32,7 +32,7 @@ if ~exist(log_dir, 'dir'); mkdir(log_dir); end
 if ~exist(mat_dir, 'dir'); mkdir(mat_dir); end
 
 % ------------------------------------------------
-% Build a representative balanced prior library
+% Build a representative prior library
 % ------------------------------------------------
 cfg_bal = apply_ws5_balanced_template_defaults(cfg);
 caseData = build_ch5_case(cfg_bal);
@@ -46,7 +46,7 @@ pair_feats = extract_candidate_local_features(caseData, k_ref, pair_sets);
 prior_library = build_reference_prior_library(pair_feats);
 
 % ------------------------------------------------
-% Run baseline CK branch
+% A) baseline CK branch
 % ------------------------------------------------
 cfg_base = cfg;
 cfg_base.ch5.prior_enable = false;
@@ -56,12 +56,24 @@ out_base = run_ch5_phase7A_dualloop_ck(cfg_base, true);
 S_base = load(out_base.mat_file);
 
 % ------------------------------------------------
-% Run balanced CK-prior branch
+% B) CK-ref-only
+% ------------------------------------------------
+cfg_ref = apply_ws5_balanced_template_defaults(cfg);
+cfg_ref.ch5.prior_enable = true;
+cfg_ref.ch5.template_filter_enable = false;
+cfg_ref.ch5.prior_library = prior_library;
+
+out_ref = run_ch5_phase7A_dualloop_ck(cfg_ref, true);
+S_ref = load(out_ref.mat_file);
+
+% ------------------------------------------------
+% C) CK-prior-balanced (relaxed topK for integration)
 % ------------------------------------------------
 cfg_prior = apply_ws5_balanced_template_defaults(cfg);
 cfg_prior.ch5.prior_enable = true;
 cfg_prior.ch5.template_filter_enable = true;
 cfg_prior.ch5.prior_library = prior_library;
+cfg_prior.ch5.template_filter_topk = 8;
 
 out_prior = run_ch5_phase7A_dualloop_ck(cfg_prior, true);
 S_prior = load(out_prior.mat_file);
@@ -84,13 +96,21 @@ methods(2).longest_outage_steps = S_base.custodyCK.longest_outage_steps;
 methods(2).mean_rmse = S_base.trackingStatsCK.mean_rmse;
 methods(2).switch_count = local_count_switches(S_base, 'trackingCK');
 
-methods(3).name = 'CK-prior';
-methods(3).q_worst_window = local_get_qworst_window(S_prior.custodyCK);
-methods(3).phi_mean = S_prior.custodyCK.phi_mean;
-methods(3).outage_ratio = S_prior.custodyCK.outage_ratio;
-methods(3).longest_outage_steps = S_prior.custodyCK.longest_outage_steps;
-methods(3).mean_rmse = S_prior.trackingStatsCK.mean_rmse;
-methods(3).switch_count = local_count_switches(S_prior, 'trackingCK');
+methods(3).name = 'CK-ref-only';
+methods(3).q_worst_window = local_get_qworst_window(S_ref.custodyCK);
+methods(3).phi_mean = S_ref.custodyCK.phi_mean;
+methods(3).outage_ratio = S_ref.custodyCK.outage_ratio;
+methods(3).longest_outage_steps = S_ref.custodyCK.longest_outage_steps;
+methods(3).mean_rmse = S_ref.trackingStatsCK.mean_rmse;
+methods(3).switch_count = local_count_switches(S_ref, 'trackingCK');
+
+methods(4).name = 'CK-prior-balanced';
+methods(4).q_worst_window = local_get_qworst_window(S_prior.custodyCK);
+methods(4).phi_mean = S_prior.custodyCK.phi_mean;
+methods(4).outage_ratio = S_prior.custodyCK.outage_ratio;
+methods(4).longest_outage_steps = S_prior.custodyCK.longest_outage_steps;
+methods(4).mean_rmse = S_prior.trackingStatsCK.mean_rmse;
+methods(4).switch_count = local_count_switches(S_prior, 'trackingCK');
 
 fig_path = fullfile(fig_dir, ['phase8_prior_summary_', scene_preset, '.png']);
 local_plot_phase8_summary(methods, scene_preset, fig_path);
@@ -103,7 +123,8 @@ local_write_log(log_path, scene_preset, prior_library, k_ref, methods);
 
 mat_path = fullfile(mat_dir, ['phase8_prior_integration_', scene_preset, '.mat']);
 save(mat_path, 'scene_preset', 'prior_library', 'k_ref', 'visible_ids', ...
-    'cfg_base', 'cfg_prior', 'out_base', 'out_prior', 'methods');
+    'cfg_base', 'cfg_ref', 'cfg_prior', ...
+    'out_base', 'out_ref', 'out_prior', 'methods');
 
 if verbose
     disp('=== Chapter 5 Phase 8 Prior Integration Summary ===')
