@@ -26,3 +26,10 @@ A target-centered orthonormal frame is built from target ECI position and veloci
 ## Notes
 Ruse is set equal to Bxy_cand in round 1.
 Further refinement is deferred to later rounds.
+
+## Input compatibility
+extract_candidate_local_features supports:
+- cell candidate lists
+- numeric matrix candidate lists
+- struct arrays with field ids
+- single numeric vector
