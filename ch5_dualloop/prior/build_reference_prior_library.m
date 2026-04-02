@@ -28,7 +28,7 @@ for i = 1:n
 end
 
 family_list = unique(families, 'stable');
-templates = struct([]);
+template_cells = cell(1, numel(family_list));
 
 for j = 1:numel(family_list)
     fam = family_list(j);
@@ -42,8 +42,11 @@ for j = 1:numel(family_list)
     tpl.prototype_feature = proto;
     tpl.member_indices = idx(:).';
     tpl.member_count = numel(idx);
-    templates(j) = tpl; %#ok<AGROW>
+
+    template_cells{j} = tpl;
 end
+
+templates = [template_cells{:}];
 
 lib = struct();
 lib.templates = templates;
