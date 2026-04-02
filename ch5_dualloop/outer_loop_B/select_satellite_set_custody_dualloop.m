@@ -1,13 +1,16 @@
 function selected_ids = select_satellite_set_custody_dualloop(caseData, k, prev_ids, mode, cfg)
 %SELECT_SATELLITE_SET_CUSTODY_DUALLOOP
-% Safe fallback to C; warn/trigger use feasible-set filtering then direct scoring.
+% WS-4-R1
+% Template-guided reference selection prototype.
 %
-% WS-4-R1:
-%   - if prior is enabled, build a local-frame query feature and match a
-%     reference template from prior library
-%   - otherwise fall back to dynamic local template selection
+% Logic:
+%   1) enumerate visible candidate sets of fixed cardinality
+%   2) if prior library is enabled, build a local-frame query feature from
+%      the current visible set and match a reference template
+%   3) use matched template prototype ids as ref_ids
+%   4) keep the rest of outerB baseline scoring unchanged
 
-if strcmp(mode, 'safe') && cfg.ch5.ck_safe_fallback_to_C
+if strcmp(mode, 'safe') && isfield(cfg.ch5, 'ck_safe_fallback_to_C') && cfg.ch5.ck_safe_fallback_to_C
     selected_ids = select_satellite_set_custody(caseData, k, prev_ids, cfg);
     return
 end
@@ -46,20 +49,21 @@ for i = 1:size(all_mat,1)
     all_sets{i} = all_mat(i,:);
 end
 
+% ------------------------------------------------
 % Reference ids: prior library first, dynamic local template otherwise
-if isfield(cfg.ch5, 'prior_enable') && cfg.ch5.prior_enable && ...
+% ------------------------------------------------
+if isfield(cfg, 'ch5') && isfield(cfg.ch5, 'prior_enable') && cfg.ch5.prior_enable && ...
    isfield(cfg.ch5, 'prior_library') && ~isempty(cfg.ch5.prior_library)
 
-    vis_feats = extract_candidate_local_features(caseData, k, visible_ids(:).');
-    query_feat = vis_feats(1);
+    vis_feat = extract_candidate_local_features(caseData, k, visible_ids(:).');
+    query_feat = vis_feat(1);
     m = match_reference_prior(cfg.ch5.prior_library, query_feat);
     ref_ids = m.ref_ids(:).';
-
 else
     ref_ids = select_reference_template_dualloop(caseData, k, cfg);
 end
 
-records = struct('ids', {}, 'score', {}, 'is_feasible', {}, 'detail', {});
+records = cell(1, numel(all_sets));
 for i = 1:numel(all_sets)
     ids = all_sets{i};
     [s, detail] = build_window_objective_dualloop(mode, ids, prev_ids, ref_ids, caseData, k, cfg);
@@ -69,10 +73,10 @@ for i = 1:numel(all_sets)
     rec.score = s;
     rec.is_feasible = detail.is_feasible;
     rec.detail = detail;
-    records(end+1) = rec; %#ok<AGROW>
+    records{i} = rec;
 end
 
-cand = records;
+cand = [records{:}];
 scores = [cand.score];
 [~, idx] = min(scores);
 selected_ids = cand(idx).ids(:).';

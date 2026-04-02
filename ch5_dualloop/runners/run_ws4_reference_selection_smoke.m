@@ -30,9 +30,9 @@ cfg.ch5.prior_library = lib;
 
 query_feat = multi_feat(1);
 match = match_reference_prior(lib, query_feat);
-ref_ids = match.ref_ids;
+ref_ids = match.ref_ids(:).';
 
-if numel(visible_ids) >= 3
+if numel(visible_ids) >= 2
     prev_ids = visible_ids(1:2);
 else
     prev_ids = [];

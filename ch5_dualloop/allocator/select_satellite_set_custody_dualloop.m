@@ -1,44 +1,83 @@
-function selected_ids = select_satellite_set_custody_dualloop(caseData, k, prev_ids, prior_map, cfg)
-%SELECT_SATELLITE_SET_CUSTODY_DUALLOOP  Dual-loop custody selection with outer prior bonus.
+function selected_ids = select_satellite_set_custody_dualloop(caseData, k, prev_ids, mode, cfg)
+%SELECT_SATELLITE_SET_CUSTODY_DUALLOOP
+% WS-4-R1
+% Template-guided reference selection prototype.
+%
+% Logic:
+%   1) enumerate visible candidate sets of fixed cardinality
+%   2) if prior library is enabled, build a local-frame query feature from
+%      the current visible set and match a reference template
+%   3) use matched template prototype ids as ref_ids
+%   4) keep the rest of outerB baseline scoring unchanged
 
-if nargin < 5 || isempty(cfg)
-    cfg = default_ch5_params();
+if strcmp(mode, 'safe') && isfield(cfg.ch5, 'ck_safe_fallback_to_C') && cfg.ch5.ck_safe_fallback_to_C
+    selected_ids = select_satellite_set_custody(caseData, k, prev_ids, cfg);
+    return
 end
 
-max_track_sats = cfg.ch5.max_track_sats;
-prior_weight = cfg.ch5.outer_prior_weight;
-
-visible_ids = caseData.candidates.sets{k};
-visible_ids = visible_ids(:).';
-
+visible_ids = find(caseData.candidates.visible_mask(k, :) > 0);
 if isempty(visible_ids)
     selected_ids = [];
-    return;
+    return
 end
 
-m = min(max_track_sats, numel(visible_ids));
-if numel(visible_ids) == m
-    selected_ids = visible_ids;
-    return;
+switch mode
+    case 'warn'
+        if isfield(cfg.ch5, 'ck_warn_cardinality') && ~isempty(cfg.ch5.ck_warn_cardinality)
+            card = cfg.ch5.ck_warn_cardinality;
+        else
+            card = 2;
+        end
+    case 'trigger'
+        if isfield(cfg.ch5, 'ck_trigger_cardinality') && ~isempty(cfg.ch5.ck_trigger_cardinality)
+            card = cfg.ch5.ck_trigger_cardinality;
+        else
+            card = 2;
+        end
+    otherwise
+        card = 2;
 end
 
-best_score = -inf;
-best_set = [];
-
-subsets = nchoosek(visible_ids, m);
-for i = 1:size(subsets, 1)
-    cand = subsets(i, :);
-
-    local_score = build_window_objective_singleloop(cand, caseData, k, prev_ids, cfg);
-    outer_bonus = mean(prior_map(cand));
-
-    total_score = local_score + prior_weight * outer_bonus;
-
-    if total_score > best_score
-        best_score = total_score;
-        best_set = cand;
-    end
+if numel(visible_ids) <= card
+    selected_ids = visible_ids(:).';
+    return
 end
 
-selected_ids = best_set;
+all_mat = nchoosek(visible_ids(:).', card);
+all_sets = cell(size(all_mat,1),1);
+for i = 1:size(all_mat,1)
+    all_sets{i} = all_mat(i,:);
+end
+
+% ------------------------------------------------
+% Reference ids: prior library first, dynamic local template otherwise
+% ------------------------------------------------
+if isfield(cfg, 'ch5') && isfield(cfg.ch5, 'prior_enable') && cfg.ch5.prior_enable && ...
+   isfield(cfg.ch5, 'prior_library') && ~isempty(cfg.ch5.prior_library)
+
+    vis_feat = extract_candidate_local_features(caseData, k, visible_ids(:).');
+    query_feat = vis_feat(1);
+    m = match_reference_prior(cfg.ch5.prior_library, query_feat);
+    ref_ids = m.ref_ids(:).';
+else
+    ref_ids = select_reference_template_dualloop(caseData, k, cfg);
+end
+
+records = cell(1, numel(all_sets));
+for i = 1:numel(all_sets)
+    ids = all_sets{i};
+    [s, detail] = build_window_objective_dualloop(mode, ids, prev_ids, ref_ids, caseData, k, cfg);
+
+    rec = struct();
+    rec.ids = ids(:).';
+    rec.score = s;
+    rec.is_feasible = detail.is_feasible;
+    rec.detail = detail;
+    records{i} = rec;
+end
+
+cand = [records{:}];
+scores = [cand.score];
+[~, idx] = min(scores);
+selected_ids = cand(idx).ids(:).';
 end
