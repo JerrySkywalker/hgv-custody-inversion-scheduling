@@ -32,10 +32,10 @@ SA = load(outA.mat_file);
 outB = run_ch5_phase7A_dualloop_ck(cfgB, false);
 SB = load(outB.mat_file);
 
-records = struct([]);
-
-records(1) = local_pack_record('NX2-final', scene_preset, SA);
-records(2) = local_pack_record('NX3-guarded', scene_preset, SB);
+records_cell = cell(1,2);
+records_cell{1} = local_pack_record('NX2-final', scene_preset, SA);
+records_cell{2} = local_pack_record('NX3-guarded', scene_preset, SB);
+records = [records_cell{:}];
 
 if verbose
     disp('=== NX-3 guard compare ===')
