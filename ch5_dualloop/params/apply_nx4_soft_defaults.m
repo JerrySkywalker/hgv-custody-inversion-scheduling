@@ -1,6 +1,6 @@
 function cfg = apply_nx4_soft_defaults(cfg)
 %APPLY_NX4_SOFT_DEFAULTS
-% NX-4 second round defaults for soft proposal coupling.
+% NX-4 second round patched defaults for stronger soft tie-break.
 
 if nargin < 1 || isempty(cfg)
     cfg = default_ch5_params();
@@ -19,10 +19,14 @@ if ~isfield(cfg.ch5, 'nx4_soft_topk') || isempty(cfg.ch5.nx4_soft_topk)
 end
 
 if ~isfield(cfg.ch5, 'nx4_soft_bonus_weight') || isempty(cfg.ch5.nx4_soft_bonus_weight)
-    cfg.ch5.nx4_soft_bonus_weight = 0.05;
+    cfg.ch5.nx4_soft_bonus_weight = 0.30;
 end
 
 if ~isfield(cfg.ch5, 'nx4_soft_score_margin') || isempty(cfg.ch5.nx4_soft_score_margin)
-    cfg.ch5.nx4_soft_score_margin = 0.10;
+    cfg.ch5.nx4_soft_score_margin = 200.0;
+end
+
+if ~isfield(cfg.ch5, 'nx4_soft_frontier_m') || isempty(cfg.ch5.nx4_soft_frontier_m)
+    cfg.ch5.nx4_soft_frontier_m = 6;
 end
 end
