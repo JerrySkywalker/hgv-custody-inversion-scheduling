@@ -17,7 +17,8 @@ w_list = [0.15, 0.50, 1.00];
 out_root = fullfile(pwd, 'outputs', 'cpt5', 'phase8_wprior_sweep', char(case_name));
 if ~exist(out_root, 'dir'); mkdir(out_root); end
 
-records = struct([]);
+records_cell = cell(1, numel(w_list));
+
 for i = 1:numel(w_list)
     w = w_list(i);
 
@@ -62,8 +63,10 @@ for i = 1:numel(w_list)
     rec.mean_rmse = S.trackingStatsCK.mean_rmse;
     rec.max_rmse = S.trackingStatsCK.max_rmse;
 
-    records(i) = rec; %#ok<AGROW>
+    records_cell{i} = rec;
 end
+
+records = [records_cell{:}];
 
 txt_path = fullfile(out_root, 'phase8_wprior_sweep_summary.txt');
 fid = fopen(txt_path, 'w');
