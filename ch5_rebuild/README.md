@@ -29,14 +29,20 @@
 
 ## MATLAB 使用
 
-R0 阶段建议显式加路径：
+### 手动调用
 
 ```matlab
 addpath(fullfile(pwd,'ch5_rebuild'));
 addpath(fullfile(pwd,'ch5_rebuild','params'));
 addpath(fullfile(pwd,'ch5_rebuild','bootstrap'));
-然后调用：
+addpath(fullfile(pwd,'ch5_rebuild','runners'));
 
-cfg = default_ch5r_params();
-bundle = bootstrap_ch5r_from_stage04_stage05(cfg);
+out = run_ch5r_phase0_bootstrap_smoke();
+当前正式冒烟入口
+run_ch5r_phase0_bootstrap_smoke
 
+该入口用于验证：
+
+Stage04 bootstrap 是否可读
+Stage05 bootstrap 是否优先命中 search cache
+theta_star / theta_plus / gamma_req / target_case 是否正常生成
