@@ -1,9 +1,9 @@
 function policy = policy_tracking_greedy(cfg, ch5case)
-%POLICY_TRACKING_GREEDY  Minimal tracking-oriented greedy baseline for R4.
+%POLICY_TRACKING_GREEDY  Minimal tracking-oriented greedy baseline for R4b.
 %
-% Current note:
-% This is still a proxy policy under the synthetic information case.
-% It creates a time-varying selection trace to differentiate from static_hold.
+% Rule:
+%   if instantaneous information is weak, switch to theta_plus;
+%   otherwise use theta_star.
 
 if nargin < 1 || isempty(cfg)
     cfg = default_ch5r_params();
@@ -18,11 +18,15 @@ N = numel(ch5case.time_s);
 
 schedule = cell(N, 1);
 
+inst_lambda_min = zeros(N, 1);
 for k = 1:N
-    lambda_diag = diag(ch5case.info_series(:,:,k));
-    score = sum(lambda_diag(1:3));
+    inst_lambda_min(k) = min(eig(ch5case.info_series(:,:,k)));
+end
 
-    if score < ch5case.gamma_req * 1.8
+tau_track = 0.72 * ch5case.gamma_req;
+
+for k = 1:N
+    if inst_lambda_min(k) < tau_track
         schedule{k} = theta_plus;
     else
         schedule{k} = theta_star;
@@ -36,6 +40,8 @@ policy.description = ['Minimal time-varying greedy baseline. Under weak instanta
 policy.theta_star = theta_star;
 policy.theta_plus = theta_plus;
 policy.schedule = schedule;
+policy.inst_lambda_min = inst_lambda_min;
+policy.tau_track = tau_track;
 policy.meta = struct();
 policy.meta.phase_name = 'R4';
 policy.meta.source = mfilename;

@@ -1,6 +1,6 @@
 # ch5_rebuild
 
-本目录用于第五章新主线重建，当前已完成 **Phase R0-R3** 的收口，并已启动 **Phase R4**。
+本目录用于第五章新主线重建，当前已完成 **Phase R0-R3** 的收口，并进入 **R4b**。
 
 ## 当前状态
 
@@ -9,6 +9,7 @@
 
 ### R1
 - minimal case / window information / bubble state
+- Stage02/03 wrapper placeholders
 
 ### R2
 - minimal metric layer:
@@ -24,11 +25,11 @@
   - result bundle
   - timeline / failure-case plots
 
-### R4
-- second baseline started:
+### R4b
+- second baseline:
   - `tracking_greedy`
-  - `select_satellite_set_tracking_greedy`
-  - `run_ch5r_phase4_tracking_baseline`
+  - nonzero switching expected
+  - policy selection now feeds back into information proxy
 
 ## MATLAB 使用
 
@@ -44,8 +45,5 @@ addpath(fullfile(pwd,'ch5_rebuild','allocator'));
 addpath(fullfile(pwd,'ch5_rebuild','plots'));
 addpath(fullfile(pwd,'ch5_rebuild','runners'));
 
-out0 = run_ch5r_phase0_bootstrap_smoke();
-out1 = run_ch5r_phase1_smoke();
-out2 = run_ch5r_phase2_metrics_smoke();
 out3 = run_ch5r_phase3_static_bubble_demo();
 out4 = run_ch5r_phase4_tracking_baseline();
