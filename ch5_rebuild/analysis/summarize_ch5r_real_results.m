@@ -7,34 +7,28 @@ end
 
 summary = struct();
 summary.policy = string(policy_name);
-summary.bubble_steps = outX.result.bubble_steps;
-summary.bubble_time_s = outX.result.bubble_time_s;
-summary.max_bubble_depth = outX.result.max_bubble_depth;
-summary.switch_count = outX.result.switch_count;
-summary.resource_score = outX.result.resource_score;
 
-if isfield(outX, 'bubble') && isfield(outX.bubble, 'is_bubble')
-    summary.bubble_fraction = nnz(outX.bubble.is_bubble) / numel(outX.bubble.is_bubble);
-else
-    summary.bubble_fraction = NaN;
-end
+summary.bubble_steps = outX.result.bubble_metrics.bubble_steps;
+summary.bubble_fraction = outX.result.bubble_metrics.bubble_fraction;
+summary.bubble_time_s = outX.result.bubble_metrics.bubble_time_s;
+summary.longest_bubble_time_s = outX.result.bubble_metrics.longest_bubble_time_s;
+summary.max_bubble_depth = outX.result.bubble_metrics.max_bubble_depth;
+summary.mean_bubble_depth = outX.result.bubble_metrics.mean_bubble_depth;
 
-if isfield(outX, 'bubble') && isfield(outX.bubble, 'bubble_depth')
-    bd = outX.bubble.bubble_depth(:);
-    summary.mean_bubble_depth = mean(bd, 'omitnan');
-else
-    summary.mean_bubble_depth = NaN;
-end
+summary.loc_total_time_s = outX.result.custody_metrics.loc_total_time_s;
+summary.custody_ratio = outX.result.custody_metrics.custody_ratio;
 
-if isfield(outX, 'selection_trace')
-    nonempty_count = 0;
-    for k = 1:numel(outX.selection_trace)
-        if ~isempty(outX.selection_trace{k}.pair)
-            nonempty_count = nonempty_count + 1;
-        end
+summary.mean_rmse = outX.result.rmse_metrics.mean_rmse;
+summary.min_margin = outX.result.requirement.min_margin;
+
+summary.switch_count = outX.result.cost_metrics.switch_count;
+summary.resource_score = outX.result.cost_metrics.resource_score;
+
+nonempty_count = 0;
+for k = 1:numel(outX.selection_trace)
+    if ~isempty(outX.selection_trace{k}.pair)
+        nonempty_count = nonempty_count + 1;
     end
-    summary.observable_steps = nonempty_count;
-else
-    summary.observable_steps = NaN;
 end
+summary.observable_steps = nonempty_count;
 end

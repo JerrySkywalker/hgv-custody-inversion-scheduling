@@ -53,7 +53,6 @@ for k = 1:Nt
             'switch_flag', false, ...
             'name', 'static_real_pair');
     else
-        % If the fixed pair is not visible at this step, no observation is available.
         selection_trace{k} = struct( ...
             'k', k, ...
             'time_s', ch5case.t_s(k), ...
@@ -75,11 +74,8 @@ bubble.lambda_min = wininfo.lambda_min;
 bubble.is_bubble = wininfo.lambda_min < ch5case.gamma_req;
 bubble.bubble_depth = max(0, ch5case.gamma_req - wininfo.lambda_min);
 
-bubble_steps = nnz(bubble.is_bubble);
-bubble_time_s = bubble_steps * ch5case.dt;
-max_bubble_depth = max(bubble.bubble_depth);
-switch_count = 0;
 resource_score = 2;
+result = package_ch5r_result_real(ch5case, selection_trace, wininfo, bubble, resource_score);
 
 out_dir = fullfile(cfg.ch5r.output_root, 'phaseR3_static_hold_real');
 if ~exist(out_dir, 'dir')
@@ -89,7 +85,7 @@ end
 stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
 mat_file = fullfile(out_dir, ['phaseR3_static_hold_real_' stamp '.mat']);
 
-save(mat_file, 'cfg', 'ch5case', 'static_pair', 'selection_trace', 'wininfo', 'bubble');
+save(mat_file, 'cfg', 'ch5case', 'static_pair', 'selection_trace', 'wininfo', 'bubble', 'result');
 
 disp(' ')
 disp('=== [ch5r:R3-real] static-hold baseline summary ===')
@@ -98,11 +94,11 @@ disp(['fixed constellation  : theta_star'])
 disp(['Ns                   : ' num2str(ch5case.satbank.Ns)])
 disp(['fixed static pair    : [' num2str(static_pair(1)) ', ' num2str(static_pair(2)) ']'])
 disp(['tracking resource    : double-satellite'])
-disp(['bubble steps         : ' num2str(bubble_steps)])
-disp(['bubble time (s)      : ' num2str(bubble_time_s, '%.6f')])
-disp(['max bubble depth     : ' num2str(max_bubble_depth, '%.12g')])
-disp(['switch count         : ' num2str(switch_count)])
-disp(['resource score       : ' num2str(resource_score)])
+disp(['bubble steps         : ' num2str(result.bubble_steps)])
+disp(['bubble time (s)      : ' num2str(result.bubble_time_s, '%.6f')])
+disp(['max bubble depth     : ' num2str(result.max_bubble_depth, '%.12g')])
+disp(['switch count         : ' num2str(result.switch_count)])
+disp(['resource score       : ' num2str(result.resource_score)])
 disp(['mat file             : ' mat_file])
 
 out = struct();
@@ -112,12 +108,7 @@ out.static_pair = static_pair;
 out.selection_trace = selection_trace;
 out.wininfo = wininfo;
 out.bubble = bubble;
-out.result = struct( ...
-    'bubble_steps', bubble_steps, ...
-    'bubble_time_s', bubble_time_s, ...
-    'max_bubble_depth', max_bubble_depth, ...
-    'switch_count', switch_count, ...
-    'resource_score', resource_score);
+out.result = result;
 out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
 out.ok = true;
 end

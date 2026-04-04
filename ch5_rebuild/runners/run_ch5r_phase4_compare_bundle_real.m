@@ -53,8 +53,8 @@ out.ok = true;
 end
 
 function md = local_build_md(T, out3, out4, csv_file, fig_paths)
-improve_bubble_time = out3.result.bubble_time_s - out4.result.bubble_time_s;
-improve_pct = 100 * improve_bubble_time / max(out3.result.bubble_time_s, eps);
+improve_bubble_time = out3.result.bubble_metrics.bubble_time_s - out4.result.bubble_metrics.bubble_time_s;
+improve_pct = 100 * improve_bubble_time / max(out3.result.bubble_metrics.bubble_time_s, eps);
 
 lines = {};
 lines{end+1} = '# Phase R4c-real Comparison Bundle';
@@ -67,17 +67,17 @@ lines{end+1} = '- R4-real: dynamic double-satellite scheduling';
 lines{end+1} = '';
 lines{end+1} = '## 2. Key findings';
 lines{end+1} = '';
-lines{end+1} = ['- R3-real bubble_time_s = ', num2str(out3.result.bubble_time_s, '%.6f')];
-lines{end+1} = ['- R4-real bubble_time_s = ', num2str(out4.result.bubble_time_s, '%.6f')];
+lines{end+1} = ['- R3-real bubble_time_s = ', num2str(out3.result.bubble_metrics.bubble_time_s, '%.6f')];
+lines{end+1} = ['- R4-real bubble_time_s = ', num2str(out4.result.bubble_metrics.bubble_time_s, '%.6f')];
 lines{end+1} = ['- bubble_time reduction = ', num2str(improve_bubble_time, '%.6f'), ...
     ' s (', num2str(improve_pct, '%.3f'), '%)'];
-lines{end+1} = ['- R3-real max_bubble_depth = ', num2str(out3.result.max_bubble_depth, '%.12g')];
-lines{end+1} = ['- R4-real max_bubble_depth = ', num2str(out4.result.max_bubble_depth, '%.12g')];
-lines{end+1} = ['- R4-real switch_count = ', num2str(out4.result.switch_count)];
+lines{end+1} = ['- R3-real max_bubble_depth = ', num2str(out3.result.bubble_metrics.max_bubble_depth, '%.12g')];
+lines{end+1} = ['- R4-real max_bubble_depth = ', num2str(out4.result.bubble_metrics.max_bubble_depth, '%.12g')];
+lines{end+1} = ['- R4-real switch_count = ', num2str(out4.result.cost_metrics.switch_count)];
 lines{end+1} = '';
 lines{end+1} = '## 3. Interpretation';
 lines{end+1} = '';
-if out4.result.bubble_time_s < out3.result.bubble_time_s
+if out4.result.bubble_metrics.bubble_time_s < out3.result.bubble_metrics.bubble_time_s
     lines{end+1} = ['Dynamic double-satellite scheduling reduces bubble duration ' ...
         'relative to the fixed static pair baseline under the same two-satellite resource constraint.'];
 else
@@ -95,14 +95,20 @@ lines{end+1} = ['- summary bar plot: `', fig_paths.summary_bar_png, '`'];
 lines{end+1} = '';
 lines{end+1} = '## 5. Summary table';
 lines{end+1} = '';
-lines{end+1} = '| policy | bubble_steps | bubble_fraction | bubble_time_s | max_bubble_depth | switch_count | resource_score | observable_steps |';
-lines{end+1} = '|---|---:|---:|---:|---:|---:|---:|---:|';
+lines{end+1} = '| policy | bubble_steps | bubble_fraction | bubble_time_s | longest_bubble_time_s | max_bubble_depth | mean_bubble_depth | loc_total_time_s | custody_ratio | mean_rmse | min_margin | switch_count | resource_score | observable_steps |';
+lines{end+1} = '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|';
 for i = 1:height(T)
     lines{end+1} = ['| ', char(T.policy(i)), ...
         ' | ', num2str(T.bubble_steps(i)), ...
         ' | ', num2str(T.bubble_fraction(i), '%.6f'), ...
         ' | ', num2str(T.bubble_time_s(i), '%.6f'), ...
+        ' | ', num2str(T.longest_bubble_time_s(i), '%.6f'), ...
         ' | ', num2str(T.max_bubble_depth(i), '%.12g'), ...
+        ' | ', num2str(T.mean_bubble_depth(i), '%.12g'), ...
+        ' | ', num2str(T.loc_total_time_s(i), '%.6f'), ...
+        ' | ', num2str(T.custody_ratio(i), '%.6f'), ...
+        ' | ', num2str(T.mean_rmse(i), '%.12g'), ...
+        ' | ', num2str(T.min_margin(i), '%.12g'), ...
         ' | ', num2str(T.switch_count(i)), ...
         ' | ', num2str(T.resource_score(i), '%.6f'), ...
         ' | ', num2str(T.observable_steps(i)), ' |'];

@@ -2,17 +2,18 @@
 
 本目录用于第五章新主线重建。
 
-## 当前状态（R3-real / R4-real / R4c-real 主线）
+## 当前状态（R2-real / R3-real / R4-real / R4c-real 主线）
 
 旧的 proxy 版本已废弃，不再允许：
 - theta_star / theta_plus 整构型切换
 - synthetic info proxy
 - policy-aware gain proxy
 
-新的 R3 / R4 目标：
+新的主线：
 - 使用真实 Stage02 HGV 轨迹
 - 使用固定同一真实星座（theta_star）
 - 使用 Stage03 真实可见性与 LOS 几何
+- R2-real：统一真实指标层
 - R3-real：固定静态双星组合
 - R4-real：动态双星组合调度
 - R4c-real：真实静态 vs 真实动态对照包
