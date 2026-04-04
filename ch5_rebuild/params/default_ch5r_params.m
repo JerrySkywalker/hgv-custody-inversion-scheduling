@@ -1,9 +1,5 @@
 function cfg = default_ch5r_params(do_bootstrap)
-%DEFAULT_CH5R_PARAMS  Chapter 5 rebuild default parameters for Phase R0.
-%
-% Usage:
-%   cfg = default_ch5r_params();
-%   cfg = default_ch5r_params(false);
+%DEFAULT_CH5R_PARAMS  Chapter 5 rebuild default parameters.
 
 if nargin < 1
     do_bootstrap = true;
@@ -21,7 +17,12 @@ legacy_root = fullfile(root_dir, '..', 'ch5_dualloop');
 cfg.ch5r = struct();
 cfg.ch5r.phase_name = 'R0';
 cfg.ch5r.root_dir = root_dir;
-cfg.ch5r.output_root = fullfile(cfg.paths.outputs, 'ch5_rebuild', 'phaseR0');
+cfg.ch5r.output_root = fullfile(cfg.paths.outputs, 'ch5_rebuild');
+
+cfg.ch5r.output_dirs = struct();
+cfg.ch5r.output_dirs.phaseR0 = fullfile(cfg.ch5r.output_root, 'phaseR0');
+cfg.ch5r.output_dirs.phaseR3 = fullfile(cfg.ch5r.output_root, 'phaseR3_static_hold');
+cfg.ch5r.output_dirs.phaseR4 = fullfile(cfg.ch5r.output_root, 'phaseR4_tracking_baseline');
 
 cfg.ch5r.legacy = struct();
 cfg.ch5r.legacy.mode = 'frozen_in_place';

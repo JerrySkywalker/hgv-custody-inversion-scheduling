@@ -1,19 +1,5 @@
 function ch5case = build_ch5r_case(cfg)
 %BUILD_CH5R_CASE  Build minimal Chapter 5 R1 case for bubble evaluation.
-%
-% Phase R1 policy:
-% - do not build a full tracker
-% - do not depend on old ch5_dualloop
-% - build a minimal time-indexed information case
-%
-% Output fields:
-%   ch5case.time_s
-%   ch5case.window
-%   ch5case.gamma_req
-%   ch5case.target_case
-%   ch5case.theta
-%   ch5case.info_series   [n_state x n_state x N]
-%   ch5case.meta
 
 if nargin < 1 || isempty(cfg)
     cfg = default_ch5r_params();
@@ -21,6 +7,9 @@ end
 
 theta = cfg.ch5r.theta_star;
 gamma_req = cfg.ch5r.gamma_req;
+
+truth = build_ch5r_truth_from_stage02_engine(cfg);
+satbank = build_ch5r_satbank_from_stage03_engine(cfg);
 
 t0 = 0;
 dt = 10;
@@ -47,7 +36,13 @@ ch5case.window.length_steps = window_length_steps;
 ch5case.gamma_req = gamma_req;
 ch5case.target_case = cfg.ch5r.target_case;
 ch5case.theta = theta;
+ch5case.truth = truth;
+ch5case.satbank = satbank;
 ch5case.info_series = info_series;
+
+candidates = build_ch5r_candidates(cfg, ch5case);
+ch5case.candidates = candidates;
+ch5case.summary = summarize_ch5r_case(ch5case);
 
 ch5case.meta = struct();
 ch5case.meta.phase_name = 'R1';
@@ -58,19 +53,13 @@ ch5case.meta.note = ['R1 minimal synthetic information series built from theta_s
 end
 
 function Yk = local_make_information_matrix(k, N, theta, gamma_req)
-% Construct a deterministic SPD information matrix with a strong valley.
-% The design target in R1a is explicit:
-%   rolling-window lambda_min must cross below gamma_req for a mid-horizon segment.
-
 n = 6;
 
 ns_factor = max(theta.Ns / 100, 0.5);
 dg_factor = max(theta.DG, 0.5);
 
-% Lower baseline than previous version, so rolling window does not stay too high.
 baseline = gamma_req * (0.42 + 0.04 * ns_factor + 0.02 * dg_factor);
 
-% Strong and wide valley so the rolling sum also shows a bubble interval.
 valley_depth = gamma_req * 0.34;
 center = 0.62 * N;
 width = 0.18 * N;

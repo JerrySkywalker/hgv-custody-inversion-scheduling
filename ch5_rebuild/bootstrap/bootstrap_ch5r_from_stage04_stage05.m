@@ -29,7 +29,11 @@ bundle.sensor_profile = sensor_profile;
 bundle.target_case = target_case;
 bundle.gamma_req = gamma_req;
 
-out_dir = fullfile(cfg.ch5r.output_root, 'bootstrap');
+out_dir = cfg.ch5r.output_dirs.phaseR0;
+if ~exist(out_dir, 'dir')
+    mkdir(out_dir);
+end
+out_dir = fullfile(out_dir, 'bootstrap');
 if ~exist(out_dir, 'dir')
     mkdir(out_dir);
 end

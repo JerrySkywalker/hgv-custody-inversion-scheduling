@@ -15,6 +15,8 @@ disp(['req violation steps  : ' num2str(result.requirement.total_violation_steps
 
 assert(isfield(result, 'state_trace'));
 assert(isfield(result, 'bubble_metrics'));
+assert(isfield(result, 'custody_metrics'));
+assert(isfield(result, 'rmse_metrics'));
 assert(isfield(result, 'requirement'));
 assert(result.bubble_metrics.bubble_steps > 0);
 assert(result.requirement.total_violation_steps > 0);
