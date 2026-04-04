@@ -1,10 +1,7 @@
 function out = run_ch5r_phase8_5_outerB_continuous()
 %RUN_CH5R_PHASE8_5_OUTERB_CONTINUOUS
-% Phase R8.5a:
-%   activate outerB action layer by
-%   1) lower switching penalty
-%   2) stronger pair geometry discrimination
-%   3) near-score tie-break
+% Phase R8.5b:
+%   normalized outerB scoring recalibration.
 
 cfg = struct();
 cfg.dt = 1.0;
@@ -30,16 +27,16 @@ cfg.outerA.Gamma_req = 5e-3;
 cfg.outerB = struct();
 cfg.outerB.alpha0 = 1.0;
 cfg.outerB.beta0 = 1.0;
-cfg.outerB.eta0 = 2.0;   % reduced from stronger penalty
+cfg.outerB.eta0 = 2.0;
 cfg.outerB.mu0 = 0.5;
 cfg.outerB.kappa_alpha = 200.0;
 cfg.outerB.kappa_beta = 100.0;
 cfg.outerB.kappa_eta = 80.0;
 
 cfg.score = struct();
-cfg.score.switch_cost = 0.25;   % reduced
+cfg.score.switch_cost = 0.25;
 cfg.score.resource_cost = 2.0;
-cfg.score.tie_break_gap = 5.0;  % new
+cfg.score.tie_break_gap = 0.05; % normalized score gap
 
 nx = 6;
 ny = 3;
@@ -105,6 +102,11 @@ trace_data.selected_lambda_max_PR_plus = zeros(n_eval, 1);
 trace_data.switch_cost = zeros(n_eval, 1);
 trace_data.gap12 = zeros(n_eval, 1);
 
+trace_data.norm_MG = zeros(n_eval, 1);
+trace_data.norm_PR = zeros(n_eval, 1);
+trace_data.norm_SC = zeros(n_eval, 1);
+trace_data.norm_RC = zeros(n_eval, 1);
+
 prev_pair = [];
 
 rng(1);
@@ -165,6 +167,11 @@ for k = 2:cfg.n_steps
     trace_data.switch_cost(idx) = outerB.switch_cost;
     trace_data.gap12(idx) = sel.gap12;
 
+    trace_data.norm_MG(idx) = outerB.norm_MG;
+    trace_data.norm_PR(idx) = outerB.norm_PR;
+    trace_data.norm_SC(idx) = outerB.norm_SC;
+    trace_data.norm_RC(idx) = outerB.norm_RC;
+
     prev_pair = outerB.pair;
     fs = package_filter_state(upd.x_plus, upd.P_plus);
 end
@@ -186,6 +193,10 @@ summary.mean_selected_score = mean(trace_data.selected_score);
 summary.mean_selected_MG_pair = mean(trace_data.selected_MG_pair);
 summary.mean_selected_lambda_max_PR_plus = mean(trace_data.selected_lambda_max_PR_plus);
 summary.mean_gap12 = mean(trace_data.gap12);
+summary.mean_norm_MG = mean(trace_data.norm_MG);
+summary.mean_norm_PR = mean(trace_data.norm_PR);
+summary.mean_norm_SC = mean(trace_data.norm_SC);
+summary.mean_norm_RC = mean(trace_data.norm_RC);
 summary.switch_count = switch_count;
 summary.safe_ratio = mean(trace_data.mode_code == 1);
 summary.warn_ratio = mean(trace_data.mode_code == 2);
@@ -221,7 +232,7 @@ cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 fprintf(fid, '%s', md);
 
 disp(' ')
-disp('=== [ch5r:R8.5a] outerB action-layer activation summary ===')
+disp('=== [ch5r:R8.5b] outerB score-recalibration summary ===')
 disp(summary)
 disp(['mat file             : ' mat_file])
 disp(['md file              : ' md_file])
@@ -244,7 +255,7 @@ end
 
 function md = local_build_md(summary, mat_file, fig1_file, fig2_file)
 lines = {};
-lines{end+1} = '# Phase R8.5a outerB Action-Layer Activation';
+lines{end+1} = '# Phase R8.5b outerB Score Recalibration';
 lines{end+1} = '';
 lines{end+1} = '## Summary';
 lines{end+1} = '';
@@ -261,6 +272,10 @@ lines{end+1} = ['- mean_selected_score = ', num2str(summary.mean_selected_score,
 lines{end+1} = ['- mean_selected_MG_pair = ', num2str(summary.mean_selected_MG_pair, '%.12g')];
 lines{end+1} = ['- mean_selected_lambda_max_PR_plus = ', num2str(summary.mean_selected_lambda_max_PR_plus, '%.12g')];
 lines{end+1} = ['- mean_gap12 = ', num2str(summary.mean_gap12, '%.12g')];
+lines{end+1} = ['- mean_norm_MG = ', num2str(summary.mean_norm_MG, '%.12g')];
+lines{end+1} = ['- mean_norm_PR = ', num2str(summary.mean_norm_PR, '%.12g')];
+lines{end+1} = ['- mean_norm_SC = ', num2str(summary.mean_norm_SC, '%.12g')];
+lines{end+1} = ['- mean_norm_RC = ', num2str(summary.mean_norm_RC, '%.12g')];
 lines{end+1} = ['- switch_count = ', num2str(summary.switch_count)];
 lines{end+1} = ['- safe_ratio = ', num2str(summary.safe_ratio, '%.12g')];
 lines{end+1} = ['- warn_ratio = ', num2str(summary.warn_ratio, '%.12g')];
