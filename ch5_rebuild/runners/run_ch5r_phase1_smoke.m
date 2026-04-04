@@ -24,6 +24,10 @@ assert(isfield(bubble, 'is_bubble'));
 assert(numel(wininfo.lambda_min) == numel(ch5case.time_s));
 assert(numel(bubble.is_bubble) == numel(ch5case.time_s));
 
+% R1a positive-case requirement:
+assert(bubble.total_bubble_steps > 0, 'R1 smoke must include at least one bubble step.');
+assert(bubble.longest_bubble_time_s > 0, 'R1 smoke must include a positive bubble duration.');
+
 out = struct();
 out.cfg = cfg;
 out.case = ch5case;

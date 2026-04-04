@@ -58,36 +58,35 @@ ch5case.meta.note = ['R1 minimal synthetic information series built from theta_s
 end
 
 function Yk = local_make_information_matrix(k, N, theta, gamma_req)
-% Construct a smooth synthetic SPD information matrix.
-% Purpose:
-%   provide deterministic bubble-like variation for R1 pipeline validation.
-%
-% Design:
-%   baseline level depends weakly on theta.Ns and theta.DG
-%   valley near the middle of the horizon to emulate local observability drop
+% Construct a deterministic SPD information matrix with a strong valley.
+% The design target in R1a is explicit:
+%   rolling-window lambda_min must cross below gamma_req for a mid-horizon segment.
 
 n = 6;
 
 ns_factor = max(theta.Ns / 100, 0.5);
 dg_factor = max(theta.DG, 0.5);
 
-baseline = gamma_req * (1.20 + 0.10 * ns_factor + 0.05 * dg_factor);
-valley_depth = 0.55 * gamma_req;
-center = 0.60 * N;
-width = 0.16 * N;
+% Lower baseline than previous version, so rolling window does not stay too high.
+baseline = gamma_req * (0.42 + 0.04 * ns_factor + 0.02 * dg_factor);
+
+% Strong and wide valley so the rolling sum also shows a bubble interval.
+valley_depth = gamma_req * 0.34;
+center = 0.62 * N;
+width = 0.18 * N;
 
 s = k;
 dip = valley_depth * exp(-((s - center)^2) / (2 * width^2));
 
 diag_vals = [ ...
-    baseline - dip, ...
-    baseline * 1.08 - 0.90 * dip, ...
-    baseline * 1.15 - 0.70 * dip, ...
-    baseline * 1.35 - 0.30 * dip, ...
-    baseline * 1.55 - 0.20 * dip, ...
-    baseline * 1.80 - 0.10 * dip];
+    baseline - 1.00 * dip, ...
+    baseline * 1.04 - 0.92 * dip, ...
+    baseline * 1.09 - 0.78 * dip, ...
+    baseline * 1.18 - 0.42 * dip, ...
+    baseline * 1.30 - 0.28 * dip, ...
+    baseline * 1.46 - 0.18 * dip];
 
-diag_vals = max(diag_vals, 1e-6);
+diag_vals = max(diag_vals, 1e-3);
 
 Yk = diag(diag_vals);
 
@@ -99,7 +98,7 @@ C = [ ...
     0    0    0.01 0.02 0    0.03; ...
     0    0    0    0.01 0.03 0];
 
-scale = 0.02 * baseline;
+scale = 0.008 * baseline;
 Yk = Yk + scale * C;
 
 Yk = 0.5 * (Yk + Yk.');
