@@ -29,6 +29,15 @@ end
 
 cost.resource_score = mean(ns_values);
 
+% Align initial-switch definition with policy logging.
+if isfield(policy, 'params') && isfield(policy.params, 'count_initial_switch') && policy.params.count_initial_switch
+    if isfield(policy, 'theta_star')
+        if ~isequal(selection_trace{1}.theta, policy.theta_star)
+            cost.switch_count = cost.switch_count + 1;
+        end
+    end
+end
+
 for k = 2:n
     a = selection_trace{k-1}.theta;
     b = selection_trace{k}.theta;

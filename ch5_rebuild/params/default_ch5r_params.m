@@ -60,6 +60,9 @@ cfg.ch5r.target_case.source = 'cfg.stage04.example_case_id';
 
 cfg.ch5r.gamma_req = max(cfg.stage04.gamma_floor, cfg.stage04.gamma_req_fixed);
 
+% Phase R4 tunable parameters
+cfg.ch5r.r4 = default_ch5r_r4_params();
+
 cfg.ch5r.bootstrap_result = struct();
 cfg.ch5r.bootstrap_result.available = false;
 

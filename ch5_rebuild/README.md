@@ -1,6 +1,6 @@
 # ch5_rebuild
 
-本目录用于第五章新主线重建，当前已完成 **Phase R0-R3** 的收口，并进入 **R4b.2 日志增强阶段**。
+本目录用于第五章新主线重建，当前已完成 **Phase R0-R3** 的收口，并进入 **R4b.3 阈值调参与切换口径对齐阶段**。
 
 ## 当前状态
 
@@ -25,12 +25,13 @@
   - result bundle
   - timeline / failure-case plots
 
-### R4b.2
+### R4b.3
 - second baseline:
   - `tracking_greedy`
-  - hysteresis switching
+  - tunable hysteresis switching
   - policy selection feeds back into information proxy
-  - step-level CSV / markdown / diagnostic plots
+  - aligned switch-count definition
+  - quick parameter scan function
 
 ## MATLAB 使用
 
@@ -48,5 +49,5 @@ addpath(fullfile(pwd,'ch5_rebuild','logging'));
 addpath(fullfile(pwd,'ch5_rebuild','analysis'));
 addpath(fullfile(pwd,'ch5_rebuild','runners'));
 
-out3 = run_ch5r_phase3_static_bubble_demo();
 out4 = run_ch5r_phase4_tracking_baseline();
+Tscan = scan_r4_hysteresis_params();

@@ -1,5 +1,5 @@
 function out = run_ch5r_phase4_tracking_baseline()
-%RUN_CH5R_PHASE4_TRACKING_BASELINE  Minimal R4b.2 tracking-greedy baseline with enhanced logging.
+%RUN_CH5R_PHASE4_TRACKING_BASELINE  Minimal R4b.3 tracking-greedy baseline with enhanced logging.
 
 cfg = default_ch5r_params();
 ch5case = build_ch5r_case(cfg);
@@ -11,7 +11,7 @@ for k = 1:N
     selection_trace{k} = select_satellite_set_tracking_greedy(policy, k);
 end
 
-[ch5case_r4_info, gain_trace] = apply_policy_to_info_series(ch5case, selection_trace);
+[ch5case_r4_info, gain_trace] = apply_policy_to_info_series(ch5case, selection_trace, cfg);
 
 ch5case_r4 = ch5case;
 ch5case_r4.info_series = ch5case_r4_info;
@@ -84,11 +84,11 @@ disp(['md file              : ' md_file])
 
 assert(strcmp(policy.name, 'tracking_greedy'));
 assert(result.cost_metrics.resource_score >= ch5case.theta.Ns, ...
-    'R4b.2 expects resource score not below theta_star level.');
+    'R4b.3 expects resource score not below theta_star level.');
 
 if result.cost_metrics.switch_count == 0
-    warning('R4b2:NoSwitch', ...
-        'Tracking-greedy still has zero switch count. Inspect CSV/diagnostic plots and tau settings.');
+    warning('R4b3:NoSwitch', ...
+        'Tracking-greedy still has zero switch count. Run scan_r4_hysteresis_params() for tuning.');
 end
 
 out = struct();
@@ -144,7 +144,7 @@ lines{end+1} = ['- inst lambda plot: `', diag_paths.inst_lambda_png, '`'];
 lines{end+1} = ['- selection trace plot: `', diag_paths.selection_trace_png, '`'];
 lines{end+1} = ['- gain trace plot: `', diag_paths.gain_trace_png, '`'];
 lines{end+1} = '';
-lines{end+1} = ['Current note: this R4b.2 run emphasizes diagnosability. ' ...
-    'Use the CSV and diagnostic plots to inspect why switching does or does not occur.'];
+lines{end+1} = ['Current note: this R4b.3 run uses tunable hysteresis parameters and ' ...
+    'aligned switch-count definition.'];
 md = strjoin(lines, newline);
 end
