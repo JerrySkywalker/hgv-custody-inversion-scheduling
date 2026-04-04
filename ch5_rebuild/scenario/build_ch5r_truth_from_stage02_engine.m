@@ -6,7 +6,7 @@ if nargin < 1 || isempty(cfg)
     cfg = default_ch5r_params(false);
 end
 
-d = find_stage_cache_files(cfg.paths.cache, 'stage02_hgv_nominal_*.mat');
+d = find_stage_cache_files(cfg, 'stage02_hgv_nominal_*.mat');
 assert(~isempty(d), 'No Stage02 cache found. Please run stage02_hgv_nominal first.');
 
 [~, idx] = max([d.datenum]);
@@ -20,7 +20,9 @@ trajbank = S.out.trajbank;
 case_id = string(cfg.ch5r.target_case.case_id);
 
 all_cases = [trajbank.nominal; trajbank.heading; trajbank.critical];
-hit_idx = find(strcmp(string({all_cases.case_id}), case_id), 1, 'first');
+all_case_ids = string(cellfun(@(c) c.case_id, {all_cases.case}, 'UniformOutput', false));
+
+hit_idx = find(strcmp(all_case_ids, case_id), 1, 'first');
 assert(~isempty(hit_idx), 'Stage02 case %s not found.', case_id);
 
 traj_case = all_cases(hit_idx);
@@ -34,6 +36,26 @@ truth.subfamily = traj_case.case.subfamily;
 truth.traj_case = traj_case;
 truth.t_s = traj_case.traj.t_s(:);
 truth.r_eci_km = traj_case.traj.r_eci_km;
+
+if isfield(traj_case.traj, 'r_ecef_km')
+    truth.r_ecef_km = traj_case.traj.r_ecef_km;
+end
+if isfield(traj_case.traj, 'r_enu_km')
+    truth.r_enu_km = traj_case.traj.r_enu_km;
+end
+if isfield(traj_case.traj, 'lat_deg')
+    truth.lat_deg = traj_case.traj.lat_deg(:);
+end
+if isfield(traj_case.traj, 'lon_deg')
+    truth.lon_deg = traj_case.traj.lon_deg(:);
+end
+if isfield(traj_case.traj, 'h_km')
+    truth.h_km = traj_case.traj.h_km(:);
+end
+if isfield(traj_case.traj, 'X')
+    truth.X = traj_case.traj.X;
+end
+
 truth.meta = struct();
 truth.meta.note = 'Real HGV trajectory loaded from latest Stage02 cache.';
 end
