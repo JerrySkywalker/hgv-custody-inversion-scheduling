@@ -11,14 +11,14 @@ gamma_req = ch5case.gamma_req;
 
 bubble_metrics = eval_bubble_metrics_real(bubble, dt);
 custody_metrics = eval_custody_metrics_real(bubble, dt);
-rmse_metrics = eval_rmse_metrics_real(wininfo);
+rmse_proxy_metrics = eval_rmse_metrics_real(wininfo);
 requirement = eval_requirement_margin_real(wininfo, gamma_req);
 cost_metrics = eval_cost_metrics_real(selection_trace, resource_score);
 
 result = struct();
 result.bubble_metrics = bubble_metrics;
 result.custody_metrics = custody_metrics;
-result.rmse_metrics = rmse_metrics;
+result.rmse_proxy_metrics = rmse_proxy_metrics;
 result.requirement = requirement;
 result.cost_metrics = cost_metrics;
 

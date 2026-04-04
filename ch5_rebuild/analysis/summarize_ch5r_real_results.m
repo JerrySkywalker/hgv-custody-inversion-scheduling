@@ -18,7 +18,7 @@ summary.mean_bubble_depth = outX.result.bubble_metrics.mean_bubble_depth;
 summary.loc_total_time_s = outX.result.custody_metrics.loc_total_time_s;
 summary.custody_ratio = outX.result.custody_metrics.custody_ratio;
 
-summary.mean_rmse = outX.result.rmse_metrics.mean_rmse;
+summary.mean_rmse_proxy = outX.result.rmse_proxy_metrics.mean_rmse_proxy;
 summary.min_margin = outX.result.requirement.min_margin;
 
 summary.switch_count = outX.result.cost_metrics.switch_count;

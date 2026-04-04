@@ -2,7 +2,7 @@
 
 本目录用于第五章新主线重建。
 
-## 当前状态（R2-real / R3-real / R4-real / R4c-real 主线）
+## 当前状态（R2-real / R3-real / R4-real / R4c-real / R5 主线）
 
 旧的 proxy 版本已废弃，不再允许：
 - theta_star / theta_plus 整构型切换
@@ -17,7 +17,13 @@
 - R3-real：固定静态双星组合
 - R4-real：动态双星组合调度
 - R4c-real：真实静态 vs 真实动态对照包
+- R5：前瞻补泡调度主线
 - 使用真实 bearing-only Fisher 信息
+
+## 说明
+
+- 当前 `rmse_proxy_metrics` 是 Fisher-based RMSE proxy
+- 它用于相对趋势分析，不是物理滤波 RMSE
 
 ## 当前入口
 
@@ -39,3 +45,4 @@ addpath(fullfile(pwd,'ch5_rebuild','runners'));
 out3 = run_ch5r_phase3_static_bubble_demo();
 out4 = run_ch5r_phase4_tracking_baseline();
 out4c = run_ch5r_phase4_compare_bundle_real();
+out5 = run_ch5r_phase5_bubble_predictive();
