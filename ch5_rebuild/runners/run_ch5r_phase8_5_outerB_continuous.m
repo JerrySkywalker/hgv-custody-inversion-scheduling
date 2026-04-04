@@ -1,0 +1,279 @@
+function out = run_ch5r_phase8_5_outerB_continuous()
+%RUN_CH5R_PHASE8_5_OUTERB_CONTINUOUS
+% Minimal closed-loop runner for Phase R8.5:
+%   inner loop -> M_R/M_G/s_k/P_R -> \tilde{M}_R -> outerB continuous pair scheduling
+%
+% Current implementation remains a smoke:
+%   - mildly maneuvering truth
+%   - fixed synthetic satellite bank
+%   - pair-based scheduling
+%   - no Stage02/Stage03 real geometry connection yet
+
+cfg = struct();
+cfg.dt = 1.0;
+cfg.n_steps = 80;
+cfg.lambda_reg = 1e-4;
+cfg.window_len = 10;
+cfg.r_meas = 1e-2;
+cfg.q_pos = 1e-4;
+cfg.q_vel = 1e-5;
+cfg.Cr_mode = 'position';
+cfg.nis_alpha = 0.05;
+
+cfg.outerA = struct();
+cfg.outerA.tau_s = 1.0;
+cfg.outerA.tau_g = 100.0;
+cfg.outerA.tau_p = 1e-3;
+cfg.outerA.alpha_s = 0.25;
+cfg.outerA.alpha_g = 0.35;
+cfg.outerA.alpha_p = 0.25;
+cfg.outerA.eps_warn = 500.0;
+cfg.outerA.Gamma_req = 5e-3;
+
+cfg.outerB = struct();
+cfg.outerB.alpha0 = 1.0;
+cfg.outerB.beta0 = 1.0;
+cfg.outerB.eta0 = 10.0;
+cfg.outerB.mu0 = 0.5;
+cfg.outerB.kappa_alpha = 200.0;
+cfg.outerB.kappa_beta = 100.0;
+cfg.outerB.kappa_eta = 150.0;
+
+cfg.score = struct();
+cfg.score.switch_cost = 1.0;
+cfg.score.resource_cost = 2.0;
+
+nx = 6;
+ny = 3;
+Ns = 6;
+
+% fixed synthetic satellite bank
+sat_pos = [ ...
+    -8000,  8000, -8000,  8000,     0,     0; ...
+    -8000, -8000,  8000,  8000,     0,     0; ...
+     6000,  6000,  6000,  6000,  9000, -9000];
+
+pair_bank = nchoosek(1:Ns, 2);
+
+% mildly maneuvering truth
+x_truth = zeros(cfg.n_steps, nx);
+x_truth(1,:) = [0 0 0 1.2 -0.4 0.3];
+for k = 2:cfg.n_steps
+    ax = 0.01 * sin(0.08 * (k-1));
+    ay = 0.008 * cos(0.05 * (k-1));
+    az = 0.006 * sin(0.04 * (k-1));
+
+    x_truth(k,4) = x_truth(k-1,4) + cfg.dt * ax;
+    x_truth(k,5) = x_truth(k-1,5) + cfg.dt * ay;
+    x_truth(k,6) = x_truth(k-1,6) + cfg.dt * az;
+
+    x_truth(k,1:3) = x_truth(k-1,1:3) + cfg.dt * x_truth(k,4:6);
+end
+
+X_prev = x_truth(1:end-1,:).';
+X_next = x_truth(2:end,:).';
+model = fit_local_dmd_operator_reg(X_prev, X_next, 'lambda_reg', cfg.lambda_reg);
+
+Q = diag([cfg.q_pos cfg.q_pos cfg.q_pos cfg.q_vel cfg.q_vel cfg.q_vel]);
+R_single = cfg.r_meas * eye(ny);
+R_pair = blkdiag(R_single, R_single);
+
+h_fun = @(x) x(1:3);
+H_fun = @(x) [eye(3), zeros(3,3)];
+
+Cr = build_requirement_projection_Cr(nx, cfg.Cr_mode);
+
+x0_est = x_truth(1,:).' + [0.05; -0.04; 0.03; 0.01; -0.01; 0.02];
+P0 = diag([1e-2 1e-2 1e-2 1e-3 1e-3 1e-3]);
+fs = package_filter_state(x0_est, P0);
+
+n_eval = cfg.n_steps - 1;
+trace_data = struct();
+trace_data.nis = zeros(n_eval, 1);
+trace_data.MR = zeros(n_eval, 1);
+trace_data.MG = zeros(n_eval, 1);
+trace_data.tildeMR = zeros(n_eval, 1);
+trace_data.GammaA = zeros(n_eval, 1);
+trace_data.mode_code = zeros(n_eval, 1);
+trace_data.mode_label = strings(n_eval, 1);
+trace_data.lambda_max_PR = zeros(n_eval, 1);
+
+trace_data.alpha_k = zeros(n_eval, 1);
+trace_data.beta_k = zeros(n_eval, 1);
+trace_data.eta_k = zeros(n_eval, 1);
+trace_data.mu_k = zeros(n_eval, 1);
+trace_data.selected_pair = zeros(n_eval, 2);
+trace_data.selected_score = zeros(n_eval, 1);
+trace_data.selected_MG_pair = zeros(n_eval, 1);
+trace_data.selected_lambda_max_PR_plus = zeros(n_eval, 1);
+trace_data.switch_cost = zeros(n_eval, 1);
+
+prev_pair = [];
+
+rng(1);
+for k = 2:cfg.n_steps
+    pred = predict_filter_state(fs, model, Q);
+
+    yk = x_truth(k,1:3).' + chol(R_single, 'lower') * randn(ny,1);
+    upd = update_filter_state_ekf(pred, yk, h_fun, H_fun, R_single);
+
+    s_k = compute_nis_scalar(upd.nu, upd.S);
+
+    % outerA ingredients
+    x_now = upd.x_plus;
+    x_seq = zeros(nx, cfg.window_len);
+    F_seq = zeros(nx, nx, cfg.window_len);
+    x_tmp = x_now;
+    for ell = 1:cfg.window_len
+        x_tmp = propagate_state_koopman_dmd(model, x_tmp);
+        x_seq(:, ell) = x_tmp;
+        F_seq(:,:,ell) = model.A;
+    end
+
+    W = compute_predicted_window_gramian(F_seq, x_seq, H_fun, R_single);
+    MG = compute_structural_metric_MG(W, Cr);
+
+    PR_plus_k = compute_requirement_cov_PR(upd.P_plus, Cr);
+    PR_minus_kp1 = compute_requirement_cov_PR(pred.P_minus, Cr);
+
+    MR_raw = compute_raw_metric_MR(PR_plus_k, PR_minus_kp1, cfg.dt);
+    outerA_core = compute_outerA_upper_bound_tildeMR(MR_raw.M_R, s_k, ny, MG.M_G, PR_plus_k, cfg.outerA);
+    mode_out = classify_outerA_mode(outerA_core);
+    outerA = package_outerA_result(MR_raw, MG, outerA_core, mode_out, PR_plus_k);
+
+    % outerB weights
+    weights = map_tildeMR_to_scheduler_weights(outerA.tildeMR, cfg.outerB);
+
+    % predicted window for candidate scoring
+    sel = select_pair_dualloop_continuous(pred, pair_bank, sat_pos, x_seq, F_seq, Cr, R_pair, ...
+        weights, prev_pair, cfg.score);
+
+    outerB = package_outerB_result(k-1, sel.best_pair, weights, sel.best_eval);
+
+    idx = k - 1;
+    trace_data.nis(idx) = s_k;
+    trace_data.MR(idx) = outerA.M_R;
+    trace_data.MG(idx) = outerA.M_G;
+    trace_data.tildeMR(idx) = outerA.tildeMR;
+    trace_data.GammaA(idx) = outerA.GammaA;
+    trace_data.mode_code(idx) = outerA.mode_code;
+    trace_data.mode_label(idx) = string(outerA.mode);
+    trace_data.lambda_max_PR(idx) = outerA.lambda_max_PR;
+
+    trace_data.alpha_k(idx) = outerB.alpha_k;
+    trace_data.beta_k(idx) = outerB.beta_k;
+    trace_data.eta_k(idx) = outerB.eta_k;
+    trace_data.mu_k(idx) = outerB.mu_k;
+    trace_data.selected_pair(idx,:) = outerB.pair;
+    trace_data.selected_score(idx) = outerB.score;
+    trace_data.selected_MG_pair(idx) = outerB.M_G_pair;
+    trace_data.selected_lambda_max_PR_plus(idx) = outerB.lambda_max_PR_plus;
+    trace_data.switch_cost(idx) = outerB.switch_cost;
+
+    prev_pair = outerB.pair;
+    fs = package_filter_state(upd.x_plus, upd.P_plus);
+end
+
+k_idx = (1:n_eval).';
+switch_count = sum(trace_data.switch_cost > 0);
+
+summary = struct();
+summary.n_steps = cfg.n_steps;
+summary.mean_nis = mean(trace_data.nis);
+summary.mean_MR = mean(trace_data.MR);
+summary.mean_MG = mean(trace_data.MG);
+summary.mean_tildeMR = mean(trace_data.tildeMR);
+summary.mean_GammaA = mean(trace_data.GammaA);
+summary.mean_alpha_k = mean(trace_data.alpha_k);
+summary.mean_beta_k = mean(trace_data.beta_k);
+summary.mean_eta_k = mean(trace_data.eta_k);
+summary.mean_selected_score = mean(trace_data.selected_score);
+summary.mean_selected_MG_pair = mean(trace_data.selected_MG_pair);
+summary.mean_selected_lambda_max_PR_plus = mean(trace_data.selected_lambda_max_PR_plus);
+summary.switch_count = switch_count;
+summary.safe_ratio = mean(trace_data.mode_code == 1);
+summary.warn_ratio = mean(trace_data.mode_code == 2);
+summary.repair_ratio = mean(trace_data.mode_code == 3);
+summary.emergency_ratio = mean(trace_data.mode_code == 4);
+
+out_dir = fullfile(pwd, 'outputs', 'ch5_rebuild', 'phaseR8_5_outerB_continuous');
+if ~exist(out_dir, 'dir')
+    mkdir(out_dir);
+end
+
+stamp = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
+mat_file = fullfile(out_dir, ['phaseR8_5_outerB_continuous_' stamp '.mat']);
+md_file = fullfile(out_dir, ['phaseR8_5_outerB_continuous_' stamp '.md']);
+fig1_file = fullfile(out_dir, ['plot_outerB_pair_timeline_' stamp '.png']);
+fig2_file = fullfile(out_dir, ['plot_tildeMR_vs_weights_' stamp '.png']);
+
+fig1 = plot_outerB_pair_timeline(k_idx, trace_data.selected_pair, 'off');
+saveas(fig1, fig1_file);
+close(fig1);
+
+fig2 = plot_tildeMR_vs_weight_timeline(k_idx, trace_data.tildeMR, trace_data.alpha_k, ...
+    trace_data.beta_k, trace_data.eta_k, 'off');
+saveas(fig2, fig2_file);
+close(fig2);
+
+save(mat_file, 'cfg', 'model', 'sat_pos', 'pair_bank', 'x_truth', 'trace_data', 'summary');
+
+md = local_build_md(summary, mat_file, fig1_file, fig2_file);
+fid = fopen(md_file, 'w');
+assert(fid >= 0, 'Failed to open markdown file: %s', md_file);
+cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
+fprintf(fid, '%s', md);
+
+disp(' ')
+disp('=== [ch5r:R8.5] outerB continuous scheduling summary ===')
+disp(summary)
+disp(['mat file             : ' mat_file])
+disp(['md file              : ' md_file])
+disp(['fig1 file            : ' fig1_file])
+disp(['fig2 file            : ' fig2_file])
+
+out = struct();
+out.cfg = cfg;
+out.model = model;
+out.trace_data = trace_data;
+out.summary = summary;
+out.paths = struct( ...
+    'mat_file', mat_file, ...
+    'md_file', md_file, ...
+    'fig1_file', fig1_file, ...
+    'fig2_file', fig2_file, ...
+    'output_dir', out_dir);
+out.ok = true;
+end
+
+function md = local_build_md(summary, mat_file, fig1_file, fig2_file)
+lines = {};
+lines{end+1} = '# Phase R8.5 outerB Continuous Scheduling';
+lines{end+1} = '';
+lines{end+1} = '## Summary';
+lines{end+1} = '';
+lines{end+1} = ['- n_steps = ', num2str(summary.n_steps)];
+lines{end+1} = ['- mean_nis = ', num2str(summary.mean_nis, '%.12g')];
+lines{end+1} = ['- mean_MR = ', num2str(summary.mean_MR, '%.12g')];
+lines{end+1} = ['- mean_MG = ', num2str(summary.mean_MG, '%.12g')];
+lines{end+1} = ['- mean_tildeMR = ', num2str(summary.mean_tildeMR, '%.12g')];
+lines{end+1} = ['- mean_GammaA = ', num2str(summary.mean_GammaA, '%.12g')];
+lines{end+1} = ['- mean_alpha_k = ', num2str(summary.mean_alpha_k, '%.12g')];
+lines{end+1} = ['- mean_beta_k = ', num2str(summary.mean_beta_k, '%.12g')];
+lines{end+1} = ['- mean_eta_k = ', num2str(summary.mean_eta_k, '%.12g')];
+lines{end+1} = ['- mean_selected_score = ', num2str(summary.mean_selected_score, '%.12g')];
+lines{end+1} = ['- mean_selected_MG_pair = ', num2str(summary.mean_selected_MG_pair, '%.12g')];
+lines{end+1} = ['- mean_selected_lambda_max_PR_plus = ', num2str(summary.mean_selected_lambda_max_PR_plus, '%.12g')];
+lines{end+1} = ['- switch_count = ', num2str(summary.switch_count)];
+lines{end+1} = ['- safe_ratio = ', num2str(summary.safe_ratio, '%.12g')];
+lines{end+1} = ['- warn_ratio = ', num2str(summary.warn_ratio, '%.12g')];
+lines{end+1} = ['- repair_ratio = ', num2str(summary.repair_ratio, '%.12g')];
+lines{end+1} = ['- emergency_ratio = ', num2str(summary.emergency_ratio, '%.12g')];
+lines{end+1} = '';
+lines{end+1} = '## Artifacts';
+lines{end+1} = '';
+lines{end+1} = ['- mat file: `', mat_file, '`'];
+lines{end+1} = ['- fig1 file: `', fig1_file, '`'];
+lines{end+1} = ['- fig2 file: `', fig2_file, '`'];
+md = strjoin(lines, newline);
+end

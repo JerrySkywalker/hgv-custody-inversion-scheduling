@@ -2,7 +2,7 @@
 
 本目录用于第五章新主线重建。
 
-## 当前状态（R2-real / R3-real / R4-real / R4c-real / R5 / R5c-real / R6-real / R7-real / R8-real / R8.1 / R8.2 / R8.3a / R8.4 主线）
+## 当前状态（R2-real / R3-real / R4-real / R4c-real / R5 / R5c-real / R6-real / R7-real / R8-real / R8.1 / R8.2 / R8.3a / R8.4 / R8.5 主线）
 
 旧的 proxy 版本已废弃，不再允许：
 - theta_star / theta_plus 整构型切换
@@ -26,6 +26,7 @@
 - R8.2：NIS 一致性监视正式接入
 - R8.3a：动态窗口 Gramian + 关键子空间 M_G 修补版
 - R8.4：outerA 上界 \tilde{M}_R 实现
+- R8.5：outerB 连续调度实现
 
 ## 当前入口
 
@@ -33,8 +34,10 @@
 addpath(fullfile(pwd,'ch5_rebuild'));
 addpath(fullfile(pwd,'ch5_rebuild','inner_loop'));
 addpath(fullfile(pwd,'ch5_rebuild','outer_loop_A'));
+addpath(fullfile(pwd,'ch5_rebuild','outer_loop_B'));
 addpath(fullfile(pwd,'ch5_rebuild','plots'));
 addpath(fullfile(pwd,'ch5_rebuild','analysis'));
 addpath(fullfile(pwd,'ch5_rebuild','runners'));
 
-out = run_ch5r_phase8_4_outerA_upper_bound();
+out = run_ch5r_phase8_5_outerB_continuous();
+
