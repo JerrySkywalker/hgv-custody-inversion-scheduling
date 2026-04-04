@@ -1,8 +1,8 @@
 function out = run_ch5r_phase8_weak_prior_compare()
 %RUN_CH5R_PHASE8_WEAK_PRIOR_COMPARE
-% Enhanced R8:
+% Enhanced R8 fix-B:
 % compare R5-real vs weak-prior-enhanced predictive scheduling
-% with optional candidate pruning + close-score prior amplification.
+% with pruning disabled and close-score prior amplification only.
 
 cfg = default_ch5r_params(true);
 cfg.ch5r.window_length_s = 60;
@@ -15,10 +15,10 @@ cfg.ch5r.r5.parallel = struct('enable', true);
 
 cfg.ch5r.r8 = struct();
 
-% --- optional enhanced switches ---
-cfg.ch5r.r8.enable_candidate_prune = true;
-cfg.ch5r.r8.prune_keep_ratio = 0.50;
-cfg.ch5r.r8.prune_min_keep = 6;
+% --- fix-B switches ---
+cfg.ch5r.r8.enable_candidate_prune = false;
+cfg.ch5r.r8.prune_keep_ratio = 1.00;
+cfg.ch5r.r8.prune_min_keep = inf;
 
 cfg.ch5r.r8.enable_close_score_prior = true;
 cfg.ch5r.r8.close_gap = 50;
@@ -39,7 +39,7 @@ prior = build_static_weak_prior(cfg, ch5case);
 Nt = numel(ch5case.t_s);
 selection_trace = cell(Nt,1);
 
-disp('=== [R8] Start weak-prior compare scheduling ===')
+disp('=== [R8-fixB] Start weak-prior compare scheduling ===')
 
 hold_countdown = 0;
 t_total = tic;
@@ -81,6 +81,7 @@ for k = 1:Nt
         ];
         J = compute_bearing_fim_pair(r_tgt, r_sat_pair, sigma_angle_rad);
 
+        nfull = size(ch5case.candidates.pair_bank{k},1);
         selection_trace{k} = struct( ...
             'k', k, ...
             'time_s', ch5case.t_s(k), ...
@@ -90,8 +91,8 @@ for k = 1:Nt
             'prev_pair', selection_trace{k-1}.pair, ...
             'switch_flag', false, ...
             'name', 'weak_prior_hold', ...
-            'n_pairs_full', size(ch5case.candidates.pair_bank{k},1), ...
-            'n_pairs_used', size(ch5case.candidates.pair_bank{k},1));
+            'n_pairs_full', nfull, ...
+            'n_pairs_used', nfull);
         hold_countdown = hold_countdown - 1;
 
     else
@@ -112,7 +113,7 @@ for k = 1:Nt
     if cfg.ch5r.r8.log.enable
         do_log = (k == 1) || (k == Nt) || (mod(k, cfg.ch5r.r8.log.log_every) == 0);
         if do_log
-            msg = sprintf('[R8][k=%d/%d] full=%d used=%d', ...
+            msg = sprintf('[R8-fixB][k=%d/%d] full=%d used=%d', ...
                 k, Nt, selection_trace{k}.n_pairs_full, selection_trace{k}.n_pairs_used);
 
             if ~isempty(selection_trace{k}.pair)
@@ -167,12 +168,12 @@ if ~exist(out_dir, 'dir')
 end
 
 stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
-csv_file = fullfile(out_dir, ['phaseR8_weak_prior_compare_real_' stamp '.csv']);
-md_file = fullfile(out_dir, ['phaseR8_weak_prior_compare_real_' stamp '.md']);
-mat_file = fullfile(out_dir, ['phaseR8_weak_prior_compare_real_' stamp '.mat']);
+csv_file = fullfile(out_dir, ['phaseR8_fixB_weak_prior_compare_real_' stamp '.csv']);
+md_file = fullfile(out_dir, ['phaseR8_fixB_weak_prior_compare_real_' stamp '.md']);
+mat_file = fullfile(out_dir, ['phaseR8_fixB_weak_prior_compare_real_' stamp '.mat']);
 
 T = table( ...
-    ["R5-real_predictive_pair"; "R8-real_weak_prior_pair"], ...
+    ["R5-real_predictive_pair"; "R8-fixB_weak_prior_pair"], ...
     [out5.result.bubble_metrics.bubble_time_s; result.bubble_metrics.bubble_time_s], ...
     [out5.result.bubble_metrics.longest_bubble_time_s; result.bubble_metrics.longest_bubble_time_s], ...
     [out5.result.bubble_metrics.mean_bubble_depth; result.bubble_metrics.mean_bubble_depth], ...
@@ -203,7 +204,7 @@ fprintf(fid, '%s', md);
 save(mat_file, 'cfg', 'out5', 'ch5case', 'prior', 'selection_trace', 'wininfo', 'bubble', 'result', 'T');
 
 disp(' ')
-disp('=== [ch5r:R8-real] weak-prior compare summary ===')
+disp('=== [ch5r:R8-fixB] weak-prior compare summary ===')
 disp(T)
 disp(['csv file            : ' csv_file])
 disp(['md file             : ' md_file])
@@ -225,19 +226,17 @@ end
 
 function md = local_build_md(T, csv_file, cfg)
 lines = {};
-lines{end+1} = '# Phase R8-real Weak-prior Compare Summary';
+lines{end+1} = '# Phase R8-fixB Weak-prior Compare Summary';
 lines{end+1} = '';
 lines{end+1} = '## 1. Role';
 lines{end+1} = '';
 lines{end+1} = ['This stage compares the current predictive R5 policy ' ...
-                'against a weak-prior-enhanced predictive policy with optional candidate pruning ' ...
-                'and close-score prior amplification.'];
+                'against a weak-prior-enhanced predictive policy with candidate pruning disabled ' ...
+                'and close-score prior amplification only.'];
 lines{end+1} = '';
 lines{end+1} = '## 2. Config';
 lines{end+1} = '';
 lines{end+1} = ['- enable_candidate_prune = ', num2str(cfg.ch5r.r8.enable_candidate_prune)];
-lines{end+1} = ['- prune_keep_ratio = ', num2str(cfg.ch5r.r8.prune_keep_ratio)];
-lines{end+1} = ['- prune_min_keep = ', num2str(cfg.ch5r.r8.prune_min_keep)];
 lines{end+1} = ['- enable_close_score_prior = ', num2str(cfg.ch5r.r8.enable_close_score_prior)];
 lines{end+1} = ['- close_gap = ', num2str(cfg.ch5r.r8.close_gap)];
 lines{end+1} = ['- eps_prior_base = ', num2str(cfg.ch5r.r8.eps_prior_base)];
