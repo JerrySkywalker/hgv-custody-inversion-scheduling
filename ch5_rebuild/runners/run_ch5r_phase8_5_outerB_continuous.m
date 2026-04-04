@@ -1,37 +1,37 @@
 function out = run_ch5r_phase8_5_outerB_continuous()
 %RUN_CH5R_PHASE8_5_OUTERB_CONTINUOUS
-% Phase R8.5b compare-ready version:
-%   normalized outerB scoring recalibration
-%   plus full state/covariance trace export for R8.6-real
+% Phase R8.6b-1 high-pressure version:
+%   same normalized outerB scoring
+%   but stronger scenario pressure for compare separability
 
 cfg = struct();
 cfg.dt = 1.0;
 cfg.n_steps = 80;
 cfg.lambda_reg = 1e-4;
-cfg.window_len = 10;
-cfg.r_meas = 1e-2;
-cfg.q_pos = 1e-4;
-cfg.q_vel = 1e-5;
+cfg.window_len = 8;
+cfg.r_meas = 1.5e-2;
+cfg.q_pos = 2e-4;
+cfg.q_vel = 3e-5;
 cfg.Cr_mode = 'position';
 cfg.nis_alpha = 0.05;
 
 cfg.outerA = struct();
 cfg.outerA.tau_s = 1.0;
-cfg.outerA.tau_g = 100.0;
-cfg.outerA.tau_p = 1e-3;
+cfg.outerA.tau_g = 120.0;
+cfg.outerA.tau_p = 8e-4;
 cfg.outerA.alpha_s = 0.25;
-cfg.outerA.alpha_g = 0.35;
-cfg.outerA.alpha_p = 0.25;
-cfg.outerA.eps_warn = 500.0;
-cfg.outerA.Gamma_req = 5e-3;
+cfg.outerA.alpha_g = 0.45;
+cfg.outerA.alpha_p = 0.35;
+cfg.outerA.eps_warn = 900.0;
+cfg.outerA.Gamma_req = 3e-3;
 
 cfg.outerB = struct();
 cfg.outerB.alpha0 = 1.0;
 cfg.outerB.beta0 = 1.0;
 cfg.outerB.eta0 = 2.0;
 cfg.outerB.mu0 = 0.5;
-cfg.outerB.kappa_alpha = 200.0;
-cfg.outerB.kappa_beta = 100.0;
+cfg.outerB.kappa_alpha = 220.0;
+cfg.outerB.kappa_beta = 120.0;
 cfg.outerB.kappa_eta = 80.0;
 
 cfg.score = struct();
@@ -41,21 +41,21 @@ cfg.score.tie_break_gap = 0.05;
 
 nx = 6;
 ny = 3;
-Ns = 6;
+Ns = 4;
 
 sat_pos = [ ...
-    -8000,  8000, -8000,  8000,     0,     0; ...
-    -8000, -8000,  8000,  8000,     0,     0; ...
-     6000,  6000,  6000,  6000,  9000, -9000];
+    -6000,  6000, -6000,  6000; ...
+    -6000, -6000,  6000,  6000; ...
+     5000,  5000,  5000,  5000];
 
 pair_bank = nchoosek(1:Ns, 2);
 
 x_truth = zeros(cfg.n_steps, nx);
 x_truth(1,:) = [0 0 0 1.2 -0.4 0.3];
 for k = 2:cfg.n_steps
-    ax = 0.01 * sin(0.08 * (k-1));
-    ay = 0.008 * cos(0.05 * (k-1));
-    az = 0.006 * sin(0.04 * (k-1));
+    ax = 0.03 * sin(0.11 * (k-1));
+    ay = 0.024 * cos(0.07 * (k-1));
+    az = 0.018 * sin(0.06 * (k-1));
 
     x_truth(k,4) = x_truth(k-1,4) + cfg.dt * ax;
     x_truth(k,5) = x_truth(k-1,5) + cfg.dt * ay;
@@ -240,7 +240,7 @@ cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 fprintf(fid, '%s', md);
 
 disp(' ')
-disp('=== [ch5r:R8.5b] outerB score-recalibration summary ===')
+disp('=== [ch5r:R8.6b-base] high-pressure outerB summary ===')
 disp(summary)
 disp(['mat file             : ' mat_file])
 disp(['md file              : ' md_file])
@@ -252,20 +252,13 @@ out.cfg = cfg;
 out.model = model;
 out.trace_data = trace_data;
 out.summary = summary;
-out.paths = struct( ...
-    'mat_file', mat_file, ...
-    'md_file', md_file, ...
-    'fig1_file', fig1_file, ...
-    'fig2_file', fig2_file, ...
-    'output_dir', out_dir);
+out.paths = struct('mat_file', mat_file, 'md_file', md_file, 'fig1_file', fig1_file, 'fig2_file', fig2_file, 'output_dir', out_dir);
 out.ok = true;
 end
 
 function md = local_build_md(summary, mat_file, fig1_file, fig2_file)
 lines = {};
-lines{end+1} = '# Phase R8.5b outerB Score Recalibration';
-lines{end+1} = '';
-lines{end+1} = '## Summary';
+lines{end+1} = '# Phase R8.6b-base high-pressure outerB';
 lines{end+1} = '';
 fns = fieldnames(summary);
 for i = 1:numel(fns)
@@ -274,8 +267,6 @@ for i = 1:numel(fns)
         lines{end+1} = ['- ', fns{i}, ' = ', num2str(v, '%.12g')];
     end
 end
-lines{end+1} = '';
-lines{end+1} = '## Artifacts';
 lines{end+1} = '';
 lines{end+1} = ['- mat file: `', mat_file, '`'];
 lines{end+1} = ['- fig1 file: `', fig1_file, '`'];
