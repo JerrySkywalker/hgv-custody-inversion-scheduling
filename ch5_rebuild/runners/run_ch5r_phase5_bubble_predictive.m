@@ -8,13 +8,34 @@ cfg.ch5r.r5 = struct();
 cfg.ch5r.r5.horizon_steps = 30;
 cfg.ch5r.r5.lambda_sw = 0.1;
 
+% Parallel options
+cfg.ch5r.r5.parallel = struct();
+cfg.ch5r.r5.parallel.enable = true;
+
+% Log options
+cfg.ch5r.r5.log = struct();
+cfg.ch5r.r5.log.enable = true;
+cfg.ch5r.r5.log.verbose_step = false;
+cfg.ch5r.r5.log.log_every = 10;
+cfg.ch5r.r5.log.show_step_timing = true;
+cfg.ch5r.r5.log.show_candidate_count = true;
+cfg.ch5r.r5.log.show_best_score = true;
+
 ch5case = build_ch5r_case(cfg);
 ch5case.cfg = cfg;
 
 Nt = numel(ch5case.t_s);
 selection_trace = cell(Nt,1);
 
+if cfg.ch5r.r5.log.enable
+    disp('=== [R5] Start bubble-predictive scheduling ===')
+end
+
+t_total = tic;
+
 for k = 1:Nt
+    t_step = tic;
+
     if isempty(ch5case.candidates.pair_bank{k})
         selection_trace{k} = struct( ...
             'k', k, ...
@@ -24,19 +45,48 @@ for k = 1:Nt
             'score', -inf, ...
             'prev_pair', [], ...
             'switch_flag', false, ...
-            'name', 'bubble_predictive_empty');
-        continue;
+            'name', 'bubble_predictive_empty', ...
+            'n_pairs', 0);
+    else
+        prefix = selection_trace;
+        sel = select_satellite_set_bubble_predictive(cfg, ch5case, prefix, k);
+
+        if k > 1 && ~isempty(selection_trace{k-1}.pair)
+            sel.prev_pair = selection_trace{k-1}.pair;
+            sel.switch_flag = ~isequal(sel.pair, selection_trace{k-1}.pair);
+        end
+
+        selection_trace{k} = sel;
     end
 
-    prefix = selection_trace;
-    sel = select_satellite_set_bubble_predictive(cfg, ch5case, prefix, k);
+    step_time_s = toc(t_step);
 
-    if k > 1 && ~isempty(selection_trace{k-1}.pair)
-        sel.prev_pair = selection_trace{k-1}.pair;
-        sel.switch_flag = ~isequal(sel.pair, selection_trace{k-1}.pair);
+    if cfg.ch5r.r5.log.enable
+        do_log = cfg.ch5r.r5.log.verbose_step || k == 1 || k == Nt || mod(k, cfg.ch5r.r5.log.log_every) == 0;
+        if do_log
+            msg = sprintf('[R5][k=%d/%d]', k, Nt);
+
+            if cfg.ch5r.r5.log.show_candidate_count
+                msg = sprintf('%s nPairs=%d', msg, selection_trace{k}.n_pairs);
+            end
+
+            if ~isempty(selection_trace{k}.pair)
+                msg = sprintf('%s bestPair=[%d %d]', msg, selection_trace{k}.pair(1), selection_trace{k}.pair(2));
+            else
+                msg = sprintf('%s bestPair=[]', msg);
+            end
+
+            if cfg.ch5r.r5.log.show_best_score
+                msg = sprintf('%s score=%.6g', msg, selection_trace{k}.score);
+            end
+
+            if cfg.ch5r.r5.log.show_step_timing
+                msg = sprintf('%s stepTime=%.3fs elapsed=%.3fs', msg, step_time_s, toc(t_total));
+            end
+
+            disp(msg)
+        end
     end
-
-    selection_trace{k} = sel;
 end
 
 wininfo = eval_window_information(ch5case, selection_trace);
