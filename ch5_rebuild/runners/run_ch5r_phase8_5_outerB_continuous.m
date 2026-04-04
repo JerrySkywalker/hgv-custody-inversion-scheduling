@@ -1,13 +1,10 @@
 function out = run_ch5r_phase8_5_outerB_continuous()
 %RUN_CH5R_PHASE8_5_OUTERB_CONTINUOUS
-% Minimal closed-loop runner for Phase R8.5:
-%   inner loop -> M_R/M_G/s_k/P_R -> \tilde{M}_R -> outerB continuous pair scheduling
-%
-% Current implementation remains a smoke:
-%   - mildly maneuvering truth
-%   - fixed synthetic satellite bank
-%   - pair-based scheduling
-%   - no Stage02/Stage03 real geometry connection yet
+% Phase R8.5a:
+%   activate outerB action layer by
+%   1) lower switching penalty
+%   2) stronger pair geometry discrimination
+%   3) near-score tie-break
 
 cfg = struct();
 cfg.dt = 1.0;
@@ -33,21 +30,21 @@ cfg.outerA.Gamma_req = 5e-3;
 cfg.outerB = struct();
 cfg.outerB.alpha0 = 1.0;
 cfg.outerB.beta0 = 1.0;
-cfg.outerB.eta0 = 10.0;
+cfg.outerB.eta0 = 2.0;   % reduced from stronger penalty
 cfg.outerB.mu0 = 0.5;
 cfg.outerB.kappa_alpha = 200.0;
 cfg.outerB.kappa_beta = 100.0;
-cfg.outerB.kappa_eta = 150.0;
+cfg.outerB.kappa_eta = 80.0;
 
 cfg.score = struct();
-cfg.score.switch_cost = 1.0;
+cfg.score.switch_cost = 0.25;   % reduced
 cfg.score.resource_cost = 2.0;
+cfg.score.tie_break_gap = 5.0;  % new
 
 nx = 6;
 ny = 3;
 Ns = 6;
 
-% fixed synthetic satellite bank
 sat_pos = [ ...
     -8000,  8000, -8000,  8000,     0,     0; ...
     -8000, -8000,  8000,  8000,     0,     0; ...
@@ -55,7 +52,6 @@ sat_pos = [ ...
 
 pair_bank = nchoosek(1:Ns, 2);
 
-% mildly maneuvering truth
 x_truth = zeros(cfg.n_steps, nx);
 x_truth(1,:) = [0 0 0 1.2 -0.4 0.3];
 for k = 2:cfg.n_steps
@@ -107,6 +103,7 @@ trace_data.selected_score = zeros(n_eval, 1);
 trace_data.selected_MG_pair = zeros(n_eval, 1);
 trace_data.selected_lambda_max_PR_plus = zeros(n_eval, 1);
 trace_data.switch_cost = zeros(n_eval, 1);
+trace_data.gap12 = zeros(n_eval, 1);
 
 prev_pair = [];
 
@@ -119,7 +116,6 @@ for k = 2:cfg.n_steps
 
     s_k = compute_nis_scalar(upd.nu, upd.S);
 
-    % outerA ingredients
     x_now = upd.x_plus;
     x_seq = zeros(nx, cfg.window_len);
     F_seq = zeros(nx, nx, cfg.window_len);
@@ -141,10 +137,8 @@ for k = 2:cfg.n_steps
     mode_out = classify_outerA_mode(outerA_core);
     outerA = package_outerA_result(MR_raw, MG, outerA_core, mode_out, PR_plus_k);
 
-    % outerB weights
     weights = map_tildeMR_to_scheduler_weights(outerA.tildeMR, cfg.outerB);
 
-    % predicted window for candidate scoring
     sel = select_pair_dualloop_continuous(pred, pair_bank, sat_pos, x_seq, F_seq, Cr, R_pair, ...
         weights, prev_pair, cfg.score);
 
@@ -169,6 +163,7 @@ for k = 2:cfg.n_steps
     trace_data.selected_MG_pair(idx) = outerB.M_G_pair;
     trace_data.selected_lambda_max_PR_plus(idx) = outerB.lambda_max_PR_plus;
     trace_data.switch_cost(idx) = outerB.switch_cost;
+    trace_data.gap12(idx) = sel.gap12;
 
     prev_pair = outerB.pair;
     fs = package_filter_state(upd.x_plus, upd.P_plus);
@@ -190,6 +185,7 @@ summary.mean_eta_k = mean(trace_data.eta_k);
 summary.mean_selected_score = mean(trace_data.selected_score);
 summary.mean_selected_MG_pair = mean(trace_data.selected_MG_pair);
 summary.mean_selected_lambda_max_PR_plus = mean(trace_data.selected_lambda_max_PR_plus);
+summary.mean_gap12 = mean(trace_data.gap12);
 summary.switch_count = switch_count;
 summary.safe_ratio = mean(trace_data.mode_code == 1);
 summary.warn_ratio = mean(trace_data.mode_code == 2);
@@ -225,7 +221,7 @@ cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 fprintf(fid, '%s', md);
 
 disp(' ')
-disp('=== [ch5r:R8.5] outerB continuous scheduling summary ===')
+disp('=== [ch5r:R8.5a] outerB action-layer activation summary ===')
 disp(summary)
 disp(['mat file             : ' mat_file])
 disp(['md file              : ' md_file])
@@ -248,7 +244,7 @@ end
 
 function md = local_build_md(summary, mat_file, fig1_file, fig2_file)
 lines = {};
-lines{end+1} = '# Phase R8.5 outerB Continuous Scheduling';
+lines{end+1} = '# Phase R8.5a outerB Action-Layer Activation';
 lines{end+1} = '';
 lines{end+1} = '## Summary';
 lines{end+1} = '';
@@ -264,6 +260,7 @@ lines{end+1} = ['- mean_eta_k = ', num2str(summary.mean_eta_k, '%.12g')];
 lines{end+1} = ['- mean_selected_score = ', num2str(summary.mean_selected_score, '%.12g')];
 lines{end+1} = ['- mean_selected_MG_pair = ', num2str(summary.mean_selected_MG_pair, '%.12g')];
 lines{end+1} = ['- mean_selected_lambda_max_PR_plus = ', num2str(summary.mean_selected_lambda_max_PR_plus, '%.12g')];
+lines{end+1} = ['- mean_gap12 = ', num2str(summary.mean_gap12, '%.12g')];
 lines{end+1} = ['- switch_count = ', num2str(summary.switch_count)];
 lines{end+1} = ['- safe_ratio = ', num2str(summary.safe_ratio, '%.12g')];
 lines{end+1} = ['- warn_ratio = ', num2str(summary.warn_ratio, '%.12g')];

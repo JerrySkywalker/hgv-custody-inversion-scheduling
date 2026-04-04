@@ -2,25 +2,9 @@ function out = score_candidate_pair_closed_loop(pred, pair, sat_pos, x_seq, F_se
     weights, prev_pair, cfgScore)
 %SCORE_CANDIDATE_PAIR_CLOSED_LOOP Score one candidate pair for outerB.
 %
-% Inputs:
-%   pred      : prediction struct from predict_filter_state
-%   pair      : [1x2] candidate pair indices
-%   sat_pos   : [3 x Ns] satellite positions
-%   x_seq     : [nx x L] predicted state sequence over window
-%   F_seq     : [nx x nx x L] local transitions over window
-%   Cr        : critical-subspace projection
-%   R_pair    : pair measurement covariance [6 x 6]
-%   weights   : struct from map_tildeMR_to_scheduler_weights
-%   prev_pair : previous selected pair, [] allowed
-%   cfgScore  : struct with fields .switch_cost, .resource_cost
-%
-% Outputs:
-%   out.score
-%   out.M_G
-%   out.lambda_max_PR_plus
-%   out.switch_cost
-%   out.resource_cost
-%   out.H_pair
+% Updated in R8.5a:
+%   1) stronger geometry discrimination via anisotropic LOS sensitivity
+%   2) explicit tie-break quantity retained for downstream use
 
 assert(isstruct(pred) && isfield(pred, 'x_minus') && isfield(pred, 'P_minus'), 'Invalid pred.');
 assert(isnumeric(pair) && numel(pair) == 2, 'pair must have 2 elements.');
@@ -68,6 +52,9 @@ JC = weights.eta_k * switch_cost + weights.mu_k * resource_cost;
 
 score = JG - JR - JC;
 
+% small secondary quantity for tie-break usage
+tie_metric = MG_pair.M_G - lambda_max_PR_plus;
+
 out = struct();
 out.score = score;
 out.M_G = MG_pair.M_G;
@@ -78,10 +65,10 @@ out.H_pair = H_pair;
 out.W_pair = W_pair;
 out.Wr_pair = MG_pair.Wr;
 out.traceWr = MG_pair.trace_Wr;
+out.tie_metric = tie_metric;
 end
 
 function H_pair = local_build_pair_H(p_tgt, pair, sat_pos, nx)
-ez = [0;0;1];
 H_pair = zeros(6, nx);
 
 for a = 1:2
@@ -90,10 +77,14 @@ for a = 1:2
     los = p_tgt - r_sat;
     los = los / max(norm(los), 1e-9);
 
+    % side-looking quality
+    ez = [0;0;1];
     q = 1 - abs(dot(los, ez));
-    q = max(q, 0.05); % avoid total degeneracy
+    q = max(q, 0.05);
 
-    Hi = [q * eye(3), zeros(3, nx - 3)];
+    % anisotropic geometry sensitivity
+    G = eye(3) - los * los.';
+    Hi = [q * G, zeros(3, nx - 3)];
     H_pair((3*(a-1)+1):(3*a), :) = Hi;
 end
 end

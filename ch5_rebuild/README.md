@@ -2,7 +2,7 @@
 
 本目录用于第五章新主线重建。
 
-## 当前状态（R2-real / R3-real / R4-real / R4c-real / R5 / R5c-real / R6-real / R7-real / R8-real / R8.1 / R8.2 / R8.3a / R8.4 / R8.5 主线）
+## 当前状态（R2-real / R3-real / R4-real / R4c-real / R5 / R5c-real / R6-real / R7-real / R8-real / R8.1 / R8.2 / R8.3a / R8.4 / R8.5a 主线）
 
 旧的 proxy 版本已废弃，不再允许：
 - theta_star / theta_plus 整构型切换
@@ -26,7 +26,7 @@
 - R8.2：NIS 一致性监视正式接入
 - R8.3a：动态窗口 Gramian + 关键子空间 M_G 修补版
 - R8.4：outerA 上界 \tilde{M}_R 实现
-- R8.5：outerB 连续调度实现
+- R8.5a：outerB 动作层激活修补版
 
 ## 当前入口
 
