@@ -1,10 +1,5 @@
-function info_series_adj = apply_policy_to_info_series(ch5case, selection_trace)
+function [info_series_adj, gain_trace] = apply_policy_to_info_series(ch5case, selection_trace)
 %APPLY_POLICY_TO_INFO_SERIES  Apply minimal policy-dependent gain to info proxy.
-%
-% Current R4b note:
-% This is still a proxy layer. It does not replace the future physical
-% measurement model, but lets policy selections affect the resulting
-% bubble metrics.
 
 if nargin < 1 || isempty(ch5case)
     error('ch5case is required.');
@@ -24,6 +19,7 @@ theta_star = ch5case.theta;
 Ns_star = theta_star.Ns;
 
 info_series_adj = info_series;
+gain_trace = zeros(N,1);
 
 for k = 1:N
     sel = selection_trace{k};
@@ -31,6 +27,7 @@ for k = 1:N
     Ns_k = theta_k.Ns;
 
     gain = local_gain_from_theta(Ns_k, Ns_star, k, N);
+    gain_trace(k) = gain;
 
     Yk = info_series(:,:,k);
     Yk = gain * Yk;
@@ -48,10 +45,8 @@ end
 function gain = local_gain_from_theta(Ns_k, Ns_star, k, N)
 ratio = Ns_k / max(Ns_star, 1);
 
-% Base gain from larger resource level.
 gain = 1.0 + 0.55 * max(ratio - 1.0, 0);
 
-% Give stronger effect near the natural valley, to emulate greedy rescue.
 center = 0.62 * N;
 width = 0.18 * N;
 shape = exp(-((k - center)^2) / (2 * width^2));
