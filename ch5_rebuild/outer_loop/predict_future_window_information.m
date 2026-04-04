@@ -1,82 +1,76 @@
 function pred = predict_future_window_information(ch5case, selection_trace_prefix, future_pair, k_now, horizon_steps)
 %PREDICT_FUTURE_WINDOW_INFORMATION
-% Predict rolling-window lambda_min over a finite horizon if future_pair is chosen at k_now.
+% Local-horizon prediction of rolling-window lambda_min for one candidate pair.
 %
-% Current minimal R5 assumption:
-% - use already fixed past selections up to k_now-1
-% - evaluate one-step candidate future_pair at k_now
-% - future steps beyond k_now keep the same future_pair if visible, otherwise zero info
+% Key optimization:
+% - do NOT rebuild whole-length selection traces
+% - do NOT call eval_window_information over all Nt
+% - only evaluate the local interval needed by [k_now, k_now+H-1]
 
 if nargin < 5
     error('ch5case, selection_trace_prefix, future_pair, k_now, horizon_steps are required.');
 end
 
 Nt = numel(ch5case.t_s);
+L = ch5case.window.length_steps;
 H = min(horizon_steps, Nt - k_now + 1);
 sigma_angle_rad = ch5case.cfg.ch5r.sensor_profile.sigma_angle_rad;
 
-% Build a complete temporary selection trace with valid J_pair fields
-sel_tmp = cell(Nt, 1);
-for kk = 1:Nt
-    sel_tmp{kk} = struct( ...
-        'k', kk, ...
-        'time_s', ch5case.t_s(kk), ...
-        'pair', [], ...
-        'J_pair', zeros(3,3), ...
-        'score', -inf, ...
-        'prev_pair', [], ...
-        'switch_flag', false, ...
-        'name', 'bubble_predictive_tmp_empty');
-end
+idx_start = max(1, k_now - L + 1);
+idx_end = min(Nt, k_now + H - 1);
+nLocal = idx_end - idx_start + 1;
 
-% Copy valid prefix entries
-for kk = 1:min(numel(selection_trace_prefix), Nt)
-    if isstruct(selection_trace_prefix{kk}) && isfield(selection_trace_prefix{kk}, 'J_pair')
-        sel_tmp{kk} = selection_trace_prefix{kk};
-    end
-end
+J_local = zeros(3,3,nLocal);
 
-% Overwrite future horizon with repeated candidate-pair preview
-for kk = k_now:min(k_now + H - 1, Nt)
-    pair_list = ch5case.candidates.pair_bank{kk};
+% Fill local J series:
+% - past part: from already fixed prefix
+% - future part: repeated future_pair if visible, otherwise zero
+for kk = idx_start:idx_end
+    loc = kk - idx_start + 1;
 
-    if isempty(pair_list) || isempty(future_pair) || ~ismember(future_pair, pair_list, 'rows')
-        sel_tmp{kk} = struct( ...
-            'k', kk, ...
-            'time_s', ch5case.t_s(kk), ...
-            'pair', [], ...
-            'J_pair', zeros(3,3), ...
-            'score', -inf, ...
-            'prev_pair', [], ...
-            'switch_flag', false, ...
-            'name', 'bubble_predictive_empty');
+    if kk < k_now
+        if kk <= numel(selection_trace_prefix) && isstruct(selection_trace_prefix{kk}) ...
+                && isfield(selection_trace_prefix{kk}, 'J_pair') && ~isempty(selection_trace_prefix{kk}.J_pair)
+            J_local(:,:,loc) = selection_trace_prefix{kk}.J_pair;
+        else
+            J_local(:,:,loc) = zeros(3,3);
+        end
     else
-        r_tgt = ch5case.truth.r_eci_km(kk, :);
-        r_sat_pair = [
-            squeeze(ch5case.satbank.r_eci_km(kk, :, future_pair(1)));
-            squeeze(ch5case.satbank.r_eci_km(kk, :, future_pair(2)))
-        ];
-        J = compute_bearing_fim_pair(r_tgt, r_sat_pair, sigma_angle_rad);
-
-        sel_tmp{kk} = struct( ...
-            'k', kk, ...
-            'time_s', ch5case.t_s(kk), ...
-            'pair', future_pair, ...
-            'J_pair', J, ...
-            'score', trace(J), ...
-            'prev_pair', [], ...
-            'switch_flag', false, ...
-            'name', 'bubble_predictive_preview');
+        pair_list = ch5case.candidates.pair_bank{kk};
+        if isempty(pair_list) || isempty(future_pair) || ~ismember(future_pair, pair_list, 'rows')
+            J_local(:,:,loc) = zeros(3,3);
+        else
+            r_tgt = ch5case.truth.r_eci_km(kk, :);
+            r_sat_pair = [
+                squeeze(ch5case.satbank.r_eci_km(kk, :, future_pair(1)));
+                squeeze(ch5case.satbank.r_eci_km(kk, :, future_pair(2)))
+            ];
+            J_local(:,:,loc) = compute_bearing_fim_pair(r_tgt, r_sat_pair, sigma_angle_rad);
+        end
     end
 end
 
-wininfo_pred = eval_window_information(ch5case, sel_tmp);
-idx_end = min(k_now + H - 1, Nt);
+% Prefix cumulative sum for fast rolling-window evaluation
+J_cum = zeros(3,3,nLocal+1);
+for i = 1:nLocal
+    J_cum(:,:,i+1) = J_cum(:,:,i) + J_local(:,:,i);
+end
+
+lambda_min_future = nan(H,1);
+
+for kk = k_now:(k_now + H - 1)
+    loc_end = kk - idx_start + 1;
+    w_start = max(idx_start, kk - L + 1);
+    loc_start = w_start - idx_start + 1;
+
+    Jw = J_cum(:,:,loc_end+1) - J_cum(:,:,loc_start);
+    Jw = 0.5 * (Jw + Jw.');
+    lambda_min_future(kk - k_now + 1) = min(eig(Jw));
+end
 
 pred = struct();
 pred.k_now = k_now;
 pred.horizon_steps = H;
-pred.lambda_min_future = wininfo_pred.lambda_min(k_now:idx_end);
-pred.min_future_lambda = min(pred.lambda_min_future, [], 'omitnan');
-pred.wininfo_pred = wininfo_pred;
+pred.lambda_min_future = lambda_min_future;
+pred.min_future_lambda = min(lambda_min_future, [], 'omitnan');
 end

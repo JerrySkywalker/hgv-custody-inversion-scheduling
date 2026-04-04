@@ -1,18 +1,19 @@
 function out = run_ch5r_phase5_bubble_predictive()
 %RUN_CH5R_PHASE5_BUBBLE_PREDICTIVE
-% Minimal real R5: future-window-oriented bubble-predictive scheduling.
+% Real R5: future-window-oriented bubble-predictive scheduling
+% with local-horizon evaluation and switch smoothing.
 
 cfg = default_ch5r_params(true);
 cfg.ch5r.window_length_s = 60;
+
 cfg.ch5r.r5 = struct();
 cfg.ch5r.r5.horizon_steps = 30;
-cfg.ch5r.r5.lambda_sw = 0.1;
+cfg.ch5r.r5.lambda_sw = 500;          % stronger switch penalty than the first R5 version
+cfg.ch5r.r5.min_hold_steps = 5;       % smoothing
 
-% Parallel options
 cfg.ch5r.r5.parallel = struct();
 cfg.ch5r.r5.parallel.enable = true;
 
-% Log options
 cfg.ch5r.r5.log = struct();
 cfg.ch5r.r5.log.enable = true;
 cfg.ch5r.r5.log.verbose_step = false;
@@ -32,9 +33,11 @@ if cfg.ch5r.r5.log.enable
 end
 
 t_total = tic;
+hold_countdown = 0;
 
 for k = 1:Nt
     t_step = tic;
+    mode_str = 'select';
 
     if isempty(ch5case.candidates.pair_bank{k})
         selection_trace{k} = struct( ...
@@ -47,16 +50,63 @@ for k = 1:Nt
             'switch_flag', false, ...
             'name', 'bubble_predictive_empty', ...
             'n_pairs', 0);
-    else
-        prefix = selection_trace;
-        sel = select_satellite_set_bubble_predictive(cfg, ch5case, prefix, k);
+        mode_str = 'empty';
 
-        if k > 1 && ~isempty(selection_trace{k-1}.pair)
-            sel.prev_pair = selection_trace{k-1}.pair;
-            sel.switch_flag = ~isequal(sel.pair, selection_trace{k-1}.pair);
+    else
+        reuse_prev = false;
+
+        if k > 1 && hold_countdown > 0 && ~isempty(selection_trace{k-1}.pair)
+            prev_pair = selection_trace{k-1}.pair;
+            pair_list = ch5case.candidates.pair_bank{k};
+            if ismember(prev_pair, pair_list, 'rows')
+                reuse_prev = true;
+            end
         end
 
-        selection_trace{k} = sel;
+        if reuse_prev
+            pair = selection_trace{k-1}.pair;
+            sigma_angle_rad = cfg.ch5r.sensor_profile.sigma_angle_rad;
+            r_tgt = ch5case.truth.r_eci_km(k, :);
+            r_sat_pair = [
+                squeeze(ch5case.satbank.r_eci_km(k, :, pair(1)));
+                squeeze(ch5case.satbank.r_eci_km(k, :, pair(2)))
+            ];
+            J = compute_bearing_fim_pair(r_tgt, r_sat_pair, sigma_angle_rad);
+
+            selection_trace{k} = struct( ...
+                'k', k, ...
+                'time_s', ch5case.t_s(k), ...
+                'pair', pair, ...
+                'J_pair', J, ...
+                'score', selection_trace{k-1}.score, ...
+                'prev_pair', selection_trace{k-1}.pair, ...
+                'switch_flag', false, ...
+                'name', 'bubble_predictive_hold', ...
+                'eval', [], ...
+                'n_pairs', size(ch5case.candidates.pair_bank{k},1));
+
+            hold_countdown = hold_countdown - 1;
+            mode_str = 'hold';
+
+        else
+            prefix = selection_trace;
+            sel = select_satellite_set_bubble_predictive(cfg, ch5case, prefix, k);
+
+            if k > 1 && ~isempty(selection_trace{k-1}.pair)
+                sel.prev_pair = selection_trace{k-1}.pair;
+                sel.switch_flag = ~isequal(sel.pair, selection_trace{k-1}.pair);
+            end
+
+            selection_trace{k} = sel;
+
+            if selection_trace{k}.switch_flag
+                hold_countdown = cfg.ch5r.r5.min_hold_steps - 1;
+            else
+                hold_countdown = max(hold_countdown - 1, 0);
+            end
+
+            mode_str = 'select';
+        end
     end
 
     step_time_s = toc(t_step);
@@ -64,7 +114,7 @@ for k = 1:Nt
     if cfg.ch5r.r5.log.enable
         do_log = cfg.ch5r.r5.log.verbose_step || k == 1 || k == Nt || mod(k, cfg.ch5r.r5.log.log_every) == 0;
         if do_log
-            msg = sprintf('[R5][k=%d/%d]', k, Nt);
+            msg = sprintf('[R5][k=%d/%d][%s]', k, Nt, mode_str);
 
             if cfg.ch5r.r5.log.show_candidate_count
                 msg = sprintf('%s nPairs=%d', msg, selection_trace{k}.n_pairs);
