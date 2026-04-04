@@ -15,15 +15,31 @@ Nt = numel(ch5case.t_s);
 H = min(horizon_steps, Nt - k_now + 1);
 sigma_angle_rad = ch5case.cfg.ch5r.sensor_profile.sigma_angle_rad;
 
-% Build a temporary selection trace
-sel_tmp = selection_trace_prefix;
+% Build a complete temporary selection trace with valid J_pair fields
+sel_tmp = cell(Nt, 1);
+for kk = 1:Nt
+    sel_tmp{kk} = struct( ...
+        'k', kk, ...
+        'time_s', ch5case.t_s(kk), ...
+        'pair', [], ...
+        'J_pair', zeros(3,3), ...
+        'score', -inf, ...
+        'prev_pair', [], ...
+        'switch_flag', false, ...
+        'name', 'bubble_predictive_tmp_empty');
+end
 
-for kk = k_now:Nt
-    if kk > k_now + H - 1
-        break;
+% Copy valid prefix entries
+for kk = 1:min(numel(selection_trace_prefix), Nt)
+    if isstruct(selection_trace_prefix{kk}) && isfield(selection_trace_prefix{kk}, 'J_pair')
+        sel_tmp{kk} = selection_trace_prefix{kk};
     end
+end
 
+% Overwrite future horizon with repeated candidate-pair preview
+for kk = k_now:min(k_now + H - 1, Nt)
     pair_list = ch5case.candidates.pair_bank{kk};
+
     if isempty(pair_list) || isempty(future_pair) || ~ismember(future_pair, pair_list, 'rows')
         sel_tmp{kk} = struct( ...
             'k', kk, ...

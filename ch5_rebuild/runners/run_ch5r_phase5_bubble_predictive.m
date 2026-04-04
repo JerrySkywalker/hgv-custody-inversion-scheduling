@@ -28,17 +28,14 @@ for k = 1:Nt
         continue;
     end
 
-    if k == 1
-        prefix = repmat({struct('pair', [])}, Nt, 1);
-    else
-        prefix = selection_trace;
-    end
-
+    prefix = selection_trace;
     sel = select_satellite_set_bubble_predictive(cfg, ch5case, prefix, k);
+
     if k > 1 && ~isempty(selection_trace{k-1}.pair)
         sel.prev_pair = selection_trace{k-1}.pair;
         sel.switch_flag = ~isequal(sel.pair, selection_trace{k-1}.pair);
     end
+
     selection_trace{k} = sel;
 end
 
