@@ -1,7 +1,8 @@
 function out = run_ch5r_phase8_5_outerB_continuous()
 %RUN_CH5R_PHASE8_5_OUTERB_CONTINUOUS
-% Phase R8.5b:
-%   normalized outerB scoring recalibration.
+% Phase R8.5b compare-ready version:
+%   normalized outerB scoring recalibration
+%   plus full state/covariance trace export for R8.6-real
 
 cfg = struct();
 cfg.dt = 1.0;
@@ -36,7 +37,7 @@ cfg.outerB.kappa_eta = 80.0;
 cfg.score = struct();
 cfg.score.switch_cost = 0.25;
 cfg.score.resource_cost = 2.0;
-cfg.score.tie_break_gap = 0.05; % normalized score gap
+cfg.score.tie_break_gap = 0.05;
 
 nx = 6;
 ny = 3;
@@ -107,6 +108,10 @@ trace_data.norm_PR = zeros(n_eval, 1);
 trace_data.norm_SC = zeros(n_eval, 1);
 trace_data.norm_RC = zeros(n_eval, 1);
 
+trace_data.xtruth_series = x_truth(2:end, :);
+trace_data.xhat_plus_series = zeros(n_eval, nx);
+trace_data.Pplus_series = zeros(nx, nx, n_eval);
+
 prev_pair = [];
 
 rng(1);
@@ -171,6 +176,9 @@ for k = 2:cfg.n_steps
     trace_data.norm_PR(idx) = outerB.norm_PR;
     trace_data.norm_SC(idx) = outerB.norm_SC;
     trace_data.norm_RC(idx) = outerB.norm_RC;
+
+    trace_data.xhat_plus_series(idx,:) = upd.x_plus.';
+    trace_data.Pplus_series(:,:,idx) = upd.P_plus;
 
     prev_pair = outerB.pair;
     fs = package_filter_state(upd.x_plus, upd.P_plus);
@@ -259,28 +267,13 @@ lines{end+1} = '# Phase R8.5b outerB Score Recalibration';
 lines{end+1} = '';
 lines{end+1} = '## Summary';
 lines{end+1} = '';
-lines{end+1} = ['- n_steps = ', num2str(summary.n_steps)];
-lines{end+1} = ['- mean_nis = ', num2str(summary.mean_nis, '%.12g')];
-lines{end+1} = ['- mean_MR = ', num2str(summary.mean_MR, '%.12g')];
-lines{end+1} = ['- mean_MG = ', num2str(summary.mean_MG, '%.12g')];
-lines{end+1} = ['- mean_tildeMR = ', num2str(summary.mean_tildeMR, '%.12g')];
-lines{end+1} = ['- mean_GammaA = ', num2str(summary.mean_GammaA, '%.12g')];
-lines{end+1} = ['- mean_alpha_k = ', num2str(summary.mean_alpha_k, '%.12g')];
-lines{end+1} = ['- mean_beta_k = ', num2str(summary.mean_beta_k, '%.12g')];
-lines{end+1} = ['- mean_eta_k = ', num2str(summary.mean_eta_k, '%.12g')];
-lines{end+1} = ['- mean_selected_score = ', num2str(summary.mean_selected_score, '%.12g')];
-lines{end+1} = ['- mean_selected_MG_pair = ', num2str(summary.mean_selected_MG_pair, '%.12g')];
-lines{end+1} = ['- mean_selected_lambda_max_PR_plus = ', num2str(summary.mean_selected_lambda_max_PR_plus, '%.12g')];
-lines{end+1} = ['- mean_gap12 = ', num2str(summary.mean_gap12, '%.12g')];
-lines{end+1} = ['- mean_norm_MG = ', num2str(summary.mean_norm_MG, '%.12g')];
-lines{end+1} = ['- mean_norm_PR = ', num2str(summary.mean_norm_PR, '%.12g')];
-lines{end+1} = ['- mean_norm_SC = ', num2str(summary.mean_norm_SC, '%.12g')];
-lines{end+1} = ['- mean_norm_RC = ', num2str(summary.mean_norm_RC, '%.12g')];
-lines{end+1} = ['- switch_count = ', num2str(summary.switch_count)];
-lines{end+1} = ['- safe_ratio = ', num2str(summary.safe_ratio, '%.12g')];
-lines{end+1} = ['- warn_ratio = ', num2str(summary.warn_ratio, '%.12g')];
-lines{end+1} = ['- repair_ratio = ', num2str(summary.repair_ratio, '%.12g')];
-lines{end+1} = ['- emergency_ratio = ', num2str(summary.emergency_ratio, '%.12g')];
+fns = fieldnames(summary);
+for i = 1:numel(fns)
+    v = summary.(fns{i});
+    if isnumeric(v) && isscalar(v)
+        lines{end+1} = ['- ', fns{i}, ' = ', num2str(v, '%.12g')];
+    end
+end
 lines{end+1} = '';
 lines{end+1} = '## Artifacts';
 lines{end+1} = '';
