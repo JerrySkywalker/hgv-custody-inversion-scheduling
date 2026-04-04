@@ -1,99 +1,36 @@
 function ch5case = build_ch5r_case(cfg)
-%BUILD_CH5R_CASE  Build minimal Chapter 5 R1 case for bubble evaluation.
+%BUILD_CH5R_CASE
+% Build a real Phase-R4 case using:
+% - real Stage02 truth
+% - fixed real constellation from theta_star
+% - real Stage03 visibility / LOS geometry
 
 if nargin < 1 || isempty(cfg)
-    cfg = default_ch5r_params();
+    cfg = default_ch5r_params(false);
 end
-
-theta = cfg.ch5r.theta_star;
-gamma_req = cfg.ch5r.gamma_req;
 
 truth = build_ch5r_truth_from_stage02_engine(cfg);
-satbank = build_ch5r_satbank_from_stage03_engine(cfg);
-
-t0 = 0;
-dt = 10;
-tf = 200;
-time_s = (t0:dt:tf).';
-N = numel(time_s);
+satbank = build_ch5r_satbank_from_stage03_engine(cfg, truth);
+candidates = build_ch5r_candidates(cfg, truth, satbank);
 
 window_length_s = 60;
+if isfield(cfg.ch5r, 'window_length_s')
+    window_length_s = cfg.ch5r.window_length_s;
+end
+dt = truth.t_s(2) - truth.t_s(1);
 window_length_steps = max(1, round(window_length_s / dt));
 
-n_state = 6;
-info_series = zeros(n_state, n_state, N);
-
-for k = 1:N
-    info_series(:,:,k) = local_make_information_matrix(k, N, theta, gamma_req);
-end
-
 ch5case = struct();
-ch5case.time_s = time_s;
+ch5case.truth = truth;
+ch5case.satbank = satbank;
+ch5case.candidates = candidates;
+ch5case.t_s = truth.t_s(:);
 ch5case.dt = dt;
 ch5case.window = struct();
 ch5case.window.length_s = window_length_s;
 ch5case.window.length_steps = window_length_steps;
-ch5case.gamma_req = gamma_req;
-ch5case.target_case = cfg.ch5r.target_case;
-ch5case.theta = theta;
-ch5case.truth = truth;
-ch5case.satbank = satbank;
-ch5case.info_series = info_series;
-
-candidates = build_ch5r_candidates(cfg, ch5case);
-ch5case.candidates = candidates;
-ch5case.summary = summarize_ch5r_case(ch5case);
-
+ch5case.gamma_req = cfg.ch5r.gamma_req;
+ch5case.target_case = struct('case_id', truth.case_id, 'family', truth.family);
 ch5case.meta = struct();
-ch5case.meta.phase_name = 'R1';
-ch5case.meta.case_type = 'minimal_information_case';
-ch5case.meta.source = mfilename;
-ch5case.meta.note = ['R1 minimal synthetic information series built from theta_star; ' ...
-    'used only for bubble-state pipeline smoke.'];
-end
-
-function Yk = local_make_information_matrix(k, N, theta, gamma_req)
-n = 6;
-
-ns_factor = max(theta.Ns / 100, 0.5);
-dg_factor = max(theta.DG, 0.5);
-
-baseline = gamma_req * (0.42 + 0.04 * ns_factor + 0.02 * dg_factor);
-
-valley_depth = gamma_req * 0.34;
-center = 0.62 * N;
-width = 0.18 * N;
-
-s = k;
-dip = valley_depth * exp(-((s - center)^2) / (2 * width^2));
-
-diag_vals = [ ...
-    baseline - 1.00 * dip, ...
-    baseline * 1.04 - 0.92 * dip, ...
-    baseline * 1.09 - 0.78 * dip, ...
-    baseline * 1.18 - 0.42 * dip, ...
-    baseline * 1.30 - 0.28 * dip, ...
-    baseline * 1.46 - 0.18 * dip];
-
-diag_vals = max(diag_vals, 1e-3);
-
-Yk = diag(diag_vals);
-
-C = [ ...
-    0    0.03 0.01 0    0    0; ...
-    0.03 0    0.02 0.01 0    0; ...
-    0.01 0.02 0    0.02 0.01 0; ...
-    0    0.01 0.02 0    0.02 0.01; ...
-    0    0    0.01 0.02 0    0.03; ...
-    0    0    0    0.01 0.03 0];
-
-scale = 0.008 * baseline;
-Yk = Yk + scale * C;
-
-Yk = 0.5 * (Yk + Yk.');
-
-mineig = min(eig(Yk));
-if mineig <= 0
-    Yk = Yk + (abs(mineig) + 1e-6) * eye(n);
-end
+ch5case.meta.note = 'Real R4 case: real Stage02 truth + fixed theta_star constellation + real visible pair candidates.';
 end

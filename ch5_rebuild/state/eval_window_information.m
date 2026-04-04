@@ -1,44 +1,47 @@
-function out = eval_window_information(ch5case)
-%EVAL_WINDOW_INFORMATION  Evaluate rolling-window information matrices.
+function wininfo = eval_window_information(ch5case, selection_trace)
+%EVAL_WINDOW_INFORMATION
+% Evaluate rolling-window information using selected real double-satellite pairs.
 
-if nargin < 1 || isempty(ch5case)
-    error('ch5case is required.');
+if nargin < 2 || isempty(selection_trace)
+    error('selection_trace is required for real R4 evaluation.');
 end
 
-time_s = ch5case.time_s;
-Y_series = ch5case.info_series;
+Nt = numel(ch5case.t_s);
 L = ch5case.window.length_steps;
 
-N = numel(time_s);
-n = size(Y_series, 1);
+J_series = zeros(3,3,Nt);
+for k = 1:Nt
+    J_series(:,:,k) = selection_trace{k}.J_pair;
+end
 
-Y_window = zeros(n, n, N);
-lambda_min = nan(N, 1);
-window_start_idx = nan(N, 1);
-window_end_idx = nan(N, 1);
+J_window = zeros(3,3,Nt);
+lambda_min = nan(Nt,1);
+window_start_idx = nan(Nt,1);
+window_end_idx = nan(Nt,1);
 
-for k = 1:N
+for k = 1:Nt
     s0 = max(1, k - L + 1);
     s1 = k;
 
-    Yw = zeros(n, n);
+    Jw = zeros(3,3);
     for j = s0:s1
-        Yw = Yw + Y_series(:,:,j);
+        Jw = Jw + J_series(:,:,j);
     end
 
-    Yw = 0.5 * (Yw + Yw.');
-    Y_window(:,:,k) = Yw;
-    lambda_min(k) = min(eig(Yw));
+    Jw = 0.5 * (Jw + Jw.');
+    J_window(:,:,k) = Jw;
+    lambda_min(k) = min(eig(Jw));
     window_start_idx(k) = s0;
     window_end_idx(k) = s1;
 end
 
-out = struct();
-out.time_s = time_s;
-out.Y_window = Y_window;
-out.lambda_min = lambda_min;
-out.window_start_idx = window_start_idx;
-out.window_end_idx = window_end_idx;
-out.window_length_steps = L;
-out.window_length_s = ch5case.window.length_s;
+wininfo = struct();
+wininfo.t_s = ch5case.t_s(:);
+wininfo.J_series = J_series;
+wininfo.J_window = J_window;
+wininfo.lambda_min = lambda_min;
+wininfo.window_start_idx = window_start_idx;
+wininfo.window_end_idx = window_end_idx;
+wininfo.window_length_steps = L;
+wininfo.window_length_s = ch5case.window.length_s;
 end
