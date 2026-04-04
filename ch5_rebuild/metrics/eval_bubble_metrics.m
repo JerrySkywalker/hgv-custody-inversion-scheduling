@@ -1,67 +1,49 @@
-function metrics = eval_bubble_metrics(state_trace)
-%EVAL_BUBBLE_METRICS  Evaluate minimal bubble metrics from state trace.
+function out = eval_bubble_metrics(MG_series, eps_warn, dt)
+%EVAL_BUBBLE_METRICS Evaluate bubble metrics from M_G series.
+%
+% Inputs:
+%   MG_series : [N x 1] structure metric series
+%   eps_warn  : warning threshold
+%   dt        : time step
+%
+% Outputs:
+%   out.bubble_steps
+%   out.bubble_fraction
+%   out.bubble_time_s
+%   out.longest_bubble_time_s
+%   out.max_bubble_depth
+%   out.is_bubble
 
-if nargin < 1 || isempty(state_trace)
-    error('state_trace is required.');
-end
+MG_series = MG_series(:);
+N = numel(MG_series);
 
-time_s = state_trace.time_s(:);
-is_bubble = logical(state_trace.is_bubble(:));
-bubble_depth = state_trace.bubble_depth(:);
+assert(isnumeric(eps_warn) && isscalar(eps_warn), 'eps_warn invalid.');
+assert(isnumeric(dt) && isscalar(dt) && dt > 0, 'dt invalid.');
 
-if numel(time_s) <= 1
-    dt = 0;
-else
-    dt = median(diff(time_s));
-end
-
-total_steps = numel(time_s);
-bubble_steps = nnz(is_bubble);
+is_bubble = MG_series < eps_warn;
+bubble_steps = sum(is_bubble);
+bubble_fraction = bubble_steps / max(N,1);
 bubble_time_s = bubble_steps * dt;
 
-segments = local_find_segments(is_bubble, dt);
+depth = max(eps_warn - MG_series, 0);
+max_bubble_depth = max(depth);
 
-if isempty(segments)
-    longest_bubble_time_s = 0;
-    mean_bubble_time_s = 0;
-else
-    durations = [segments.duration_s];
-    longest_bubble_time_s = max(durations);
-    mean_bubble_time_s = mean(durations);
+longest_seg = 0;
+cur = 0;
+for k = 1:N
+    if is_bubble(k)
+        cur = cur + 1;
+        longest_seg = max(longest_seg, cur);
+    else
+        cur = 0;
+    end
 end
 
-metrics = struct();
-metrics.total_steps = total_steps;
-metrics.bubble_steps = bubble_steps;
-metrics.bubble_fraction = bubble_steps / max(total_steps, 1);
-metrics.bubble_time_s = bubble_time_s;
-metrics.longest_bubble_time_s = longest_bubble_time_s;
-metrics.mean_bubble_time_s = mean_bubble_time_s;
-metrics.max_bubble_depth = max(bubble_depth);
-metrics.mean_bubble_depth = mean(bubble_depth(is_bubble), 'omitnan');
-if isnan(metrics.mean_bubble_depth)
-    metrics.mean_bubble_depth = 0;
-end
-metrics.segments = segments;
-end
-
-function segments = local_find_segments(mask, dt)
-segments = struct('start_idx', {}, 'end_idx', {}, 'length_steps', {}, 'duration_s', {});
-
-if isempty(mask)
-    return;
-end
-
-mask = mask(:);
-d = diff([false; mask; false]);
-start_idx = find(d == 1);
-end_idx = find(d == -1) - 1;
-
-for i = 1:numel(start_idx)
-    seg.start_idx = start_idx(i);
-    seg.end_idx = end_idx(i);
-    seg.length_steps = end_idx(i) - start_idx(i) + 1;
-    seg.duration_s = seg.length_steps * dt;
-    segments(end+1) = seg; %#ok<AGROW>
-end
+out = struct();
+out.bubble_steps = bubble_steps;
+out.bubble_fraction = bubble_fraction;
+out.bubble_time_s = bubble_time_s;
+out.longest_bubble_time_s = longest_seg * dt;
+out.max_bubble_depth = max_bubble_depth;
+out.is_bubble = is_bubble;
 end

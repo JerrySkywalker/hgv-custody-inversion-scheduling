@@ -1,29 +1,25 @@
-function req = eval_requirement_margin(state_trace)
-%EVAL_REQUIREMENT_MARGIN  Minimal requirement-margin proxy for Phase R2.
+function out = eval_requirement_margin(lambda_max_PR_series, Gamma_req, dt)
+%EVAL_REQUIREMENT_MARGIN Evaluate requirement-bound margin metrics.
 %
-% Current Phase R2 note:
-% This is not yet a physical covariance projection result.
-% It is a proxy interface used to prepare later linkage:
+% margin(k) = Gamma_req - lambda_max(P_R(k))
 %
-%   lambda_min(Y_W) down  => requirement margin down
-%
-% Proxy definition:
-%   margin(k) = lambda_min(k) - gamma_req
+% violation if margin < 0
 
-if nargin < 1 || isempty(state_trace)
-    error('state_trace is required.');
-end
+x = lambda_max_PR_series(:);
+N = numel(x);
 
-lambda_min = state_trace.lambda_min(:);
-gamma_req = state_trace.gamma_req;
+assert(isnumeric(Gamma_req) && isscalar(Gamma_req), 'Gamma_req invalid.');
+assert(isnumeric(dt) && isscalar(dt) && dt > 0, 'dt invalid.');
 
-margin = lambda_min - gamma_req;
+margin = Gamma_req - x;
 is_violation = margin < 0;
 
-req = struct();
-req.margin = margin;
-req.is_violation = is_violation;
-req.min_margin = min(margin);
-req.mean_margin = mean(margin);
-req.total_violation_steps = nnz(is_violation);
+out = struct();
+out.margin = margin;
+out.is_violation = is_violation;
+out.min_margin = min(margin);
+out.mean_margin = mean(margin);
+out.total_violation_steps = sum(is_violation);
+out.total_violation_time_s = sum(is_violation) * dt;
+out.violation_fraction = mean(is_violation);
 end
