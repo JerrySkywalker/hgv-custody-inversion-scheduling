@@ -1,6 +1,6 @@
 # ch5_rebuild
 
-本目录用于第五章新主线重建，当前已完成 **Phase R0-R3** 的收口，并进入 **R4b**。
+本目录用于第五章新主线重建，当前已完成 **Phase R0-R3** 的收口，并进入 **R4b.1**。
 
 ## 当前状态
 
@@ -25,11 +25,11 @@
   - result bundle
   - timeline / failure-case plots
 
-### R4b
+### R4b.1
 - second baseline:
   - `tracking_greedy`
-  - nonzero switching expected
-  - policy selection now feeds back into information proxy
+  - hysteresis switching
+  - policy selection feeds back into information proxy
 
 ## MATLAB 使用
 

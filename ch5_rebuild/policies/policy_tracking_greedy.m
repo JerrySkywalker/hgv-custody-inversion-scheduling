@@ -1,9 +1,10 @@
 function policy = policy_tracking_greedy(cfg, ch5case)
-%POLICY_TRACKING_GREEDY  Minimal tracking-oriented greedy baseline for R4b.
+%POLICY_TRACKING_GREEDY  Minimal tracking-oriented greedy baseline for R4b.1.
 %
-% Rule:
-%   if instantaneous information is weak, switch to theta_plus;
-%   otherwise use theta_star.
+% Hysteresis rule:
+%   if instantaneous information is below tau_low, switch to theta_plus
+%   if instantaneous information is above tau_high, switch to theta_star
+%   otherwise hold previous selection
 
 if nargin < 1 || isempty(cfg)
     cfg = default_ch5r_params();
@@ -23,25 +24,33 @@ for k = 1:N
     inst_lambda_min(k) = min(eig(ch5case.info_series(:,:,k)));
 end
 
-tau_track = 0.72 * ch5case.gamma_req;
+tau_low  = 0.68 * ch5case.gamma_req;
+tau_high = 0.92 * ch5case.gamma_req;
 
+current_theta = theta_star;
 for k = 1:N
-    if inst_lambda_min(k) < tau_track
-        schedule{k} = theta_plus;
-    else
-        schedule{k} = theta_star;
+    s = inst_lambda_min(k);
+
+    if s < tau_low
+        current_theta = theta_plus;
+    elseif s > tau_high
+        current_theta = theta_star;
     end
+
+    schedule{k} = current_theta;
 end
 
 policy = struct();
 policy.name = 'tracking_greedy';
-policy.description = ['Minimal time-varying greedy baseline. Under weak instantaneous ' ...
-    'information, it switches to theta_plus; otherwise it uses theta_star.'];
+policy.description = ['Minimal time-varying greedy baseline with hysteresis. ' ...
+    'Below tau_low use theta_plus; above tau_high use theta_star; ' ...
+    'otherwise hold previous selection.'];
 policy.theta_star = theta_star;
 policy.theta_plus = theta_plus;
 policy.schedule = schedule;
 policy.inst_lambda_min = inst_lambda_min;
-policy.tau_track = tau_track;
+policy.tau_low = tau_low;
+policy.tau_high = tau_high;
 policy.meta = struct();
 policy.meta.phase_name = 'R4';
 policy.meta.source = mfilename;

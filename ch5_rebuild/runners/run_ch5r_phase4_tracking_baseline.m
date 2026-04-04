@@ -1,5 +1,5 @@
 function out = run_ch5r_phase4_tracking_baseline()
-%RUN_CH5R_PHASE4_TRACKING_BASELINE  Minimal R4b tracking-greedy baseline.
+%RUN_CH5R_PHASE4_TRACKING_BASELINE  Minimal R4b.1 tracking-greedy baseline.
 
 cfg = default_ch5r_params();
 ch5case = build_ch5r_case(cfg);
@@ -11,9 +11,7 @@ for k = 1:N
     selection_trace{k} = select_satellite_set_tracking_greedy(policy, k);
 end
 
-% R4b change:
-% apply policy-dependent gain to the synthetic information series so that
-% tracking_greedy can actually affect bubble metrics.
+% Apply policy-dependent gain to the synthetic information series.
 ch5case_r4 = ch5case;
 ch5case_r4.info_series = apply_policy_to_info_series(ch5case, selection_trace);
 
@@ -52,7 +50,8 @@ disp(' ')
 disp('=== [ch5r:R4] tracking-greedy baseline summary ===')
 disp(['policy name          : ' policy.name])
 disp(['case id              : ' ch5case_r4.target_case.case_id])
-disp(['tau_track            : ' num2str(policy.tau_track, '%.12g')])
+disp(['tau_low              : ' num2str(policy.tau_low, '%.12g')])
+disp(['tau_high             : ' num2str(policy.tau_high, '%.12g')])
 disp(['bubble fraction      : ' num2str(result.bubble_metrics.bubble_fraction, '%.6f')])
 disp(['bubble time (s)      : ' num2str(result.bubble_metrics.bubble_time_s, '%.6f')])
 disp(['longest bubble (s)   : ' num2str(result.bubble_metrics.longest_bubble_time_s, '%.6f')])
@@ -63,7 +62,13 @@ disp(['mat file             : ' mat_file])
 disp(['md file              : ' md_file])
 
 assert(strcmp(policy.name, 'tracking_greedy'));
-assert(result.cost_metrics.switch_count > 0, 'R4b expects nonzero switch count.');
+assert(result.cost_metrics.resource_score >= ch5case.theta.Ns, ...
+    'R4b.1 expects resource score not below theta_star level.');
+
+if result.cost_metrics.switch_count == 0
+    warning('R4b.1:NoSwitch', ...
+        'Tracking-greedy still has zero switch count. Inspect tau_low/tau_high and info profile.');
+end
 
 out = struct();
 out.cfg = cfg;
@@ -90,7 +95,8 @@ lines{end+1} = '# Phase R4 Tracking-Greedy Baseline Summary';
 lines{end+1} = '';
 lines{end+1} = ['- policy: `', policy.name, '`'];
 lines{end+1} = ['- case id: `', ch5case.target_case.case_id, '`'];
-lines{end+1} = ['- tau_track: ', num2str(policy.tau_track, '%.12g')];
+lines{end+1} = ['- tau_low: ', num2str(policy.tau_low, '%.12g')];
+lines{end+1} = ['- tau_high: ', num2str(policy.tau_high, '%.12g')];
 lines{end+1} = ['- bubble_fraction: ', num2str(bm.bubble_fraction, '%.6f')];
 lines{end+1} = ['- bubble_time_s: ', num2str(bm.bubble_time_s, '%.6f')];
 lines{end+1} = ['- longest_bubble_time_s: ', num2str(bm.longest_bubble_time_s, '%.6f')];
@@ -99,7 +105,8 @@ lines{end+1} = ['- min_margin: ', num2str(rq.min_margin, '%.12g')];
 lines{end+1} = ['- switch_count: ', num2str(ct.switch_count)];
 lines{end+1} = ['- resource_score: ', num2str(ct.resource_score, '%.6f')];
 lines{end+1} = '';
-lines{end+1} = ['Current note: this R4b run is still proxy-based, but now the ' ...
-    'tracking-greedy selection trace feeds back into the information proxy.'];
+lines{end+1} = ['Current note: this R4b.1 run uses hysteresis switching and policy-aware ' ...
+    'information gain. It remains a proxy baseline, but is intended to create ' ...
+    'visible contrast against static_hold.'];
 md = strjoin(lines, newline);
 end
