@@ -2,7 +2,7 @@
 
 本目录用于第五章新主线重建。
 
-## 当前状态（R2-real / R3-real / R4-real / R4c-real / R5 / R5c-real / R6-real / R7-real / R8-real / R8.1 主线）
+## 当前状态（R2-real / R3-real / R4-real / R4c-real / R5 / R5c-real / R6-real / R7-real / R8-real / R8.1 / R8.2 主线）
 
 旧的 proxy 版本已废弃，不再允许：
 - theta_star / theta_plus 整构型切换
@@ -23,25 +23,13 @@
 - R7-real：最小双环增强版，对比单环与双环触发机制
 - R8-real：弱先验接入负结果验证
 - R8.1：内环滤波底座接入（预测 + EKF 更新 + 创新协方差）
+- R8.2：NIS 一致性监视正式接入
 
 ## 当前入口
 
 ```matlab
 addpath(fullfile(pwd,'ch5_rebuild'));
-addpath(fullfile(pwd,'ch5_rebuild','params'));
-addpath(fullfile(pwd,'ch5_rebuild','bootstrap'));
-addpath(fullfile(pwd,'ch5_rebuild','scenario'));
-addpath(fullfile(pwd,'ch5_rebuild','state'));
-addpath(fullfile(pwd,'ch5_rebuild','metrics'));
-addpath(fullfile(pwd,'ch5_rebuild','policies'));
-addpath(fullfile(pwd,'ch5_rebuild','allocator'));
-addpath(fullfile(pwd,'ch5_rebuild','plots'));
-addpath(fullfile(pwd,'ch5_rebuild','sensing'));
-addpath(fullfile(pwd,'ch5_rebuild','core'));
-addpath(fullfile(pwd,'ch5_rebuild','analysis'));
-addpath(fullfile(pwd,'ch5_rebuild','outer_loop'));
-addpath(fullfile(pwd,'ch5_rebuild','prior'));
 addpath(fullfile(pwd,'ch5_rebuild','inner_loop'));
 addpath(fullfile(pwd,'ch5_rebuild','runners'));
 
-out = run_ch5r_phase8_1_filter_smoke();
+out = run_ch5r_phase8_2_nis_validation();
