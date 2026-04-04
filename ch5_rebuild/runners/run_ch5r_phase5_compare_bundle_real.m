@@ -1,6 +1,6 @@
 function out = run_ch5r_phase5_compare_bundle_real()
 %RUN_CH5R_PHASE5_COMPARE_BUNDLE_REAL
-% Compare R3-real / R4-real / R5-real and draw RMSE proxy curve.
+% Compare R3-real / R4-real / R5-real and draw RMSE proxy curve for R4/R5 only.
 
 cfg = default_ch5r_params(true);
 
@@ -24,7 +24,7 @@ compare_table = struct2table([s3; s4; s5]);
 csv_file = fullfile(out_dir, ['phaseR5_compare_table_real_' stamp '.csv']);
 writetable(compare_table, csv_file);
 
-rmse_fig = plot_ch5r_rmse_proxy_comparison(out3, out4, out5, out_dir, stamp);
+rmse_fig = plot_ch5r_rmse_proxy_comparison(out4, out5, out_dir, stamp);
 
 md_file = fullfile(out_dir, ['phaseR5_compare_bundle_real_' stamp '.md']);
 mat_file = fullfile(out_dir, ['phaseR5_compare_bundle_real_' stamp '.mat']);
@@ -80,12 +80,14 @@ lines{end+1} = '';
 lines{end+1} = '## 3. RMSE proxy note';
 lines{end+1} = '';
 lines{end+1} = ['RMSE-related fields are Fisher-based RMSE proxies, ' ...
-    'not physical filter RMSE. Use them for relative trend comparison only.'];
+    'not physical filter RMSE. The RMSE curve figure intentionally compares ' ...
+    'R4-real and R5-real only, because R3-real can dominate the vertical scale ' ...
+    'and make the dynamic-method comparison unreadable.'];
 lines{end+1} = '';
 lines{end+1} = '## 4. Artifacts';
 lines{end+1} = '';
 lines{end+1} = ['- compare table csv: `', csv_file, '`'];
-lines{end+1} = ['- RMSE proxy figure: `', rmse_fig, '`'];
+lines{end+1} = ['- RMSE proxy figure (R4 vs R5): `', rmse_fig, '`'];
 lines{end+1} = '';
 lines{end+1} = '## 5. Summary table';
 lines{end+1} = '';
