@@ -5,7 +5,7 @@ function out = run_ch5r_phase4_tracking_baseline()
 % - real HGV truth from Stage02
 % - double-satellite scheduling inside the same constellation
 
-cfg = default_ch5r_params(false);
+cfg = default_ch5r_params(true);
 cfg.ch5r.r4 = struct();
 cfg.ch5r.r4.lambda_sw = 0.1;
 cfg.ch5r.window_length_s = 60;

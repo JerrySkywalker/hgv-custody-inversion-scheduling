@@ -3,10 +3,15 @@ function satbank = build_ch5r_satbank_from_stage03_engine(cfg, truth)
 % Build a real fixed constellation satbank using theta_star on the truth time grid.
 
 if nargin < 1 || isempty(cfg)
-    cfg = default_ch5r_params(false);
+    cfg = default_ch5r_params(true);
 end
 if nargin < 2 || isempty(truth)
     truth = build_ch5r_truth_from_stage02_engine(cfg);
+end
+
+% Ensure theta_star is available.
+if ~isfield(cfg, 'ch5r') || ~isfield(cfg.ch5r, 'theta_star') || isempty(cfg.ch5r.theta_star)
+    cfg = default_ch5r_params(true);
 end
 
 cfg_local = cfg;
