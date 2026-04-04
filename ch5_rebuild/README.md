@@ -2,7 +2,7 @@
 
 本目录用于第五章新主线重建。
 
-## 当前状态（R2-real / R3-real / R4-real / R4c-real / R5 / R5c-real / R6-real / R7-real 主线）
+## 当前状态（R2-real / R3-real / R4-real / R4c-real / R5 / R5c-real / R6-real / R7-real / R8-real 主线）
 
 旧的 proxy 版本已废弃，不再允许：
 - theta_star / theta_plus 整构型切换
@@ -21,13 +21,15 @@
 - R5c-real：R3 / R4 / R5 对照包，并绘制 RMSE proxy 曲线
 - R6-real：空泡到需求精度界限失守的最小后果链分析
 - R7-real：最小双环增强版，对比单环与双环触发机制
+- R8-real：弱先验接入（tie-break 版）
 - 使用真实 bearing-only Fisher 信息
 
 ## 说明
 
 - 当前 `rmse_proxy_metrics` 是 Fisher-based RMSE proxy
 - 当前 `R6-real` 是 requirement-risk proxy
-- 当前 `R7-real` 是 minimal dual-loop shell，不是最终复杂双环
+- 当前 `R7-real` 是 minimal dual-loop shell
+- 当前 `R8-real` 是 weak-prior tie-break，不是强先验控制
 
 ## 当前入口
 
@@ -45,7 +47,8 @@ addpath(fullfile(pwd,'ch5_rebuild','sensing'));
 addpath(fullfile(pwd,'ch5_rebuild','core'));
 addpath(fullfile(pwd,'ch5_rebuild','analysis'));
 addpath(fullfile(pwd,'ch5_rebuild','outer_loop'));
+addpath(fullfile(pwd,'ch5_rebuild','prior'));
 addpath(fullfile(pwd,'ch5_rebuild','runners'));
 
-out7 = run_ch5r_phase7_dualloop_compare();
+out8 = run_ch5r_phase8_weak_prior_compare();
 
