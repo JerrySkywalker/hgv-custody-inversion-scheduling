@@ -1,6 +1,6 @@
 function out = run_online_policy_from_pair_bank(cfg, ch5case, policy_name)
 %RUN_ONLINE_POLICY_FROM_PAIR_BANK
-% R8.5f.2 online full-run skeleton for external policies on native pair_bank.
+% R8.5f.2 / R8.5f.3 online full-run skeleton for external policies on native pair_bank.
 %
 % Outputs:
 %   selection_trace{k}.best_pair / J_pair / score / nPairs / mode / stepTime
@@ -18,6 +18,17 @@ if isfield(cfg, 'r85f2') && isfield(cfg.r85f2, 'parallel') && isfield(cfg.r85f2.
     use_parallel = logical(cfg.r85f2.parallel.enable);
 end
 
+log_enable = true;
+log_every_k = 10;
+if isfield(cfg, 'r85f2') && isfield(cfg.r85f2, 'logging')
+    if isfield(cfg.r85f2.logging, 'enable')
+        log_enable = logical(cfg.r85f2.logging.enable);
+    end
+    if isfield(cfg.r85f2.logging, 'every_k')
+        log_every_k = cfg.r85f2.logging.every_k;
+    end
+end
+
 horizon_steps = 1;
 if isfield(ch5case, 'window') && isfield(ch5case.window, 'length_steps')
     horizon_steps = ch5case.window.length_steps;
@@ -25,6 +36,11 @@ end
 
 selection_trace = cell(n_steps,1);
 tic_all = tic;
+
+if log_enable
+    fprintf('[R8.5f.2][policy=%s] online full-run start: n_steps=%d horizon_steps=%d parallel=%s\n', ...
+        policy_name, n_steps, horizon_steps, string(local_yesno(use_parallel)));
+end
 
 for k = 1:n_steps
     pairs_k = pair_bank{k};
@@ -46,6 +62,11 @@ for k = 1:n_steps
         rec.stepTime = toc(t0);
         rec.elapsed = toc(tic_all);
         selection_trace{k} = rec;
+
+        if log_enable && local_should_log_step(k, n_steps, log_every_k)
+            fprintf('[R8.5f.2][policy=%s][k=%d/%d][empty] nPairs=0 stepTime=%.3fs elapsed=%.3fs parallel=%s\n', ...
+                policy_name, k, n_steps, rec.stepTime, rec.elapsed, string(local_yesno(use_parallel)));
+        end
         continue;
     end
 
@@ -89,11 +110,23 @@ for k = 1:n_steps
     rec.elapsed = toc(tic_all);
 
     selection_trace{k} = rec;
+
+    if log_enable && local_should_log_step(k, n_steps, log_every_k)
+        fprintf('[R8.5f.2][policy=%s][k=%d/%d][select] nPairs=%d bestPair=[%d %d] score=%.6g stepTime=%.3fs elapsed=%.3fs parallel=%s\n', ...
+            policy_name, k, n_steps, nPairs, rec.best_pair(1), rec.best_pair(2), ...
+            rec.score, rec.stepTime, rec.elapsed, string(local_yesno(use_parallel)));
+    end
 end
 
 out = struct();
 out.selection_trace = selection_trace;
 out.summary = local_build_summary(selection_trace, policy_name, use_parallel);
+
+if log_enable
+    fprintf('[R8.5f.2][policy=%s] online full-run done: mean_step_time=%.3fs max_step_time=%.3fs mean_nPairs=%.3f max_nPairs=%d parallel=%s\n', ...
+        policy_name, out.summary.mean_step_time, out.summary.max_step_time, ...
+        out.summary.mean_nPairs, out.summary.max_nPairs, string(local_yesno(use_parallel)));
+end
 end
 
 function summary = local_build_summary(selection_trace, policy_name, use_parallel)
@@ -120,4 +153,16 @@ summary.max_step_time = max(step_times);
 summary.mean_nPairs = mean(nPairs_series);
 summary.max_nPairs = max(nPairs_series);
 summary.parallel_enabled = use_parallel;
+end
+
+function tf = local_should_log_step(k, n_steps, every_k)
+tf = (k == 1) || (k == n_steps) || (mod(k-1, every_k) == 0);
+end
+
+function s = local_yesno(tf)
+if tf
+    s = "yes";
+else
+    s = "no";
+end
 end
