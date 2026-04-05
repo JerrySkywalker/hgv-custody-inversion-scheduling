@@ -86,7 +86,6 @@ for k = 2:cfg.n_steps
         MG_ell = compute_structural_metric_MG(W_ell, Cr);
         MG_forecast(ell) = MG_ell.M_G;
 
-        % simplest forecast hold: use one-step propagated prior/posterior gap proxy
         PR_plus = compute_requirement_cov_PR(upd.P_plus, Cr);
         PR_minus = compute_requirement_cov_PR(pred.P_minus, Cr);
         MR_raw = compute_raw_metric_MR(PR_plus, PR_minus, cfg.dt);
@@ -144,7 +143,7 @@ fig1 = plot_bubble_margin_XiB(k_idx, trace_data.Xi_B, 'off');
 saveas(fig1, fig1_file);
 close(fig1);
 
-fig2 = plot_bubble_timeline(k_idx, trace_data.is_bubble, 'off');
+fig2 = plot_bubble_state_timeline(k_idx, trace_data.is_bubble, 'off');
 saveas(fig2, fig2_file);
 close(fig2);
 
