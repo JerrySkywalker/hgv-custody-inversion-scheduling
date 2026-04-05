@@ -25,18 +25,13 @@ assert(iscell(selection_trace), 'selection_trace must be cell.');
 Nt = numel(selection_trace);
 assert(Nt >= 2, 'selection_trace too short.');
 
-% truth
-if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'x_truth')
-    x_truth = ch5case.truth.x_truth;
-elseif isfield(ch5case, 'x_truth')
-    x_truth = ch5case.x_truth;
-else
-    error('Truth state trajectory not found in ch5case.');
-end
+% truth compatibility
+x_truth = local_resolve_truth_state(ch5case);
 
 if size(x_truth,1) ~= Nt
     error('Truth trajectory length does not match selection_trace.');
 end
+assert(size(x_truth,2) >= 6, 'Resolved truth state must have at least 6 columns.');
 
 dt = ch5case.dt;
 X_prev = x_truth(1:end-1,:).';
@@ -134,4 +129,59 @@ out.key_rel_supp = key_rel_supp;
 out.lambda_max_pred = lambda_max_pred;
 out.lambda_key_post = lambda_key_post;
 out.summary = summary;
+end
+
+function x_truth = local_resolve_truth_state(ch5case)
+% Priority:
+% 1) ch5case.truth.x_truth
+% 2) ch5case.truth.X
+% 3) ch5case.x_truth
+% 4) ch5case.truth.r_eci_km -> augment zero velocity
+
+if isfield(ch5case, 'truth') && isstruct(ch5case.truth)
+    T = ch5case.truth;
+
+    if isfield(T, 'x_truth') && isnumeric(T.x_truth)
+        x_truth = T.x_truth;
+        x_truth = local_normalize_truth_state(x_truth);
+        return;
+    end
+
+    if isfield(T, 'X') && isnumeric(T.X)
+        x_truth = T.X;
+        x_truth = local_normalize_truth_state(x_truth);
+        return;
+    end
+
+    if isfield(T, 'r_eci_km') && isnumeric(T.r_eci_km)
+        r = T.r_eci_km;
+        if size(r,2) ~= 3 && size(r,1) == 3
+            r = r.';
+        end
+        assert(size(r,2) == 3, 'truth.r_eci_km must be [Nt x 3] or [3 x Nt].');
+        v = zeros(size(r));
+        x_truth = [r, v];
+        return;
+    end
+end
+
+if isfield(ch5case, 'x_truth') && isnumeric(ch5case.x_truth)
+    x_truth = ch5case.x_truth;
+    x_truth = local_normalize_truth_state(x_truth);
+    return;
+end
+
+error('Truth state trajectory not found in ch5case.');
+end
+
+function x = local_normalize_truth_state(x)
+if size(x,1) < size(x,2) && size(x,1) <= 6
+    x = x.';
+end
+assert(size(x,2) >= 3, 'Truth state must have at least 3 columns.');
+if size(x,2) == 3
+    x = [x, zeros(size(x,1),3)];
+end
+assert(size(x,2) >= 6, 'Truth state must have at least 6 columns after normalization.');
+x = x(:,1:6);
 end
