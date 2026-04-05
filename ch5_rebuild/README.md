@@ -25,23 +25,24 @@
 - R8-C.2：outerB 回正为空泡校正环（R5 条件外壳对齐）
 - R8-C.3：outerB 回正为空泡校正环（R5 内核对齐）
 - R8-C.3a：结果口径整理 + 与 R5 对照汇总
+- R8-C.4：Koopman-DMD 跟踪回放 + RMSE/关键方向协方差抑制对比
 
-## R8-C.3a 当前定义
+## R8-C.4 当前定义
 
-R8-C.3a 不改算法，只做结果整理：
+R8-C.4 不再只比 bubble/switch，而是基于相同 `ch5case` 与相同 Koopman-DMD replay filter，
+对最新 R5-real 与最新 R8-C.3 进行后处理，输出：
 
-- 自动读取最新 R5-real 输出
-- 自动读取最新 R8-C.3 输出
-- 自动生成并排 `csv / md / mat`
-- 固定说明当前对比口径：
-  - R5-real：原 bubble-predictive
-  - R8-C.3：同 future-window kernel，下游排序改为 Xi_B / tau_B / A_B 词典序
+- tracking error curve
+- single-run RMSE-style summary
+- key-direction covariance absolute suppression curve
+- key-direction covariance relative suppression curve
 
 ## 当前入口
 
 ```matlab
 addpath(fullfile(pwd,'ch5_rebuild'));
+addpath(fullfile(pwd,'ch5_rebuild','analysis'));
+addpath(fullfile(pwd,'ch5_rebuild','plots'));
 addpath(fullfile(pwd,'ch5_rebuild','runners'));
 
-out = run_ch5r_phase8_C3a_compare_summary();
-
+out = run_ch5r_phase8_C4_tracking_replay_compare();
