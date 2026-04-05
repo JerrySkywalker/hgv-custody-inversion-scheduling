@@ -1,9 +1,10 @@
 function out = run_ch5r_phase8_C4_tracking_replay_compare(varargin)
 %RUN_CH5R_PHASE8_C4_TRACKING_REPLAY_COMPARE
-% R8-D.1:
+% R8-D.2:
 %   - fixed truth source: truth.X only
 %   - optional locked input mat files
-%   - add NIS computation and confidence-interval validation on top of current replay mainline
+%   - add sensor/meta logging
+%   - close out R8-D with fixed conclusion wording
 
 opts = struct();
 if nargin >= 1 && ~isempty(varargin{1})
@@ -38,6 +39,8 @@ assert(isfield(S8, 'selection_trace'), 'R8-C.3 mat missing selection_trace.');
 
 ch5case5 = local_resolve_case_struct(S5, 'R5-real');
 local_resolve_case_struct(S8, 'R8-C.3'); %#ok<VUNUS>
+
+sensor_meta = local_resolve_sensor_meta(ch5case5);
 
 rep5 = replay_tracking_koopman_dmd_from_selection_trace(ch5case5, S5.selection_trace, 'R5-real');
 rep8 = replay_tracking_koopman_dmd_from_selection_trace(ch5case5, S8.selection_trace, 'R8-C.3');
@@ -99,30 +102,31 @@ saveas(fig4, fig4_file); close(fig4);
 fig5 = plot_compare_nis_histogram(rep5.nis_series(2:end), rep8.nis_series(2:end), rep5.summary.nis_lower, rep5.summary.nis_upper, "R5-real", "R8-C.3", 'off');
 saveas(fig5, fig5_file); close(fig5);
 
-md = local_build_md(r5_mat, r8_mat, rep5.summary, rep8.summary, csv_file, fig1_file, fig2_file, fig3_file, fig4_file, fig5_file);
+md = local_build_md(r5_mat, r8_mat, rep5.summary, rep8.summary, sensor_meta, csv_file, fig1_file, fig2_file, fig3_file, fig4_file, fig5_file);
 fid = fopen(md_file, 'w');
 assert(fid >= 0, 'Failed to open markdown file: %s', md_file);
 cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 fprintf(fid, '%s', md);
 
-save(mat_file, 'r5_mat', 'r8_mat', 'rep5', 'rep8', 'cmp');
+save(mat_file, 'r5_mat', 'r8_mat', 'rep5', 'rep8', 'cmp', 'sensor_meta');
 
 disp(' ')
-disp('=== [ch5r:R8-D.1] NIS validation summary ===')
+disp('=== [ch5r:R8-D.2] NIS role closeout summary ===')
 disp(cmp)
 disp(['R5 input mat        : ' r5_mat])
 disp(['R8-C.3 input mat    : ' r8_mat])
 disp(['R5 truth source     : ' rep5.summary.truth_source])
 disp(['R8 truth source     : ' rep8.summary.truth_source])
+disp(['sensor source       : ' sensor_meta.sensor_source])
+disp(['sigma_angle_deg     : ' num2str(sensor_meta.sigma_angle_deg, '%.12g')])
+disp(['sigma_angle_rad     : ' num2str(sensor_meta.sigma_angle_rad, '%.12g')])
+disp(['Tw_s                : ' num2str(sensor_meta.Tw_s, '%.12g')])
+disp(['window_step_s       : ' num2str(sensor_meta.window_step_s, '%.12g')])
+disp(['eps_reg             : ' num2str(sensor_meta.eps_reg, '%.12g')])
 disp(['R5 NIS bounds       : [', num2str(rep5.summary.nis_lower, '%.6g'), ', ', num2str(rep5.summary.nis_upper, '%.6g'), ']'])
 disp(['csv file            : ' csv_file])
 disp(['md file             : ' md_file])
 disp(['mat file            : ' mat_file])
-disp(['fig1 file           : ' fig1_file])
-disp(['fig2 file           : ' fig2_file])
-disp(['fig3 file           : ' fig3_file])
-disp(['fig4 file           : ' fig4_file])
-disp(['fig5 file           : ' fig5_file])
 
 out = struct();
 out.compare_table = cmp;
@@ -130,7 +134,8 @@ out.inputs = struct( ...
     'r5_mat', r5_mat, ...
     'r8_mat', r8_mat, ...
     'r5_truth_source', rep5.summary.truth_source, ...
-    'r8_truth_source', rep8.summary.truth_source);
+    'r8_truth_source', rep8.summary.truth_source, ...
+    'sensor_meta', sensor_meta);
 out.paths = struct( ...
     'csv_file', csv_file, ...
     'md_file', md_file, ...
@@ -142,6 +147,34 @@ out.paths = struct( ...
     'fig5_file', fig5_file, ...
     'output_dir', out_dir);
 out.ok = true;
+end
+
+function sensor_meta = local_resolve_sensor_meta(ch5case)
+sensor_meta = struct( ...
+    'sensor_source', 'unknown', ...
+    'sigma_angle_deg', NaN, ...
+    'sigma_angle_rad', NaN, ...
+    'Tw_s', NaN, ...
+    'window_step_s', NaN, ...
+    'eps_reg', NaN);
+
+if isfield(ch5case, 'cfg') && isfield(ch5case.cfg, 'stage04')
+    s4 = ch5case.cfg.stage04;
+    sensor_meta.sensor_source = 'stage04-inherited';
+    if isfield(s4, 'sigma_angle_deg'), sensor_meta.sigma_angle_deg = s4.sigma_angle_deg; end
+    if isfield(s4, 'sigma_angle_rad'), sensor_meta.sigma_angle_rad = s4.sigma_angle_rad; end
+    if isfield(s4, 'Tw_s'), sensor_meta.Tw_s = s4.Tw_s; end
+    if isfield(s4, 'window_step_s'), sensor_meta.window_step_s = s4.window_step_s; end
+    if isfield(s4, 'eps_reg'), sensor_meta.eps_reg = s4.eps_reg; end
+    return;
+end
+
+if isfield(ch5case, 'cfg') && isfield(ch5case.cfg, 'sensor_profile')
+    sp = ch5case.cfg.sensor_profile;
+    sensor_meta.sensor_source = 'sensor_profile';
+    if isfield(sp, 'sigma_angle_deg'), sensor_meta.sigma_angle_deg = sp.sigma_angle_deg; end
+    if isfield(sp, 'sigma_angle_rad'), sensor_meta.sigma_angle_rad = sp.sigma_angle_rad; end
+end
 end
 
 function mat_file = local_find_latest_mat(dir_path, pattern)
@@ -163,36 +196,42 @@ end
 error('Latest %s mat missing both ch5case and case fields.', tag);
 end
 
-function md = local_build_md(r5_mat, r8_mat, s5, s8, csv_file, fig1_file, fig2_file, fig3_file, fig4_file, fig5_file)
+function md = local_build_md(r5_mat, r8_mat, s5, s8, sensor_meta, csv_file, fig1_file, fig2_file, fig3_file, fig4_file, fig5_file)
 lines = {};
-lines{end+1} = '# Phase R8-D.1：NIS 计算 + 统计区间验证';
+lines{end+1} = '# Phase R8-D.2：NIS 角色收口';
 lines{end+1} = '';
 lines{end+1} = '## 1. 固定输入';
 lines{end+1} = ['- R5-real mat: `', r5_mat, '`'];
 lines{end+1} = ['- R8-C.3 mat: `', r8_mat, '`'];
 lines{end+1} = ['- csv summary: `', csv_file, '`'];
 lines{end+1} = '';
-lines{end+1} = '## 2. 固定口径';
-lines{end+1} = '- replay truth source fixed to `truth.X` only.';
-lines{end+1} = '- NIS is computed from innovation and innovation covariance at each update step.';
-lines{end+1} = '- confidence interval uses chi-square bounds with m = 3 and alpha = 0.05.';
+lines{end+1} = '## 2. 传感器与窗口参数';
+lines{end+1} = ['- sensor_source = ', sensor_meta.sensor_source];
+lines{end+1} = ['- sigma_angle_deg = ', num2str(sensor_meta.sigma_angle_deg, '%.12g')];
+lines{end+1} = ['- sigma_angle_rad = ', num2str(sensor_meta.sigma_angle_rad, '%.12g')];
+lines{end+1} = ['- Tw_s = ', num2str(sensor_meta.Tw_s, '%.12g')];
+lines{end+1} = ['- window_step_s = ', num2str(sensor_meta.window_step_s, '%.12g')];
+lines{end+1} = ['- eps_reg = ', num2str(sensor_meta.eps_reg, '%.12g')];
 lines{end+1} = '';
-lines{end+1} = '## 3. 汇总';
+lines{end+1} = '## 3. R8-D 结论固定';
+lines{end+1} = '- 在当前 replay 链上，NIS 全域严重越界。';
+lines{end+1} = '- 这说明 NIS 更多反映的是统计链失配，而不是 outerA 主律所需的未来空泡风险信息。';
+lines{end+1} = '- 因此当前论文口径下，NIS 不宜直接并入 outerA 主律，而应降级为诊断/异常标记。';
+lines{end+1} = '';
+lines{end+1} = '## 4. 汇总';
 lines{end+1} = ['- R5 mean_nis = ', num2str(s5.mean_nis, '%.12g')];
 lines{end+1} = ['- R8-C.3 mean_nis = ', num2str(s8.mean_nis, '%.12g')];
 lines{end+1} = ['- R5 nis_ok_ratio = ', num2str(s5.nis_ok_ratio, '%.12g')];
 lines{end+1} = ['- R8-C.3 nis_ok_ratio = ', num2str(s8.nis_ok_ratio, '%.12g')];
-lines{end+1} = ['- R5 nis_low_ratio = ', num2str(s5.nis_low_ratio, '%.12g')];
-lines{end+1} = ['- R8-C.3 nis_low_ratio = ', num2str(s8.nis_low_ratio, '%.12g')];
 lines{end+1} = ['- R5 nis_high_ratio = ', num2str(s5.nis_high_ratio, '%.12g')];
 lines{end+1} = ['- R8-C.3 nis_high_ratio = ', num2str(s8.nis_high_ratio, '%.12g')];
 lines{end+1} = '';
-lines{end+1} = '## 4. 图件';
+lines{end+1} = '## 5. 图件';
 lines{end+1} = ['- tracking error fig: `', fig1_file, '`'];
 lines{end+1} = ['- key-direction absolute suppression fig: `', fig2_file, '`'];
 lines{end+1} = ['- key-direction relative suppression fig: `', fig3_file, '`'];
 lines{end+1} = ['- NIS timeline fig: `', fig4_file, '`'];
-lines{end+1} = ['- NIS histogram fig: `', fig5_file, '`'];
+lines{end+1} = ['- NIS histogram fig: `', fig5_file, '`];
 
 md = strjoin(lines, newline);
 end
