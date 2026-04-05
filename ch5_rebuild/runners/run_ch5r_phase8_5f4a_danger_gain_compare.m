@@ -1,6 +1,6 @@
 function out = run_ch5r_phase8_5f4a_danger_gain_compare()
 %RUN_CH5R_PHASE8_5F4A_DANGER_GAIN_COMPARE
-% R8.5f.4a:
+% R8.5f.4b:
 %   Compare PTA / observability_family / danger_weighted_gain
 %   under online full-run + formal bubble chain.
 
@@ -11,8 +11,11 @@ cfg.r85f2.parallel.enable = true;
 cfg.r85f2.logging.enable = true;
 cfg.r85f2.logging.every_k = 40;
 
-cfg.r85f4a.danger_weighted_gain.eta_switch = 500;
+cfg.r85f4a.danger_weighted_gain.eta_switch = 1e6;
 cfg.r85f4a.danger_weighted_gain.lookahead_steps = 60;
+cfg.r85f4a.danger_weighted_gain.alpha_cross = 1e5;
+cfg.r85f4a.danger_weighted_gain.beta_margin = 1;
+cfg.r85f4a.danger_weighted_gain.eps_margin = 1e-6;
 
 li_case = build_r85_li_case_from_current_case(cfg);
 ch5case = li_case.base_case;
@@ -46,6 +49,13 @@ compare_table = table( ...
         'mean_nPairs', ...
         'parallel_enabled'});
 
+meta = struct();
+meta.eta_switch = cfg.r85f4a.danger_weighted_gain.eta_switch;
+meta.lookahead_steps = cfg.r85f4a.danger_weighted_gain.lookahead_steps;
+meta.alpha_cross = cfg.r85f4a.danger_weighted_gain.alpha_cross;
+meta.beta_margin = cfg.r85f4a.danger_weighted_gain.beta_margin;
+meta.eps_margin = cfg.r85f4a.danger_weighted_gain.eps_margin;
+
 out_dir = fullfile(pwd, 'outputs', 'ch5_rebuild', 'phaseR8_5f4a_danger_gain_compare');
 if ~exist(out_dir, 'dir')
     mkdir(out_dir);
@@ -57,23 +67,26 @@ mat_file = fullfile(out_dir, ['phaseR8_5f4a_danger_gain_compare_' stamp '.mat'])
 md_file  = fullfile(out_dir, ['phaseR8_5f4a_danger_gain_compare_' stamp '.md']);
 
 writetable(compare_table, csv_file);
-save(mat_file, 'cfg', 'run_pta', 'run_obs', 'run_dwg', 'rep_pta', 'rep_obs', 'rep_dwg', 'compare_table');
+save(mat_file, 'cfg', 'meta', 'run_pta', 'run_obs', 'run_dwg', 'rep_pta', 'rep_obs', 'rep_dwg', 'compare_table');
 
-md = local_build_md(compare_table, csv_file, mat_file);
+md = local_build_md(compare_table, meta, csv_file, mat_file);
 fid = fopen(md_file, 'w');
 assert(fid >= 0, 'Failed to open markdown file: %s', md_file);
 cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 fprintf(fid, '%s', md);
 
 disp(' ')
-disp('=== [ch5r:R8.5f.4a] danger-gain compare summary ===')
+disp('=== [ch5r:R8.5f.4b] threshold-crossing gain compare summary ===')
 disp(compare_table)
+disp('=== meta ===')
+disp(meta)
 disp(['csv file             : ' csv_file])
 disp(['mat file             : ' mat_file])
 disp(['md file              : ' md_file])
 
 out = struct();
 out.compare_table = compare_table;
+out.meta = meta;
 out.paths = struct( ...
     'csv_file', csv_file, ...
     'mat_file', mat_file, ...
@@ -82,12 +95,18 @@ out.paths = struct( ...
 out.ok = true;
 end
 
-function md = local_build_md(compare_table, csv_file, mat_file)
+function md = local_build_md(compare_table, meta, csv_file, mat_file)
 lines = {};
-lines{end+1} = '# Phase R8.5f.4a danger-gain compare';
+lines{end+1} = '# Phase R8.5f.4b threshold-crossing gain compare';
 lines{end+1} = '';
 lines{end+1} = ['- csv file = `', csv_file, '`'];
 lines{end+1} = ['- mat file = `', mat_file, '`'];
+lines{end+1} = '';
+lines{end+1} = '## meta';
+mfn = fieldnames(meta);
+for i = 1:numel(mfn)
+    lines{end+1} = ['- ', mfn{i}, ' = ', num2str(meta.(mfn{i}), '%.12g')];
+end
 lines{end+1} = '';
 for i = 1:height(compare_table)
     lines{end+1} = sprintf('- %s: bubble_steps=%g, bubble_time_s=%g, max_bubble_depth=%g, mean_lambda_min_window=%g, switch_count=%g, mean_step_time=%g, mean_nPairs=%g, parallel_enabled=%g', ...
