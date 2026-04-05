@@ -140,17 +140,56 @@ out.summary = summary;
 end
 
 function x_truth = local_resolve_truth(ch5case)
-if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'x_truth')
+% Priority:
+% 1) truth.X
+% 2) truth.x_truth / ch5case.x_truth / truth.x
+% 3) truth.r_eci_km + finite-difference velocity reconstruction
+
+assert(isstruct(ch5case), 'ch5case must be struct.');
+
+if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'X') && ~isempty(ch5case.truth.X)
+    X = ch5case.truth.X;
+    assert(isnumeric(X) && size(X,2) >= 6, 'truth.X exists but is not a valid state array.');
+    x_truth = X(:,1:6);
+    return;
+end
+
+if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'x_truth') && ~isempty(ch5case.truth.x_truth)
     x_truth = ch5case.truth.x_truth;
     return;
 end
-if isfield(ch5case, 'x_truth')
+
+if isfield(ch5case, 'x_truth') && ~isempty(ch5case.x_truth)
     x_truth = ch5case.x_truth;
     return;
 end
-if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'x')
+
+if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'x') && ~isempty(ch5case.truth.x)
     x_truth = ch5case.truth.x;
     return;
 end
+
+if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'r_eci_km') && ~isempty(ch5case.truth.r_eci_km)
+    r = ch5case.truth.r_eci_km;
+    assert(isnumeric(r) && size(r,2) == 3, 'truth.r_eci_km must be [Nt x 3].');
+    assert(isfield(ch5case, 'dt') && isnumeric(ch5case.dt) && isscalar(ch5case.dt) && ch5case.dt > 0, ...
+        'ch5case.dt is required to reconstruct velocity from r_eci_km.');
+
+    dt = ch5case.dt;
+    Nt = size(r,1);
+    v = zeros(Nt, 3);
+
+    if Nt >= 2
+        v(1,:) = (r(2,:) - r(1,:)) / dt;
+        for k = 2:Nt-1
+            v(k,:) = (r(k+1,:) - r(k-1,:)) / (2*dt);
+        end
+        v(Nt,:) = (r(Nt,:) - r(Nt-1,:)) / dt;
+    end
+
+    x_truth = [r, v];
+    return;
+end
+
 error('Truth state trajectory not found in ch5case.');
 end
