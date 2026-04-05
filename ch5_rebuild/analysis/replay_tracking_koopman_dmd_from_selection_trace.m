@@ -1,13 +1,11 @@
 function out = replay_tracking_koopman_dmd_from_selection_trace(ch5case, selection_trace, tag)
 %REPLAY_TRACKING_KOOPMAN_DMD_FROM_SELECTION_TRACE
-% R8-C.4c mainline replay:
-%   - fixed truth source: truth.X only
-%   - globally conditioned DMD:
-%       * per-dimension standardization
-%       * adaptive ridge scale
-%   - no TSVD / no local-window switching
+% Baseline replay version for R8-C.4 mainline:
+%   - FIXED truth source: only truth.X is accepted
+%   - global Koopman-DMD fit
+%   - no automatic fallback to reconstructed velocity
 %
-% This is a minimal conditioning patch on top of the working baseline.
+% This is intentional for repeatability.
 
 assert(isstruct(ch5case), 'ch5case must be struct.');
 assert(iscell(selection_trace), 'selection_trace must be cell.');
@@ -22,9 +20,7 @@ end
 
 X_prev = x_truth(1:end-1,:).';
 X_next = x_truth(2:end,:).';
-dmd = local_fit_global_dmd_conditioned(X_prev, X_next);
-
-F = dmd.F_orig;
+model = fit_local_dmd_operator_reg(X_prev, X_next, 'lambda_reg', 1e-4);
 
 Q = diag([1e-4 1e-4 1e-4 1e-5 1e-5 1e-5]);
 H = [eye(3), zeros(3,3)];
@@ -48,6 +44,8 @@ P_post(:,:,1) = diag([1e-2 1e-2 1e-2 1e-3 1e-3 1e-3]);
 eps_reg = 1e-9;
 
 for k = 2:Nt
+    F = model.A;
+
     x_minus = (F * x_post(k-1,:).').';
     P_minus = F * P_post(:,:,k-1) * F.' + Q;
     P_minus = 0.5 * (P_minus + P_minus.');
@@ -102,9 +100,7 @@ summary.truth_source = truth_source;
 summary.mean_pos_err_norm = mean(pos_err_norm(2:end), 'omitnan');
 summary.mean_rmse_single = sqrt(mean(rmse_single(2:end).^2, 'omitnan'));
 summary.mean_key_abs_supp = mean(key_abs_supp(2:end), 'omitnan');
-summary.mean_key_rel_supp = mean(key_rel_supp(2:end), 'omitnan');
-summary.dmd_ridge_lambda = dmd.lambda_reg;
-summary.dmd_cond_std_gram = dmd.cond_std_gram;
+summary.mean_key_rel_supp = mean(key_rel_supp(2:end), 'omitnan'));
 
 out = struct();
 out.tag = tag;
@@ -123,6 +119,8 @@ out.summary = summary;
 end
 
 function [x_truth, source_name] = local_resolve_truth_fixed(ch5case)
+assert(isstruct(ch5case), 'ch5case must be struct.');
+
 if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'X') && ~isempty(ch5case.truth.X)
     X = ch5case.truth.X;
     assert(isnumeric(X) && size(X,2) >= 6, 'truth.X exists but is not a valid [Nt x >=6] state array.');
@@ -132,37 +130,5 @@ if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'X') && ~isempty(ch5case.
 end
 
 error(['Fixed truth source mode requires ch5case.truth.X. ', ...
-       'No fallback to x_truth/x/r_eci_km is allowed in R8-C.4c.']);
-end
-
-function dmd = local_fit_global_dmd_conditioned(X_prev, X_next)
-assert(isnumeric(X_prev) && isnumeric(X_next), 'DMD inputs must be numeric.');
-assert(all(size(X_prev) == size(X_next)), 'X_prev and X_next size mismatch.');
-
-nx = size(X_prev,1);
-
-mu = mean(X_prev, 2);
-sigma = std(X_prev, 0, 2);
-sigma = max(sigma, 1e-9);
-
-Dinv = diag(1 ./ sigma);
-D = diag(sigma);
-
-Xp = Dinv * (X_prev - mu);
-Xn = Dinv * (X_next - mu);
-
-G = Xp * Xp.';
-gram_scale = trace(G) / nx;
-lambda_reg = 1e-6 * max(gram_scale, 1e-12);
-
-A_std = Xn * Xp.' / (G + lambda_reg * eye(nx));
-F_orig = D * A_std * Dinv;
-
-dmd = struct();
-dmd.A_std = A_std;
-dmd.F_orig = F_orig;
-dmd.mu = mu;
-dmd.sigma = sigma;
-dmd.lambda_reg = lambda_reg;
-dmd.cond_std_gram = cond(G + lambda_reg * eye(nx));
+       'No fallback to x_truth/x/r_eci_km is allowed in R8-C.4b.']);
 end
