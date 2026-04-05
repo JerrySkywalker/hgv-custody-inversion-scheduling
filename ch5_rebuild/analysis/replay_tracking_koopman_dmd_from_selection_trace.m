@@ -5,14 +5,7 @@ function out = replay_tracking_koopman_dmd_from_selection_trace(ch5case, selecti
 %   - state standardization
 %   - TSVD truncation
 %   - adaptive ridge in reduced coordinates
-%
-% Outputs:
-%   out.pos_err_norm
-%   out.rmse_single
-%   out.key_abs_supp
-%   out.key_rel_supp
-%   out.dmd_rank
-%   out.dmd_lambda_red
+% with cold-start fallback to constant-velocity propagation.
 
 assert(isstruct(ch5case), 'ch5case must be struct.');
 assert(iscell(selection_trace), 'selection_trace must be cell.');
@@ -50,19 +43,33 @@ P_post(:,:,1) = diag([1e-2 1e-2 1e-2 1e-3 1e-3 1e-3]);
 eps_reg = 1e-9;
 local_window = 40;
 
+F_cv = [ ...
+    1 0 0 dt 0  0; ...
+    0 1 0 0  dt 0; ...
+    0 0 1 0  0  dt; ...
+    0 0 0 1  0  0; ...
+    0 0 0 0  1  0; ...
+    0 0 0 0  0  1];
+
 for k = 2:Nt
     idx0 = max(1, k - local_window);
     X_prev = x_truth(idx0:k-1,:).';
     X_next = x_truth(idx0+1:k,:).';
 
-    dmd = fit_local_dmd_operator_tsvd_reg(X_prev, X_next, struct( ...
-        'tsvd_rel_tol', 1e-6, ...
-        'ridge_alpha', 1e-6, ...
-        'sigma_floor', 1e-9));
-
-    F = dmd.F_orig;
-    dmd_rank(k) = dmd.rank;
-    dmd_lambda_red(k) = dmd.lambda_red;
+    m = size(X_prev, 2);
+    if m < 2
+        F = F_cv;
+        dmd_rank(k) = 0;
+        dmd_lambda_red(k) = 0;
+    else
+        dmd = fit_local_dmd_operator_tsvd_reg(X_prev, X_next, struct( ...
+            'tsvd_rel_tol', 1e-6, ...
+            'ridge_alpha', 1e-6, ...
+            'sigma_floor', 1e-9));
+        F = dmd.F_orig;
+        dmd_rank(k) = dmd.rank;
+        dmd_lambda_red(k) = dmd.lambda_red;
+    end
 
     x_minus = (F * x_post(k-1,:).').';
     P_minus = F * P_post(:,:,k-1) * F.' + Q;
@@ -140,13 +147,6 @@ out.summary = summary;
 end
 
 function x_truth = local_resolve_truth(ch5case)
-% Priority:
-% 1) truth.X
-% 2) truth.x_truth / ch5case.x_truth / truth.x
-% 3) truth.r_eci_km + finite-difference velocity reconstruction
-
-assert(isstruct(ch5case), 'ch5case must be struct.');
-
 if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'X') && ~isempty(ch5case.truth.X)
     X = ch5case.truth.X;
     assert(isnumeric(X) && size(X,2) >= 6, 'truth.X exists but is not a valid state array.');
