@@ -24,41 +24,24 @@
 - R8-C：outerB 回正为空泡校正环（synthetic smoke）
 - R8-C.2：outerB 回正为空泡校正环（R5 条件外壳对齐）
 - R8-C.3：outerB 回正为空泡校正环（R5 内核对齐）
+- R8-C.3a：结果口径整理 + 与 R5 对照汇总
 
-## R8-C.3 当前定义
+## R8-C.3a 当前定义
 
-R8-C.3 使用与 R5-real 相同的真实 future-window kernel：
+R8-C.3a 不改算法，只做结果整理：
 
-- `predict_future_window_information(...)`
-- `eval_window_information(...)`
-
-不同点仅在于候选 pair 的排序准则，不再用 R5 的单一标量 gain，
-而是使用 bubble-correction 词典序：
-
-1. maximize Xi_B
-2. maximize tau_B
-3. minimize A_B
-4. minimize switch cost
-5. minimize resource cost
+- 自动读取最新 R5-real 输出
+- 自动读取最新 R8-C.3 输出
+- 自动生成并排 `csv / md / mat`
+- 固定说明当前对比口径：
+  - R5-real：原 bubble-predictive
+  - R8-C.3：同 future-window kernel，下游排序改为 Xi_B / tau_B / A_B 词典序
 
 ## 当前入口
 
 ```matlab
 addpath(fullfile(pwd,'ch5_rebuild'));
-addpath(fullfile(pwd,'ch5_rebuild','params'));
-addpath(fullfile(pwd,'ch5_rebuild','bootstrap'));
-addpath(fullfile(pwd,'ch5_rebuild','scenario'));
-addpath(fullfile(pwd,'ch5_rebuild','state'));
-addpath(fullfile(pwd,'ch5_rebuild','metrics'));
-addpath(fullfile(pwd,'ch5_rebuild','policies'));
-addpath(fullfile(pwd,'ch5_rebuild','allocator'));
-addpath(fullfile(pwd,'ch5_rebuild','plots'));
-addpath(fullfile(pwd,'ch5_rebuild','sensing'));
-addpath(fullfile(pwd,'ch5_rebuild','core'));
-addpath(fullfile(pwd,'ch5_rebuild','analysis'));
-addpath(fullfile(pwd,'ch5_rebuild','outer_loop_A'));
-addpath(fullfile(pwd,'ch5_rebuild','outer_loop_B'));
 addpath(fullfile(pwd,'ch5_rebuild','runners'));
 
-outC3 = run_ch5r_phase8_C3_outerB_bubble_correction_real_kernel();
+out = run_ch5r_phase8_C3a_compare_summary();
 
