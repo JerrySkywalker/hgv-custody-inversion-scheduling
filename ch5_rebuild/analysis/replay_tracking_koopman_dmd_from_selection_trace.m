@@ -1,11 +1,9 @@
 function out = replay_tracking_koopman_dmd_from_selection_trace(ch5case, selection_trace, tag)
 %REPLAY_TRACKING_KOOPMAN_DMD_FROM_SELECTION_TRACE
-% Baseline replay version for R8-C.4 mainline:
-%   - FIXED truth source: only truth.X is accepted
-%   - global Koopman-DMD fit
-%   - no automatic fallback to reconstructed velocity
+% R8-D.1 replay with NIS computation added on top of the current repeatable mainline.
 %
-% This is intentional for repeatability.
+% Fixed truth source:
+%   truth.X only
 
 assert(isstruct(ch5case), 'ch5case must be struct.');
 assert(iscell(selection_trace), 'selection_trace must be cell.');
@@ -38,6 +36,14 @@ key_rel_supp = zeros(Nt,1);
 lambda_max_pred = zeros(Nt,1);
 lambda_key_post = zeros(Nt,1);
 
+nis_series = NaN(Nt,1);
+nis_ok_mask = false(Nt,1);
+
+m_meas = 3;
+alpha = 0.05;
+nis_lower = chi2inv(alpha/2, m_meas);
+nis_upper = chi2inv(1-alpha/2, m_meas);
+
 x_post(1,:) = x_truth(1,:) + [0.05 -0.04 0.03 0.01 -0.01 0.02];
 P_post(:,:,1) = diag([1e-2 1e-2 1e-2 1e-3 1e-3 1e-3]);
 
@@ -61,10 +67,15 @@ for k = 2:Nt
     R_eq = inv(J_pair + eps_reg * eye(3));
     yk = x_truth(k,1:3).';
 
+    innov = yk - H * x_minus.';
     S = H * P_minus * H.' + R_eq;
+
+    nis_k = innov.' * (S \ innov);
+    nis_series(k) = nis_k;
+    nis_ok_mask(k) = (nis_k >= nis_lower) && (nis_k <= nis_upper);
+
     K = (P_minus * H.') / S;
 
-    innov = yk - H * x_minus.';
     x_plus = x_minus.' + K * innov;
     I = eye(6);
     P_plus = (I - K*H) * P_minus * (I - K*H).' + K * R_eq * K.';
@@ -100,7 +111,14 @@ summary.truth_source = truth_source;
 summary.mean_pos_err_norm = mean(pos_err_norm(2:end), 'omitnan');
 summary.mean_rmse_single = sqrt(mean(rmse_single(2:end).^2, 'omitnan'));
 summary.mean_key_abs_supp = mean(key_abs_supp(2:end), 'omitnan');
-summary.mean_key_rel_supp = mean(key_rel_supp(2:end), 'omitnan'));
+summary.mean_key_rel_supp = mean(key_rel_supp(2:end), 'omitnan');
+
+summary.nis_lower = nis_lower;
+summary.nis_upper = nis_upper;
+summary.mean_nis = mean(nis_series(2:end), 'omitnan');
+summary.nis_ok_ratio = mean(nis_ok_mask(2:end), 'omitnan');
+summary.nis_low_ratio = mean(nis_series(2:end) < nis_lower, 'omitnan');
+summary.nis_high_ratio = mean(nis_series(2:end) > nis_upper, 'omitnan');
 
 out = struct();
 out.tag = tag;
@@ -115,12 +133,12 @@ out.key_abs_supp = key_abs_supp;
 out.key_rel_supp = key_rel_supp;
 out.lambda_max_pred = lambda_max_pred;
 out.lambda_key_post = lambda_key_post;
+out.nis_series = nis_series;
+out.nis_ok_mask = nis_ok_mask;
 out.summary = summary;
 end
 
 function [x_truth, source_name] = local_resolve_truth_fixed(ch5case)
-assert(isstruct(ch5case), 'ch5case must be struct.');
-
 if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'X') && ~isempty(ch5case.truth.X)
     X = ch5case.truth.X;
     assert(isnumeric(X) && size(X,2) >= 6, 'truth.X exists but is not a valid [Nt x >=6] state array.');
@@ -130,5 +148,5 @@ if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'X') && ~isempty(ch5case.
 end
 
 error(['Fixed truth source mode requires ch5case.truth.X. ', ...
-       'No fallback to x_truth/x/r_eci_km is allowed in R8-C.4b.']);
+       'No fallback to x_truth/x/r_eci_km is allowed in R8-D.1.']);
 end
