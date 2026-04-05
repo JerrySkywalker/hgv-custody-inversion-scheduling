@@ -1,13 +1,11 @@
 function out = replay_tracking_koopman_dmd_from_selection_trace(ch5case, selection_trace, tag)
 %REPLAY_TRACKING_KOOPMAN_DMD_FROM_SELECTION_TRACE
-% Baseline replay version for R8-C.4 mainline:
-%   - compatible truth resolver
-%   - global Koopman-DMD fit (same simple baseline as previous usable version)
-%   - no TSVD/local-window/cold-start fallback
-%
-% This file is intentionally kept as the mainline "working" replay path.
-% The TSVD-stabilized experimental version is saved separately as:
-%   replay_tracking_koopman_dmd_from_selection_trace_tsvd_experiment.m
+% Stabilized kernel-consistent tracking replay using:
+%   - local-window Koopman-DMD
+%   - state standardization
+%   - TSVD truncation
+%   - adaptive ridge in reduced coordinates
+% with cold-start fallback to constant-velocity propagation.
 
 assert(isstruct(ch5case), 'ch5case must be struct.');
 assert(iscell(selection_trace), 'selection_trace must be cell.');
@@ -20,10 +18,7 @@ if size(x_truth,1) ~= Nt
     error('Truth trajectory length does not match selection_trace.');
 end
 
-X_prev = x_truth(1:end-1,:).';
-X_next = x_truth(2:end,:).';
-model = fit_local_dmd_operator_reg(X_prev, X_next, 'lambda_reg', 1e-4);
-
+dt = ch5case.dt;
 Q = diag([1e-4 1e-4 1e-4 1e-5 1e-5 1e-5]);
 H = [eye(3), zeros(3,3)];
 Cr = build_requirement_projection_Cr(6, 'position');
@@ -39,14 +34,42 @@ key_abs_supp = zeros(Nt,1);
 key_rel_supp = zeros(Nt,1);
 lambda_max_pred = zeros(Nt,1);
 lambda_key_post = zeros(Nt,1);
+dmd_rank = zeros(Nt,1);
+dmd_lambda_red = zeros(Nt,1);
 
 x_post(1,:) = x_truth(1,:) + [0.05 -0.04 0.03 0.01 -0.01 0.02];
 P_post(:,:,1) = diag([1e-2 1e-2 1e-2 1e-3 1e-3 1e-3]);
 
 eps_reg = 1e-9;
+local_window = 40;
+
+F_cv = [ ...
+    1 0 0 dt 0  0; ...
+    0 1 0 0  dt 0; ...
+    0 0 1 0  0  dt; ...
+    0 0 0 1  0  0; ...
+    0 0 0 0  1  0; ...
+    0 0 0 0  0  1];
 
 for k = 2:Nt
-    F = model.A;
+    idx0 = max(1, k - local_window);
+    X_prev = x_truth(idx0:k-1,:).';
+    X_next = x_truth(idx0+1:k,:).';
+
+    m = size(X_prev, 2);
+    if m < 2
+        F = F_cv;
+        dmd_rank(k) = 0;
+        dmd_lambda_red(k) = 0;
+    else
+        dmd = fit_local_dmd_operator_tsvd_reg(X_prev, X_next, struct( ...
+            'tsvd_rel_tol', 1e-6, ...
+            'ridge_alpha', 1e-6, ...
+            'sigma_floor', 1e-9));
+        F = dmd.F_orig;
+        dmd_rank(k) = dmd.rank;
+        dmd_lambda_red(k) = dmd.lambda_red;
+    end
 
     x_minus = (F * x_post(k-1,:).').';
     P_minus = F * P_post(:,:,k-1) * F.' + Q;
@@ -100,8 +123,10 @@ summary = struct();
 summary.tag = tag;
 summary.mean_pos_err_norm = mean(pos_err_norm(2:end), 'omitnan');
 summary.mean_rmse_single = sqrt(mean(rmse_single(2:end).^2, 'omitnan'));
-summary.mean_key_abs_supp = mean(key_abs_supp(2:end), 'omitnan'));
-summary.mean_key_rel_supp = mean(key_rel_supp(2:end), 'omitnan'));
+summary.mean_key_abs_supp = mean(key_abs_supp(2:end), 'omitnan');
+summary.mean_key_rel_supp = mean(key_rel_supp(2:end), 'omitnan');
+summary.mean_dmd_rank = mean(dmd_rank(2:end), 'omitnan');
+summary.mean_dmd_lambda_red = mean(dmd_lambda_red(2:end), 'omitnan');
 
 out = struct();
 out.tag = tag;
@@ -116,6 +141,8 @@ out.key_abs_supp = key_abs_supp;
 out.key_rel_supp = key_rel_supp;
 out.lambda_max_pred = lambda_max_pred;
 out.lambda_key_post = lambda_key_post;
+out.dmd_rank = dmd_rank;
+out.dmd_lambda_red = dmd_lambda_red;
 out.summary = summary;
 end
 

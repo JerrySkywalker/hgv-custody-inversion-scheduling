@@ -1,7 +1,10 @@
 function out = run_ch5r_phase8_C4_tracking_replay_compare()
 %RUN_CH5R_PHASE8_C4_TRACKING_REPLAY_COMPARE
-% R8-C.4 stabilized:
-%   replay tracking with stabilized Koopman-DMD under latest R5-real and latest R8-C.3 selection traces.
+% R8-C.4 mainline compare using baseline replay path.
+%
+% NOTE:
+%   The TSVD/local-window stabilized replay is preserved separately as an
+%   experiment file and is not used in this mainline compare.
 
 base_out = fullfile(pwd, 'outputs', 'ch5_rebuild');
 
@@ -31,16 +34,12 @@ cmp = table( ...
     [rep5.summary.mean_rmse_single; rep8.summary.mean_rmse_single], ...
     [rep5.summary.mean_key_abs_supp; rep8.summary.mean_key_abs_supp], ...
     [rep5.summary.mean_key_rel_supp; rep8.summary.mean_key_rel_supp], ...
-    [rep5.summary.mean_dmd_rank; rep8.summary.mean_dmd_rank], ...
-    [rep5.summary.mean_dmd_lambda_red; rep8.summary.mean_dmd_lambda_red], ...
     'VariableNames', { ...
         'policy', ...
         'mean_pos_err_norm', ...
         'mean_rmse_single', ...
         'mean_key_abs_supp', ...
-        'mean_key_rel_supp', ...
-        'mean_dmd_rank', ...
-        'mean_dmd_lambda_red'});
+        'mean_key_rel_supp'});
 
 out_dir = fullfile(base_out, 'phaseR8_C4_tracking_replay_compare');
 if ~exist(out_dir, 'dir')
@@ -80,7 +79,7 @@ fprintf(fid, '%s', md);
 save(mat_file, 'r5_mat', 'r8_mat', 'rep5', 'rep8', 'cmp');
 
 disp(' ')
-disp('=== [ch5r:R8-C.4a] tracking replay compare summary ===')
+disp('=== [ch5r:R8-C.4] tracking replay compare summary ===')
 disp(cmp)
 disp(['csv file            : ' csv_file])
 disp(['md file             : ' md_file])
@@ -123,18 +122,16 @@ end
 
 function md = local_build_md(r5_mat, r8_mat, s5, s8, csv_file, fig1_file, fig2_file, fig3_file)
 lines = {};
-lines{end+1} = '# Phase R8-C.4a：稳定化 Koopman-DMD 跟踪回放对比';
+lines{end+1} = '# Phase R8-C.4：Koopman-DMD 跟踪回放 + RMSE/关键方向协方差抑制对比';
 lines{end+1} = '';
 lines{end+1} = '## 1. 数据来源';
 lines{end+1} = ['- R5-real latest mat: `', r5_mat, '`'];
 lines{end+1} = ['- R8-C.3 latest mat: `', r8_mat, '`'];
 lines{end+1} = ['- csv summary: `', csv_file, '`'];
 lines{end+1} = '';
-lines{end+1} = '## 2. 稳定化口径';
-lines{end+1} = '- 局部窗口 DMD';
-lines{end+1} = '- 每维标准化';
-lines{end+1} = '- TSVD 截断';
-lines{end+1} = '- 自适应 ridge';
+lines{end+1} = '## 2. 主线口径';
+lines{end+1} = '- 使用当前可用的 baseline Koopman-DMD replay。';
+lines{end+1} = '- TSVD/local-window 稳定化版本已保留为旁路实验文件，不覆盖主入口。';
 lines{end+1} = '';
 lines{end+1} = '## 3. 汇总';
 lines{end+1} = ['- R5 mean_pos_err_norm = ', num2str(s5.mean_pos_err_norm, '%.12g')];
@@ -145,10 +142,6 @@ lines{end+1} = ['- R5 mean_key_abs_supp = ', num2str(s5.mean_key_abs_supp, '%.12
 lines{end+1} = ['- R8-C.3 mean_key_abs_supp = ', num2str(s8.mean_key_abs_supp, '%.12g')];
 lines{end+1} = ['- R5 mean_key_rel_supp = ', num2str(s5.mean_key_rel_supp, '%.12g')];
 lines{end+1} = ['- R8-C.3 mean_key_rel_supp = ', num2str(s8.mean_key_rel_supp, '%.12g')];
-lines{end+1} = ['- R5 mean_dmd_rank = ', num2str(s5.mean_dmd_rank, '%.12g')];
-lines{end+1} = ['- R8-C.3 mean_dmd_rank = ', num2str(s8.mean_dmd_rank, '%.12g')];
-lines{end+1} = ['- R5 mean_dmd_lambda_red = ', num2str(s5.mean_dmd_lambda_red, '%.12g')];
-lines{end+1} = ['- R8-C.3 mean_dmd_lambda_red = ', num2str(s8.mean_dmd_lambda_red, '%.12g')];
 lines{end+1} = '';
 lines{end+1} = '## 4. 图件';
 lines{end+1} = ['- tracking error fig: `', fig1_file, '`'];
