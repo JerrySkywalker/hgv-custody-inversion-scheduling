@@ -18,14 +18,18 @@ r8_mat = local_find_latest_mat(r8_dir, 'phaseR8_C3_outerB_bubble_correction_real
 S5 = load(r5_mat);
 S8 = load(r8_mat);
 
-assert(isfield(S5, 'ch5case') && isfield(S5, 'selection_trace'), 'Latest R5 mat missing ch5case or selection_trace.');
-assert(isfield(S8, 'case') && isfield(S8, 'selection_trace'), 'Latest R8-C.3 mat missing case or selection_trace.');
+assert(isfield(S5, 'selection_trace'), 'Latest R5 mat missing selection_trace.');
+assert(isfield(S8, 'selection_trace'), 'Latest R8-C.3 mat missing selection_trace.');
 
-ch5case = S5.ch5case;
-rep5 = replay_tracking_koopman_dmd_from_selection_trace(ch5case, S5.selection_trace, 'R5-real');
-rep8 = replay_tracking_koopman_dmd_from_selection_trace(ch5case, S8.selection_trace, 'R8-C.3');
+ch5case5 = local_resolve_case_struct(S5, 'R5-real');
+ch5case8 = local_resolve_case_struct(S8, 'R8-C.3'); %#ok<NASGU>
 
-t_s = ch5case.t_s(:);
+% Replay on the same case basis for fair comparison.
+% Prefer R5 case as common reference because R8-C.3 was aligned to that case.
+rep5 = replay_tracking_koopman_dmd_from_selection_trace(ch5case5, S5.selection_trace, 'R5-real');
+rep8 = replay_tracking_koopman_dmd_from_selection_trace(ch5case5, S8.selection_trace, 'R8-C.3');
+
+t_s = ch5case5.t_s(:);
 
 cmp = table( ...
     ["R5-real"; "R8-C.3"], ...
@@ -105,6 +109,18 @@ d = dir(fullfile(dir_path, pattern));
 assert(~isempty(d), 'No matching MAT files under %s', dir_path);
 [~, idx] = max([d.datenum]);
 mat_file = fullfile(d(idx).folder, d(idx).name);
+end
+
+function ch5case = local_resolve_case_struct(S, tag)
+if isfield(S, 'ch5case')
+    ch5case = S.ch5case;
+    return;
+end
+if isfield(S, 'case')
+    ch5case = S.case;
+    return;
+end
+error('Latest %s mat missing both ch5case and case fields.', tag);
 end
 
 function md = local_build_md(r5_mat, r8_mat, s5, s8, csv_file, fig1_file, fig2_file, fig3_file)
