@@ -1,8 +1,8 @@
 function out = run_ch5r_phase8_5c_stepwise_selection_scan()
 %RUN_CH5R_PHASE8_5C_STEPWISE_SELECTION_SCAN
-% R8.5c.4:
-%   Full-horizon stepwise scan for Li-style four criteria,
-%   directly reusing native ch5r candidate pair_bank.
+% R8.5c.5:
+%   Full-horizon stepwise scan for Li-style four criteria
+%   on native ch5r candidate layer: ch5case.candidates.pair_bank
 
 cfg = default_ch5r_params(true);
 cfg = default_ch5r_r85_li_methods_params(cfg);
@@ -55,8 +55,10 @@ cn_vs_rim_diff = local_pair_diff_mask(selected_cn, selected_detY_rim) & valid_ma
 cn_vs_fast_diff = local_pair_diff_mask(selected_cn, selected_detY_fast) & valid_mask;
 rim_vs_fast_diff = local_pair_diff_mask(selected_detY_rim, selected_detY_fast) & valid_mask;
 
+any_diff_mask = pta_vs_cn_diff | pta_vs_rim_diff | pta_vs_fast_diff | cn_vs_rim_diff | cn_vs_fast_diff | rim_vs_fast_diff;
+
 summary = struct();
-summary.phase_name = "R8.5c.4";
+summary.phase_name = "R8.5c.5";
 summary.n_steps = n_steps;
 summary.candidate_source = candidate_source;
 summary.sat_field_path = sat_field_path;
@@ -72,6 +74,8 @@ summary.n_pta_vs_fast_diff = sum(pta_vs_fast_diff);
 summary.n_cn_vs_rim_diff = sum(cn_vs_rim_diff);
 summary.n_cn_vs_fast_diff = sum(cn_vs_fast_diff);
 summary.n_rim_vs_fast_diff = sum(rim_vs_fast_diff);
+summary.n_any_diff_steps = sum(any_diff_mask);
+summary.first_any_diff_step = local_first_true_index(any_diff_mask);
 
 scan_table = table( ...
     (1:n_steps)', ...
@@ -88,6 +92,7 @@ scan_table = table( ...
     cn_vs_rim_diff, ...
     cn_vs_fast_diff, ...
     rim_vs_fast_diff, ...
+    any_diff_mask, ...
     'VariableNames', { ...
         'step_index', ...
         'candidate_count', ...
@@ -102,7 +107,12 @@ scan_table = table( ...
         'pta_vs_fast_diff', ...
         'cn_vs_rim_diff', ...
         'cn_vs_fast_diff', ...
-        'rim_vs_fast_diff'});
+        'rim_vs_fast_diff', ...
+        'any_diff'});
+
+valid_rows = scan_table(scan_table.has_candidate, :);
+multi_rows = scan_table(scan_table.has_multi_candidate, :);
+diff_rows = scan_table(scan_table.any_diff, :);
 
 out_dir = fullfile(pwd, 'outputs', 'ch5_rebuild', 'phaseR8_5c_stepwise_selection_scan');
 if ~exist(out_dir, 'dir')
@@ -111,40 +121,48 @@ end
 
 stamp = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
 csv_file = fullfile(out_dir, ['phaseR8_5c_stepwise_selection_scan_' stamp '.csv']);
+csv_diff_file = fullfile(out_dir, ['phaseR8_5c_stepwise_selection_diffrows_' stamp '.csv']);
 mat_file = fullfile(out_dir, ['phaseR8_5c_stepwise_selection_scan_' stamp '.mat']);
 md_file  = fullfile(out_dir, ['phaseR8_5c_stepwise_selection_scan_' stamp '.md']);
 
 writetable(scan_table, csv_file);
-save(mat_file, 'cfg', 'li_case', 'summary', 'scan_table', ...
+writetable(diff_rows, csv_diff_file);
+save(mat_file, 'cfg', 'li_case', 'summary', 'scan_table', 'valid_rows', 'multi_rows', 'diff_rows', ...
     'candidate_count', 'selected_pta', 'selected_cn', 'selected_detY_rim', 'selected_detY_fast');
 
-md = local_build_md(summary, csv_file, mat_file);
+md = local_build_md(summary, csv_file, csv_diff_file, mat_file);
 fid = fopen(md_file, 'w');
 assert(fid >= 0, 'Failed to open markdown file: %s', md_file);
 cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 fprintf(fid, '%s', md);
 
 disp(' ')
-disp('=== [ch5r:R8.5c.4] Li-style stepwise selection scan summary ===')
+disp('=== [ch5r:R8.5c.5] Li-style native stepwise selection scan summary ===')
 disp(summary)
-
-valid_rows = scan_table(scan_table.has_candidate, :);
-multi_rows = scan_table(scan_table.has_multi_candidate, :);
 
 disp('--- first valid rows ---')
 disp(valid_rows(1:min(10,height(valid_rows)), :))
+
 disp('--- first multi-candidate rows ---')
 disp(multi_rows(1:min(10,height(multi_rows)), :))
 
+disp('--- first disagreement rows ---')
+disp(diff_rows(1:min(10,height(diff_rows)), :))
+
 disp(['csv file             : ' csv_file])
+disp(['csv diff file        : ' csv_diff_file])
 disp(['mat file             : ' mat_file])
 disp(['md file              : ' md_file])
 
 out = struct();
 out.summary = summary;
 out.scan_table = scan_table;
+out.valid_rows = valid_rows;
+out.multi_rows = multi_rows;
+out.diff_rows = diff_rows;
 out.paths = struct( ...
     'csv_file', csv_file, ...
+    'csv_diff_file', csv_diff_file, ...
     'mat_file', mat_file, ...
     'md_file', md_file, ...
     'output_dir', out_dir);
@@ -173,9 +191,9 @@ else
 end
 end
 
-function md = local_build_md(summary, csv_file, mat_file)
+function md = local_build_md(summary, csv_file, csv_diff_file, mat_file)
 lines = {};
-lines{end+1} = '# Phase R8.5c.4 Li-style stepwise selection scan';
+lines{end+1} = '# Phase R8.5c.5 Li-style native stepwise selection scan';
 lines{end+1} = '';
 fns = fieldnames(summary);
 for i = 1:numel(fns)
@@ -188,6 +206,7 @@ for i = 1:numel(fns)
 end
 lines{end+1} = '';
 lines{end+1} = ['- csv file: `', csv_file, '`'];
+lines{end+1} = ['- csv diff file: `', csv_diff_file, '`'];
 lines{end+1} = ['- mat file: `', mat_file, '`'];
 md = strjoin(lines, newline);
 end
