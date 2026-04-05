@@ -2,15 +2,10 @@ function candidates = build_r85_pair_candidates_from_case(li_case, step_index)
 %BUILD_R85_PAIR_CANDIDATES_FROM_CASE
 % Build 2-satellite pair candidates from current ch5r case at a given step.
 %
-% This is R8.5c.2 real-candidate bridge:
-%   1) collect visible satellites at step_index
-%   2) enumerate 2-satellite pairs
-%   3) attach placeholder/bridge metrics for Li-style criteria
-%
-% Current version:
-%   - PTA uses visible-duration proxy inside local window
-%   - CN / detY_rim / detY_fast use geometry-based bridge surrogates
-%   - next step will replace surrogates with full Li formulas
+% R8.5c.2 fixed version:
+%   - robust field resolution for satellite/target positions
+%   - prefer explicit fields
+%   - then fallback to recursive heuristic search
 
 assert(isstruct(li_case), 'li_case must be a struct.');
 assert(isfield(li_case, 'base_case'), 'li_case.base_case missing.');
@@ -18,8 +13,9 @@ assert(isnumeric(step_index) && isscalar(step_index), 'step_index must be scalar
 
 base_case = li_case.base_case;
 
-sat_pos = local_resolve_sat_positions(base_case);
-tgt_pos = local_resolve_target_positions(base_case);
+[sat_pos, sat_field_path] = local_resolve_sat_positions(base_case);
+[tgt_pos, tgt_field_path] = local_resolve_target_positions(base_case);
+
 assert(step_index >= 1 && step_index <= size(tgt_pos,1), 'step_index out of range.');
 
 n_sat = size(sat_pos, 3);
@@ -43,7 +39,9 @@ for s = 1:n_sat
 end
 
 if numel(vis_idx) < 2
-    candidates = struct('sat_pair', {}, 'pta_len_s', {}, 'cn_value', {}, 'detY_rim_value', {}, 'detY_fast_value', {});
+    candidates = struct('sat_pair', {}, 'pta_len_s', {}, 'cn_value', {}, ...
+        'detY_rim_value', {}, 'detY_fast_value', {}, ...
+        'sat_field_path', {}, 'tgt_field_path', {});
     return;
 end
 
@@ -55,7 +53,9 @@ candidates = repmat(struct( ...
     'pta_len_s', NaN, ...
     'cn_value', NaN, ...
     'detY_rim_value', NaN, ...
-    'detY_fast_value', NaN), n_pair, 1);
+    'detY_fast_value', NaN, ...
+    'sat_field_path', "", ...
+    'tgt_field_path', ""), n_pair, 1);
 
 win_steps = li_case.resource.interval_steps;
 k2 = min(size(tgt_pos,1), step_index + win_steps - 1);
@@ -65,46 +65,216 @@ for i = 1:n_pair
     s1 = pair(1);
     s2 = pair(2);
 
-    pta1 = local_visible_count_over_window(sat_pos(:,:,s1), tgt_pos, step_index, k2, li_case.sensor.max_range_km, li_case.sensor.off_nadir_deg);
-    pta2 = local_visible_count_over_window(sat_pos(:,:,s2), tgt_pos, step_index, k2, li_case.sensor.max_range_km, li_case.sensor.off_nadir_deg);
+    pta1 = local_visible_count_over_window(sat_pos(:,:,s1), tgt_pos, step_index, k2, ...
+        li_case.sensor.max_range_km, li_case.sensor.off_nadir_deg);
+    pta2 = local_visible_count_over_window(sat_pos(:,:,s2), tgt_pos, step_index, k2, ...
+        li_case.sensor.max_range_km, li_case.sensor.off_nadir_deg);
     pta_pair = min(pta1, pta2) * li_case.meta.dt;
 
-    [geom_score, cn_proxy] = local_pair_geometry_proxy(sat_pos(step_index,:,s1), sat_pos(step_index,:,s2), tgt_pos(step_index,:));
+    [geom_score, cn_proxy] = local_pair_geometry_proxy( ...
+        sat_pos(step_index,:,s1), sat_pos(step_index,:,s2), tgt_pos(step_index,:));
 
     candidates(i).sat_pair = pair;
     candidates(i).pta_len_s = pta_pair;
     candidates(i).cn_value = cn_proxy;
     candidates(i).detY_rim_value = geom_score;
     candidates(i).detY_fast_value = 0.95 * geom_score;
+    candidates(i).sat_field_path = string(sat_field_path);
+    candidates(i).tgt_field_path = string(tgt_field_path);
 end
 end
 
-function sat_pos = local_resolve_sat_positions(base_case)
-if isfield(base_case, 'satellites') && isfield(base_case.satellites, 'r_eci_km')
-    sat_pos = base_case.satellites.r_eci_km;
+function [sat_pos, field_path] = local_resolve_sat_positions(base_case)
+% Return [Nt x 3 x Ns] satellite position array
+
+% 1) explicit likely fields
+trial_paths = { ...
+    'satbank.r_eci_km', ...
+    'satbank.r_eci_all_km', ...
+    'satbank.r_eci', ...
+    'satellites.r_eci_km', ...
+    'constellation.r_eci_km', ...
+    'satbank.positions_eci_km', ...
+    'satbank.positions_km'};
+
+for i = 1:numel(trial_paths)
+    [tf, val] = local_try_get_path(base_case, trial_paths{i});
+    if tf
+        arr = local_normalize_sat_array(val);
+        if ~isempty(arr)
+            sat_pos = arr;
+            field_path = trial_paths{i};
+            return;
+        end
+    end
+end
+
+% 2) recursive search, prefer fields containing sat/satbank/constellation
+[hits, paths] = local_recursive_collect_numeric(base_case, "");
+best_idx = 0;
+for i = 1:numel(hits)
+    arr = local_normalize_sat_array(hits{i});
+    if ~isempty(arr)
+        p = lower(paths{i});
+        if contains(p, 'satbank') || contains(p, 'sat') || contains(p, 'constellation')
+            sat_pos = arr;
+            field_path = paths{i};
+            return;
+        end
+        if best_idx == 0
+            best_idx = i;
+        end
+    end
+end
+
+if best_idx ~= 0
+    sat_pos = local_normalize_sat_array(hits{best_idx});
+    field_path = paths{best_idx};
     return;
 end
-if isfield(base_case, 'constellation') && isfield(base_case.constellation, 'r_eci_km')
-    sat_pos = base_case.constellation.r_eci_km;
-    return;
-end
+
 error('Satellite position array not found in base_case.');
 end
 
-function tgt_pos = local_resolve_target_positions(base_case)
-if isfield(base_case, 'truth') && isfield(base_case.truth, 'r_eci_km')
-    tgt_pos = base_case.truth.r_eci_km;
+function [tgt_pos, field_path] = local_resolve_target_positions(base_case)
+% Return [Nt x 3] target truth position array
+
+trial_paths = { ...
+    'truth.r_eci_km', ...
+    'target_truth.r_eci_km', ...
+    'target_case.r_eci_km', ...
+    'truth.X', ...
+    'truth.x_truth', ...
+    'x_truth'};
+
+for i = 1:numel(trial_paths)
+    [tf, val] = local_try_get_path(base_case, trial_paths{i});
+    if tf
+        arr = local_normalize_target_array(val);
+        if ~isempty(arr)
+            tgt_pos = arr;
+            field_path = trial_paths{i};
+            return;
+        end
+    end
+end
+
+[hits, paths] = local_recursive_collect_numeric(base_case, "");
+best_idx = 0;
+for i = 1:numel(hits)
+    arr = local_normalize_target_array(hits{i});
+    if ~isempty(arr)
+        p = lower(paths{i});
+        if contains(p, 'truth') || contains(p, 'target')
+            tgt_pos = arr;
+            field_path = paths{i};
+            return;
+        end
+        if best_idx == 0
+            best_idx = i;
+        end
+    end
+end
+
+if best_idx ~= 0
+    tgt_pos = local_normalize_target_array(hits{best_idx});
+    field_path = paths{best_idx};
     return;
 end
-if isfield(base_case, 'target_truth') && isfield(base_case.target_truth, 'r_eci_km')
-    tgt_pos = base_case.target_truth.r_eci_km;
-    return;
-end
-if isfield(base_case, 'target_case') && isfield(base_case.target_case, 'r_eci_km')
-    tgt_pos = base_case.target_case.r_eci_km;
-    return;
-end
+
 error('Target truth position array not found in base_case.');
+end
+
+function [tf, val] = local_try_get_path(S, path_str)
+parts = strsplit(path_str, '.');
+val = S;
+tf = true;
+for i = 1:numel(parts)
+    if isstruct(val) && isfield(val, parts{i})
+        val = val.(parts{i});
+    else
+        tf = false;
+        val = [];
+        return;
+    end
+end
+end
+
+function arr = local_normalize_sat_array(val)
+arr = [];
+
+if ~isnumeric(val) || isempty(val)
+    return;
+end
+
+sz = size(val);
+
+% [Nt x 3 x Ns]
+if ndims(val) == 3 && sz(2) == 3 && sz(1) > 10 && sz(3) > 1
+    arr = val;
+    return;
+end
+
+% [3 x Nt x Ns] -> [Nt x 3 x Ns]
+if ndims(val) == 3 && sz(1) == 3 && sz(2) > 10 && sz(3) > 1
+    arr = permute(val, [2 1 3]);
+    return;
+end
+
+% [Nt x Ns x 3] -> [Nt x 3 x Ns]
+if ndims(val) == 3 && sz(3) == 3 && sz(1) > 10 && sz(2) > 1
+    arr = permute(val, [1 3 2]);
+    return;
+end
+end
+
+function arr = local_normalize_target_array(val)
+arr = [];
+
+if ~isnumeric(val) || isempty(val)
+    return;
+end
+
+sz = size(val);
+
+% [Nt x 3]
+if ismatrix(val) && sz(2) >= 3 && sz(1) > 10
+    arr = val(:,1:3);
+    return;
+end
+
+% [3 x Nt] -> [Nt x 3]
+if ismatrix(val) && sz(1) >= 3 && sz(2) > 10
+    arr = val(1:3,:).';
+    return;
+end
+end
+
+function [vals, paths] = local_recursive_collect_numeric(S, prefix)
+vals = {};
+paths = {};
+
+if isnumeric(S)
+    vals = {S};
+    paths = {char(prefix)};
+    return;
+end
+
+if ~isstruct(S)
+    return;
+end
+
+fn = fieldnames(S);
+for i = 1:numel(fn)
+    if strlength(string(prefix)) == 0
+        p = string(fn{i});
+    else
+        p = string(prefix) + "." + string(fn{i});
+    end
+    [vsub, psub] = local_recursive_collect_numeric(S.(fn{i}), p);
+    vals = [vals, vsub]; %#ok<AGROW>
+    paths = [paths, psub]; %#ok<AGROW>
+end
 end
 
 function tf = local_pass_off_nadir(rs, rt, off_nadir_deg)
