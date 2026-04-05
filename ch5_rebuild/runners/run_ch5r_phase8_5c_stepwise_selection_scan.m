@@ -2,11 +2,6 @@ function out = run_ch5r_phase8_5c_stepwise_selection_scan()
 %RUN_CH5R_PHASE8_5C_STEPWISE_SELECTION_SCAN
 % R8.5c.3:
 %   Full-horizon stepwise scan for Li-style four relay-selection criteria.
-%
-% Outputs:
-%   - candidate count at each step
-%   - selected pair of PTA / CN / detY_rim / detY_fast at each step
-%   - disagreement statistics
 
 cfg = default_ch5r_params(true);
 cfg = default_ch5r_r85_li_methods_params(cfg);
@@ -130,8 +125,16 @@ fprintf(fid, '%s', md);
 disp(' ')
 disp('=== [ch5r:R8.5c.3] Li-style stepwise selection scan summary ===')
 disp(summary)
+
+valid_rows = scan_table(scan_table.has_candidate, :);
+multi_rows = scan_table(scan_table.has_multi_candidate, :);
+
 disp('--- first valid rows ---')
-disp(scan_table(scan_table.has_candidate, 1:min(10,sum(scan_table.has_candidate)), :))
+disp(valid_rows(1:min(10,height(valid_rows)), :))
+
+disp('--- first multi-candidate rows ---')
+disp(multi_rows(1:min(10,height(multi_rows)), :))
+
 disp(['csv file             : ' csv_file])
 disp(['mat file             : ' mat_file])
 disp(['md file              : ' md_file])
