@@ -19,25 +19,52 @@
 - R8.5b：outerB 评分重标定版
 - R8.6-real：真实分支 compare 接入版
 - R8.6b：高压力可区分性增强尝试
-- R8-A：空泡主变量重定义（Xi_B = S_r - D_r - eps_B）
+- R8-A-redo：requirement-induced bubble main variable
+- R8-B：outerA 回正为空泡预测环
+- R8-C：outerB 回正为空泡校正环（synthetic smoke）
+- R8-C.2：outerB 回正为空泡校正环（R5 条件对齐版）
 
-## R8-A 当前定义
+## R8-A-redo 当前定义
 
 给定未来窗口长度 H，定义：
 
-- 最弱供给下界
-  S_r(k,H;u) = min M_G(k+ell|k;u)
+- requirement margin forecast
+  margin(ell) = Gamma_req - lambda_max(P_r,k+ell|k^+)
 
-- 最弱方向需求
-  D_r(k,H) = rho_r * sum max(0, M_R(k+ell|k)) * dt
+- requirement-induced bubble margin
+  Xi_B(k,H) = min_{ell=1,...,H} margin(ell)
 
-- 空泡裕度
-  Xi_B(k,H;u) = S_r(k,H;u) - D_r(k,H) - eps_B
+- bubble risk
+  R_B(k,H) = max(0, -Xi_B(k,H))
 
-- 空泡风险
-  R_B(k,H;u) = max(0, -Xi_B(k,H;u))
+这一版本不使用人工超参数 rho_r / eps_B，直接由 requirement 上限与未来 P_r^+ 轨迹定义 bubble 主变量。
 
-当前 R8-A 先以独立 smoke 形式落地，不直接破坏现有 R8.5 / R8.6 主线。
+## R8-B 当前定义
+
+outerA 直接输出未来窗口空泡预测量：
+
+- Xi_B : 最坏 requirement 裕度
+- tau_B: 首次失守时刻
+- A_B  : requirement 失守面积
+
+## R8-C 当前定义
+
+outerB 不再用人工加权，而采用词典序 bubble correction：
+
+1. maximize Xi_B
+2. maximize tau_B
+3. minimize A_B
+4. minimize switch cost
+5. minimize resource cost
+
+## R8-C.2 当前定义
+
+R8-C.2 与 R5-real 对齐：
+
+- 使用同源 `default_ch5r_params(true)` + `build_ch5r_case(cfg)`
+- 使用真实时变 `pair_bank{k}`
+- 使用真实时变卫星位置
+- 保持 Xi_B / tau_B / A_B 词典序 bubble correction 逻辑
 
 ## 当前入口
 
@@ -45,8 +72,12 @@
 addpath(fullfile(pwd,'ch5_rebuild'));
 addpath(fullfile(pwd,'ch5_rebuild','inner_loop'));
 addpath(fullfile(pwd,'ch5_rebuild','outer_loop_A'));
+addpath(fullfile(pwd,'ch5_rebuild','outer_loop_B'));
 addpath(fullfile(pwd,'ch5_rebuild','plots'));
 addpath(fullfile(pwd,'ch5_rebuild','runners'));
 
-out = run_ch5r_phase8_A_bubble_variable_smoke();
+outA  = run_ch5r_phase8_A_bubble_variable_smoke();
+outB  = run_ch5r_phase8_B_outerA_bubble_prediction();
+outC  = run_ch5r_phase8_C_outerB_bubble_correction();
+outC2 = run_ch5r_phase8_C2_outerB_bubble_correction_aligned();
 
