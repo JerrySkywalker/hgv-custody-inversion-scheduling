@@ -25,17 +25,24 @@
 - R8-C.2：outerB 回正为空泡校正环（R5 条件外壳对齐）
 - R8-C.3：outerB 回正为空泡校正环（R5 内核对齐）
 - R8-C.3a：结果口径整理 + 与 R5 对照汇总
-- R8-C.4：Koopman-DMD 跟踪回放 + RMSE/关键方向协方差抑制对比
+- R8-C.4a：稳定化 Koopman-DMD 跟踪回放对比
 
-## R8-C.4 当前定义
+## R8-C.4a 当前定义
 
-R8-C.4 不再只比 bubble/switch，而是基于相同 `ch5case` 与相同 Koopman-DMD replay filter，
-对最新 R5-real 与最新 R8-C.3 进行后处理，输出：
+R8-C.4a 采用稳定化 replay 内环：
+
+- 局部窗口 DMD
+- 每维标准化
+- TSVD 截断
+- 自适应 ridge
+
+输出：
 
 - tracking error curve
 - single-run RMSE-style summary
 - key-direction covariance absolute suppression curve
 - key-direction covariance relative suppression curve
+- mean_dmd_rank / mean_dmd_lambda_red
 
 ## 当前入口
 
@@ -46,3 +53,4 @@ addpath(fullfile(pwd,'ch5_rebuild','plots'));
 addpath(fullfile(pwd,'ch5_rebuild','runners'));
 
 out = run_ch5r_phase8_C4_tracking_replay_compare();
+

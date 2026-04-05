@@ -1,11 +1,7 @@
 function out = run_ch5r_phase8_C4_tracking_replay_compare()
 %RUN_CH5R_PHASE8_C4_TRACKING_REPLAY_COMPARE
-% R8-C.4:
-%   replay tracking with Koopman-DMD under latest R5-real and latest R8-C.3 selection traces,
-%   then output:
-%     - tracking error curve
-%     - key-direction covariance suppression curves
-%     - compare summary
+% R8-C.4 stabilized:
+%   replay tracking with stabilized Koopman-DMD under latest R5-real and latest R8-C.3 selection traces.
 
 base_out = fullfile(pwd, 'outputs', 'ch5_rebuild');
 
@@ -22,10 +18,8 @@ assert(isfield(S5, 'selection_trace'), 'Latest R5 mat missing selection_trace.')
 assert(isfield(S8, 'selection_trace'), 'Latest R8-C.3 mat missing selection_trace.');
 
 ch5case5 = local_resolve_case_struct(S5, 'R5-real');
-ch5case8 = local_resolve_case_struct(S8, 'R8-C.3'); %#ok<NASGU>
+local_resolve_case_struct(S8, 'R8-C.3'); %#ok<VUNUS>
 
-% Replay on the same case basis for fair comparison.
-% Prefer R5 case as common reference because R8-C.3 was aligned to that case.
 rep5 = replay_tracking_koopman_dmd_from_selection_trace(ch5case5, S5.selection_trace, 'R5-real');
 rep8 = replay_tracking_koopman_dmd_from_selection_trace(ch5case5, S8.selection_trace, 'R8-C.3');
 
@@ -37,12 +31,16 @@ cmp = table( ...
     [rep5.summary.mean_rmse_single; rep8.summary.mean_rmse_single], ...
     [rep5.summary.mean_key_abs_supp; rep8.summary.mean_key_abs_supp], ...
     [rep5.summary.mean_key_rel_supp; rep8.summary.mean_key_rel_supp], ...
+    [rep5.summary.mean_dmd_rank; rep8.summary.mean_dmd_rank], ...
+    [rep5.summary.mean_dmd_lambda_red; rep8.summary.mean_dmd_lambda_red], ...
     'VariableNames', { ...
         'policy', ...
         'mean_pos_err_norm', ...
         'mean_rmse_single', ...
         'mean_key_abs_supp', ...
-        'mean_key_rel_supp'});
+        'mean_key_rel_supp', ...
+        'mean_dmd_rank', ...
+        'mean_dmd_lambda_red'});
 
 out_dir = fullfile(base_out, 'phaseR8_C4_tracking_replay_compare');
 if ~exist(out_dir, 'dir')
@@ -82,7 +80,7 @@ fprintf(fid, '%s', md);
 save(mat_file, 'r5_mat', 'r8_mat', 'rep5', 'rep8', 'cmp');
 
 disp(' ')
-disp('=== [ch5r:R8-C.4] tracking replay compare summary ===')
+disp('=== [ch5r:R8-C.4a] tracking replay compare summary ===')
 disp(cmp)
 disp(['csv file            : ' csv_file])
 disp(['md file             : ' md_file])
@@ -125,21 +123,20 @@ end
 
 function md = local_build_md(r5_mat, r8_mat, s5, s8, csv_file, fig1_file, fig2_file, fig3_file)
 lines = {};
-lines{end+1} = '# Phase R8-C.4：Koopman-DMD 跟踪回放 + RMSE/关键方向协方差抑制对比';
+lines{end+1} = '# Phase R8-C.4a：稳定化 Koopman-DMD 跟踪回放对比';
 lines{end+1} = '';
 lines{end+1} = '## 1. 数据来源';
 lines{end+1} = ['- R5-real latest mat: `', r5_mat, '`'];
 lines{end+1} = ['- R8-C.3 latest mat: `', r8_mat, '`'];
 lines{end+1} = ['- csv summary: `', csv_file, '`'];
 lines{end+1} = '';
-lines{end+1} = '## 2. 口径固定';
-lines{end+1} = '- 使用相同 `ch5case` 与相同 Koopman-DMD replay filter。';
-lines{end+1} = '- 位置误差曲线：`position error norm = ||r_hat - r_truth||_2`。';
-lines{end+1} = '- 单次运行 RMSE 型指标：`mean_rmse_single = sqrt(mean(rmse_single(k)^2))`。';
-lines{end+1} = '- 关键方向抑制量：沿 `P_r^-` 最大特征方向的 pre/post 协方差压缩。';
+lines{end+1} = '## 2. 稳定化口径';
+lines{end+1} = '- 局部窗口 DMD';
+lines{end+1} = '- 每维标准化';
+lines{end+1} = '- TSVD 截断';
+lines{end+1} = '- 自适应 ridge';
 lines{end+1} = '';
 lines{end+1} = '## 3. 汇总';
-lines{end+1} = '';
 lines{end+1} = ['- R5 mean_pos_err_norm = ', num2str(s5.mean_pos_err_norm, '%.12g')];
 lines{end+1} = ['- R8-C.3 mean_pos_err_norm = ', num2str(s8.mean_pos_err_norm, '%.12g')];
 lines{end+1} = ['- R5 mean_rmse_single = ', num2str(s5.mean_rmse_single, '%.12g')];
@@ -148,6 +145,10 @@ lines{end+1} = ['- R5 mean_key_abs_supp = ', num2str(s5.mean_key_abs_supp, '%.12
 lines{end+1} = ['- R8-C.3 mean_key_abs_supp = ', num2str(s8.mean_key_abs_supp, '%.12g')];
 lines{end+1} = ['- R5 mean_key_rel_supp = ', num2str(s5.mean_key_rel_supp, '%.12g')];
 lines{end+1} = ['- R8-C.3 mean_key_rel_supp = ', num2str(s8.mean_key_rel_supp, '%.12g')];
+lines{end+1} = ['- R5 mean_dmd_rank = ', num2str(s5.mean_dmd_rank, '%.12g')];
+lines{end+1} = ['- R8-C.3 mean_dmd_rank = ', num2str(s8.mean_dmd_rank, '%.12g')];
+lines{end+1} = ['- R5 mean_dmd_lambda_red = ', num2str(s5.mean_dmd_lambda_red, '%.12g')];
+lines{end+1} = ['- R8-C.3 mean_dmd_lambda_red = ', num2str(s8.mean_dmd_lambda_red, '%.12g')];
 lines{end+1} = '';
 lines{end+1} = '## 4. 图件';
 lines{end+1} = ['- tracking error fig: `', fig1_file, '`'];

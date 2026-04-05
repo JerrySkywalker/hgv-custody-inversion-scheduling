@@ -1,23 +1,18 @@
 function out = replay_tracking_koopman_dmd_from_selection_trace(ch5case, selection_trace, tag)
 %REPLAY_TRACKING_KOOPMAN_DMD_FROM_SELECTION_TRACE
-% Kernel-consistent tracking replay using Koopman-DMD prediction and J_pair-induced equivalent measurement.
-%
-% Inputs:
-%   ch5case          : case struct from build_ch5r_case
-%   selection_trace  : selection trace with J_pair at each step
-%   tag              : text tag for output bookkeeping
+% Stabilized kernel-consistent tracking replay using:
+%   - local-window Koopman-DMD
+%   - state standardization
+%   - TSVD truncation
+%   - adaptive ridge in reduced coordinates
 %
 % Outputs:
-%   out.state_pred   : [Nt x 6]
-%   out.state_post   : [Nt x 6]
-%   out.P_pred       : [6 x 6 x Nt]
-%   out.P_post       : [6 x 6 x Nt]
-%   out.pos_err_norm : [Nt x 1]
-%   out.rmse_single  : [Nt x 1]
-%   out.key_abs_supp : [Nt x 1]
-%   out.key_rel_supp : [Nt x 1]
-%   out.lambda_max_pred : [Nt x 1]
-%   out.lambda_key_post : [Nt x 1]
+%   out.pos_err_norm
+%   out.rmse_single
+%   out.key_abs_supp
+%   out.key_rel_supp
+%   out.dmd_rank
+%   out.dmd_lambda_red
 
 assert(isstruct(ch5case), 'ch5case must be struct.');
 assert(iscell(selection_trace), 'selection_trace must be cell.');
@@ -25,19 +20,12 @@ assert(iscell(selection_trace), 'selection_trace must be cell.');
 Nt = numel(selection_trace);
 assert(Nt >= 2, 'selection_trace too short.');
 
-% truth compatibility
-x_truth = local_resolve_truth_state(ch5case);
-
+x_truth = local_resolve_truth(ch5case);
 if size(x_truth,1) ~= Nt
     error('Truth trajectory length does not match selection_trace.');
 end
-assert(size(x_truth,2) >= 6, 'Resolved truth state must have at least 6 columns.');
 
 dt = ch5case.dt;
-X_prev = x_truth(1:end-1,:).';
-X_next = x_truth(2:end,:).';
-model = fit_local_dmd_operator_reg(X_prev, X_next, 'lambda_reg', 1e-4);
-
 Q = diag([1e-4 1e-4 1e-4 1e-5 1e-5 1e-5]);
 H = [eye(3), zeros(3,3)];
 Cr = build_requirement_projection_Cr(6, 'position');
@@ -53,15 +41,31 @@ key_abs_supp = zeros(Nt,1);
 key_rel_supp = zeros(Nt,1);
 lambda_max_pred = zeros(Nt,1);
 lambda_key_post = zeros(Nt,1);
+dmd_rank = zeros(Nt,1);
+dmd_lambda_red = zeros(Nt,1);
 
 x_post(1,:) = x_truth(1,:) + [0.05 -0.04 0.03 0.01 -0.01 0.02];
 P_post(:,:,1) = diag([1e-2 1e-2 1e-2 1e-3 1e-3 1e-3]);
 
 eps_reg = 1e-9;
+local_window = 40;
 
 for k = 2:Nt
-    x_minus = (model.A * x_post(k-1,:).').';
-    P_minus = model.A * P_post(:,:,k-1) * model.A.' + Q;
+    idx0 = max(1, k - local_window);
+    X_prev = x_truth(idx0:k-1,:).';
+    X_next = x_truth(idx0+1:k,:).';
+
+    dmd = fit_local_dmd_operator_tsvd_reg(X_prev, X_next, struct( ...
+        'tsvd_rel_tol', 1e-6, ...
+        'ridge_alpha', 1e-6, ...
+        'sigma_floor', 1e-9));
+
+    F = dmd.F_orig;
+    dmd_rank(k) = dmd.rank;
+    dmd_lambda_red(k) = dmd.lambda_red;
+
+    x_minus = (F * x_post(k-1,:).').';
+    P_minus = F * P_post(:,:,k-1) * F.' + Q;
     P_minus = 0.5 * (P_minus + P_minus.');
 
     x_pred(k,:) = x_minus;
@@ -114,6 +118,8 @@ summary.mean_pos_err_norm = mean(pos_err_norm(2:end), 'omitnan');
 summary.mean_rmse_single = sqrt(mean(rmse_single(2:end).^2, 'omitnan'));
 summary.mean_key_abs_supp = mean(key_abs_supp(2:end), 'omitnan');
 summary.mean_key_rel_supp = mean(key_rel_supp(2:end), 'omitnan');
+summary.mean_dmd_rank = mean(dmd_rank(2:end), 'omitnan');
+summary.mean_dmd_lambda_red = mean(dmd_lambda_red(2:end), 'omitnan');
 
 out = struct();
 out.tag = tag;
@@ -128,60 +134,23 @@ out.key_abs_supp = key_abs_supp;
 out.key_rel_supp = key_rel_supp;
 out.lambda_max_pred = lambda_max_pred;
 out.lambda_key_post = lambda_key_post;
+out.dmd_rank = dmd_rank;
+out.dmd_lambda_red = dmd_lambda_red;
 out.summary = summary;
 end
 
-function x_truth = local_resolve_truth_state(ch5case)
-% Priority:
-% 1) ch5case.truth.x_truth
-% 2) ch5case.truth.X
-% 3) ch5case.x_truth
-% 4) ch5case.truth.r_eci_km -> augment zero velocity
-
-if isfield(ch5case, 'truth') && isstruct(ch5case.truth)
-    T = ch5case.truth;
-
-    if isfield(T, 'x_truth') && isnumeric(T.x_truth)
-        x_truth = T.x_truth;
-        x_truth = local_normalize_truth_state(x_truth);
-        return;
-    end
-
-    if isfield(T, 'X') && isnumeric(T.X)
-        x_truth = T.X;
-        x_truth = local_normalize_truth_state(x_truth);
-        return;
-    end
-
-    if isfield(T, 'r_eci_km') && isnumeric(T.r_eci_km)
-        r = T.r_eci_km;
-        if size(r,2) ~= 3 && size(r,1) == 3
-            r = r.';
-        end
-        assert(size(r,2) == 3, 'truth.r_eci_km must be [Nt x 3] or [3 x Nt].');
-        v = zeros(size(r));
-        x_truth = [r, v];
-        return;
-    end
-end
-
-if isfield(ch5case, 'x_truth') && isnumeric(ch5case.x_truth)
-    x_truth = ch5case.x_truth;
-    x_truth = local_normalize_truth_state(x_truth);
+function x_truth = local_resolve_truth(ch5case)
+if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'x_truth')
+    x_truth = ch5case.truth.x_truth;
     return;
 end
-
+if isfield(ch5case, 'x_truth')
+    x_truth = ch5case.x_truth;
+    return;
+end
+if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'x')
+    x_truth = ch5case.truth.x;
+    return;
+end
 error('Truth state trajectory not found in ch5case.');
-end
-
-function x = local_normalize_truth_state(x)
-if size(x,1) < size(x,2) && size(x,1) <= 6
-    x = x.';
-end
-assert(size(x,2) >= 3, 'Truth state must have at least 3 columns.');
-if size(x,2) == 3
-    x = [x, zeros(size(x,1),3)];
-end
-assert(size(x,2) >= 6, 'Truth state must have at least 6 columns after normalization.');
-x = x(:,1:6);
 end
