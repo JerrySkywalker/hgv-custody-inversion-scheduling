@@ -1,18 +1,16 @@
 function out = run_ch5r_phase8_5c_real_candidate_smoke()
 %RUN_CH5R_PHASE8_5C_REAL_CANDIDATE_SMOKE
-% R8.5c.2:
-%   Build real pair candidates from current case at one step,
-%   and run Li-style four criteria on them.
+% R8.5c.2 fixed:
+%   scan steps automatically and choose a step with the largest number of valid pair candidates.
 
 cfg = default_ch5r_params(true);
 cfg = default_ch5r_r85_li_methods_params(cfg);
 
 li_case = build_r85_li_case_from_current_case(cfg);
 
-step_index = 1 + floor(li_case.meta.n_steps / 4);
-candidates = build_r85_pair_candidates_from_case(li_case, step_index);
+[step_index, candidates] = local_find_best_step_with_candidates(li_case);
 
-assert(~isempty(candidates), 'No valid 2-satellite candidates found at chosen step.');
+assert(~isempty(candidates), 'No valid 2-satellite candidates found in the scanned horizon.');
 
 out_pta      = li_select_by_criterion(candidates, 'pta');
 out_cn       = li_select_by_criterion(candidates, 'cn');
@@ -68,6 +66,24 @@ out.paths = struct( ...
     'md_file', md_file, ...
     'output_dir', out_dir);
 out.ok = true;
+end
+
+function [best_step, best_candidates] = local_find_best_step_with_candidates(li_case)
+n_steps = li_case.meta.n_steps;
+
+best_step = NaN;
+best_candidates = [];
+best_n = -1;
+
+for k = 1:n_steps
+    cand_k = build_r85_pair_candidates_from_case(li_case, k);
+    nk = numel(cand_k);
+    if nk > best_n
+        best_n = nk;
+        best_step = k;
+        best_candidates = cand_k;
+    end
+end
 end
 
 function txt = local_pair_to_text(pair)
