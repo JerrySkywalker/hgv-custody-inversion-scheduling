@@ -49,6 +49,7 @@ summary.n_threshold_cross_up = sum(threshold_cross_up);
 summary.n_threshold_cross_down = sum(threshold_cross_down);
 summary.n_pair_diff_but_not_improved = sum(pair_diff_mask & ~improved_mask);
 summary.n_pair_diff_and_improved = sum(pair_diff_mask & improved_mask);
+summary.gamma_req = gamma_req;
 
 diff_table = table( ...
     (1:n_steps)', ...
