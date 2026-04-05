@@ -1,13 +1,11 @@
 function out = replay_tracking_koopman_dmd_from_selection_trace(ch5case, selection_trace, tag)
 %REPLAY_TRACKING_KOOPMAN_DMD_FROM_SELECTION_TRACE
 % Baseline replay version for R8-C.4 mainline:
-%   - compatible truth resolver
-%   - global Koopman-DMD fit (same simple baseline as previous usable version)
-%   - no TSVD/local-window/cold-start fallback
+%   - FIXED truth source: only truth.X is accepted
+%   - global Koopman-DMD fit
+%   - no automatic fallback to reconstructed velocity
 %
-% This file is intentionally kept as the mainline "working" replay path.
-% The TSVD-stabilized experimental version is saved separately as:
-%   replay_tracking_koopman_dmd_from_selection_trace_tsvd_experiment.m
+% This is intentional for repeatability.
 
 assert(isstruct(ch5case), 'ch5case must be struct.');
 assert(iscell(selection_trace), 'selection_trace must be cell.');
@@ -15,7 +13,7 @@ assert(iscell(selection_trace), 'selection_trace must be cell.');
 Nt = numel(selection_trace);
 assert(Nt >= 2, 'selection_trace too short.');
 
-x_truth = local_resolve_truth(ch5case);
+[x_truth, truth_source] = local_resolve_truth_fixed(ch5case);
 if size(x_truth,1) ~= Nt
     error('Truth trajectory length does not match selection_trace.');
 end
@@ -98,9 +96,10 @@ end
 
 summary = struct();
 summary.tag = tag;
+summary.truth_source = truth_source;
 summary.mean_pos_err_norm = mean(pos_err_norm(2:end), 'omitnan');
 summary.mean_rmse_single = sqrt(mean(rmse_single(2:end).^2, 'omitnan'));
-summary.mean_key_abs_supp = mean(key_abs_supp(2:end), 'omitnan'));
+summary.mean_key_abs_supp = mean(key_abs_supp(2:end), 'omitnan');
 summary.mean_key_rel_supp = mean(key_rel_supp(2:end), 'omitnan'));
 
 out = struct();
@@ -119,50 +118,17 @@ out.lambda_key_post = lambda_key_post;
 out.summary = summary;
 end
 
-function x_truth = local_resolve_truth(ch5case)
+function [x_truth, source_name] = local_resolve_truth_fixed(ch5case)
+assert(isstruct(ch5case), 'ch5case must be struct.');
+
 if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'X') && ~isempty(ch5case.truth.X)
     X = ch5case.truth.X;
-    assert(isnumeric(X) && size(X,2) >= 6, 'truth.X exists but is not a valid state array.');
+    assert(isnumeric(X) && size(X,2) >= 6, 'truth.X exists but is not a valid [Nt x >=6] state array.');
     x_truth = X(:,1:6);
+    source_name = 'truth.X';
     return;
 end
 
-if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'x_truth') && ~isempty(ch5case.truth.x_truth)
-    x_truth = ch5case.truth.x_truth;
-    return;
-end
-
-if isfield(ch5case, 'x_truth') && ~isempty(ch5case.x_truth)
-    x_truth = ch5case.x_truth;
-    return;
-end
-
-if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'x') && ~isempty(ch5case.truth.x)
-    x_truth = ch5case.truth.x;
-    return;
-end
-
-if isfield(ch5case, 'truth') && isfield(ch5case.truth, 'r_eci_km') && ~isempty(ch5case.truth.r_eci_km)
-    r = ch5case.truth.r_eci_km;
-    assert(isnumeric(r) && size(r,2) == 3, 'truth.r_eci_km must be [Nt x 3].');
-    assert(isfield(ch5case, 'dt') && isnumeric(ch5case.dt) && isscalar(ch5case.dt) && ch5case.dt > 0, ...
-        'ch5case.dt is required to reconstruct velocity from r_eci_km.');
-
-    dt = ch5case.dt;
-    Nt = size(r,1);
-    v = zeros(Nt, 3);
-
-    if Nt >= 2
-        v(1,:) = (r(2,:) - r(1,:)) / dt;
-        for k = 2:Nt-1
-            v(k,:) = (r(k+1,:) - r(k-1,:)) / (2*dt);
-        end
-        v(Nt,:) = (r(Nt,:) - r(Nt-1,:)) / dt;
-    end
-
-    x_truth = [r, v];
-    return;
-end
-
-error('Truth state trajectory not found in ch5case.');
+error(['Fixed truth source mode requires ch5case.truth.X. ', ...
+       'No fallback to x_truth/x/r_eci_km is allowed in R8-C.4b.']);
 end
