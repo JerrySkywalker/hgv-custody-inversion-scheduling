@@ -1,9 +1,11 @@
 function out = run_online_policy_from_pair_bank(cfg, ch5case, policy_name)
 %RUN_ONLINE_POLICY_FROM_PAIR_BANK
-% R8.5f.2 / R8.5f.3 online full-run skeleton for external policies on native pair_bank.
+% Online full-run skeleton for external policies on native pair_bank.
 %
-% Outputs:
-%   selection_trace{k}.best_pair / J_pair / score / nPairs / mode / stepTime
+% Supported policy_name:
+%   'pta'
+%   'observability_family'
+%   'danger_weighted_gain'
 
 assert(isstruct(cfg), 'cfg must be struct.');
 assert(isstruct(ch5case), 'ch5case must be struct.');
@@ -34,6 +36,18 @@ if isfield(ch5case, 'window') && isfield(ch5case.window, 'length_steps')
     horizon_steps = ch5case.window.length_steps;
 end
 
+danger_opts = struct();
+danger_opts.eta_switch = 500;
+danger_opts.lookahead_steps = horizon_steps;
+if isfield(cfg, 'r85f4a') && isfield(cfg.r85f4a, 'danger_weighted_gain')
+    if isfield(cfg.r85f4a.danger_weighted_gain, 'eta_switch')
+        danger_opts.eta_switch = cfg.r85f4a.danger_weighted_gain.eta_switch;
+    end
+    if isfield(cfg.r85f4a.danger_weighted_gain, 'lookahead_steps')
+        danger_opts.lookahead_steps = cfg.r85f4a.danger_weighted_gain.lookahead_steps;
+    end
+end
+
 selection_trace = cell(n_steps,1);
 tic_all = tic;
 
@@ -56,6 +70,7 @@ for k = 1:n_steps
     rec.score = NaN;
     rec.stepTime = NaN;
     rec.elapsed = NaN;
+    rec.aux = [];
 
     if isempty(pairs_k)
         rec.mode = "empty";
@@ -73,8 +88,11 @@ for k = 1:n_steps
     nPairs = size(pairs_k,1);
     scores = -inf(nPairs,1);
     J_pairs = cell(nPairs,1);
+    AUX = cell(nPairs,1);
 
-    if use_parallel && nPairs > 1
+    selection_trace_prefix = selection_trace;
+
+    if use_parallel && nPairs > 1 && ~strcmp(policy_name, 'danger_weighted_gain')
         parfor idx = 1:nPairs
             pair = pairs_k(idx,:);
             switch policy_name
@@ -96,6 +114,10 @@ for k = 1:n_steps
                     [~, J_pairs{idx}] = score_pair_online_observability_family(ch5case, pair, k);
                 case 'observability_family'
                     [scores(idx), J_pairs{idx}] = score_pair_online_observability_family(ch5case, pair, k);
+                case 'danger_weighted_gain'
+                    [scores(idx), AUX{idx}] = score_pair_online_danger_weighted_gain( ...
+                        ch5case, selection_trace_prefix, pair_bank, pair, k, danger_opts);
+                    J_pairs{idx} = AUX{idx}.J_pair;
                 otherwise
                     error('Unsupported policy_name: %s', policy_name);
             end
@@ -108,24 +130,25 @@ for k = 1:n_steps
     rec.score = best_score;
     rec.stepTime = toc(t0);
     rec.elapsed = toc(tic_all);
+    rec.aux = AUX{best_idx};
 
     selection_trace{k} = rec;
 
     if log_enable && local_should_log_step(k, n_steps, log_every_k)
         fprintf('[R8.5f.2][policy=%s][k=%d/%d][select] nPairs=%d bestPair=[%d %d] score=%.6g stepTime=%.3fs elapsed=%.3fs parallel=%s\n', ...
             policy_name, k, n_steps, nPairs, rec.best_pair(1), rec.best_pair(2), ...
-            rec.score, rec.stepTime, rec.elapsed, string(local_yesno(use_parallel)));
+            rec.score, rec.stepTime, rec.elapsed, string(local_yesno(use_parallel && ~strcmp(policy_name, 'danger_weighted_gain'))));
     end
 end
 
 out = struct();
 out.selection_trace = selection_trace;
-out.summary = local_build_summary(selection_trace, policy_name, use_parallel);
+out.summary = local_build_summary(selection_trace, policy_name, use_parallel && ~strcmp(policy_name, 'danger_weighted_gain'));
 
 if log_enable
     fprintf('[R8.5f.2][policy=%s] online full-run done: mean_step_time=%.3fs max_step_time=%.3fs mean_nPairs=%.3f max_nPairs=%d parallel=%s\n', ...
         policy_name, out.summary.mean_step_time, out.summary.max_step_time, ...
-        out.summary.mean_nPairs, out.summary.max_nPairs, string(local_yesno(use_parallel)));
+        out.summary.mean_nPairs, out.summary.max_nPairs, string(local_yesno(out.summary.parallel_enabled)));
 end
 end
 
