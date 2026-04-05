@@ -1,9 +1,12 @@
 function out = run_ch5r_phase8_A_bubble_variable_smoke()
 %RUN_CH5R_PHASE8_A_BUBBLE_VARIABLE_SMOKE
-% R8-A smoke:
-%   formalize bubble main variable
-%       Xi_B = S_r - D_r - eps_B
-%   on the current synthetic filter / DMD pipeline.
+% R8-A (redone):
+%   requirement-induced bubble main variable
+%
+%   Xi_B(k,H) = min_{ell=1,...,H} [Gamma_req - lambda_max(P_r,k+ell|k^+)]
+%   R_B       = max(0, -Xi_B)
+%
+% No artificial hyper-parameters such as rho_r / eps_B are used.
 
 cfg = struct();
 cfg.dt = 1.0;
@@ -15,9 +18,8 @@ cfg.q_pos = 1.0e-4;
 cfg.q_vel = 1.0e-5;
 cfg.Cr_mode = 'position';
 
-cfg.bubble = struct();
-cfg.bubble.rho_r = 0.50;
-cfg.bubble.eps_B = 300.0;
+cfg.requirement = struct();
+cfg.requirement.Gamma_req = 1.0e-2;
 
 nx = 6;
 ny = 3;
@@ -53,14 +55,15 @@ fs = package_filter_state(x0_est, P0);
 
 n_eval = cfg.n_steps - 1;
 trace_data = struct();
-trace_data.MR = zeros(n_eval, 1);
 trace_data.MG = zeros(n_eval, 1);
-trace_data.D_r = zeros(n_eval, 1);
-trace_data.S_r = zeros(n_eval, 1);
 trace_data.Xi_B = zeros(n_eval, 1);
 trace_data.R_B = zeros(n_eval, 1);
 trace_data.is_bubble = false(n_eval, 1);
 trace_data.idx_min = zeros(n_eval, 1);
+trace_data.min_margin = zeros(n_eval, 1);
+trace_data.mean_margin = zeros(n_eval, 1);
+trace_data.min_lambda_max_PR = zeros(n_eval, 1);
+trace_data.max_lambda_max_PR = zeros(n_eval, 1);
 
 rng(1);
 for k = 2:cfg.n_steps
@@ -72,58 +75,65 @@ for k = 2:cfg.n_steps
     x_now = upd.x_plus;
     x_seq = zeros(nx, cfg.window_len);
     F_seq = zeros(nx, nx, cfg.window_len);
+    Pplus_seq = zeros(nx, nx, cfg.window_len);
+
     x_tmp = x_now;
+    P_tmp = upd.P_plus;
 
     MG_forecast = zeros(cfg.window_len, 1);
-    MR_forecast = zeros(cfg.window_len, 1);
 
     for ell = 1:cfg.window_len
         x_tmp = propagate_state_koopman_dmd(model, x_tmp);
         x_seq(:, ell) = x_tmp;
         F_seq(:,:,ell) = model.A;
 
+        % one-step covariance prediction + hypothetical update with same nominal H/R
+        P_minus_ell = model.A * P_tmp * model.A.' + Q;
+        H_ell = H_fun(x_tmp);
+        S_ell = H_ell * P_minus_ell * H_ell.' + R_single;
+        K_ell = (P_minus_ell * H_ell.') / S_ell;
+        I = eye(nx);
+        P_plus_ell = (I - K_ell * H_ell) * P_minus_ell * (I - K_ell * H_ell).' + K_ell * R_single * K_ell.';
+        P_plus_ell = 0.5 * (P_plus_ell + P_plus_ell.');
+
+        Pplus_seq(:,:,ell) = P_plus_ell;
+        P_tmp = P_plus_ell;
+
         W_ell = compute_predicted_window_gramian(F_seq(:,:,1:ell), x_seq(:,1:ell), H_fun, R_single);
         MG_ell = compute_structural_metric_MG(W_ell, Cr);
         MG_forecast(ell) = MG_ell.M_G;
-
-        PR_plus = compute_requirement_cov_PR(upd.P_plus, Cr);
-        PR_minus = compute_requirement_cov_PR(pred.P_minus, Cr);
-        MR_raw = compute_raw_metric_MR(PR_plus, PR_minus, cfg.dt);
-        MR_forecast(ell) = MR_raw.M_R;
     end
 
     W_cur = compute_predicted_window_gramian(F_seq, x_seq, H_fun, R_single);
     MG_cur = compute_structural_metric_MG(W_cur, Cr);
-    PR_plus_k = compute_requirement_cov_PR(upd.P_plus, Cr);
-    PR_minus_kp1 = compute_requirement_cov_PR(pred.P_minus, Cr);
-    MR_cur = compute_raw_metric_MR(PR_plus_k, PR_minus_kp1, cfg.dt);
 
-    demand = compute_pipe_demand_Dr(MR_forecast, cfg.dt, cfg.bubble.rho_r);
-    supply = compute_supply_floor_Sr(MG_forecast);
-    bubble = compute_bubble_margin_XiB(supply.S_r, demand.D_r, cfg.bubble.eps_B);
-    bubble_pack = package_bubble_prediction_result(MR_cur, MG_cur, demand, supply, bubble);
+    req = compute_requirement_margin_series_forecast(Pplus_seq, Cr, cfg.requirement.Gamma_req);
+    bubble = compute_requirement_induced_bubble_margin(req.margin_series);
+    bubble_pack = package_requirement_bubble_result(MG_cur, req, bubble);
 
     idx = k - 1;
-    trace_data.MR(idx) = bubble_pack.M_R;
     trace_data.MG(idx) = bubble_pack.M_G;
-    trace_data.D_r(idx) = bubble_pack.D_r;
-    trace_data.S_r(idx) = bubble_pack.S_r;
     trace_data.Xi_B(idx) = bubble_pack.Xi_B;
     trace_data.R_B(idx) = bubble_pack.R_B;
     trace_data.is_bubble(idx) = bubble_pack.is_bubble;
     trace_data.idx_min(idx) = bubble_pack.idx_min;
+    trace_data.min_margin(idx) = min(bubble_pack.margin_series);
+    trace_data.mean_margin(idx) = mean(bubble_pack.margin_series);
+    trace_data.min_lambda_max_PR(idx) = min(bubble_pack.lambda_max_PR_series);
+    trace_data.max_lambda_max_PR(idx) = max(bubble_pack.lambda_max_PR_series);
 
     fs = package_filter_state(upd.x_plus, upd.P_plus);
 end
 
 summary = struct();
 summary.n_steps = cfg.n_steps;
-summary.mean_MR = mean(trace_data.MR);
 summary.mean_MG = mean(trace_data.MG);
-summary.mean_D_r = mean(trace_data.D_r);
-summary.mean_S_r = mean(trace_data.S_r);
 summary.mean_Xi_B = mean(trace_data.Xi_B);
 summary.mean_R_B = mean(trace_data.R_B);
+summary.mean_min_margin = mean(trace_data.min_margin);
+summary.mean_mean_margin = mean(trace_data.mean_margin);
+summary.mean_min_lambda_max_PR = mean(trace_data.min_lambda_max_PR);
+summary.mean_max_lambda_max_PR = mean(trace_data.max_lambda_max_PR);
 summary.bubble_steps = sum(trace_data.is_bubble);
 summary.bubble_fraction = mean(trace_data.is_bubble);
 
@@ -135,11 +145,11 @@ end
 stamp = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
 mat_file = fullfile(out_dir, ['phaseR8_A_bubble_variable_smoke_' stamp '.mat']);
 md_file = fullfile(out_dir, ['phaseR8_A_bubble_variable_smoke_' stamp '.md']);
-fig1_file = fullfile(out_dir, ['plot_phaseR8_A_XiB_' stamp '.png']);
+fig1_file = fullfile(out_dir, ['plot_phaseR8_A_requirement_XiB_' stamp '.png']);
 fig2_file = fullfile(out_dir, ['plot_phaseR8_A_bubble_state_' stamp '.png']);
 
 k_idx = (1:n_eval).';
-fig1 = plot_bubble_margin_XiB(k_idx, trace_data.Xi_B, 'off');
+fig1 = plot_requirement_margin_forecast(k_idx, trace_data.Xi_B, 'off');
 saveas(fig1, fig1_file);
 close(fig1);
 
@@ -156,7 +166,7 @@ cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 fprintf(fid, '%s', md);
 
 disp(' ')
-disp('=== [ch5r:R8-A] bubble main-variable smoke summary ===')
+disp('=== [ch5r:R8-A-redo] requirement-induced bubble variable smoke summary ===')
 disp(summary)
 disp(['mat file             : ' mat_file])
 disp(['md file              : ' md_file])
@@ -178,7 +188,7 @@ end
 
 function md = local_build_md(summary, mat_file, fig1_file, fig2_file)
 lines = {};
-lines{end+1} = '# Phase R8-A bubble main-variable smoke';
+lines{end+1} = '# Phase R8-A-redo requirement-induced bubble variable smoke';
 lines{end+1} = '';
 fns = fieldnames(summary);
 for i = 1:numel(fns)
