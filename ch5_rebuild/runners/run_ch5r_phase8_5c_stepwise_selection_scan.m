@@ -1,7 +1,8 @@
 function out = run_ch5r_phase8_5c_stepwise_selection_scan()
 %RUN_CH5R_PHASE8_5C_STEPWISE_SELECTION_SCAN
-% R8.5c.3:
-%   Full-horizon stepwise scan for Li-style four relay-selection criteria.
+% R8.5c.4:
+%   Full-horizon stepwise scan for Li-style four criteria,
+%   directly reusing native ch5r candidate pair_bank.
 
 cfg = default_ch5r_params(true);
 cfg = default_ch5r_r85_li_methods_params(cfg);
@@ -15,6 +16,7 @@ selected_cn = NaN(n_steps,2);
 selected_detY_rim = NaN(n_steps,2);
 selected_detY_fast = NaN(n_steps,2);
 
+candidate_source = "";
 sat_field_path = "";
 tgt_field_path = "";
 
@@ -26,10 +28,9 @@ for k = 1:n_steps
         continue;
     end
 
-    if strlength(sat_field_path) == 0
+    if strlength(candidate_source) == 0
+        candidate_source = candidates(1).candidate_source;
         sat_field_path = candidates(1).sat_field_path;
-    end
-    if strlength(tgt_field_path) == 0
         tgt_field_path = candidates(1).tgt_field_path;
     end
 
@@ -55,8 +56,9 @@ cn_vs_fast_diff = local_pair_diff_mask(selected_cn, selected_detY_fast) & valid_
 rim_vs_fast_diff = local_pair_diff_mask(selected_detY_rim, selected_detY_fast) & valid_mask;
 
 summary = struct();
-summary.phase_name = "R8.5c.3";
+summary.phase_name = "R8.5c.4";
 summary.n_steps = n_steps;
+summary.candidate_source = candidate_source;
 summary.sat_field_path = sat_field_path;
 summary.tgt_field_path = tgt_field_path;
 summary.n_valid_steps = sum(valid_mask);
@@ -123,7 +125,7 @@ cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 fprintf(fid, '%s', md);
 
 disp(' ')
-disp('=== [ch5r:R8.5c.3] Li-style stepwise selection scan summary ===')
+disp('=== [ch5r:R8.5c.4] Li-style stepwise selection scan summary ===')
 disp(summary)
 
 valid_rows = scan_table(scan_table.has_candidate, :);
@@ -131,7 +133,6 @@ multi_rows = scan_table(scan_table.has_multi_candidate, :);
 
 disp('--- first valid rows ---')
 disp(valid_rows(1:min(10,height(valid_rows)), :))
-
 disp('--- first multi-candidate rows ---')
 disp(multi_rows(1:min(10,height(multi_rows)), :))
 
@@ -174,7 +175,7 @@ end
 
 function md = local_build_md(summary, csv_file, mat_file)
 lines = {};
-lines{end+1} = '# Phase R8.5c.3 Li-style stepwise selection scan';
+lines{end+1} = '# Phase R8.5c.4 Li-style stepwise selection scan';
 lines{end+1} = '';
 fns = fieldnames(summary);
 for i = 1:numel(fns)

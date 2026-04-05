@@ -1,7 +1,8 @@
 function out = run_ch5r_phase8_5c_real_candidate_smoke()
 %RUN_CH5R_PHASE8_5C_REAL_CANDIDATE_SMOKE
-% R8.5c.2 fixed:
-%   scan steps automatically and choose a step with the largest number of valid pair candidates.
+% R8.5c.4:
+%   Build real pair candidates directly from native ch5r pair_bank at one step,
+%   then run Li-style four criteria on them.
 
 cfg = default_ch5r_params(true);
 cfg = default_ch5r_r85_li_methods_params(cfg);
@@ -10,7 +11,7 @@ li_case = build_r85_li_case_from_current_case(cfg);
 
 [step_index, candidates] = local_find_best_step_with_candidates(li_case);
 
-assert(~isempty(candidates), 'No valid 2-satellite candidates found in the scanned horizon.');
+assert(~isempty(candidates), 'No valid native pair_bank candidates found in the scanned horizon.');
 
 out_pta      = li_select_by_criterion(candidates, 'pta');
 out_cn       = li_select_by_criterion(candidates, 'cn');
@@ -18,9 +19,10 @@ out_detY_rim = li_select_by_criterion(candidates, 'detY_rim');
 out_detY_fast= li_select_by_criterion(candidates, 'detY_fast');
 
 summary = struct();
-summary.phase_name = "R8.5c.2";
+summary.phase_name = "R8.5c.4";
 summary.step_index = step_index;
 summary.n_candidates = numel(candidates);
+summary.candidate_source = string(candidates(1).candidate_source);
 summary.sat_field_path = string(candidates(1).sat_field_path);
 summary.tgt_field_path = string(candidates(1).tgt_field_path);
 summary.best_pta_pair = string(local_pair_to_text(out_pta.best_candidate.sat_pair));
@@ -46,7 +48,7 @@ cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 fprintf(fid, '%s', md);
 
 disp(' ')
-disp('=== [ch5r:R8.5c.2] Li-style real-candidate smoke summary ===')
+disp('=== [ch5r:R8.5c.4] Li-style native-candidate smoke summary ===')
 disp(summary)
 disp('--- top 10 candidates table ---')
 disp(local_candidates_table_head(candidates, 10))
@@ -70,7 +72,6 @@ end
 
 function [best_step, best_candidates] = local_find_best_step_with_candidates(li_case)
 n_steps = li_case.meta.n_steps;
-
 best_step = NaN;
 best_candidates = [];
 best_n = -1;
@@ -97,11 +98,12 @@ end
 
 function md = local_build_md(summary, candidates, mat_file)
 lines = {};
-lines{end+1} = '# Phase R8.5c.2 Li-style real candidate smoke';
+lines{end+1} = '# Phase R8.5c.4 Li-style native candidate smoke';
 lines{end+1} = '';
 lines{end+1} = ['- phase_name = ', char(summary.phase_name)];
 lines{end+1} = ['- step_index = ', num2str(summary.step_index)];
 lines{end+1} = ['- n_candidates = ', num2str(summary.n_candidates)];
+lines{end+1} = ['- candidate_source = ', char(summary.candidate_source)];
 lines{end+1} = ['- sat_field_path = ', char(summary.sat_field_path)];
 lines{end+1} = ['- tgt_field_path = ', char(summary.tgt_field_path)];
 lines{end+1} = ['- best_pta_pair = ', char(summary.best_pta_pair)];
