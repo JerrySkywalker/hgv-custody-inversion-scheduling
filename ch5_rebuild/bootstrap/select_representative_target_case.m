@@ -2,7 +2,7 @@ function target_case = select_representative_target_case(cfg, stage04_info, stag
 %SELECT_REPRESENTATIVE_TARGET_CASE  Select representative target case for R0.
 
 if nargin < 1 || isempty(cfg)
-    cfg = default_params();
+    cfg = default_ch5r_params(false);
 end
 
 target_case = struct();
@@ -10,23 +10,30 @@ target_case.family = 'nominal';
 target_case.case_id = cfg.ch5r.bootstrap.default_case_id;
 target_case.source = 'fallback_default';
 
-if isfield(cfg, 'stage04') && isfield(cfg.stage04, 'example_case_id')
-    if ~isempty(cfg.stage04.example_case_id)
-        target_case.case_id = cfg.stage04.example_case_id;
-        target_case.source = 'cfg.stage04.example_case_id';
-    end
+if isfield(cfg.ch5r.bootstrap, 'force_case_id') && ~isempty(cfg.ch5r.bootstrap.force_case_id)
+    target_case.case_id = cfg.ch5r.bootstrap.force_case_id;
+    target_case.source = 'cfg.ch5r.bootstrap.force_case_id';
 end
 
-if isstruct(stage05_info) && isfield(stage05_info, 'feasible_table') && istable(stage05_info.feasible_table)
-    T = stage05_info.feasible_table;
-    if ~isempty(T) && ismember('case_id', T.Properties.VariableNames)
-        val = T.case_id(1);
-        if iscell(val)
-            target_case.case_id = val{1};
-        else
-            target_case.case_id = char(string(val));
+if ~cfg.ch5r.bootstrap.strict_single_case
+    if isfield(cfg, 'stage04') && isfield(cfg.stage04, 'example_case_id')
+        if ~isempty(cfg.stage04.example_case_id)
+            target_case.case_id = cfg.stage04.example_case_id;
+            target_case.source = 'cfg.stage04.example_case_id';
         end
-        target_case.source = 'stage05_feasible_table_first_case';
+    end
+
+    if isstruct(stage05_info) && isfield(stage05_info, 'feasible_table') && istable(stage05_info.feasible_table)
+        T = stage05_info.feasible_table;
+        if ~isempty(T) && ismember('case_id', T.Properties.VariableNames)
+            val = T.case_id(1);
+            if iscell(val)
+                target_case.case_id = val{1};
+            else
+                target_case.case_id = char(string(val));
+            end
+            target_case.source = 'stage05_feasible_table_first_case';
+        end
     end
 end
 

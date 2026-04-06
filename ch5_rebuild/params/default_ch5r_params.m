@@ -2,7 +2,7 @@ function cfg = default_ch5r_params(do_bootstrap)
 %DEFAULT_CH5R_PARAMS  Chapter 5 rebuild default parameters.
 
 if nargin < 1
-    do_bootstrap = true;
+    do_bootstrap = false;
 end
 
 if exist('default_params', 'file') ~= 2
@@ -40,10 +40,24 @@ cfg.ch5r.bootstrap.stage05_patterns = { ...
     'stage05_plot_nominal_results_*.mat', ...
     'stage05_*plot*.mat', ...
     'stage05_*.mat'};
+
 cfg.ch5r.bootstrap.default_case_id = 'N01';
+cfg.ch5r.bootstrap.force_case_id = 'N01';
+cfg.ch5r.bootstrap.strict_single_case = true;
+
 cfg.ch5r.bootstrap.selection_rule = 'min_Ns_then_max_DG_then_max_passratio';
 cfg.ch5r.bootstrap.plus_mode = 'next_redundant_solution';
-cfg.ch5r.bootstrap.allow_stage05_fallback_to_defaults = true;
+
+cfg.ch5r.bootstrap.require_stage04_cache = true;
+cfg.ch5r.bootstrap.require_stage05_cache = true;
+cfg.ch5r.bootstrap.require_stage05_feasible_table = true;
+cfg.ch5r.bootstrap.allow_stage05_fallback_to_defaults = false;
+cfg.ch5r.bootstrap.forbid_theta_plus_equal_theta_star = true;
+
+cfg.ch5r.bootstrap.require_matching_cache_timestamps = true;
+cfg.ch5r.bootstrap.cache_timestamp_tolerance_seconds = 300;
+
+cfg.ch5r.bootstrap.write_outputs = true;
 
 cfg.ch5r.sensor_profile = struct();
 cfg.ch5r.sensor_profile.name = 'baseline_from_stage04_defaults';
@@ -55,12 +69,11 @@ cfg.ch5r.sensor_profile.off_nadir_deg = 50;
 
 cfg.ch5r.target_case = struct();
 cfg.ch5r.target_case.family = 'nominal';
-cfg.ch5r.target_case.case_id = local_pick_default_case_id(cfg);
-cfg.ch5r.target_case.source = 'cfg.stage04.example_case_id';
+cfg.ch5r.target_case.case_id = cfg.ch5r.bootstrap.force_case_id;
+cfg.ch5r.target_case.source = 'cfg.ch5r.bootstrap.force_case_id';
 
 cfg.ch5r.gamma_req = max(cfg.stage04.gamma_floor, cfg.stage04.gamma_req_fixed);
 
-% Phase R4 tunable parameters
 cfg.ch5r.r4 = default_ch5r_r4_params();
 
 cfg.ch5r.bootstrap_result = struct();
@@ -69,14 +82,5 @@ cfg.ch5r.bootstrap_result.available = false;
 if do_bootstrap
     bundle = bootstrap_ch5r_from_stage04_stage05(cfg);
     cfg = build_ch5r_params_from_bootstrap(cfg, bundle);
-end
-end
-
-function case_id = local_pick_default_case_id(cfg)
-case_id = 'N01';
-if isfield(cfg, 'stage04') && isfield(cfg.stage04, 'example_case_id')
-    if ~isempty(cfg.stage04.example_case_id)
-        case_id = cfg.stage04.example_case_id;
-    end
 end
 end

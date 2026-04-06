@@ -1,8 +1,11 @@
-function sol = select_static_plus_solution(stage05_info, theta_star, cfg)
+function sol = select_static_plus_solution(stage05_info, theta_star, cfg, forced_case_id)
 %SELECT_STATIC_PLUS_SOLUTION  Select a lightly redundant theta_plus.
 
 if nargin < 3 || isempty(cfg)
-    cfg = default_params();
+    cfg = default_ch5r_params(false);
+end
+if nargin < 4 || isempty(forced_case_id)
+    forced_case_id = cfg.ch5r.bootstrap.force_case_id;
 end
 
 T = table();
@@ -11,15 +14,26 @@ if isfield(stage05_info, 'feasible_table') && istable(stage05_info.feasible_tabl
 end
 
 if isempty(T)
-    sol = theta_star;
-    sol.source = 'fallback_to_theta_star_no_stage05_table';
+    sol = local_fallback(theta_star, 'fallback_to_theta_star_no_stage05_table');
+    local_maybe_throw(cfg, 'Stage05 feasible_table is empty when selecting theta_plus.');
     return;
 end
 
 T2 = local_normalize_table(T, cfg);
 if isempty(T2)
-    sol = theta_star;
-    sol.source = 'fallback_to_theta_star_empty_normalize';
+    sol = local_fallback(theta_star, 'fallback_to_theta_star_empty_normalize');
+    local_maybe_throw(cfg, 'Stage05 feasible_table normalization returned empty table for theta_plus.');
+    return;
+end
+
+if cfg.ch5r.bootstrap.strict_single_case
+    mask_case = strcmp(string(T2.case_id), string(forced_case_id));
+    T2 = T2(mask_case, :);
+end
+
+if isempty(T2)
+    sol = local_fallback(theta_star, 'fallback_to_theta_star_after_case_filter');
+    local_maybe_throw(cfg, sprintf('No Stage05 feasible rows remain after theta_plus case_id filter = %s.', forced_case_id));
     return;
 end
 
@@ -27,8 +41,8 @@ mask = T2.Ns > theta_star.Ns;
 T3 = T2(mask, :);
 
 if isempty(T3)
-    sol = theta_star;
-    sol.source = 'fallback_to_theta_star_no_redundant_solution';
+    sol = local_fallback(theta_star, 'fallback_to_theta_star_no_redundant_solution');
+    local_maybe_throw(cfg, 'No redundant Stage05 feasible solution found for theta_plus.');
     return;
 end
 
@@ -45,7 +59,8 @@ sol.F = double(row.F(1));
 sol.Ns = double(row.Ns(1));
 sol.DG = double(row.DG(1));
 sol.pass_ratio = double(row.pass_ratio(1));
-sol.case_id = local_pick_case_id(row, cfg);
+sol.case_id = char(string(row.case_id(1)));
+sol.used_fallback = false;
 end
 
 function T2 = local_normalize_table(T, cfg)
@@ -74,7 +89,7 @@ T2.pass_ratio = pass_ratio(1:n);
 T2.Ns = double(T2.P) .* double(T2.T);
 
 if ismember('case_id', T.Properties.VariableNames)
-    T2.case_id = T.case_id(1:n);
+    T2.case_id = cellstr(string(T.case_id(1:n)));
 else
     T2.case_id = repmat({cfg.ch5r.bootstrap.default_case_id}, n, 1);
 end
@@ -106,14 +121,14 @@ end
 n = min(lens);
 end
 
-function case_id = local_pick_case_id(row, cfg)
-case_id = cfg.ch5r.bootstrap.default_case_id;
-if ismember('case_id', row.Properties.VariableNames)
-    val = row.case_id(1);
-    if iscell(val)
-        case_id = val{1};
-    else
-        case_id = char(string(val));
-    end
+function sol = local_fallback(theta_star, source_name)
+sol = theta_star;
+sol.source = source_name;
+sol.used_fallback = true;
+end
+
+function local_maybe_throw(cfg, msg)
+if ~cfg.ch5r.bootstrap.allow_stage05_fallback_to_defaults
+    error('[ch5r:R0] %s', msg);
 end
 end
