@@ -1,6 +1,6 @@
 function out = run_ch5r_phase8_7b_adaptive_interval_compare()
 %RUN_CH5R_PHASE8_7B_ADAPTIVE_INTERVAL_COMPARE
-% R8.7b:
+% R8.7b.2:
 %   Compare stepwise / fixed-60 / adaptive interval on N01 single case.
 
 cfg = default_ch5r_params(true);
@@ -21,6 +21,7 @@ cfg.r87b.adaptive.T_mid = 20;
 cfg.r87b.adaptive.T_short = 10;
 cfg.r87b.adaptive.tau1 = 0.02;
 cfg.r87b.adaptive.tau2 = 0.10;
+cfg.r87b.adaptive.tau_emg = 0.02;
 cfg.r87b.adaptive.eps_risk = 1e-6;
 cfg.r87b.adaptive.guard_margin = 3000;
 
@@ -52,13 +53,13 @@ ss_obs = compute_schedule_statistics(sch_obs.refresh_mask, sch_obs.interval_sche
 ss_dwg = compute_schedule_statistics(sch_dwg.refresh_mask, sch_dwg.interval_schedule);
 
 rows = [];
-rows = [rows; local_make_row("observability_family", "stepwise", m_obs_step, NaN, NaN)]; %#ok<AGROW>
-rows = [rows; local_make_row("observability_family", "fixed_60", m_obs_fix60, NaN, 60)]; %#ok<AGROW>
-rows = [rows; local_make_row("observability_family", "adaptive", m_obs_adp, ss_obs.refresh_count, ss_obs.mean_interval)]; %#ok<AGROW>
+rows = [rows; local_make_row("observability_family", "stepwise", m_obs_step, NaN, NaN, NaN)]; %#ok<AGROW>
+rows = [rows; local_make_row("observability_family", "fixed_60", m_obs_fix60, NaN, 60, 0)]; %#ok<AGROW>
+rows = [rows; local_make_row("observability_family", "adaptive", m_obs_adp, ss_obs.refresh_count, ss_obs.mean_realized_interval, ss_obs.n_early_refresh)]; %#ok<AGROW>
 
-rows = [rows; local_make_row("danger_weighted_gain", "stepwise", m_dwg_step, NaN, NaN)]; %#ok<AGROW>
-rows = [rows; local_make_row("danger_weighted_gain", "fixed_60", m_dwg_fix60, NaN, 60)]; %#ok<AGROW>
-rows = [rows; local_make_row("danger_weighted_gain", "adaptive", m_dwg_adp, ss_dwg.refresh_count, ss_dwg.mean_interval)]; %#ok<AGROW>
+rows = [rows; local_make_row("danger_weighted_gain", "stepwise", m_dwg_step, NaN, NaN, NaN)]; %#ok<AGROW>
+rows = [rows; local_make_row("danger_weighted_gain", "fixed_60", m_dwg_fix60, NaN, 60, 0)]; %#ok<AGROW>
+rows = [rows; local_make_row("danger_weighted_gain", "adaptive", m_dwg_adp, ss_dwg.refresh_count, ss_dwg.mean_realized_interval, ss_dwg.n_early_refresh)]; %#ok<AGROW>
 
 summary_table = struct2table(rows);
 
@@ -89,7 +90,7 @@ cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 fprintf(fid, '%s', md);
 
 disp(' ')
-disp('=== [ch5r:R8.7b] adaptive interval compare summary ===')
+disp('=== [ch5r:R8.7b.2] adaptive interval compare summary ===')
 disp(summary_table)
 disp(['csv file             : ' csv_file])
 disp(['mat file             : ' mat_file])
@@ -105,12 +106,13 @@ out.paths = struct( ...
 out.ok = true;
 end
 
-function row = local_make_row(policy_family, schedule_mode, m, refresh_count, mean_interval)
+function row = local_make_row(policy_family, schedule_mode, m, refresh_count, mean_realized_interval, n_early_refresh)
 row = struct();
 row.policy_family = string(policy_family);
 row.schedule_mode = string(schedule_mode);
 row.refresh_count = refresh_count;
-row.mean_interval = mean_interval;
+row.mean_realized_interval = mean_realized_interval;
+row.n_early_refresh = n_early_refresh;
 row.mean_lambda_min_window = m.summary.mean_lambda_min_window;
 row.min_lambda_min_window = m.summary.min_lambda_min_window;
 row.worst_window_index = m.summary.worst_window_index;
@@ -124,17 +126,18 @@ end
 
 function md = local_build_md(summary_table, csv_file, mat_file)
 lines = {};
-lines{end+1} = '# Phase R8.7b adaptive interval compare';
+lines{end+1} = '# Phase R8.7b.2 adaptive interval compare';
 lines{end+1} = '';
 lines{end+1} = ['- csv file = `', csv_file, '`'];
 lines{end+1} = ['- mat file = `', mat_file, '`'];
 lines{end+1} = '';
 for i = 1:height(summary_table)
-    lines{end+1} = sprintf('- %s / %s: refresh_count=%g, mean_interval=%g, bubble_steps=%g, max_bubble_depth=%g, longest_bubble_span=%g, mean_lambda=%g, min_lambda=%g, switch_count=%g', ...
+    lines{end+1} = sprintf('- %s / %s: refresh_count=%g, mean_realized_interval=%g, n_early_refresh=%g, bubble_steps=%g, max_bubble_depth=%g, longest_bubble_span=%g, mean_lambda=%g, min_lambda=%g, switch_count=%g', ...
         summary_table.policy_family(i), ...
         summary_table.schedule_mode(i), ...
         summary_table.refresh_count(i), ...
-        summary_table.mean_interval(i), ...
+        summary_table.mean_realized_interval(i), ...
+        summary_table.n_early_refresh(i), ...
         summary_table.bubble_steps(i), ...
         summary_table.max_bubble_depth(i), ...
         summary_table.longest_bubble_span(i), ...

@@ -3,6 +3,10 @@ function traj_sample = resolve_trajectory_sample(registry, sample_id, cfg)
 %
 % Preferred path:
 %   manual recipe -> synthetic case -> Stage02 propagation kernel
+%
+% B1.1 fix:
+%   Apply recipe-level overrides directly to the fundamental propagation
+%   state fields used by the kernel: v0 / theta0 / h0 / sigma0.
 
 if nargin < 3 || isempty(cfg)
     cfg = default_ch5b_params();
@@ -26,6 +30,7 @@ end
 
 meta = registry.samples(idx);
 
+recipe = [];
 switch lower(meta.source_tag)
     case 'manual_recipe'
         recipes = default_ch5b_trajectory_recipes(cfg);
@@ -42,6 +47,11 @@ switch lower(meta.source_tag)
 end
 
 hgv_cfg = build_hgv_cfg_from_case_stage02(case_i, cfg);
+
+if ~isempty(recipe)
+    hgv_cfg = local_apply_recipe_overrides(hgv_cfg, recipe);
+end
+
 traj = propagate_hgv_case_stage02(case_i, cfg, hgv_cfg);
 
 traj_sample = struct();
@@ -73,6 +83,7 @@ traj_sample.metadata.entry_theta_deg = local_get_field(case_i, 'entry_theta_deg'
 traj_sample.metadata.heading_deg = local_get_field(case_i, 'heading_deg', NaN);
 traj_sample.metadata.heading_offset_deg = local_get_field(case_i, 'heading_offset_deg', NaN);
 traj_sample.metadata.subfamily = local_get_field(case_i, 'subfamily', '');
+traj_sample.metadata.recipe_used = ~isempty(recipe);
 
 end
 
@@ -85,6 +96,84 @@ for k = 1:numel(recipes)
 end
 error('resolve_trajectory_sample:RecipeNotFound', ...
     'Manual recipe not found for sample id "%s".', sample_id);
+end
+
+function hgv_cfg = local_apply_recipe_overrides(hgv_cfg, recipe)
+
+% -------------------------------------------------------------------------
+% Fundamental propagation state fields actually used by the kernel
+% -------------------------------------------------------------------------
+if isfield(recipe, 'h0_m')
+    hgv_cfg.h0 = recipe.h0_m;
+    hgv_cfg.h0_m = recipe.h0_m;
+end
+
+if isfield(recipe, 'v0_mps')
+    hgv_cfg.v0 = recipe.v0_mps;
+    hgv_cfg.v0_mps = recipe.v0_mps;
+end
+
+if isfield(recipe, 'theta0_deg')
+    hgv_cfg.theta0 = deg2rad(recipe.theta0_deg);
+    hgv_cfg.theta0_deg = recipe.theta0_deg;
+    hgv_cfg.gamma0_deg = recipe.theta0_deg;
+    hgv_cfg.entry_theta_deg = recipe.theta0_deg;
+end
+
+if isfield(recipe, 'sigma0_deg')
+    hgv_cfg.sigma0 = deg2rad(recipe.sigma0_deg);
+    hgv_cfg.sigma0_deg = recipe.sigma0_deg;
+end
+
+% -------------------------------------------------------------------------
+% Additional aliases / control-profile related fields
+% -------------------------------------------------------------------------
+hgv_cfg = local_set_if_present(hgv_cfg, 'bank_cmd_deg', recipe, 'bank_cmd_deg');
+hgv_cfg = local_set_if_present(hgv_cfg, 'bank_nominal_deg', recipe, 'bank_cmd_deg');
+hgv_cfg = local_set_if_present(hgv_cfg, 'bank_heading_deg', recipe, 'bank_cmd_deg');
+hgv_cfg = local_set_if_present(hgv_cfg, 'bank_c1_deg', recipe, 'bank_cmd_deg');
+hgv_cfg = local_set_if_present(hgv_cfg, 'bank_c2_deg', recipe, 'bank_cmd_deg');
+
+hgv_cfg = local_set_if_present(hgv_cfg, 'alpha_cmd_deg', recipe, 'alpha_cmd_deg');
+hgv_cfg = local_set_if_present(hgv_cfg, 'alpha_nominal_deg', recipe, 'alpha_cmd_deg');
+hgv_cfg = local_set_if_present(hgv_cfg, 'alpha_heading_deg', recipe, 'alpha_cmd_deg');
+hgv_cfg = local_set_if_present(hgv_cfg, 'alpha_c1_deg', recipe, 'alpha_cmd_deg');
+hgv_cfg = local_set_if_present(hgv_cfg, 'alpha_c2_deg', recipe, 'alpha_cmd_deg');
+
+hgv_cfg = local_set_if_present(hgv_cfg, 'heading_deg', recipe, 'heading_deg');
+hgv_cfg = local_set_if_present(hgv_cfg, 'psi0_deg', recipe, 'heading_deg');
+hgv_cfg = local_set_if_present(hgv_cfg, 'heading_offset_deg', recipe, 'heading_offset_deg');
+
+% -------------------------------------------------------------------------
+% Try to patch ctrl_profile as well, if present
+% -------------------------------------------------------------------------
+if isfield(hgv_cfg, 'ctrl_profile') && isstruct(hgv_cfg.ctrl_profile)
+    cp = hgv_cfg.ctrl_profile;
+
+    if isfield(recipe, 'alpha_cmd_deg')
+        cp = local_set_struct_field(cp, 'alpha_cmd_deg', recipe.alpha_cmd_deg);
+        cp = local_set_struct_field(cp, 'alpha_deg', recipe.alpha_cmd_deg);
+    end
+
+    if isfield(recipe, 'bank_cmd_deg')
+        cp = local_set_struct_field(cp, 'bank_cmd_deg', recipe.bank_cmd_deg);
+        cp = local_set_struct_field(cp, 'bank_deg', recipe.bank_cmd_deg);
+        cp = local_set_struct_field(cp, 'sigma_deg', recipe.bank_cmd_deg);
+    end
+
+    hgv_cfg.ctrl_profile = cp;
+end
+
+end
+
+function s = local_set_if_present(s, dst_field, src_struct, src_field)
+if isfield(src_struct, src_field)
+    s.(dst_field) = src_struct.(src_field);
+end
+end
+
+function s = local_set_struct_field(s, field_name, value)
+s.(field_name) = value;
 end
 
 function case_i = local_find_case_by_id(casebank, sample_id)
