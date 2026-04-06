@@ -1,6 +1,5 @@
 function diag_out = ch5r_build_custody_diag_bundle(phase_name, out_phase)
 %CH5R_BUILD_CUSTODY_DIAG_BUNDLE
-% Build unified Chapter2-aligned diagnostic bundle for R5/R9/R10.
 
 disp(['[diag][' phase_name '] build bundle: start'])
 
@@ -18,13 +17,15 @@ diag_out.mg = ch5r_compute_mg_proxy_trace(out_phase.case, out_phase.selection_tr
 
 P_hist = [];
 xpred_hist = [];
+rmse_pos_km = [];
 sigma_angle_rad = out_phase.cfg.ch5r.sensor_profile.sigma_angle_rad;
 
 if isfield(out_phase.paths, 'mat_file') && ~isempty(out_phase.paths.mat_file) && isfile(out_phase.paths.mat_file)
-    disp(['[diag][' phase_name '] build bundle: load P_hist/xpred_hist from mat'])
-    S = load(out_phase.paths.mat_file, 'P_hist', 'xpred_hist');
+    disp(['[diag][' phase_name '] build bundle: load P_hist/xpred_hist/rmse from mat'])
+    S = load(out_phase.paths.mat_file, 'P_hist', 'xpred_hist', 'rmse_pos_km');
     if isfield(S, 'P_hist');     P_hist = S.P_hist;     end
     if isfield(S, 'xpred_hist'); xpred_hist = S.xpred_hist; end
+    if isfield(S, 'rmse_pos_km'); rmse_pos_km = S.rmse_pos_km; end
 else
     disp(['[diag][' phase_name '] build bundle: no mat_file found, Vr/NIS may be unavailable'])
 end
@@ -45,6 +46,8 @@ if isfield(out_phase.result, 'r9_tracking') && isfield(out_phase.result.r9_track
     diag_out.rmse = out_phase.result.r9_tracking.rmse_pos_km_series(:);
 elseif isfield(out_phase.result, 'r10_tracking') && isfield(out_phase.result.r10_tracking, 'rmse_pos_km_series')
     diag_out.rmse = out_phase.result.r10_tracking.rmse_pos_km_series(:);
+elseif ~isempty(rmse_pos_km)
+    diag_out.rmse = rmse_pos_km(:);
 end
 
 disp(['[diag][' phase_name '] build bundle: done'])

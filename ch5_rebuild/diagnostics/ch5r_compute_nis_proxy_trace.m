@@ -1,17 +1,17 @@
 function nis = ch5r_compute_nis_proxy_trace(ch5case, selection_trace, xpred_hist, P_hist, sigma_angle_rad)
 %CH5R_COMPUTE_NIS_PROXY_TRACE
-% Shell-aligned NIS proxy for R9/R10.
+% Shell-aligned NIS proxy for R9/R10/R5-replay.
 %
-% Uses:
-% - predicted state xpred_hist(:,k)
-% - posterior covariance P_hist(:,:,k) as a conservative covariance proxy
-% - true measurement z_true from truth + chosen pair
-%
-% If required inputs are unavailable, returns NaN trace.
+% Outputs:
+%   nis.value         = nu' * S^{-1} * nu
+%   nis.lambda_min_S  = lambda_min(S)
+%   nis.innov_norm    = ||nu||_2
 
 nis = struct();
 nis.value = [];
 nis.valid = [];
+nis.lambda_min_S = [];
+nis.innov_norm = [];
 nis.mode = 'unavailable';
 
 if nargin < 5 || isempty(xpred_hist) || isempty(P_hist)
@@ -21,6 +21,8 @@ end
 Nt = size(xpred_hist,2);
 nis.value = nan(Nt,1);
 nis.valid = false(Nt,1);
+nis.lambda_min_S = nan(Nt,1);
+nis.innov_norm = nan(Nt,1);
 nis.mode = 'innovation_mahalanobis_proxy';
 
 R = (sigma_angle_rad^2) * eye(4);
@@ -47,6 +49,9 @@ for k = 1:Nt
     H = local_numeric_jacobian(@(x) local_bearing_measurement_pair(x, ch5case, k, pair), xpred);
     S = H * Pk * H' + R;
     S = 0.5 * (S + S');
+
+    nis.innov_norm(k) = norm(innov, 2);
+    nis.lambda_min_S(k) = min(real(eig(S)));
 
     if rcond(S) > 1e-12
         nis.value(k) = innov' * (S \ innov);
