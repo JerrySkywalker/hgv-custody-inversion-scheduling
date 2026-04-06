@@ -1,25 +1,15 @@
 function state_trace = package_state_trace(ch5case, wininfo, bubble)
 %PACKAGE_STATE_TRACE  Package unified state trace for Chapter 5 R1/R2.
-%
-% Output fields:
-%   state_trace.time_s
-%   state_trace.lambda_min
-%   state_trace.gamma_req
-%   state_trace.is_bubble
-%   state_trace.bubble_depth
-%   state_trace.window_start_idx
-%   state_trace.window_end_idx
-%   state_trace.meta
 
 if nargin < 3 || isempty(bubble)
-    if nargin < 2 || isempty(wininfo)
-        wininfo = eval_window_information(ch5case);
-    end
-    bubble = eval_bubble_state(ch5case, wininfo);
+    error('bubble is required. Call eval_bubble_state(ch5case, wininfo) first.');
+end
+if nargin < 2 || isempty(wininfo)
+    error('wininfo is required. Call eval_window_information(ch5case, selection_trace) first.');
 end
 
 state_trace = struct();
-state_trace.time_s = wininfo.time_s(:);
+state_trace.time_s = wininfo.t_s(:);
 state_trace.lambda_min = bubble.lambda_min(:);
 state_trace.gamma_req = ch5case.gamma_req;
 state_trace.is_bubble = bubble.is_bubble(:);
