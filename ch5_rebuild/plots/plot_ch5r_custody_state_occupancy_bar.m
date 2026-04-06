@@ -1,15 +1,9 @@
 function out = plot_ch5r_custody_state_occupancy_bar(out5d, out9d, out10d, output_dir, visible_mode)
 %PLOT_CH5R_CUSTODY_STATE_OCCUPANCY_BAR
-% Plot stacked bar chart for SC/DC/LoC occupancy ratios of R5/R9/R10.
+% Plot stacked bar chart for SC/DC/LoC occupancy ratios.
 %
-% Inputs:
-%   out5d, out9d, out10d : diagnostic bundle outputs already available in workspace
-%   output_dir           : output folder
-%   visible_mode         : 'on' or 'off'
-%
-% Output:
-%   out.fig_file         : saved png path
-%   out.table            : occupancy table
+% X-axis labels use publication-ready English method names instead of
+% internal development phase IDs.
 
 if nargin < 5 || isempty(visible_mode)
     visible_mode = 'off';
@@ -21,7 +15,8 @@ end
 
 disp('[plot][occupancy] start')
 
-phase_names = {'R5','R9','R10'};
+phase_ids = {'R5','R9','R10'};
+method_labels = {'Predictive baseline', 'Bubble-oriented', 'Interval backend'};
 
 sc_ratio = [ ...
     out5d.diag.fsm.summary.sc_ratio; ...
@@ -39,18 +34,20 @@ loc_ratio = [ ...
     out10d.diag.fsm.summary.loc_ratio];
 
 T = table( ...
-    string(phase_names(:)), ...
+    string(phase_ids(:)), ...
+    string(method_labels(:)), ...
     sc_ratio, dc_ratio, loc_ratio, ...
-    'VariableNames', {'phase','SC_ratio','DC_ratio','LoC_ratio'});
+    'VariableNames', {'phase_id','method_label','SC_ratio','DC_ratio','LoC_ratio'});
 
 fig = figure('Visible', visible_mode, 'Color', 'w', 'Position', [120 120 980 620]);
 
 Y = [sc_ratio, dc_ratio, loc_ratio];
-bh = bar(Y, 'stacked', 'LineWidth', 0.8); %#ok<NASGU>
+bar(Y, 'stacked', 'LineWidth', 0.8);
 grid on;
 ylim([0 1]);
 xticks(1:3);
-xticklabels(phase_names);
+xticklabels(method_labels);
+xtickangle(12);
 ylabel('occupancy ratio', 'Interpreter', 'latex');
 title('SC / DC / LoC occupancy comparison', 'Interpreter', 'latex');
 legend({'SC','DC','LoC'}, 'Interpreter', 'latex', 'Location', 'eastoutside');
@@ -84,4 +81,5 @@ disp(T)
 out = struct();
 out.fig_file = fig_file;
 out.table = T;
+out.method_labels = method_labels;
 end
