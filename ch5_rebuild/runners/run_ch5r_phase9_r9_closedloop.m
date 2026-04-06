@@ -1,11 +1,23 @@
-function out = run_ch5r_phase9_r9_closedloop()
+function out = run_ch5r_phase9_r9_closedloop(overrides)
 %RUN_CH5R_PHASE9_R9_CLOSEDLOOP
 % Minimal R9 closed-loop:
 % - inner loop: local affine Koopman-DMD prediction + IEKF-like bearing update
 % - outer loop: pipe-gap-driven bubble suppression scheduling
 % - switch count is recorded only, not optimized
+% - explicit tail mode after the last valid full-window center
+%
+% Optional overrides fields:
+%   alpha_tau
+%   save_outputs
+%   log_enable
+%   log_every
+
+if nargin < 1 || isempty(overrides)
+    overrides = struct();
+end
 
 cfg = default_ch5r_r9_params();
+cfg = local_apply_overrides(cfg, overrides);
 
 addpath(fullfile(pwd, 'ch5_rebuild', 'r9_inner'));
 addpath(fullfile(pwd, 'ch5_rebuild', 'r9_sched'));
@@ -15,6 +27,7 @@ ch5case.cfg = cfg;
 
 Nt = numel(ch5case.t_s);
 dt = ch5case.dt;
+last_valid_center = Nt - ch5case.window.right_steps;
 
 selection_trace = cell(Nt,1);
 xhat_hist = nan(6,Nt);
@@ -34,7 +47,6 @@ t_total = tic;
 for k = 1:Nt
     t_step = tic;
 
-    % fit local Koopman/DMD from filtered history up to k-1
     if size(state_buffer,2) >= 2
         recent_steps = min(cfg.ch5r.r9.dmd_recent_steps, size(state_buffer,2));
         X_hist = state_buffer(:, end-recent_steps+1:end);
@@ -49,25 +61,66 @@ for k = 1:Nt
         model.Q = blkdiag(qpos*eye(3), qvel*eye(3));
     end
 
-    % one-step predict to current time
     [x_pred, P_pred] = propagate_koopman_state(xhat, P, model, cfg);
 
-    % select pair using predicted state/covariance
     pair_list = ch5case.candidates.pair_bank{k};
+
     if isempty(pair_list)
         sel = struct('k',k,'time_s',ch5case.t_s(k),'pair',[],'score',-inf, ...
                      'name','r9_empty','eval',[],'n_pairs',0, ...
                      'prev_pair',[],'switch_flag',false,'J_pair',zeros(3,3));
         xhat = x_pred;
         P = P_pred;
-    else
-        sel = select_satellite_set_r9_pipe_feedback(cfg, ch5case, selection_trace, k, x_pred, P_pred, model);
 
-        % generate truth measurement and update
+    elseif k > last_valid_center
+        prev_pair = [];
+        if k > 1 && isstruct(selection_trace{k-1}) && isfield(selection_trace{k-1}, 'pair')
+            prev_pair = selection_trace{k-1}.pair;
+        end
+
+        if ~isempty(prev_pair) && ismember(prev_pair, pair_list, 'rows')
+            pair = prev_pair;
+            name_str = 'r9_tail_hold';
+        else
+            pair = local_pick_best_trace_pair(ch5case, k, pair_list, x_pred(1:3), cfg);
+            name_str = 'r9_tail_trace';
+        end
+
+        sel = struct();
+        sel.k = k;
+        sel.time_s = ch5case.t_s(k);
+        sel.pair = pair;
+        sel.score = NaN;
+        sel.name = name_str;
+        sel.eval = struct('tail_mode', true);
+        sel.n_pairs = size(pair_list,1);
+
         z_true = local_bearing_measurement_pair(local_get_truth_state(ch5case,k), ch5case, k, sel.pair);
         [xhat, P] = local_iekf_update_pair(x_pred, P_pred, z_true, ch5case, k, sel.pair, cfg);
 
-        % bubble metrics still use realized truth geometry for comparability
+        x_true_k = local_get_truth_state(ch5case, k);
+        r_tgt = x_true_k(1:3).';
+        r_sat_pair = [
+            squeeze(ch5case.satbank.r_eci_km(k, :, sel.pair(1)));
+            squeeze(ch5case.satbank.r_eci_km(k, :, sel.pair(2)))
+        ];
+        sel.J_pair = compute_bearing_fim_pair(r_tgt, r_sat_pair, cfg.ch5r.sensor_profile.sigma_angle_rad);
+
+        if k > 1 && isstruct(selection_trace{k-1}) && isfield(selection_trace{k-1}, 'pair') ...
+                && ~isempty(selection_trace{k-1}.pair)
+            sel.prev_pair = selection_trace{k-1}.pair;
+            sel.switch_flag = ~isequal(sel.pair, selection_trace{k-1}.pair);
+        else
+            sel.prev_pair = [];
+            sel.switch_flag = false;
+        end
+
+    else
+        sel = select_satellite_set_r9_pipe_feedback(cfg, ch5case, selection_trace, k, x_pred, P_pred, model);
+
+        z_true = local_bearing_measurement_pair(local_get_truth_state(ch5case,k), ch5case, k, sel.pair);
+        [xhat, P] = local_iekf_update_pair(x_pred, P_pred, z_true, ch5case, k, sel.pair, cfg);
+
         x_true_k = local_get_truth_state(ch5case, k);
         r_tgt = x_true_k(1:3).';
         r_sat_pair = [
@@ -101,7 +154,11 @@ for k = 1:Nt
         if do_log
             msg = sprintf('[R9][k=%d/%d] nPairs=%d rmsePos=%.6g', k, Nt, sel.n_pairs, rmse_pos_km(k));
             if ~isempty(sel.pair)
-                msg = sprintf('%s pair=[%d %d] score=%.6g', msg, sel.pair(1), sel.pair(2), sel.score);
+                if isnan(sel.score)
+                    msg = sprintf('%s pair=[%d %d] score=tail', msg, sel.pair(1), sel.pair(2));
+                else
+                    msg = sprintf('%s pair=[%d %d] score=%.6g', msg, sel.pair(1), sel.pair(2), sel.score);
+                end
             else
                 msg = sprintf('%s pair=[]', msg);
             end
@@ -171,6 +228,42 @@ out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
 out.ok = true;
 end
 
+function cfg = local_apply_overrides(cfg, overrides)
+if ~isstruct(overrides)
+    error('overrides must be a struct.');
+end
+if isfield(overrides, 'alpha_tau')
+    cfg.ch5r.r9.alpha_tau = overrides.alpha_tau;
+end
+if isfield(overrides, 'save_outputs')
+    cfg.ch5r.r9.save_outputs = logical(overrides.save_outputs);
+end
+if isfield(overrides, 'log_enable')
+    cfg.ch5r.r9.log.enable = logical(overrides.log_enable);
+end
+if isfield(overrides, 'log_every')
+    cfg.ch5r.r9.log.log_every = overrides.log_every;
+end
+end
+
+function pair = local_pick_best_trace_pair(ch5case, k, pair_list, r_tgt, cfg)
+best_score = -inf;
+pair = pair_list(1,:);
+for idx = 1:size(pair_list,1)
+    cand = pair_list(idx,:);
+    r_sat_pair = [
+        squeeze(ch5case.satbank.r_eci_km(k, :, cand(1)));
+        squeeze(ch5case.satbank.r_eci_km(k, :, cand(2)))
+    ];
+    J_try = compute_bearing_fim_pair(r_tgt.', r_sat_pair, cfg.ch5r.sensor_profile.sigma_angle_rad);
+    s_try = trace(J_try);
+    if s_try > best_score
+        best_score = s_try;
+        pair = cand;
+    end
+end
+end
+
 function x_true = local_get_truth_state(ch5case, k)
 r = local_get_truth_position(ch5case, k);
 v = local_get_truth_velocity(ch5case, k);
@@ -179,7 +272,6 @@ end
 
 function r = local_get_truth_position(ch5case, k)
 truth = ch5case.truth;
-
 if isfield(truth, 'r_eci_km')
     r = squeeze(truth.r_eci_km(k,:)).';
 elseif isfield(truth, 'r_eci')
@@ -195,7 +287,6 @@ end
 
 function v = local_get_truth_velocity(ch5case, k)
 truth = ch5case.truth;
-
 if isfield(truth, 'v_eci_kmps')
     v = squeeze(truth.v_eci_kmps(k,:)).';
     return;
@@ -210,10 +301,8 @@ elseif isfield(truth, 'velocity')
     return;
 end
 
-% robust fallback: finite-difference from truth positions
 Nt = numel(ch5case.t_s);
 dt = ch5case.dt;
-
 if Nt < 2
     error('Truth velocity field not found, and not enough samples to infer velocity.');
 end
@@ -261,7 +350,6 @@ for it = 1:cfg.ch5r.r9.max_iekf_iters %#ok<NASGU>
 
     S = H * P_pred * H' + R;
     K = P_pred * H' / S;
-
     x_it = x_pred + K * innov;
 end
 
@@ -285,7 +373,6 @@ m = numel(z0);
 n = numel(x);
 H = zeros(m,n);
 eps_fd = 1e-6;
-
 for i = 1:n
     dx = zeros(n,1);
     dx(i) = eps_fd;
