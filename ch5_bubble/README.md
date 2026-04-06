@@ -8,6 +8,7 @@
 而是建立一套可持续扩展的、面向多 case / Monte Carlo / 多策略统一对比的实验框架。
 
 Phase B0 的任务是冻结工程骨架与约定，不追求算法完整性。
+Phase B1 的任务是冻结 trajectory registry / trajectory sample / timeline diagnosis 的根接口。
 
 ## 2. 开发原则
 
@@ -28,13 +29,20 @@ Phase B0 的任务是冻结工程骨架与约定，不追求算法完整性。
 
 ## 3. 当前阶段
 
-当前完成：Phase B0 工程骨架与约定。
+当前完成：
+- Phase B0 工程骨架与约定
+- Phase B1 轨迹注册表接口第一版（stub schema）
 
 本阶段关键产物：
 - `doc/architecture.md`
 - `doc/naming_convention.md`
 - `params/default_ch5b_params.m`
+- `trajectory_manager/build_trajectory_registry.m`
+- `trajectory_manager/resolve_trajectory_sample.m`
+- `trajectory_manager/summarize_trajectory_sample.m`
+- `trajectory_manager/diagnose_trajectory_timeline.m`
 - `runners/run_ch5b_phaseB0_smoke.m`
+- `runners/run_ch5b_phaseB1_registry_smoke.m`
 
 ## 4. 目录说明
 
@@ -53,15 +61,19 @@ Phase B0 的任务是冻结工程骨架与约定，不追求算法完整性。
 - `analysis/`：诊断脚本
 - `release/`：论文发布包导出
 
-## 5. B0 退出标准
+## 5. B0 / B1 退出标准
 
-若满足以下条件，则 B0 可视为完成：
-
+### B0
 - 新目录结构已经建立；
 - README、架构文档、命名规范文档已冻结；
 - 默认参数入口可正常返回结构体；
-- smoke runner 可在 MATLAB Desktop CLI 下成功执行；
-- 后续 B1/B2 文件可直接按约定继续补齐。
+- smoke runner 可在 MATLAB Desktop CLI 下成功执行。
+
+### B1
+- registry 能列出 sample_id / family_id；
+- resolve 能返回 schema 正确的 trajectory_sample；
+- timeline diagnosis 能检查 time 单调性、dt 一致性、truth 行数一致性；
+- B1 smoke runner 可保存 summary / mat / log。
 
 ## 6. 后续开发顺序
 
