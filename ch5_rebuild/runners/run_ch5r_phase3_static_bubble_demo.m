@@ -1,12 +1,12 @@
 function out = run_ch5r_phase3_static_bubble_demo()
 %RUN_CH5R_PHASE3_STATIC_BUBBLE_DEMO
-% Real R3 rewrite:
-% - one fixed real constellation
-% - real HGV truth from Stage02
+% Real R3 baseline:
+% - one fixed real constellation (theta_star from R0)
 % - one fixed double-satellite pair for the whole horizon
+% - centered full-only window semantics inherited from R1.5/R2
+% - metrics packaged through the real result line
 
 cfg = default_ch5r_params(true);
-cfg.ch5r.window_length_s = 60;
 
 ch5case = build_ch5r_case(cfg);
 
@@ -29,11 +29,12 @@ for k = 1:Nt
             'score', -inf, ...
             'prev_pair', static_pair, ...
             'switch_flag', false, ...
-            'name', 'static_real_pair_empty');
+            'name', 'r3_static_pair_empty');
         continue;
     end
 
     hit = ismember(pair_list, static_pair, 'rows');
+
     if any(hit)
         pair = static_pair;
         r_tgt = ch5case.truth.r_eci_km(k, :);
@@ -51,7 +52,7 @@ for k = 1:Nt
             'score', trace(J), ...
             'prev_pair', static_pair, ...
             'switch_flag', false, ...
-            'name', 'static_real_pair');
+            'name', 'r3_static_pair');
     else
         selection_trace{k} = struct( ...
             'k', k, ...
@@ -61,18 +62,13 @@ for k = 1:Nt
             'score', -inf, ...
             'prev_pair', static_pair, ...
             'switch_flag', false, ...
-            'name', 'static_real_pair_not_visible');
+            'name', 'r3_static_pair_not_visible');
     end
 end
 
 wininfo = eval_window_information(ch5case, selection_trace);
-
-bubble = struct();
-bubble.t_s = wininfo.t_s;
-bubble.gamma_req = ch5case.gamma_req;
-bubble.lambda_min = wininfo.lambda_min;
-bubble.is_bubble = wininfo.lambda_min < ch5case.gamma_req;
-bubble.bubble_depth = max(0, ch5case.gamma_req - wininfo.lambda_min);
+bubble = eval_bubble_state(ch5case, wininfo);
+state_trace = package_state_trace(ch5case, wininfo, bubble);
 
 resource_score = 2;
 result = package_ch5r_result_real(ch5case, selection_trace, wininfo, bubble, resource_score);
@@ -85,21 +81,32 @@ end
 stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
 mat_file = fullfile(out_dir, ['phaseR3_static_hold_real_' stamp '.mat']);
 
-save(mat_file, 'cfg', 'ch5case', 'static_pair', 'selection_trace', 'wininfo', 'bubble', 'result');
+save(mat_file, 'cfg', 'ch5case', 'static_pair', 'selection_trace', 'wininfo', 'bubble', 'state_trace', 'result');
 
 disp(' ')
 disp('=== [ch5r:R3-real] static-hold baseline summary ===')
 disp(['case id              : ' ch5case.target_case.case_id])
 disp(['fixed constellation  : theta_star'])
-disp(['Ns                   : ' num2str(ch5case.satbank.Ns)])
+disp(['Ns                   : ' num2str(ch5case.theta.Ns)])
+disp(['window mode          : ' ch5case.window.mode])
+disp(['window length (s)    : ' num2str(ch5case.window.length_s)])
 disp(['fixed static pair    : [' num2str(static_pair(1)) ', ' num2str(static_pair(2)) ']'])
-disp(['tracking resource    : double-satellite'])
+disp(['valid steps          : ' num2str(result.bubble_metrics.total_valid_steps)])
+disp(['valid time (s)       : ' num2str(result.bubble_metrics.total_valid_time_s)])
 disp(['bubble steps         : ' num2str(result.bubble_steps)])
 disp(['bubble time (s)      : ' num2str(result.bubble_time_s, '%.6f')])
+disp(['bubble fraction      : ' num2str(result.bubble_metrics.bubble_fraction, '%.6f')])
+disp(['longest bubble (s)   : ' num2str(result.bubble_metrics.longest_bubble_time_s, '%.6f')])
 disp(['max bubble depth     : ' num2str(result.max_bubble_depth, '%.12g')])
 disp(['switch count         : ' num2str(result.switch_count)])
 disp(['resource score       : ' num2str(result.resource_score)])
 disp(['mat file             : ' mat_file])
+
+assert(strcmp(ch5case.target_case.case_id, 'N01'), '[ch5r:R3] target case must be N01.');
+assert(strcmp(ch5case.window.mode, 'centered_full_only'), '[ch5r:R3] window mode must be centered_full_only.');
+assert(result.bubble_metrics.total_valid_steps > 0, '[ch5r:R3] total_valid_steps must be > 0.');
+assert(result.cost_metrics.switch_count == 0, '[ch5r:R3] static baseline switch_count must be 0.');
+assert(result.cost_metrics.resource_score == 2, '[ch5r:R3] static double-satellite baseline resource_score must be 2.');
 
 out = struct();
 out.cfg = cfg;
@@ -108,6 +115,7 @@ out.static_pair = static_pair;
 out.selection_trace = selection_trace;
 out.wininfo = wininfo;
 out.bubble = bubble;
+out.state_trace = state_trace;
 out.result = result;
 out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
 out.ok = true;
