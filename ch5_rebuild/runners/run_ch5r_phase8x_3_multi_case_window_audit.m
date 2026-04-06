@@ -2,6 +2,24 @@ function out = run_ch5r_phase8x_3_multi_case_window_audit()
 %RUN_CH5R_PHASE8X_3_MULTI_CASE_WINDOW_AUDIT
 % R8X.3:
 %   Parallel window semantics audit for N01/N02/N03.
+%
+% R8X.3a patch:
+%   first diagnose whether cases are truly different.
+
+diag_out = run_ch5r_phase8x_3a_case_build_diagnosis();
+diag_tbl = diag_out.summary_table;
+
+sig_cols = ["truth_n_steps","truth_t_start","truth_t_end","pair_bank_n_steps","truth_first_pos_sig","truth_last_pos_sig","truth_first_vel_sig","truth_last_vel_sig"];
+n_unique = 0;
+try
+    n_unique = height(unique(diag_tbl(:, sig_cols)));
+catch
+    n_unique = 0;
+end
+
+if n_unique <= 1
+    warning('R8X.3a indicates all requested cases still resolve to the same built case signature. Multi-case audit may be invalid.');
+end
 
 case_list = {'N01','N02','N03'};
 modes = {'forward_truncated', 'forward_full_only', 'centered_full_only'};
@@ -55,9 +73,9 @@ mat_file = fullfile(out_dir, ['phaseR8X_3_multi_case_window_audit_' stamp '.mat'
 md_file  = fullfile(out_dir, ['phaseR8X_3_multi_case_window_audit_' stamp '.md']);
 
 writetable(summary_table, csv_file);
-save(mat_file, 'summary_table', 'case_list', 'modes');
+save(mat_file, 'summary_table', 'case_list', 'modes', 'diag_tbl', 'n_unique');
 
-md = local_build_md(summary_table, csv_file, mat_file);
+md = local_build_md(summary_table, csv_file, mat_file, n_unique);
 fid = fopen(md_file, 'w');
 assert(fid >= 0, 'Failed to open markdown file: %s', md_file);
 cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
@@ -66,12 +84,15 @@ fprintf(fid, '%s', md);
 disp(' ')
 disp('=== [ch5r:R8X.3] multi-case window audit summary ===')
 disp(summary_table)
+disp(['unique built-case signatures: ' num2str(n_unique)])
 disp(['csv file             : ' csv_file])
 disp(['mat file             : ' mat_file])
 disp(['md file              : ' md_file])
 
 out = struct();
 out.summary_table = summary_table;
+out.case_diag_table = diag_tbl;
+out.n_unique_built_case_signatures = n_unique;
 out.paths = struct( ...
     'csv_file', csv_file, ...
     'mat_file', mat_file, ...
@@ -95,12 +116,13 @@ row.longest_bubble_span = met.summary.longest_bubble_span;
 row.switch_count = met.summary.switch_count;
 end
 
-function md = local_build_md(summary_table, csv_file, mat_file)
+function md = local_build_md(summary_table, csv_file, mat_file, n_unique)
 lines = {};
 lines{end+1} = '# Phase R8X.3 multi-case window audit';
 lines{end+1} = '';
 lines{end+1} = ['- csv file = `', csv_file, '`'];
 lines{end+1} = ['- mat file = `', mat_file, '`'];
+lines{end+1} = ['- unique built-case signatures = ', num2str(n_unique)];
 lines{end+1} = '';
 for i = 1:height(summary_table)
     lines{end+1} = sprintf('- %s / %s / %s: n_valid=%g, mean_lambda=%g, min_lambda=%g, worst_window=%g, bubble_steps=%g, max_bubble_depth=%g, longest_bubble_span=%g', ...
