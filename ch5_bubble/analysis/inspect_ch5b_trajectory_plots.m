@@ -12,13 +12,13 @@ if nargin < 1 || isempty(sample_ids)
     end
 end
 
-traj_samples = repmat(struct(), 1, numel(sample_ids));
+traj_samples = cell(1, numel(sample_ids));
 for i = 1:numel(sample_ids)
-    traj_samples(i) = resolve_trajectory_sample(registry, sample_ids{i}, cfg);
+    traj_samples{i} = resolve_trajectory_sample(registry, sample_ids{i}, cfg);
 end
 
 for i = 1:numel(traj_samples)
-    plot_ch5b_trajectory_3d(traj_samples(i), struct('visible', 'on', 'coord_frame', 'enu'));
+    plot_ch5b_trajectory_3d(traj_samples{i}, struct('visible', 'on', 'coord_frame', 'enu'));
 end
 
 plot_ch5b_trajectory_family_3d(traj_samples, struct( ...
