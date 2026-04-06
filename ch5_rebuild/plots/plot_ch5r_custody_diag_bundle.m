@@ -1,8 +1,5 @@
 function files = plot_ch5r_custody_diag_bundle(diag_out, output_dir, visible_mode)
 %PLOT_CH5R_CUSTODY_DIAG_BUNDLE
-% Output:
-%   1) Vr + MG + FSM bundle
-%   2) NIS + RMSE + bubble/FSM bundle
 
 if nargin < 3 || isempty(visible_mode)
     visible_mode = 'off';
@@ -12,10 +9,12 @@ if ~exist(output_dir, 'dir')
     mkdir(output_dir);
 end
 
+disp(['[diag][' diag_out.phase_name '] plotting: start'])
+
 t = diag_out.time_s(:);
 files = struct();
 
-% ---------- Figure 1: Vr / MG / FSM ----------
+disp(['[diag][' diag_out.phase_name '] plotting: figure 1 Vr/MG/FSM'])
 fig1 = figure('Visible', visible_mode, 'Color', 'w', 'Position', [100 100 1100 900]);
 
 subplot(3,1,1);
@@ -54,7 +53,7 @@ files.fig1 = fullfile(output_dir, [lower(diag_out.phase_name) '_diag_vr_mg_fsm.p
 saveas(fig1, files.fig1);
 close(fig1);
 
-% ---------- Figure 2: NIS / RMSE / bubble-state ----------
+disp(['[diag][' diag_out.phase_name '] plotting: figure 2 NIS/RMSE/bubble-state'])
 fig2 = figure('Visible', visible_mode, 'Color', 'w', 'Position', [120 120 1100 900]);
 
 subplot(3,1,1);
@@ -93,4 +92,6 @@ xlabel('time (s)');
 files.fig2 = fullfile(output_dir, [lower(diag_out.phase_name) '_diag_nis_rmse_bubble_state.png']);
 saveas(fig2, files.fig2);
 close(fig2);
+
+disp(['[diag][' diag_out.phase_name '] plotting: done'])
 end
