@@ -1,10 +1,12 @@
 function registry = build_trajectory_registry(cfg)
 %BUILD_TRAJECTORY_REGISTRY Build trajectory registry from real Stage01 casebank.
 %
-% Phase B1 real version:
-%   - load latest Stage01 casebank
-%   - flatten nominal / heading / critical families
-%   - registry stores case identities, not fake stub samples
+% Real path:
+%   Stage01 casebank -> flatten families -> registry metadata
+%
+% Notes:
+%   This function only builds the registry index.
+%   Real propagation is done later in resolve_trajectory_sample().
 
 if nargin < 1 || isempty(cfg)
     cfg = default_ch5b_params();
@@ -16,19 +18,20 @@ all_records = struct([]);
 idx = 0;
 
 if isfield(casebank, 'nominal')
-    idx = local_append_family(all_records, idx, casebank.nominal, 'nominal');
-    all_records = evalin('caller', 'all_records');
+    [all_records, idx] = local_append_family(all_records, idx, casebank.nominal, 'nominal');
 end
 
 if isfield(casebank, 'heading')
-    idx = local_append_family(all_records, idx, casebank.heading, 'heading');
-    all_records = evalin('caller', 'all_records');
+    [all_records, idx] = local_append_family(all_records, idx, casebank.heading, 'heading');
 end
 
 if isfield(casebank, 'critical')
-    idx = local_append_family(all_records, idx, casebank.critical, 'critical');
-    all_records = evalin('caller', 'all_records');
+    [all_records, idx] = local_append_family(all_records, idx, casebank.critical, 'critical');
 end
+
+assert(~isempty(all_records), ...
+    'build_trajectory_registry:EmptyRegistry', ...
+    'No valid records were found in Stage01 casebank.');
 
 registry = struct();
 registry.framework = 'ch5_bubble';
@@ -44,13 +47,14 @@ registry.created_at = datestr(now, 'yyyy-mm-dd HH:MM:SS');
 
 end
 
-function idx = local_append_family(all_records, idx, family_struct, family_name)
+function [all_records, idx] = local_append_family(all_records, idx, family_struct, family_name)
+
 for k = 1:numel(family_struct)
     case_i = family_struct(k);
 
     idx = idx + 1;
     all_records(idx).sample_id = case_i.case_id; %#ok<AGROW>
-    all_records(idx).family_id = upper(char(string(case_i.family))); %#ok<AGROW>
+    all_records(idx).family_id = upper(char(string(local_get_field(case_i, 'family', family_name)))); %#ok<AGROW>
     all_records(idx).case_label = case_i.case_id; %#ok<AGROW>
     all_records(idx).source_tag = 'stage01_casebank'; %#ok<AGROW>
     all_records(idx).family_name = family_name; %#ok<AGROW>
@@ -60,7 +64,6 @@ for k = 1:numel(family_struct)
     all_records(idx).entry_theta_deg = local_get_field(case_i, 'entry_theta_deg', NaN); %#ok<AGROW>
 end
 
-assignin('caller', 'all_records', all_records);
 end
 
 function v = local_get_field(s, name, defaultv)
