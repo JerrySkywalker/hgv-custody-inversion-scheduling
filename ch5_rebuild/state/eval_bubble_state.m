@@ -1,5 +1,5 @@
 function bubble = eval_bubble_state(ch5case, wininfo)
-%EVAL_BUBBLE_STATE  Evaluate bubble state from rolling-window information.
+%EVAL_BUBBLE_STATE  Evaluate bubble state from windowed information.
 
 if nargin < 2 || isempty(wininfo)
     error('wininfo is required. Call eval_window_information(ch5case, selection_trace) first.');
@@ -7,19 +7,30 @@ end
 
 gamma_req = ch5case.gamma_req;
 lambda_min = wininfo.lambda_min(:);
+valid_for_bubble = logical(wininfo.valid_for_bubble(:));
 
-is_bubble = lambda_min < gamma_req;
-bubble_depth = max(0, gamma_req - lambda_min);
+is_bubble = false(size(lambda_min));
+bubble_depth = zeros(size(lambda_min));
+
+mask = valid_for_bubble & isfinite(lambda_min);
+is_bubble(mask) = lambda_min(mask) < gamma_req;
+bubble_depth(mask) = max(0, gamma_req - lambda_min(mask));
 
 segments = local_find_segments(is_bubble, ch5case.dt);
 
 bubble = struct();
 bubble.t_s = wininfo.t_s(:);
+bubble.time_s = wininfo.t_s(:);
 bubble.gamma_req = gamma_req;
 bubble.lambda_min = lambda_min;
+bubble.valid_for_bubble = valid_for_bubble;
 bubble.is_bubble = is_bubble(:);
 bubble.bubble_depth = bubble_depth(:);
 bubble.segments = segments;
+
+bubble.total_valid_steps = nnz(valid_for_bubble);
+bubble.total_valid_time_s = bubble.total_valid_steps * ch5case.dt;
+
 bubble.total_bubble_steps = nnz(is_bubble);
 bubble.total_bubble_time_s = nnz(is_bubble) * ch5case.dt;
 

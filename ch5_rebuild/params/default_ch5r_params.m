@@ -56,7 +56,6 @@ cfg.ch5r.bootstrap.forbid_theta_plus_equal_theta_star = true;
 
 cfg.ch5r.bootstrap.require_matching_cache_timestamps = true;
 cfg.ch5r.bootstrap.cache_timestamp_tolerance_seconds = 300;
-
 cfg.ch5r.bootstrap.write_outputs = true;
 
 cfg.ch5r.sensor_profile = struct();
@@ -73,6 +72,10 @@ cfg.ch5r.target_case.case_id = cfg.ch5r.bootstrap.force_case_id;
 cfg.ch5r.target_case.source = 'cfg.ch5r.bootstrap.force_case_id';
 
 cfg.ch5r.gamma_req = max(cfg.stage04.gamma_floor, cfg.stage04.gamma_req_fixed);
+
+cfg.ch5r.window_length_s = 60;
+cfg.ch5r.window_mode = 'centered_full_only';
+cfg.ch5r.window_exclude_incomplete_edges = true;
 
 cfg.ch5r.r4 = default_ch5r_r4_params();
 
