@@ -12,8 +12,11 @@ if nargin < 4 || isempty(log_enable)
 end
 
 addpath(fullfile(pwd, 'ch5_rebuild', 'r9_inner'));
+addpath(fullfile(pwd, 'ch5_rebuild', 'params'));
 
 cfg = out_phase.cfg;
+cfg = local_attach_r9_replay_params(cfg);
+
 ch5case = out_phase.case;
 selection_trace = out_phase.selection_trace;
 
@@ -33,6 +36,9 @@ P = diag([cfg.ch5r.r9.init_pos_sigma_km^2 * ones(1,3), ...
 
 state_buffer = nan(6,0);
 t_total = tic;
+
+disp(['[replay][' phase_name '] start'])
+disp(['[replay][' phase_name '] Nt=' num2str(Nt) ', dt=' num2str(dt) ' s'])
 
 for k = 1:Nt
     t_step = tic;
@@ -102,6 +108,11 @@ else
     mat_file = '';
 end
 
+disp(['[replay][' phase_name '] done'])
+disp(['[replay][' phase_name '] mean RMSE pos (km) = ' num2str(sqrt(mean(rmse_pos_km.^2,'omitnan')),'%.12g')])
+disp(['[replay][' phase_name '] final RMSE pos (km) = ' num2str(rmse_pos_km(end),'%.12g')])
+disp(['[replay][' phase_name '] mat file = ' mat_file])
+
 replay_out = struct();
 replay_out.cfg = cfg;
 replay_out.case = ch5case;
@@ -112,6 +123,34 @@ replay_out.P_hist = P_hist;
 replay_out.rmse_pos_km = rmse_pos_km;
 replay_out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
 replay_out.ok = true;
+end
+
+function cfg = local_attach_r9_replay_params(cfg)
+% Ensure replay-only R9 inner-loop params are present even for non-R9 phases.
+
+need_attach = true;
+if isfield(cfg, 'ch5r') && isfield(cfg.ch5r, 'r9')
+    r9 = cfg.ch5r.r9;
+    required = {'init_pos_sigma_km','init_vel_sigma_kmps','dmd_recent_steps', ...
+                'pos_q_km','vel_q_kmps','max_iekf_iters'};
+    has_all = true;
+    for i = 1:numel(required)
+        if ~isfield(r9, required{i})
+            has_all = false;
+            break;
+        end
+    end
+    need_attach = ~has_all;
+end
+
+if need_attach
+    cfg_r9 = default_ch5r_r9_params();
+    if ~isfield(cfg, 'ch5r')
+        cfg.ch5r = struct();
+    end
+    cfg.ch5r.r9 = cfg_r9.ch5r.r9;
+    disp('[replay] attached replay-only R9 inner-loop defaults into current cfg')
+end
 end
 
 function x_true = local_get_truth_state(ch5case, k)
