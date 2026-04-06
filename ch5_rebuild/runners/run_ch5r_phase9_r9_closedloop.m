@@ -172,17 +172,65 @@ out.ok = true;
 end
 
 function x_true = local_get_truth_state(ch5case, k)
-r = squeeze(ch5case.truth.r_eci_km(k,:)).';
-if isfield(ch5case.truth, 'v_eci_kmps')
-    v = squeeze(ch5case.truth.v_eci_kmps(k,:)).';
-elseif isfield(ch5case.truth, 'v_eci_km_s')
-    v = squeeze(ch5case.truth.v_eci_km_s(k,:)).';
-elseif isfield(ch5case.truth, 'v_eci')
-    v = squeeze(ch5case.truth.v_eci(k,:)).';
-else
-    error('Truth velocity field not found.');
-end
+r = local_get_truth_position(ch5case, k);
+v = local_get_truth_velocity(ch5case, k);
 x_true = [r; v];
+end
+
+function r = local_get_truth_position(ch5case, k)
+truth = ch5case.truth;
+
+if isfield(truth, 'r_eci_km')
+    r = squeeze(truth.r_eci_km(k,:)).';
+elseif isfield(truth, 'r_eci')
+    r = squeeze(truth.r_eci(k,:)).';
+elseif isfield(truth, 'position_km')
+    r = squeeze(truth.position_km(k,:)).';
+elseif isfield(truth, 'position')
+    r = squeeze(truth.position(k,:)).';
+else
+    error('Truth position field not found.');
+end
+end
+
+function v = local_get_truth_velocity(ch5case, k)
+truth = ch5case.truth;
+
+if isfield(truth, 'v_eci_kmps')
+    v = squeeze(truth.v_eci_kmps(k,:)).';
+    return;
+elseif isfield(truth, 'v_eci')
+    v = squeeze(truth.v_eci(k,:)).';
+    return;
+elseif isfield(truth, 'velocity_kmps')
+    v = squeeze(truth.velocity_kmps(k,:)).';
+    return;
+elseif isfield(truth, 'velocity')
+    v = squeeze(truth.velocity(k,:)).';
+    return;
+end
+
+% robust fallback: finite-difference from truth positions
+Nt = numel(ch5case.t_s);
+dt = ch5case.dt;
+
+if Nt < 2
+    error('Truth velocity field not found, and not enough samples to infer velocity.');
+end
+
+if k == 1
+    r0 = local_get_truth_position(ch5case, 1);
+    r1 = local_get_truth_position(ch5case, 2);
+    v = (r1 - r0) / dt;
+elseif k == Nt
+    r0 = local_get_truth_position(ch5case, Nt-1);
+    r1 = local_get_truth_position(ch5case, Nt);
+    v = (r1 - r0) / dt;
+else
+    rm = local_get_truth_position(ch5case, k-1);
+    rp = local_get_truth_position(ch5case, k+1);
+    v = (rp - rm) / (2*dt);
+end
 end
 
 function z = local_bearing_measurement_pair(x, ch5case, k, pair)
