@@ -1,16 +1,23 @@
 function eval_out = evaluate_candidate_r9_score(cfg, ch5case, selection_trace_prefix, k_now, pair, x_pred, P_pred, model)
 %EVALUATE_CANDIDATE_R9_SCORE
 % Score one candidate pair for R9:
-%   score = Psi - alpha*tau
+%   score = Psi - alpha*tau - beta*D
 % where
 %   Psi = minimum directional window supply along current pipe direction
 %   tau = future violation fraction over valid full-window centers
+%   D   = worst future gap depth over valid full-window centers
 
 Nt = numel(ch5case.t_s);
 left_steps = ch5case.window.left_steps;
 right_steps = ch5case.window.right_steps;
 H = cfg.ch5r.r9.horizon_steps;
 alpha = cfg.ch5r.r9.alpha_tau;
+
+if isfield(cfg.ch5r.r9, 'beta_depth')
+    beta = cfg.ch5r.r9.beta_depth;
+else
+    beta = 0.25;
+end
 
 last_valid_center = Nt - right_steps;
 centers = k_now : min(k_now + H - 1, last_valid_center);
@@ -23,6 +30,7 @@ if isempty(centers)
     eval_out.pair = pair;
     eval_out.psi = NaN;
     eval_out.tau = 0;
+    eval_out.depth_penalty = 0;
     eval_out.score = -inf;
     eval_out.gap = gap;
     return;
@@ -63,7 +71,6 @@ for t = k_now:t_end
     end
 end
 
-% prefix sums
 J_cum = zeros(3,3,nLocal+1);
 for i = 1:nLocal
     J_cum(:,:,i+1) = J_cum(:,:,i) + J_local(:,:,i);
@@ -71,6 +78,7 @@ end
 
 psi_list = nan(numel(centers),1);
 violate_list = false(numel(centers),1);
+depth_list = nan(numel(centers),1);
 
 for ic = 1:numel(centers)
     kc = centers(ic);
@@ -87,23 +95,27 @@ for ic = 1:numel(centers)
     Yw = J_cum(:,:,i1+1) - J_cum(:,:,i0);
     Yw = 0.5 * (Yw + Yw');
 
+    lam_min = min(real(eig(Yw)));
     psi_list(ic) = u' * Yw * u;
-    violate_list(ic) = min(real(eig(Yw))) < ch5case.gamma_req;
+    violate_list(ic) = lam_min < ch5case.gamma_req;
+    depth_list(ic) = max(0, ch5case.gamma_req - lam_min);
 end
 
 psi = min(psi_list, [], 'omitnan');
 tau = mean(double(violate_list), 'omitnan');
+D = max(depth_list, [], 'omitnan');
 
 if isnan(psi)
     score = -inf;
 else
-    score = psi - alpha * tau * ch5case.gamma_req;
+    score = psi - alpha * tau * ch5case.gamma_req - beta * D;
 end
 
 eval_out = struct();
 eval_out.pair = pair;
 eval_out.psi = psi;
 eval_out.tau = tau;
+eval_out.depth_penalty = D;
 eval_out.score = score;
 eval_out.gap = gap;
 eval_out.centers = centers;
