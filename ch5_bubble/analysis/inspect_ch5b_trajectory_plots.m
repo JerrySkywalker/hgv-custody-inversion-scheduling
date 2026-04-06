@@ -1,19 +1,38 @@
-function inspect_ch5b_trajectory_plots()
-%INSPECT_CH5B_TRAJECTORY_PLOTS Manual inspection entry for Phase B1 3D plots.
+function inspect_ch5b_trajectory_plots(sample_ids)
+%INSPECT_CH5B_TRAJECTORY_PLOTS Manual inspection using real propagated trajectories.
 
 cfg = default_ch5b_params();
 registry = build_trajectory_registry(cfg);
 
-traj_N01 = resolve_trajectory_sample(registry, 'N01', cfg);
-traj_N02 = resolve_trajectory_sample(registry, 'N02', cfg);
-traj_C01 = resolve_trajectory_sample(registry, 'C01', cfg);
+if nargin < 1 || isempty(sample_ids)
+    preferred = {'N01', 'H01_+000', 'C1_track_plane_aligned'};
+    sample_ids = local_pick_existing_ids(preferred, registry.sample_ids);
+    if isempty(sample_ids)
+        sample_ids = registry.sample_ids(1:min(3, numel(registry.sample_ids)));
+    end
+end
 
-plot_ch5b_trajectory_3d(traj_N01, struct('visible', 'on'));
-plot_ch5b_trajectory_3d(traj_N02, struct('visible', 'on'));
-plot_ch5b_trajectory_3d(traj_C01, struct('visible', 'on'));
+traj_samples = repmat(struct(), 1, numel(sample_ids));
+for i = 1:numel(sample_ids)
+    traj_samples(i) = resolve_trajectory_sample(registry, sample_ids{i}, cfg);
+end
 
-plot_ch5b_trajectory_family_3d([traj_N01, traj_N02, traj_C01], struct( ...
+for i = 1:numel(traj_samples)
+    plot_ch5b_trajectory_3d(traj_samples(i), struct('visible', 'on', 'coord_frame', 'enu'));
+end
+
+plot_ch5b_trajectory_family_3d(traj_samples, struct( ...
     'visible', 'on', ...
-    'title_text', 'Manual inspection: Phase B1 trajectory family 3D'));
+    'coord_frame', 'enu', ...
+    'title_text', 'Manual inspection: Phase B1 real trajectory family 3D'));
 
+end
+
+function picked = local_pick_existing_ids(preferred, available)
+picked = {};
+for i = 1:numel(preferred)
+    if any(strcmp(available, preferred{i}))
+        picked{end+1} = preferred{i}; %#ok<AGROW>
+    end
+end
 end

@@ -1,9 +1,5 @@
 function fig = plot_ch5b_trajectory_family_3d(traj_samples, opts)
-%PLOT_CH5B_TRAJECTORY_FAMILY_3D Plot multiple trajectory samples in one 3D figure.
-%
-% Inputs
-%   traj_samples : struct array or cell array of trajectory sample structs
-%   opts         : plotting options
+%PLOT_CH5B_TRAJECTORY_FAMILY_3D Plot multiple real trajectories in 3D.
 
 if nargin < 2
     opts = struct();
@@ -11,13 +7,11 @@ end
 
 opts = apply_defaults(opts, struct( ...
     'visible', 'on', ...
+    'coord_frame', 'enu', ...
     'show_start_end', true, ...
     'line_width', 1.8, ...
     'marker_size', 28, ...
-    'title_text', 'ch5\_bubble trajectory family 3D', ...
-    'xlabel_text', 'x', ...
-    'ylabel_text', 'y', ...
-    'zlabel_text', 'z'));
+    'title_text', 'ch5_bubble real trajectory family 3D'));
 
 traj_samples = normalize_samples(traj_samples);
 
@@ -30,27 +24,39 @@ legend_entries = cell(1, numel(traj_samples));
 
 for i = 1:numel(traj_samples)
     ts = traj_samples(i);
-    truth = ts.truth;
-    assert(size(truth,2) >= 3, 'plot_ch5b_trajectory_family_3d:InvalidTruth', ...
-        'Trajectory truth must have at least 3 columns for 3D plotting.');
+    xyz = local_pick_xyz(ts, opts.coord_frame);
 
-    plot3(truth(:,1), truth(:,2), truth(:,3), 'LineWidth', opts.line_width);
+    plot3(xyz(:,1), xyz(:,2), xyz(:,3), 'LineWidth', opts.line_width);
 
     if opts.show_start_end
-        scatter3(truth(1,1), truth(1,2), truth(1,3), opts.marker_size, 'filled');
-        scatter3(truth(end,1), truth(end,2), truth(end,3), opts.marker_size, 'filled');
+        scatter3(xyz(1,1), xyz(1,2), xyz(1,3), opts.marker_size, 'filled');
+        scatter3(xyz(end,1), xyz(end,2), xyz(end,3), opts.marker_size, 'filled');
     end
 
     legend_entries{i} = sprintf('%s (%s)', ts.sample_id, ts.family_id);
 end
 
-xlabel(opts.xlabel_text, 'Interpreter', 'none');
-ylabel(opts.ylabel_text, 'Interpreter', 'none');
-zlabel(opts.zlabel_text, 'Interpreter', 'none');
-title(opts.title_text, 'Interpreter', 'none');
+xlabel(sprintf('%s-x (km)', lower(opts.coord_frame)), 'Interpreter', 'none');
+ylabel(sprintf('%s-y (km)', lower(opts.coord_frame)), 'Interpreter', 'none');
+zlabel(sprintf('%s-z (km)', lower(opts.coord_frame)), 'Interpreter', 'none');
+title(sprintf('%s [%s]', opts.title_text, upper(opts.coord_frame)), 'Interpreter', 'none');
 legend(legend_entries, 'Interpreter', 'none', 'Location', 'best');
 hold off;
 
+end
+
+function xyz = local_pick_xyz(traj_sample, coord_frame)
+traj = traj_sample.traj;
+switch lower(coord_frame)
+    case 'enu'
+        xyz = traj.r_enu_km;
+    case 'eci'
+        xyz = traj.r_eci_km;
+    case 'ecef'
+        xyz = traj.r_ecef_km;
+    otherwise
+        error('Unsupported coord_frame: %s', coord_frame);
+end
 end
 
 function arr = normalize_samples(in)

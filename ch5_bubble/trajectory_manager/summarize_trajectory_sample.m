@@ -1,5 +1,5 @@
 function summary = summarize_trajectory_sample(traj_sample)
-%SUMMARIZE_TRAJECTORY_SAMPLE Summarize a trajectory sample.
+%SUMMARIZE_TRAJECTORY_SAMPLE Summarize one real propagated trajectory sample.
 
 summary = struct();
 summary.sample_id = traj_sample.sample_id;
@@ -15,4 +15,15 @@ summary.terminal_reason = traj_sample.terminal_reason;
 summary.first_state = traj_sample.first_state;
 summary.last_state = traj_sample.last_state;
 
+if isfield(traj_sample, 'traj') && isfield(traj_sample.traj, 'h_km')
+    summary.h_range_km = [min(traj_sample.traj.h_km), max(traj_sample.traj.h_km)];
+else
+    summary.h_range_km = [NaN, NaN];
+end
+
+if isfield(traj_sample, 'traj') && isfield(traj_sample.traj, 'v_mps')
+    summary.v_range_mps = [min(traj_sample.traj.v_mps), max(traj_sample.traj.v_mps)];
+else
+    summary.v_range_mps = [NaN, NaN];
+end
 end

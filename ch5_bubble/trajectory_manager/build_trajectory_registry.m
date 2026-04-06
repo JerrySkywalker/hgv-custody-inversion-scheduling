@@ -1,43 +1,72 @@
 function registry = build_trajectory_registry(cfg)
-%BUILD_TRAJECTORY_REGISTRY Build a lightweight trajectory registry for ch5_bubble.
+%BUILD_TRAJECTORY_REGISTRY Build trajectory registry from real Stage01 casebank.
 %
-% Phase B1:
-%   Freeze registry schema first.
-%   Real Stage02/cache integration will be added in later sub-steps.
+% Phase B1 real version:
+%   - load latest Stage01 casebank
+%   - flatten nominal / heading / critical families
+%   - registry stores case identities, not fake stub samples
 
-if nargin < 1
+if nargin < 1 || isempty(cfg)
     cfg = default_ch5b_params();
 end
 
-samples = struct([]);
+[casebank, stage01_file] = load_stage01_casebank_ch5b(cfg);
 
-samples(1).sample_id = 'N01';
-samples(1).family_id = 'NOMINAL';
-samples(1).case_label = 'nominal_primary';
-samples(1).source_tag = 'stub_nominal';
-samples(1).description = 'Phase B1 stub nominal sample 01';
+all_records = struct([]);
+idx = 0;
 
-samples(2).sample_id = 'N02';
-samples(2).family_id = 'NOMINAL';
-samples(2).case_label = 'nominal_secondary';
-samples(2).source_tag = 'stub_nominal';
-samples(2).description = 'Phase B1 stub nominal sample 02';
+if isfield(casebank, 'nominal')
+    idx = local_append_family(all_records, idx, casebank.nominal, 'nominal');
+    all_records = evalin('caller', 'all_records');
+end
 
-samples(3).sample_id = 'C01';
-samples(3).family_id = 'CRITICAL';
-samples(3).case_label = 'critical_demo';
-samples(3).source_tag = 'stub_critical';
-samples(3).description = 'Phase B1 stub critical sample 01';
+if isfield(casebank, 'heading')
+    idx = local_append_family(all_records, idx, casebank.heading, 'heading');
+    all_records = evalin('caller', 'all_records');
+end
+
+if isfield(casebank, 'critical')
+    idx = local_append_family(all_records, idx, casebank.critical, 'critical');
+    all_records = evalin('caller', 'all_records');
+end
 
 registry = struct();
 registry.framework = 'ch5_bubble';
 registry.phase = 'B1';
-registry.version = 'phaseB1_registry_stub';
-registry.source_mode = cfg.trajectory.source_mode;
-registry.sample_count = numel(samples);
-registry.samples = samples;
-registry.family_ids = unique({samples.family_id});
-registry.sample_ids = {samples.sample_id};
+registry.version = 'phaseB1_registry_real_stage01';
+registry.source_mode = 'stage01_casebank_plus_stage02_propagation';
+registry.source_cache_file = stage01_file;
+registry.sample_count = numel(all_records);
+registry.samples = all_records;
+registry.family_ids = unique({all_records.family_id});
+registry.sample_ids = {all_records.sample_id};
 registry.created_at = datestr(now, 'yyyy-mm-dd HH:MM:SS');
 
+end
+
+function idx = local_append_family(all_records, idx, family_struct, family_name)
+for k = 1:numel(family_struct)
+    case_i = family_struct(k);
+
+    idx = idx + 1;
+    all_records(idx).sample_id = case_i.case_id; %#ok<AGROW>
+    all_records(idx).family_id = upper(char(string(case_i.family))); %#ok<AGROW>
+    all_records(idx).case_label = case_i.case_id; %#ok<AGROW>
+    all_records(idx).source_tag = 'stage01_casebank'; %#ok<AGROW>
+    all_records(idx).family_name = family_name; %#ok<AGROW>
+    all_records(idx).subfamily = local_get_field(case_i, 'subfamily', ''); %#ok<AGROW>
+    all_records(idx).heading_deg = local_get_field(case_i, 'heading_deg', NaN); %#ok<AGROW>
+    all_records(idx).heading_offset_deg = local_get_field(case_i, 'heading_offset_deg', NaN); %#ok<AGROW>
+    all_records(idx).entry_theta_deg = local_get_field(case_i, 'entry_theta_deg', NaN); %#ok<AGROW>
+end
+
+assignin('caller', 'all_records', all_records);
+end
+
+function v = local_get_field(s, name, defaultv)
+if isfield(s, name)
+    v = s.(name);
+else
+    v = defaultv;
+end
 end

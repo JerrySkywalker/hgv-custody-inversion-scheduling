@@ -9,8 +9,8 @@
 
 Phase B0 的任务是冻结工程骨架与约定，不追求算法完整性。
 Phase B1 的任务是冻结 trajectory registry / trajectory sample / timeline diagnosis 的根接口。
-Phase B1.2 的任务是诊断真实 Stage02 轨迹来源，而不是凭印象直接复用旧缓存。
-Phase B1-plot 的任务是为轨迹管理器增加独立的三维绘图层，便于人工判别当前样本与实验状态。
+Phase B1 当前已切换为真实轨迹路径：
+Stage01 casebank -> Stage02 propagation engine -> ch5_bubble trajectory sample。
 
 ## 2. 开发原则
 
@@ -24,7 +24,7 @@ Phase B1-plot 的任务是为轨迹管理器增加独立的三维绘图层，便
    bubble / lambda / RMSE / requirement / switch 等指标统一打包，不在策略层分散实现。
 
 4. 图与计算分离  
-   plot 只读取 bundle / traj sample，不在 plotting 层做核心计算。
+   plot 只读取 traj sample / bundle，不在 plotting 层做核心计算。
 
 5. 旧链冻结参考  
    `ch5_rebuild / Phase R` 仅作为参考，不再作为新主链继续追加开发。
@@ -33,81 +33,26 @@ Phase B1-plot 的任务是为轨迹管理器增加独立的三维绘图层，便
 
 当前完成：
 - Phase B0 工程骨架与约定
-- Phase B1 轨迹注册表接口第一版（stub schema）
+- Phase B1 真实轨迹管理器第一版（Stage01 + Stage02 engine）
 - Phase B1.2 Stage02 轨迹来源诊断器第一版
-- Phase B1-plot 轨迹三维绘图模块第一版
+- Phase B1-plot 真实轨迹三维绘图模块第一版
 
 本阶段关键产物：
-- `doc/architecture.md`
-- `doc/naming_convention.md`
-- `params/default_ch5b_params.m`
+- `trajectory_manager/load_stage01_casebank_ch5b.m`
 - `trajectory_manager/build_trajectory_registry.m`
-- `trajectory_manager/load_stage02_trajectory_family.m`
 - `trajectory_manager/resolve_trajectory_sample.m`
 - `trajectory_manager/summarize_trajectory_sample.m`
 - `trajectory_manager/diagnose_trajectory_timeline.m`
 - `plots/plot_ch5b_trajectory_3d.m`
 - `plots/plot_ch5b_trajectory_family_3d.m`
 - `plots/export_ch5b_trajectory_family_3d.m`
-- `runners/run_ch5b_phaseB0_smoke.m`
 - `runners/run_ch5b_phaseB1_registry_smoke.m`
-- `runners/run_ch5b_phaseB1_stage02_diagnose.m`
 - `runners/run_ch5b_phaseB1_plot_smoke.m`
 
-## 4. 目录说明
+## 4. B1 退出标准
 
-- `doc/`：架构、命名、开发约定
-- `params/`：默认参数、参数组装
-- `trajectory_manager/`：轨迹族、sample、timeline 诊断
-- `case_builder/`：标准 case artifact 组装
-- `candidates/`：候选星对/星集构建
-- `policies/`：各类选星策略
-- `strategy_registry/`：统一策略注册与调度入口
-- `filter/`：滤波或代理估计层
-- `metrics/`：统一指标层
-- `compare/`：统一比较逻辑
-- `plots/`：绘图输出
-- `runners/`：实验入口
-- `analysis/`：诊断脚本
-- `release/`：论文发布包导出
-
-## 5. B0 / B1 / B1.2 / B1-plot 退出标准
-
-### B0
-- 新目录结构已经建立；
-- README、架构文档、命名规范文档已冻结；
-- 默认参数入口可正常返回结构体；
-- smoke runner 可在 MATLAB Desktop CLI 下成功执行。
-
-### B1
-- registry 能列出 sample_id / family_id；
-- resolve 能返回 schema 正确的 trajectory_sample；
-- timeline diagnosis 能检查 time 单调性、dt 一致性、truth 行数一致性；
-- B1 smoke runner 可保存 summary / mat / log。
-
-### B1.2
-- 能扫描工程中的 Stage02 相关 MAT 文件；
-- 能输出候选文件路径、变量名、变量数量、文件大小；
-- 能形成“是否可直接复用旧缓存”的事实基础；
-- 尚不要求完成所有旧格式解析。
-
-### B1-plot
-- 能为单条 traj sample 生成三维图；
-- 能为多个 traj sample 生成三维叠加图；
-- runner 能自动导出 png / fig；
-- 人工可以直接据图检查样本差异是否符合预期。
-
-## 6. 后续开发顺序
-
-建议顺序：
-
-B1 轨迹管理器  
-B2 case builder / candidate builder  
-B3/B4 策略注册表与统一 trace  
-B5 统一指标层  
-B6 空泡主线  
-B7 Li 方法对比  
-B8 interval 研究  
-B9 多 case / MC  
-B10 release
+- registry 来自真实 Stage01 casebank，而不是手工 stub；
+- resolve 通过真实 Stage02 engine 生成 traj sample；
+- 三维图绘制的是真实 `r_enu_km / r_eci_km / r_ecef_km`；
+- 可以人工直接判断 nominal / heading / critical 的轨迹差异。
 
