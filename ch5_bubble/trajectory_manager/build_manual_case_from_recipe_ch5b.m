@@ -38,7 +38,7 @@ case_i.family = recipe.family;
 case_i.subfamily = recipe.subfamily;
 case_i.heading_deg = recipe.heading_deg;
 case_i.heading_offset_deg = recipe.heading_offset_deg;
-case_i.entry_theta_deg = NaN;
+case_i.entry_theta_deg = recipe.theta0_deg;
 case_i.entry_point_ecef_m = entry_point_ecef_m;
 case_i.entry_point_enu_km = entry_point_enu_m / 1000.0;
 

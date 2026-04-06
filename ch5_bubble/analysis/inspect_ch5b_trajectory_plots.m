@@ -5,7 +5,7 @@ cfg = default_ch5b_params();
 registry = build_trajectory_registry(cfg);
 
 if nargin < 1 || isempty(sample_ids)
-    preferred = {'N01', 'H01_+000', 'C1_track_plane_aligned'};
+    preferred = {'N01', 'N02', 'C1_track_plane_aligned'};
     sample_ids = local_pick_existing_ids(preferred, registry.sample_ids);
     if isempty(sample_ids)
         sample_ids = registry.sample_ids(1:min(3, numel(registry.sample_ids)));
@@ -24,7 +24,15 @@ end
 plot_ch5b_trajectory_family_3d(traj_samples, struct( ...
     'visible', 'on', ...
     'coord_frame', 'enu', ...
-    'title_text', 'Manual inspection: Phase B1 real trajectory family 3D'));
+    'title_text', 'Manual inspection: Phase B1 trajectory family 3D'));
+
+plot_ch5b_altitude_time(traj_samples, struct( ...
+    'visible', 'on', ...
+    'title_text', 'Manual inspection: Altitude-Time'));
+
+plot_ch5b_speed_time(traj_samples, struct( ...
+    'visible', 'on', ...
+    'title_text', 'Manual inspection: Speed-Time'));
 
 end
 

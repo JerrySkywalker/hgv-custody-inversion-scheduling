@@ -58,9 +58,17 @@ cfg.trajectory.mc_count = 0;
 % -------------------------------------------------------------------------
 cfg.geo = struct();
 cfg.geo.enable_geodetic_anchor = true;
+
+% Anchor
 cfg.geo.lat0_deg = 30.0;
 cfg.geo.lon0_deg = 110.0;
 cfg.geo.h0_m = 0.0;
+
+% WGS84 ellipsoid
+cfg.geo.a_m = 6378137.0;
+cfg.geo.f = 1.0 / 298.257223563;
+cfg.geo.b_m = cfg.geo.a_m * (1.0 - cfg.geo.f);
+cfg.geo.e2 = 2.0 * cfg.geo.f - cfg.geo.f^2;
 
 cfg.time = struct();
 cfg.time.epoch_utc = datetime(2025, 1, 1, 0, 0, 0, 'TimeZone', 'UTC');
@@ -92,7 +100,7 @@ cfg.stage02.h_max_m = 120000.0;
 cfg.stage02.v_min_mps = 500.0;
 cfg.stage02.v_max_mps = 9000.0;
 
-cfg.stage02.Re_m = 6378137.0;
+cfg.stage02.Re_m = cfg.geo.a_m;
 cfg.stage02.phi_ref_deg = cfg.geo.lat0_deg;
 cfg.stage02.lambda_ref_deg = cfg.geo.lon0_deg;
 

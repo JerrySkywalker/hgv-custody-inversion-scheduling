@@ -10,14 +10,26 @@ manual recipe
 -> synthetic case
 -> Stage02 propagation kernel
 -> trajectory sample
--> 3D plots
+-> diagnostic plots
 
-这意味着：
+## B1.1 增强
 
-- 第五章不再依赖 Stage01 的批量 casebank；
-- 但仍然复用 Stage02 的真实传播内核；
-- 每条轨迹由 `default_ch5b_trajectory_recipes.m` 明确给出；
-- 更适合第五章的小样本、高解释性、可控对比实验。
+当前 recipe 已支持每条轨迹单独设置：
+
+- `h0_m`
+- `v0_mps`
+- `theta0_deg`
+- `sigma0_deg`
+- `heading_deg`
+- `heading_offset_deg`
+- `alpha_cmd_deg`
+- `bank_cmd_deg`
+
+当前诊断图包括：
+
+- 3D 轨迹图
+- 高度-时间图
+- 速度-时间图
 
 ## 当前关键文件
 
@@ -30,5 +42,8 @@ manual recipe
 - `trajectory_manager/diagnose_trajectory_timeline.m`
 - `plots/plot_ch5b_trajectory_3d.m`
 - `plots/plot_ch5b_trajectory_family_3d.m`
+- `plots/plot_ch5b_altitude_time.m`
+- `plots/plot_ch5b_speed_time.m`
+- `plots/export_ch5b_diagnostic_plots.m`
 - `runners/run_ch5b_phaseB1_plot_smoke.m`
 
