@@ -1,8 +1,8 @@
 function traj_sample = resolve_trajectory_sample(registry, sample_id, cfg)
-%RESOLVE_TRAJECTORY_SAMPLE Resolve one trajectory sample via real Stage02 propagation.
+%RESOLVE_TRAJECTORY_SAMPLE Resolve one trajectory sample for ch5_bubble.
 %
-% Real path:
-%   Stage01 casebank -> build_hgv_cfg_from_case_stage02 -> propagate_hgv_case_stage02
+% Preferred path:
+%   manual recipe -> synthetic case -> Stage02 propagation kernel
 
 if nargin < 3 || isempty(cfg)
     cfg = default_ch5b_params();
@@ -25,8 +25,21 @@ if isempty(idx)
 end
 
 meta = registry.samples(idx);
-[casebank, stage01_file] = load_stage01_casebank_ch5b(cfg);
-case_i = local_find_case_by_id(casebank, sample_id);
+
+switch lower(meta.source_tag)
+    case 'manual_recipe'
+        recipes = default_ch5b_trajectory_recipes(cfg);
+        recipe = local_find_recipe(recipes, sample_id);
+        case_i = build_manual_case_from_recipe_ch5b(recipe, cfg);
+
+    case 'stage01_casebank'
+        [casebank, ~] = load_stage01_casebank_ch5b(cfg);
+        case_i = local_find_case_by_id(casebank, sample_id);
+
+    otherwise
+        error('resolve_trajectory_sample:UnsupportedSourceTag', ...
+            'Unsupported source_tag: %s', meta.source_tag);
+end
 
 hgv_cfg = build_hgv_cfg_from_case_stage02(case_i, cfg);
 traj = propagate_hgv_case_stage02(case_i, cfg, hgv_cfg);
@@ -35,7 +48,7 @@ traj_sample = struct();
 traj_sample.sample_id = meta.sample_id;
 traj_sample.family_id = meta.family_id;
 traj_sample.case_label = meta.case_label;
-traj_sample.source_tag = 'stage02_real_propagation';
+traj_sample.source_tag = meta.source_tag;
 traj_sample.description = sprintf('Real propagated trajectory for %s', meta.sample_id);
 
 traj_sample.case = case_i;
@@ -55,13 +68,23 @@ traj_sample.terminal_reason = local_infer_terminal_reason(traj, cfg);
 
 traj_sample.metadata = struct();
 traj_sample.metadata.framework = 'ch5_bubble';
-traj_sample.metadata.phase = 'B1_real';
-traj_sample.metadata.stage01_file = stage01_file;
+traj_sample.metadata.phase = 'B1_manual_recipe';
 traj_sample.metadata.entry_theta_deg = local_get_field(case_i, 'entry_theta_deg', NaN);
 traj_sample.metadata.heading_deg = local_get_field(case_i, 'heading_deg', NaN);
 traj_sample.metadata.heading_offset_deg = local_get_field(case_i, 'heading_offset_deg', NaN);
 traj_sample.metadata.subfamily = local_get_field(case_i, 'subfamily', '');
 
+end
+
+function recipe = local_find_recipe(recipes, sample_id)
+for k = 1:numel(recipes)
+    if strcmp(recipes(k).case_id, sample_id)
+        recipe = recipes(k);
+        return;
+    end
+end
+error('resolve_trajectory_sample:RecipeNotFound', ...
+    'Manual recipe not found for sample id "%s".', sample_id);
 end
 
 function case_i = local_find_case_by_id(casebank, sample_id)
