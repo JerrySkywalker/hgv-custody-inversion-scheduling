@@ -4,7 +4,6 @@ function out = run_ch5r_phase9_r9_closedloop()
 % - inner loop: local affine Koopman-DMD prediction + IEKF-like bearing update
 % - outer loop: pipe-gap-driven bubble suppression scheduling
 % - switch count is recorded only, not optimized
-% - explicit tail mode after the last valid full-window center
 
 cfg = default_ch5r_r9_params();
 
@@ -16,7 +15,6 @@ ch5case.cfg = cfg;
 
 Nt = numel(ch5case.t_s);
 dt = ch5case.dt;
-last_valid_center = Nt - ch5case.window.right_steps;
 
 selection_trace = cell(Nt,1);
 xhat_hist = nan(6,Nt);
@@ -54,65 +52,22 @@ for k = 1:Nt
     % one-step predict to current time
     [x_pred, P_pred] = propagate_koopman_state(xhat, P, model, cfg);
 
+    % select pair using predicted state/covariance
     pair_list = ch5case.candidates.pair_bank{k};
-
     if isempty(pair_list)
         sel = struct('k',k,'time_s',ch5case.t_s(k),'pair',[],'score',-inf, ...
                      'name','r9_empty','eval',[],'n_pairs',0, ...
                      'prev_pair',[],'switch_flag',false,'J_pair',zeros(3,3));
         xhat = x_pred;
         P = P_pred;
-
-    elseif k > last_valid_center
-        % explicit tail mode: no valid future full-window center remains
-        prev_pair = [];
-        if k > 1 && isstruct(selection_trace{k-1}) && isfield(selection_trace{k-1}, 'pair')
-            prev_pair = selection_trace{k-1}.pair;
-        end
-
-        if ~isempty(prev_pair) && ismember(prev_pair, pair_list, 'rows')
-            pair = prev_pair;
-            name_str = 'r9_tail_hold';
-        else
-            pair = local_pick_best_trace_pair(ch5case, k, pair_list, x_pred(1:3), cfg);
-            name_str = 'r9_tail_trace';
-        end
-
-        sel = struct();
-        sel.k = k;
-        sel.time_s = ch5case.t_s(k);
-        sel.pair = pair;
-        sel.score = NaN;
-        sel.name = name_str;
-        sel.eval = struct('tail_mode', true);
-        sel.n_pairs = size(pair_list,1);
-
-        z_true = local_bearing_measurement_pair(local_get_truth_state(ch5case,k), ch5case, k, sel.pair);
-        [xhat, P] = local_iekf_update_pair(x_pred, P_pred, z_true, ch5case, k, sel.pair, cfg);
-
-        x_true_k = local_get_truth_state(ch5case, k);
-        r_tgt = x_true_k(1:3).';
-        r_sat_pair = [
-            squeeze(ch5case.satbank.r_eci_km(k, :, sel.pair(1)));
-            squeeze(ch5case.satbank.r_eci_km(k, :, sel.pair(2)))
-        ];
-        sel.J_pair = compute_bearing_fim_pair(r_tgt, r_sat_pair, cfg.ch5r.sensor_profile.sigma_angle_rad);
-
-        if k > 1 && isstruct(selection_trace{k-1}) && isfield(selection_trace{k-1}, 'pair') ...
-                && ~isempty(selection_trace{k-1}.pair)
-            sel.prev_pair = selection_trace{k-1}.pair;
-            sel.switch_flag = ~isequal(sel.pair, selection_trace{k-1}.pair);
-        else
-            sel.prev_pair = [];
-            sel.switch_flag = false;
-        end
-
     else
         sel = select_satellite_set_r9_pipe_feedback(cfg, ch5case, selection_trace, k, x_pred, P_pred, model);
 
+        % generate truth measurement and update
         z_true = local_bearing_measurement_pair(local_get_truth_state(ch5case,k), ch5case, k, sel.pair);
         [xhat, P] = local_iekf_update_pair(x_pred, P_pred, z_true, ch5case, k, sel.pair, cfg);
 
+        % bubble metrics still use realized truth geometry for comparability
         x_true_k = local_get_truth_state(ch5case, k);
         r_tgt = x_true_k(1:3).';
         r_sat_pair = [
@@ -146,11 +101,7 @@ for k = 1:Nt
         if do_log
             msg = sprintf('[R9][k=%d/%d] nPairs=%d rmsePos=%.6g', k, Nt, sel.n_pairs, rmse_pos_km(k));
             if ~isempty(sel.pair)
-                if isnan(sel.score)
-                    msg = sprintf('%s pair=[%d %d] score=tail', msg, sel.pair(1), sel.pair(2));
-                else
-                    msg = sprintf('%s pair=[%d %d] score=%.6g', msg, sel.pair(1), sel.pair(2), sel.score);
-                end
+                msg = sprintf('%s pair=[%d %d] score=%.6g', msg, sel.pair(1), sel.pair(2), sel.score);
             else
                 msg = sprintf('%s pair=[]', msg);
             end
@@ -220,24 +171,6 @@ out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
 out.ok = true;
 end
 
-function pair = local_pick_best_trace_pair(ch5case, k, pair_list, r_tgt, cfg)
-best_score = -inf;
-pair = pair_list(1,:);
-for idx = 1:size(pair_list,1)
-    cand = pair_list(idx,:);
-    r_sat_pair = [
-        squeeze(ch5case.satbank.r_eci_km(k, :, cand(1)));
-        squeeze(ch5case.satbank.r_eci_km(k, :, cand(2)))
-    ];
-    J_try = compute_bearing_fim_pair(r_tgt.', r_sat_pair, cfg.ch5r.sensor_profile.sigma_angle_rad);
-    s_try = trace(J_try);
-    if s_try > best_score
-        best_score = s_try;
-        pair = cand;
-    end
-end
-end
-
 function x_true = local_get_truth_state(ch5case, k)
 r = local_get_truth_position(ch5case, k);
 v = local_get_truth_velocity(ch5case, k);
@@ -277,6 +210,7 @@ elseif isfield(truth, 'velocity')
     return;
 end
 
+% robust fallback: finite-difference from truth positions
 Nt = numel(ch5case.t_s);
 dt = ch5case.dt;
 
