@@ -10,6 +10,7 @@
 Phase B0 的任务是冻结工程骨架与约定，不追求算法完整性。
 Phase B1 的任务是冻结 trajectory registry / trajectory sample / timeline diagnosis 的根接口。
 Phase B1.2 的任务是诊断真实 Stage02 轨迹来源，而不是凭印象直接复用旧缓存。
+Phase B1-plot 的任务是为轨迹管理器增加独立的三维绘图层，便于人工判别当前样本与实验状态。
 
 ## 2. 开发原则
 
@@ -23,7 +24,7 @@ Phase B1.2 的任务是诊断真实 Stage02 轨迹来源，而不是凭印象直
    bubble / lambda / RMSE / requirement / switch 等指标统一打包，不在策略层分散实现。
 
 4. 图与计算分离  
-   plot 只读取 bundle，不在 plotting 层做核心计算。
+   plot 只读取 bundle / traj sample，不在 plotting 层做核心计算。
 
 5. 旧链冻结参考  
    `ch5_rebuild / Phase R` 仅作为参考，不再作为新主链继续追加开发。
@@ -34,6 +35,7 @@ Phase B1.2 的任务是诊断真实 Stage02 轨迹来源，而不是凭印象直
 - Phase B0 工程骨架与约定
 - Phase B1 轨迹注册表接口第一版（stub schema）
 - Phase B1.2 Stage02 轨迹来源诊断器第一版
+- Phase B1-plot 轨迹三维绘图模块第一版
 
 本阶段关键产物：
 - `doc/architecture.md`
@@ -44,9 +46,13 @@ Phase B1.2 的任务是诊断真实 Stage02 轨迹来源，而不是凭印象直
 - `trajectory_manager/resolve_trajectory_sample.m`
 - `trajectory_manager/summarize_trajectory_sample.m`
 - `trajectory_manager/diagnose_trajectory_timeline.m`
+- `plots/plot_ch5b_trajectory_3d.m`
+- `plots/plot_ch5b_trajectory_family_3d.m`
+- `plots/export_ch5b_trajectory_family_3d.m`
 - `runners/run_ch5b_phaseB0_smoke.m`
 - `runners/run_ch5b_phaseB1_registry_smoke.m`
 - `runners/run_ch5b_phaseB1_stage02_diagnose.m`
+- `runners/run_ch5b_phaseB1_plot_smoke.m`
 
 ## 4. 目录说明
 
@@ -65,7 +71,7 @@ Phase B1.2 的任务是诊断真实 Stage02 轨迹来源，而不是凭印象直
 - `analysis/`：诊断脚本
 - `release/`：论文发布包导出
 
-## 5. B0 / B1 / B1.2 退出标准
+## 5. B0 / B1 / B1.2 / B1-plot 退出标准
 
 ### B0
 - 新目录结构已经建立；
@@ -84,6 +90,12 @@ Phase B1.2 的任务是诊断真实 Stage02 轨迹来源，而不是凭印象直
 - 能输出候选文件路径、变量名、变量数量、文件大小；
 - 能形成“是否可直接复用旧缓存”的事实基础；
 - 尚不要求完成所有旧格式解析。
+
+### B1-plot
+- 能为单条 traj sample 生成三维图；
+- 能为多个 traj sample 生成三维叠加图；
+- runner 能自动导出 png / fig；
+- 人工可以直接据图检查样本差异是否符合预期。
 
 ## 6. 后续开发顺序
 
