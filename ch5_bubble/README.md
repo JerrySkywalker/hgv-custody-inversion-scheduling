@@ -9,6 +9,7 @@
 
 Phase B0 的任务是冻结工程骨架与约定，不追求算法完整性。
 Phase B1 的任务是冻结 trajectory registry / trajectory sample / timeline diagnosis 的根接口。
+Phase B1.2 的任务是诊断真实 Stage02 轨迹来源，而不是凭印象直接复用旧缓存。
 
 ## 2. 开发原则
 
@@ -32,17 +33,20 @@ Phase B1 的任务是冻结 trajectory registry / trajectory sample / timeline d
 当前完成：
 - Phase B0 工程骨架与约定
 - Phase B1 轨迹注册表接口第一版（stub schema）
+- Phase B1.2 Stage02 轨迹来源诊断器第一版
 
 本阶段关键产物：
 - `doc/architecture.md`
 - `doc/naming_convention.md`
 - `params/default_ch5b_params.m`
 - `trajectory_manager/build_trajectory_registry.m`
+- `trajectory_manager/load_stage02_trajectory_family.m`
 - `trajectory_manager/resolve_trajectory_sample.m`
 - `trajectory_manager/summarize_trajectory_sample.m`
 - `trajectory_manager/diagnose_trajectory_timeline.m`
 - `runners/run_ch5b_phaseB0_smoke.m`
 - `runners/run_ch5b_phaseB1_registry_smoke.m`
+- `runners/run_ch5b_phaseB1_stage02_diagnose.m`
 
 ## 4. 目录说明
 
@@ -61,7 +65,7 @@ Phase B1 的任务是冻结 trajectory registry / trajectory sample / timeline d
 - `analysis/`：诊断脚本
 - `release/`：论文发布包导出
 
-## 5. B0 / B1 退出标准
+## 5. B0 / B1 / B1.2 退出标准
 
 ### B0
 - 新目录结构已经建立；
@@ -74,6 +78,12 @@ Phase B1 的任务是冻结 trajectory registry / trajectory sample / timeline d
 - resolve 能返回 schema 正确的 trajectory_sample；
 - timeline diagnosis 能检查 time 单调性、dt 一致性、truth 行数一致性；
 - B1 smoke runner 可保存 summary / mat / log。
+
+### B1.2
+- 能扫描工程中的 Stage02 相关 MAT 文件；
+- 能输出候选文件路径、变量名、变量数量、文件大小；
+- 能形成“是否可直接复用旧缓存”的事实基础；
+- 尚不要求完成所有旧格式解析。
 
 ## 6. 后续开发顺序
 
