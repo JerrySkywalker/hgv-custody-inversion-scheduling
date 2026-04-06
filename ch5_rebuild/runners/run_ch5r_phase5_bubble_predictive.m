@@ -3,6 +3,7 @@ function out = run_ch5r_phase5_bubble_predictive()
 % Real R5:
 % - future-window-oriented bubble-predictive scheduling
 % - centered full-only window semantics
+% - explicit tail mode after the last valid full-window center
 % - real result packaging aligned with R3/R4
 
 cfg = default_ch5r_params(true);
@@ -29,8 +30,12 @@ ch5case.cfg = cfg;
 Nt = numel(ch5case.t_s);
 selection_trace = cell(Nt,1);
 
+% Last center that still has a full centered window
+last_valid_center = Nt - ch5case.window.right_steps;
+
 if cfg.ch5r.r5.log.enable
     disp('=== [R5] Start bubble-predictive scheduling ===')
+    disp(['[R5] last_valid_center = ' num2str(last_valid_center)])
 end
 
 t_total = tic;
@@ -40,9 +45,11 @@ for k = 1:Nt
     t_step = tic;
     mode_str = 'select';
 
-    if isempty(ch5case.candidates.pair_bank{k})
+    pair_list = ch5case.candidates.pair_bank{k};
+
+    if isempty(pair_list)
         prev_pair = [];
-        if k > 1
+        if k > 1 && isstruct(selection_trace{k-1}) && isfield(selection_trace{k-1}, 'pair')
             prev_pair = selection_trace{k-1}.pair;
         end
 
@@ -58,12 +65,66 @@ for k = 1:Nt
             'n_pairs', 0);
         mode_str = 'empty';
 
+    elseif k > last_valid_center
+        % Tail mode: no future full-window center remains.
+        prev_pair = [];
+        if k > 1 && isstruct(selection_trace{k-1}) && isfield(selection_trace{k-1}, 'pair')
+            prev_pair = selection_trace{k-1}.pair;
+        end
+
+        sigma_angle_rad = cfg.ch5r.sensor_profile.sigma_angle_rad;
+
+        if ~isempty(prev_pair) && ismember(prev_pair, pair_list, 'rows')
+            pair = prev_pair;
+            switched = false;
+            mode_str = 'tail_hold';
+        else
+            best_score = -inf;
+            pair = pair_list(1,:);
+            for idx = 1:size(pair_list,1)
+                cand = pair_list(idx,:);
+                r_tgt = ch5case.truth.r_eci_km(k, :);
+                r_sat_pair = [
+                    squeeze(ch5case.satbank.r_eci_km(k, :, cand(1)));
+                    squeeze(ch5case.satbank.r_eci_km(k, :, cand(2)))
+                ];
+                J_try = compute_bearing_fim_pair(r_tgt, r_sat_pair, sigma_angle_rad);
+                s_try = trace(J_try);
+                if s_try > best_score
+                    best_score = s_try;
+                    pair = cand;
+                end
+            end
+            switched = ~(~isempty(prev_pair) && isequal(pair, prev_pair));
+            mode_str = 'tail_current_trace';
+        end
+
+        r_tgt = ch5case.truth.r_eci_km(k, :);
+        r_sat_pair = [
+            squeeze(ch5case.satbank.r_eci_km(k, :, pair(1)));
+            squeeze(ch5case.satbank.r_eci_km(k, :, pair(2)))
+        ];
+        J = compute_bearing_fim_pair(r_tgt, r_sat_pair, sigma_angle_rad);
+
+        selection_trace{k} = struct( ...
+            'k', k, ...
+            'time_s', ch5case.t_s(k), ...
+            'pair', pair, ...
+            'J_pair', J, ...
+            'score', trace(J), ...
+            'prev_pair', prev_pair, ...
+            'switch_flag', switched, ...
+            'name', 'bubble_predictive_tail_mode', ...
+            'eval', struct('score_mode','tail_explicit_mode'), ...
+            'n_pairs', size(pair_list,1));
+
+        hold_countdown = 0;
+
     else
         reuse_prev = false;
 
         if k > 1 && hold_countdown > 0 && ~isempty(selection_trace{k-1}.pair)
             prev_pair = selection_trace{k-1}.pair;
-            pair_list = ch5case.candidates.pair_bank{k};
             if ismember(prev_pair, pair_list, 'rows')
                 reuse_prev = true;
             end
@@ -89,7 +150,7 @@ for k = 1:Nt
                 'switch_flag', false, ...
                 'name', 'bubble_predictive_hold', ...
                 'eval', [], ...
-                'n_pairs', size(ch5case.candidates.pair_bank{k},1));
+                'n_pairs', size(pair_list,1));
 
             hold_countdown = hold_countdown - 1;
             mode_str = 'hold';
