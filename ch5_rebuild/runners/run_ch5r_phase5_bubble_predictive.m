@@ -1,12 +1,34 @@
-function out = run_ch5r_phase5_bubble_predictive()
+function out = run_ch5r_phase5_bubble_predictive(overrides)
 %RUN_CH5R_PHASE5_BUBBLE_PREDICTIVE
 % Real R5:
 % - future-window-oriented bubble-predictive scheduling
 % - centered full-only window semantics
 % - explicit tail mode after the last valid full-window center
 % - real result packaging aligned with R3/R4
+%
+% Optional input:
+%   overrides: struct with fields such as
+%       horizon_steps
+%       lambda_sw
+%       min_hold_steps
+%       parallel_enable
+%       log_enable
+%       verbose_step
+%       log_every
+%       show_step_timing
+%       show_candidate_count
+%       show_best_score
+%       save_outputs
+%       window_length_s
+%       window_mode
+%       window_exclude_incomplete_edges
+
+if nargin < 1 || isempty(overrides)
+    overrides = struct();
+end
 
 cfg = default_ch5r_params(true);
+
 cfg.ch5r.window_length_s = 60;
 cfg.ch5r.window_mode = 'centered_full_only';
 cfg.ch5r.window_exclude_incomplete_edges = true;
@@ -24,13 +46,16 @@ cfg.ch5r.r5.log.show_step_timing = true;
 cfg.ch5r.r5.log.show_candidate_count = true;
 cfg.ch5r.r5.log.show_best_score = true;
 
+save_outputs = true;
+
+[cfg, save_outputs] = local_apply_overrides(cfg, overrides, save_outputs);
+
 ch5case = build_ch5r_case(cfg);
 ch5case.cfg = cfg;
 
 Nt = numel(ch5case.t_s);
 selection_trace = cell(Nt,1);
 
-% Last center that still has a full centered window
 last_valid_center = Nt - ch5case.window.right_steps;
 
 if cfg.ch5r.r5.log.enable
@@ -66,7 +91,6 @@ for k = 1:Nt
         mode_str = 'empty';
 
     elseif k > last_valid_center
-        % Tail mode: no future full-window center remains.
         prev_pair = [];
         if k > 1 && isstruct(selection_trace{k-1}) && isfield(selection_trace{k-1}, 'pair')
             prev_pair = selection_trace{k-1}.pair;
@@ -217,14 +241,16 @@ resource_score = 2;
 result = package_ch5r_result_real(ch5case, selection_trace, wininfo, bubble, resource_score);
 
 out_dir = fullfile(cfg.ch5r.output_root, 'phaseR5_bubble_predictive_real');
-if ~exist(out_dir, 'dir')
-    mkdir(out_dir);
+if save_outputs
+    if ~exist(out_dir, 'dir')
+        mkdir(out_dir);
+    end
+    stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
+    mat_file = fullfile(out_dir, ['phaseR5_bubble_predictive_real_' stamp '.mat']);
+    save(mat_file, 'cfg', 'ch5case', 'selection_trace', 'wininfo', 'bubble', 'state_trace', 'result');
+else
+    mat_file = '';
 end
-
-stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
-mat_file = fullfile(out_dir, ['phaseR5_bubble_predictive_real_' stamp '.mat']);
-
-save(mat_file, 'cfg', 'ch5case', 'selection_trace', 'wininfo', 'bubble', 'state_trace', 'result');
 
 disp(' ')
 disp('=== [ch5r:R5-real] bubble-predictive baseline summary ===')
@@ -260,4 +286,57 @@ out.state_trace = state_trace;
 out.result = result;
 out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
 out.ok = true;
+end
+
+function [cfg, save_outputs] = local_apply_overrides(cfg, overrides, save_outputs)
+if ~isstruct(overrides)
+    error('overrides must be a struct.');
+end
+
+if isfield(overrides, 'window_length_s')
+    cfg.ch5r.window_length_s = overrides.window_length_s;
+end
+if isfield(overrides, 'window_mode')
+    cfg.ch5r.window_mode = overrides.window_mode;
+end
+if isfield(overrides, 'window_exclude_incomplete_edges')
+    cfg.ch5r.window_exclude_incomplete_edges = logical(overrides.window_exclude_incomplete_edges);
+end
+
+if isfield(overrides, 'horizon_steps')
+    cfg.ch5r.r5.horizon_steps = overrides.horizon_steps;
+end
+if isfield(overrides, 'lambda_sw')
+    cfg.ch5r.r5.lambda_sw = overrides.lambda_sw;
+end
+if isfield(overrides, 'min_hold_steps')
+    cfg.ch5r.r5.min_hold_steps = overrides.min_hold_steps;
+end
+
+if isfield(overrides, 'parallel_enable')
+    cfg.ch5r.r5.parallel.enable = logical(overrides.parallel_enable);
+end
+
+if isfield(overrides, 'log_enable')
+    cfg.ch5r.r5.log.enable = logical(overrides.log_enable);
+end
+if isfield(overrides, 'verbose_step')
+    cfg.ch5r.r5.log.verbose_step = logical(overrides.verbose_step);
+end
+if isfield(overrides, 'log_every')
+    cfg.ch5r.r5.log.log_every = overrides.log_every;
+end
+if isfield(overrides, 'show_step_timing')
+    cfg.ch5r.r5.log.show_step_timing = logical(overrides.show_step_timing);
+end
+if isfield(overrides, 'show_candidate_count')
+    cfg.ch5r.r5.log.show_candidate_count = logical(overrides.show_candidate_count);
+end
+if isfield(overrides, 'show_best_score')
+    cfg.ch5r.r5.log.show_best_score = logical(overrides.show_best_score);
+end
+
+if isfield(overrides, 'save_outputs')
+    save_outputs = logical(overrides.save_outputs);
+end
 end
