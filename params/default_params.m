@@ -247,7 +247,7 @@ function cfg = default_params()
     % Initial HGV state (representative public values)
     cfg.stage02.v0_mps = 5500;
     cfg.stage02.h0_m = 50000;
-    cfg.stage02.theta0_deg = -3.0;      % flight-path angle
+    cfg.stage02.theta0_deg = 0;      % flight-path angle
 
     % Default control templates
     cfg.stage02.alpha_nominal_deg = 11.0;
