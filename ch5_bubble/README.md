@@ -31,6 +31,14 @@ manual recipe
 - 高度-时间图
 - 速度-时间图
 
+## 测试入口
+
+当前已提供：
+
+- `tests/test_ch5b_plot_trajectory_3d.m`
+
+用于对代表性轨迹生成单独 3D 图和叠加 3D 图，便于人工检查与最小 CI smoke。
+
 ## 当前关键文件
 
 - `params/default_ch5b_params.m`
@@ -46,4 +54,5 @@ manual recipe
 - `plots/plot_ch5b_speed_time.m`
 - `plots/export_ch5b_diagnostic_plots.m`
 - `runners/run_ch5b_phaseB1_plot_smoke.m`
+- `tests/test_ch5b_plot_trajectory_3d.m`
 
