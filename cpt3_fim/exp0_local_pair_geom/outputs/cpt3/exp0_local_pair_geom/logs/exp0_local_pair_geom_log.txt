@@ -1,0 +1,9 @@
+[INFO] run_timestamp = 2026-04-11 23:08:40
+[INFO] Experiment 0 output root: C:\src\hgv-custody-inversion-scheduling-mb-v2\cpt3_fim\exp0_local_pair_geom\outputs\cpt3\exp0_local_pair_geom
+[INFO] baseline_fig3_stacked_km = 500.0 600.0 700.0 800.0 900.0 1000.0 1100.0 1200.0 
+[INFO] baseline_fig3plus_km = 500.0 1000.0 1200.0 
+[INFO] trusted_count = 6
+[INFO] trusted_R_geo_range = [180.278, 300.000] km
+[INFO] Bxy_nominal_range = [73.607, 203.607] km
+[INFO] Bxy_conservative_range = [30.278, 160.278] km
+[INFO] step_xy = [45.069, 55.902] km

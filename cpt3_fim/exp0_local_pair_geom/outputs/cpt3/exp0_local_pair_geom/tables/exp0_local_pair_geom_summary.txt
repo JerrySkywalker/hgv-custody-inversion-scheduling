@@ -1,0 +1,98 @@
+=== Chapter 3 Experiment 0: Local Pair Geometry and M_G Stability Summary ===
+output_root = C:\src\hgv-custody-inversion-scheduling-mb-v2\cpt3_fim\exp0_local_pair_geom\outputs\cpt3\exp0_local_pair_geom
+run_timestamp = 2026-04-11 23:08:40
+h_sat_km = 1000.000
+h_tgt_ref_km = 40.000
+delta_h_ref_km = 960.000
+sigma_theta_rad = 4.84813226e-05
+
+--- Relation to Chapter 3 existing experiments ---
+Experiment 0: local pair geometry -> center-point M_G -> local M_G stability radius R_geo
+Case A: generalized geometry-degeneration path -> M_G(eta) collapse and condition-number spike
+Case B: fixed geometry -> M_A(alpha) marginal saturation and Supply_w interpretation
+
+--- Reference baseline anchors and corresponding center-point M_G levels ---
+theta = 30.0 deg -> baseline = 514.462 km, center_M_G = 57.705689
+theta = 60.0 deg -> baseline = 1108.513 km, center_M_G = 173.117066
+theta = 80.0 deg -> baseline = 1611.071 km, center_M_G = 223.862597
+M_G_thr_12 = 115.411378
+M_G_thr_23 = 198.489832
+
+--- Stacked Fig3 baseline anchors ---
+baseline_fig3_stacked_km = 500.0 600.0 700.0 800.0 900.0 1000.0 1100.0 1200.0 
+--- Fig3_plus baseline anchors ---
+baseline_fig3plus_km = 500.0 1000.0 1200.0 
+
+--- Empirical M_G stability radius R_geo (reference anchors) ---
+b=514.462 km, h=30 km -> region=low_M_G, R_geo=1131.371 km
+b=514.462 km, h=40 km -> region=low_M_G, R_geo=1131.371 km
+b=514.462 km, h=50 km -> region=low_M_G, R_geo=1131.371 km
+b=1108.513 km, h=30 km -> region=mid_M_G, R_geo=300.000 km
+b=1108.513 km, h=40 km -> region=mid_M_G, R_geo=254.951 km
+b=1108.513 km, h=50 km -> region=mid_M_G, R_geo=223.607 km
+b=1611.071 km, h=30 km -> region=high_M_G, R_geo=180.278 km
+b=1611.071 km, h=40 km -> region=high_M_G, R_geo=180.278 km
+b=1611.071 km, h=50 km -> region=high_M_G, R_geo=223.607 km
+
+--- Dense baseline R_geo curves ---
+b=500.0 km -> h=30 km: R_geo=1131.371 km h=40 km: R_geo=1131.371 km h=50 km: R_geo=1131.371 km 
+b=600.0 km -> h=30 km: R_geo=626.498 km h=40 km: R_geo=565.685 km h=50 km: R_geo=502.494 km 
+b=700.0 km -> h=30 km: R_geo=335.410 km h=40 km: R_geo=291.548 km h=50 km: R_geo=254.951 km 
+b=800.0 km -> h=30 km: R_geo=100.000 km h=40 km: R_geo=50.000 km h=50 km: R_geo=111.803 km 
+b=900.0 km -> h=30 km: R_geo=223.607 km h=40 km: R_geo=254.951 km h=50 km: R_geo=291.548 km 
+b=1000.0 km -> h=30 km: R_geo=335.410 km h=40 km: R_geo=360.555 km h=50 km: R_geo=335.410 km 
+b=1100.0 km -> h=30 km: R_geo=304.138 km h=40 km: R_geo=282.843 km h=50 km: R_geo=223.607 km 
+b=1200.0 km -> h=30 km: R_geo=212.132 km h=40 km: R_geo=158.114 km h=50 km: R_geo=111.803 km 
+
+--- Trusted radii used for Phase08 recommendation ---
+Only middle/high M_G regions are used.
+trusted_count = 6
+trusted_R_geo_min = 180.278 km
+trusted_R_geo_median = 223.607 km
+trusted_R_geo_max = 300.000 km
+
+--- Recommended Phase08 local box half-span (km) ---
+Tw_list_s = 10 20 30 40 50 60 
+V_list_kmps = 4.00 4.25 4.50 4.75 5.00 
+v=4.00 km/s, Tw=10 s -> nominal Bxy_half=203.607 km, conservative Bxy_half=160.278 km
+v=4.00 km/s, Tw=20 s -> nominal Bxy_half=183.607 km, conservative Bxy_half=140.278 km
+v=4.00 km/s, Tw=30 s -> nominal Bxy_half=163.607 km, conservative Bxy_half=120.278 km
+v=4.00 km/s, Tw=40 s -> nominal Bxy_half=143.607 km, conservative Bxy_half=100.278 km
+v=4.00 km/s, Tw=50 s -> nominal Bxy_half=123.607 km, conservative Bxy_half=80.278 km
+v=4.00 km/s, Tw=60 s -> nominal Bxy_half=103.607 km, conservative Bxy_half=60.278 km
+v=4.25 km/s, Tw=10 s -> nominal Bxy_half=202.357 km, conservative Bxy_half=159.028 km
+v=4.25 km/s, Tw=20 s -> nominal Bxy_half=181.107 km, conservative Bxy_half=137.778 km
+v=4.25 km/s, Tw=30 s -> nominal Bxy_half=159.857 km, conservative Bxy_half=116.528 km
+v=4.25 km/s, Tw=40 s -> nominal Bxy_half=138.607 km, conservative Bxy_half=95.278 km
+v=4.25 km/s, Tw=50 s -> nominal Bxy_half=117.357 km, conservative Bxy_half=74.028 km
+v=4.25 km/s, Tw=60 s -> nominal Bxy_half=96.107 km, conservative Bxy_half=52.778 km
+v=4.50 km/s, Tw=10 s -> nominal Bxy_half=201.107 km, conservative Bxy_half=157.778 km
+v=4.50 km/s, Tw=20 s -> nominal Bxy_half=178.607 km, conservative Bxy_half=135.278 km
+v=4.50 km/s, Tw=30 s -> nominal Bxy_half=156.107 km, conservative Bxy_half=112.778 km
+v=4.50 km/s, Tw=40 s -> nominal Bxy_half=133.607 km, conservative Bxy_half=90.278 km
+v=4.50 km/s, Tw=50 s -> nominal Bxy_half=111.107 km, conservative Bxy_half=67.778 km
+v=4.50 km/s, Tw=60 s -> nominal Bxy_half=88.607 km, conservative Bxy_half=45.278 km
+v=4.75 km/s, Tw=10 s -> nominal Bxy_half=199.857 km, conservative Bxy_half=156.528 km
+v=4.75 km/s, Tw=20 s -> nominal Bxy_half=176.107 km, conservative Bxy_half=132.778 km
+v=4.75 km/s, Tw=30 s -> nominal Bxy_half=152.357 km, conservative Bxy_half=109.028 km
+v=4.75 km/s, Tw=40 s -> nominal Bxy_half=128.607 km, conservative Bxy_half=85.278 km
+v=4.75 km/s, Tw=50 s -> nominal Bxy_half=104.857 km, conservative Bxy_half=61.528 km
+v=4.75 km/s, Tw=60 s -> nominal Bxy_half=81.107 km, conservative Bxy_half=37.778 km
+v=5.00 km/s, Tw=10 s -> nominal Bxy_half=198.607 km, conservative Bxy_half=155.278 km
+v=5.00 km/s, Tw=20 s -> nominal Bxy_half=173.607 km, conservative Bxy_half=130.278 km
+v=5.00 km/s, Tw=30 s -> nominal Bxy_half=148.607 km, conservative Bxy_half=105.278 km
+v=5.00 km/s, Tw=40 s -> nominal Bxy_half=123.607 km, conservative Bxy_half=80.278 km
+v=5.00 km/s, Tw=50 s -> nominal Bxy_half=98.607 km, conservative Bxy_half=55.278 km
+v=5.00 km/s, Tw=60 s -> nominal Bxy_half=73.607 km, conservative Bxy_half=30.278 km
+Recommended Bz_half = 10.000 km
+
+--- Recommended spatial sampling step ---
+N_resolve = 4 points from center to boundary
+step_xy_rec_conservative = 45.069 km
+step_xy_rec_nominal = 55.902 km
+
+--- Suggested Stage15-F4 anchors ---
+baseline anchors (km): 514.5, 1108.5, 1611.1
+target altitude anchors (km): 30.0 40.0 50.0 
+target speed anchors (km/s): 4.00 4.25 4.50 4.75 5.00 
+coarse xy step should not exceed nominal 55.9 km; boundary refinement may use conservative 45.1 km.

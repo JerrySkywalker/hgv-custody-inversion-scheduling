@@ -69,7 +69,6 @@ for k = 1:Nt
         P = P_pred;
 
     elseif k > last_valid_center
-        % same tail policy as current R9 shell
         prev_pair = [];
         if k > 1 && isstruct(selection_trace{k-1}) && isfield(selection_trace{k-1}, 'pair')
             prev_pair = selection_trace{k-1}.pair;
@@ -113,7 +112,6 @@ for k = 1:Nt
         end
 
     else
-        % interval-based Li-style selection
         if isempty(current_pair) || (k > current_interval_end)
             interval_sel = select_pair_r10_li_interval(cfg, ch5case, k, x_pred, model);
             current_pair = interval_sel.pair;
@@ -250,6 +248,12 @@ end
 if isfield(overrides, 'log_enable')
     cfg.ch5r.r10.log.enable = logical(overrides.log_enable);
 end
+if isfield(overrides, 'interval_steps')
+    cfg.ch5r.r10.interval_steps = overrides.interval_steps;
+end
+if isfield(overrides, 'min_support_ratio')
+    cfg.ch5r.r10.min_support_ratio = overrides.min_support_ratio;
+end
 end
 
 function pair = local_pick_best_trace_pair(ch5case, k, pair_list, r_tgt, cfg)
@@ -309,7 +313,6 @@ end
 
 Nt = numel(ch5case.t_s);
 dt = ch5case.dt;
-
 if k == 1
     r0 = local_get_truth_position(ch5case,1);
     r1 = local_get_truth_position(ch5case,2);
@@ -342,29 +345,23 @@ end
 function [x_upd, P_upd] = local_iekf_update_pair(x_pred, P_pred, z_true, ch5case, k, pair, cfg)
 R = (cfg.ch5r.sensor_profile.sigma_angle_rad^2) * eye(4);
 x_it = x_pred;
-
 for it = 1:cfg.ch5r.r9.max_iekf_iters %#ok<NASGU>
     z_hat = local_bearing_measurement_pair(x_it, ch5case, k, pair);
     H = local_numeric_jacobian(@(x) local_bearing_measurement_pair(x, ch5case, k, pair), x_it);
-
     innov = z_true - z_hat;
     innov(1) = local_wrap_to_pi(innov(1));
     innov(3) = local_wrap_to_pi(innov(3));
-
     S = H * P_pred * H' + R;
     K = P_pred * H' / S;
     x_it = x_pred + K * innov;
 end
-
 H = local_numeric_jacobian(@(x) local_bearing_measurement_pair(x, ch5case, k, pair), x_it);
 z_hat = local_bearing_measurement_pair(x_it, ch5case, k, pair);
 innov = z_true - z_hat;
 innov(1) = local_wrap_to_pi(innov(1));
 innov(3) = local_wrap_to_pi(innov(3));
-
 S = H * P_pred * H' + R;
 K = P_pred * H' / S;
-
 x_upd = x_pred + K * innov;
 P_upd = (eye(size(P_pred)) - K * H) * P_pred;
 P_upd = 0.5 * (P_upd + P_upd');
