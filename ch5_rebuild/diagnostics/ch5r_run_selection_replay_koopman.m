@@ -97,12 +97,13 @@ for k = 1:Nt
 end
 
 out_dir = fullfile(cfg.ch5r.output_root, ['phase' phase_name '_diag_replay']);
+stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
+artifact_tag = ch5r_make_artifact_tag(ch5case, stamp, {['diag-replay-' lower(phase_name)]});
 if save_outputs
     if ~exist(out_dir, 'dir')
         mkdir(out_dir);
     end
-    stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
-    mat_file = fullfile(out_dir, ['phase' phase_name '_diag_replay_' stamp '.mat']);
+    mat_file = fullfile(out_dir, ['phase' phase_name '_diag_replay_' artifact_tag '.mat']);
     save(mat_file, 'cfg', 'ch5case', 'selection_trace', 'xhat_hist', 'xpred_hist', 'P_hist', 'rmse_pos_km');
 else
     mat_file = '';
@@ -121,7 +122,7 @@ replay_out.xhat_hist = xhat_hist;
 replay_out.xpred_hist = xpred_hist;
 replay_out.P_hist = P_hist;
 replay_out.rmse_pos_km = rmse_pos_km;
-replay_out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
+replay_out.paths = struct('mat_file', mat_file, 'output_dir', out_dir, 'artifact_tag', artifact_tag);
 replay_out.ok = true;
 end
 

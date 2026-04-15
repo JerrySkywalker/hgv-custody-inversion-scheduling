@@ -25,7 +25,11 @@ cfg.ch5r.window_mode = 'centered_full_only';
 cfg.ch5r.window_exclude_incomplete_edges = true;
 
 save_outputs = true;
-[cfg, save_outputs] = local_apply_overrides(cfg, overrides, save_outputs);
+compute_true_rmse = true;
+replay_save_outputs = true;
+replay_log_enable = false;
+[cfg, save_outputs, compute_true_rmse, replay_save_outputs, replay_log_enable] = ...
+    local_apply_overrides(cfg, overrides, save_outputs, compute_true_rmse, replay_save_outputs, replay_log_enable);
 
 ch5case = build_ch5r_case(cfg);
 
@@ -60,15 +64,39 @@ state_trace = package_state_trace(ch5case, wininfo, bubble);
 
 resource_score = 2;
 result = package_ch5r_result_real(ch5case, selection_trace, wininfo, bubble, resource_score);
+replay = struct();
+xhat_hist = [];
+xpred_hist = [];
+P_hist = [];
+rmse_pos_km = [];
+
+if compute_true_rmse
+    temp_out = struct();
+    temp_out.cfg = cfg;
+    temp_out.case = ch5case;
+    temp_out.selection_trace = selection_trace;
+    temp_out.result = result;
+    temp_out.paths = struct('mat_file', '');
+
+    [r4_tracking, replay] = ch5r_compute_true_rmse_replay('R4', temp_out, replay_save_outputs, replay_log_enable);
+    result.r4_tracking = r4_tracking;
+
+    xhat_hist = r4_tracking.xhat_hist;
+    xpred_hist = r4_tracking.xpred_hist;
+    P_hist = r4_tracking.P_hist;
+    rmse_pos_km = r4_tracking.rmse_pos_km_series;
+end
 
 out_dir = fullfile(cfg.ch5r.output_root, 'phaseR4_tracking_baseline_real');
+stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
+artifact_tag = ch5r_make_artifact_tag(ch5case, stamp, {'theta-star','dynamic-pair'});
 if save_outputs
     if ~exist(out_dir, 'dir')
         mkdir(out_dir);
     end
-    stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
-    mat_file = fullfile(out_dir, ['phaseR4_tracking_baseline_real_' stamp '.mat']);
-    save(mat_file, 'cfg', 'ch5case', 'selection_trace', 'wininfo', 'bubble', 'state_trace', 'result');
+    mat_file = fullfile(out_dir, ['phaseR4_tracking_baseline_real_' artifact_tag '.mat']);
+    save(mat_file, 'cfg', 'ch5case', 'selection_trace', 'wininfo', 'bubble', 'state_trace', ...
+        'result', 'xhat_hist', 'xpred_hist', 'P_hist', 'rmse_pos_km');
 else
     mat_file = '';
 end
@@ -90,6 +118,10 @@ disp(['longest bubble (s)   : ' num2str(result.bubble_metrics.longest_bubble_tim
 disp(['max bubble depth     : ' num2str(result.max_bubble_depth, '%.12g')])
 disp(['switch count         : ' num2str(result.switch_count)])
 disp(['resource score       : ' num2str(result.resource_score)])
+if isfield(result, 'r4_tracking')
+    disp(['mean RMSE pos (km)   : ' num2str(result.r4_tracking.mean_rmse_pos_km, '%.12g')])
+    disp(['final RMSE pos (km)  : ' num2str(result.r4_tracking.final_rmse_pos_km, '%.12g')])
+end
 disp(['mat file             : ' mat_file])
 
 assert(isfield(ch5case, 'target_case') && isstruct(ch5case.target_case) && isfield(ch5case.target_case, 'case_id') && ~isempty(ch5case.target_case.case_id), '[ch5r:R4] target case id must be nonempty.');
@@ -105,11 +137,17 @@ out.wininfo = wininfo;
 out.bubble = bubble;
 out.state_trace = state_trace;
 out.result = result;
-out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
+out.replay = replay;
+out.paths = struct( ...
+    'mat_file', mat_file, ...
+    'output_dir', out_dir, ...
+    'artifact_tag', artifact_tag, ...
+    'replay_mat_file', local_get_replay_file(replay));
 out.ok = true;
 end
 
-function [cfg, save_outputs] = local_apply_overrides(cfg, overrides, save_outputs)
+function [cfg, save_outputs, compute_true_rmse, replay_save_outputs, replay_log_enable] = ...
+    local_apply_overrides(cfg, overrides, save_outputs, compute_true_rmse, replay_save_outputs, replay_log_enable)
 if ~isstruct(overrides)
     error('overrides must be a struct.');
 end
@@ -128,6 +166,22 @@ if isfield(overrides, 'window_exclude_incomplete_edges')
 end
 if isfield(overrides, 'save_outputs')
     save_outputs = logical(overrides.save_outputs);
+end
+if isfield(overrides, 'compute_true_rmse')
+    compute_true_rmse = logical(overrides.compute_true_rmse);
+end
+if isfield(overrides, 'replay_save_outputs')
+    replay_save_outputs = logical(overrides.replay_save_outputs);
+end
+if isfield(overrides, 'replay_log_enable')
+    replay_log_enable = logical(overrides.replay_log_enable);
+end
+end
+
+function f = local_get_replay_file(replay)
+f = '';
+if isstruct(replay) && isfield(replay, 'paths') && isfield(replay.paths, 'mat_file')
+    f = replay.paths.mat_file;
 end
 end
 

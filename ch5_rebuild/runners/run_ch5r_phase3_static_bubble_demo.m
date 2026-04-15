@@ -79,7 +79,8 @@ if ~exist(out_dir, 'dir')
 end
 
 stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
-mat_file = fullfile(out_dir, ['phaseR3_static_hold_real_' stamp '.mat']);
+artifact_tag = ch5r_make_artifact_tag(ch5case, stamp, {'theta-star','static-pair'});
+mat_file = fullfile(out_dir, ['phaseR3_static_hold_real_' artifact_tag '.mat']);
 
 save(mat_file, 'cfg', 'ch5case', 'static_pair', 'selection_trace', 'wininfo', 'bubble', 'state_trace', 'result');
 
@@ -117,6 +118,6 @@ out.wininfo = wininfo;
 out.bubble = bubble;
 out.state_trace = state_trace;
 out.result = result;
-out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
+out.paths = struct('mat_file', mat_file, 'output_dir', out_dir, 'artifact_tag', artifact_tag);
 out.ok = true;
 end

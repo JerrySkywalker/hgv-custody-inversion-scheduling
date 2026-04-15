@@ -42,7 +42,11 @@ diag_out.fsm = ch5r_run_custody_fsm_posthoc(diag_out.vr, diag_out.mg, out_phase.
 diag_out.bubble = out_phase.bubble;
 
 diag_out.rmse = nan(size(diag_out.time_s));
-if isfield(out_phase.result, 'r9_tracking') && isfield(out_phase.result.r9_tracking, 'rmse_pos_km_series')
+if isfield(out_phase.result, 'r4_tracking') && isfield(out_phase.result.r4_tracking, 'rmse_pos_km_series')
+    diag_out.rmse = out_phase.result.r4_tracking.rmse_pos_km_series(:);
+elseif isfield(out_phase.result, 'r5_tracking') && isfield(out_phase.result.r5_tracking, 'rmse_pos_km_series')
+    diag_out.rmse = out_phase.result.r5_tracking.rmse_pos_km_series(:);
+elseif isfield(out_phase.result, 'r9_tracking') && isfield(out_phase.result.r9_tracking, 'rmse_pos_km_series')
     diag_out.rmse = out_phase.result.r9_tracking.rmse_pos_km_series(:);
 elseif isfield(out_phase.result, 'r10_tracking') && isfield(out_phase.result.r10_tracking, 'rmse_pos_km_series')
     diag_out.rmse = out_phase.result.r10_tracking.rmse_pos_km_series(:);

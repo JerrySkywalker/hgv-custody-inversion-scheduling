@@ -185,12 +185,13 @@ result.r9_tracking.xhat_hist = xhat_hist;
 result.r9_tracking.xpred_hist = xpred_hist;
 
 out_dir = fullfile(cfg.ch5r.output_root, 'phaseR9_closedloop_real');
+stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
+artifact_tag = ch5r_make_artifact_tag(ch5case, stamp, {'theta-star','closedloop'});
 if cfg.ch5r.r9.save_outputs
     if ~exist(out_dir, 'dir')
         mkdir(out_dir);
     end
-    stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
-    mat_file = fullfile(out_dir, ['phaseR9_closedloop_real_' stamp '.mat']);
+    mat_file = fullfile(out_dir, ['phaseR9_closedloop_real_' artifact_tag '.mat']);
     save(mat_file, 'cfg', 'ch5case', 'selection_trace', 'xhat_hist', 'xpred_hist', 'P_hist', ...
         'rmse_pos_km', 'wininfo', 'bubble', 'state_trace', 'result');
 else
@@ -224,7 +225,7 @@ out.wininfo = wininfo;
 out.bubble = bubble;
 out.state_trace = state_trace;
 out.result = result;
-out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
+out.paths = struct('mat_file', mat_file, 'output_dir', out_dir, 'artifact_tag', artifact_tag);
 out.ok = true;
 end
 
