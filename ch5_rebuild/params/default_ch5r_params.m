@@ -86,4 +86,15 @@ if do_bootstrap
     bundle = bootstrap_ch5r_from_stage04_stage05(cfg);
     cfg = build_ch5r_params_from_bootstrap(cfg, bundle);
 end
+rt = load_ch5r_runtime_override();
+if ~isempty(rt) && isstruct(rt) && isfield(rt, 'enabled') && logical(rt.enabled)
+    if isfield(rt, 'case_id') && ~isempty(rt.case_id)
+        cfg = apply_ch5r_case_override(cfg, rt.case_id);
+    end
+    if ~isfield(cfg.ch5r, 'runtime') || ~isstruct(cfg.ch5r.runtime)
+        cfg.ch5r.runtime = struct();
+    end
+    cfg.ch5r.runtime = rt;
 end
+end
+

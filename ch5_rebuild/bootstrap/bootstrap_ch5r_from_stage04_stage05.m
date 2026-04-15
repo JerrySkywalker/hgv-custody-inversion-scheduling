@@ -238,4 +238,6 @@ for i = 1:numel(consistency.messages)
     msg = sprintf('%s  - %s\n', msg, consistency.messages{i});
 end
 error('%s', msg);
+bundle = apply_ch5r_lock_to_bundle(bundle, cfg);
 end
+
