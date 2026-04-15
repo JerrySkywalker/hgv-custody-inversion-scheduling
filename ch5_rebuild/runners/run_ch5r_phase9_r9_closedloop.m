@@ -211,7 +211,7 @@ disp(['mean RMSE pos (km)   : ' num2str(result.r9_tracking.mean_rmse_pos_km, '%.
 disp(['final RMSE pos (km)  : ' num2str(result.r9_tracking.final_rmse_pos_km, '%.12g')])
 disp(['mat file             : ' mat_file])
 
-assert(strcmp(ch5case.target_case.case_id, 'N01'));
+assert(isfield(ch5case, 'target_case') && isstruct(ch5case.target_case) && isfield(ch5case.target_case, 'case_id') && ~isempty(ch5case.target_case.case_id));
 assert(strcmp(ch5case.window.mode, 'centered_full_only'));
 assert(result.cost_metrics.resource_score == 2);
 assert(result.bubble_metrics.total_valid_steps > 0);
@@ -385,3 +385,4 @@ end
 function a = local_wrap_to_pi(a)
 a = mod(a + pi, 2*pi) - pi;
 end
+

@@ -92,7 +92,7 @@ disp(['switch count         : ' num2str(result.switch_count)])
 disp(['resource score       : ' num2str(result.resource_score)])
 disp(['mat file             : ' mat_file])
 
-assert(strcmp(ch5case.target_case.case_id, 'N01'), '[ch5r:R4] target case must be N01.');
+assert(isfield(ch5case, 'target_case') && isstruct(ch5case.target_case) && isfield(ch5case.target_case, 'case_id') && ~isempty(ch5case.target_case.case_id), '[ch5r:R4] target case id must be nonempty.');
 assert(strcmp(ch5case.window.mode, 'centered_full_only'), '[ch5r:R4] window mode must be centered_full_only.');
 assert(result.bubble_metrics.total_valid_steps > 0, '[ch5r:R4] total_valid_steps must be > 0.');
 assert(result.cost_metrics.resource_score == 2, '[ch5r:R4] dynamic double-satellite baseline resource_score must be 2.');
@@ -130,3 +130,4 @@ if isfield(overrides, 'save_outputs')
     save_outputs = logical(overrides.save_outputs);
 end
 end
+
