@@ -24,7 +24,14 @@ row.resource_score = local_get_field(outx, {'result','cost_metrics','resource_sc
 
 row.mean_rmse_pos_km = NaN;
 row.final_rmse_pos_km = NaN;
-if strcmpi(method_tag, 'R9')
+
+if strcmpi(method_tag, 'R4')
+    row.mean_rmse_pos_km = local_get_field(outx, {'result','r4_tracking','mean_rmse_pos_km'}, NaN);
+    row.final_rmse_pos_km = local_get_field(outx, {'result','r4_tracking','final_rmse_pos_km'}, NaN);
+elseif strcmpi(method_tag, 'R5')
+    row.mean_rmse_pos_km = local_get_field(outx, {'result','r5_tracking','mean_rmse_pos_km'}, NaN);
+    row.final_rmse_pos_km = local_get_field(outx, {'result','r5_tracking','final_rmse_pos_km'}, NaN);
+elseif strcmpi(method_tag, 'R9')
     row.mean_rmse_pos_km = local_get_field(outx, {'result','r9_tracking','mean_rmse_pos_km'}, NaN);
     row.final_rmse_pos_km = local_get_field(outx, {'result','r9_tracking','final_rmse_pos_km'}, NaN);
 elseif strcmpi(method_tag, 'R10')
@@ -34,6 +41,7 @@ end
 
 row.ok = logical(local_get_field(outx, {'ok'}, false));
 row.mat_file = string(local_get_field(outx, {'paths','mat_file'}, ""));
+row.artifact_tag = string(local_get_field(outx, {'paths','artifact_tag'}, ""));
 end
 
 function value = local_get_field(S, path_cells, default_value)

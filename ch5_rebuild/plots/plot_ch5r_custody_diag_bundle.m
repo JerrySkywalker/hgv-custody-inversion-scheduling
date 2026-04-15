@@ -1,8 +1,11 @@
-function files = plot_ch5r_custody_diag_bundle(diag_out, output_dir, visible_mode)
+function files = plot_ch5r_custody_diag_bundle(diag_out, output_dir, visible_mode, artifact_tag)
 %PLOT_CH5R_CUSTODY_DIAG_BUNDLE
 
 if nargin < 3 || isempty(visible_mode)
     visible_mode = 'off';
+end
+if nargin < 4 || isempty(artifact_tag)
+    artifact_tag = lower(diag_out.phase_name);
 end
 
 if ~exist(output_dir, 'dir')
@@ -44,7 +47,7 @@ grid on;
 ylabel('$\|\nu_k\|_2$', 'Interpreter', 'latex');
 xlabel('time (s)', 'Interpreter', 'latex');
 
-files.fig_nis = fullfile(output_dir, [lower(diag_out.phase_name) '_diag_nis_detail.png']);
+files.fig_nis = fullfile(output_dir, [artifact_tag '_diag_nis_detail.png']);
 saveas(fig1, files.fig_nis);
 close(fig1);
 
@@ -78,7 +81,7 @@ grid on;
 xlabel('time (s)', 'Interpreter', 'latex');
 legend([h1 h2], {'bubble', 'custody state'}, 'Interpreter', 'latex', 'Location', 'best');
 
-files.fig_rmse_bubble = fullfile(output_dir, [lower(diag_out.phase_name) '_diag_rmse_bubble_state.png']);
+files.fig_rmse_bubble = fullfile(output_dir, [artifact_tag '_diag_rmse_bubble_state.png']);
 saveas(fig2, files.fig_rmse_bubble);
 close(fig2);
 
@@ -123,7 +126,7 @@ grid on;
 xlabel('time (s)', 'Interpreter', 'latex');
 ylabel('custody state', 'Interpreter', 'latex');
 
-files.fig_vr_mg_fsm = fullfile(output_dir, [lower(diag_out.phase_name) '_diag_vr_mg_fsm.png']);
+files.fig_vr_mg_fsm = fullfile(output_dir, [artifact_tag '_diag_vr_mg_fsm.png']);
 saveas(fig3, files.fig_vr_mg_fsm);
 close(fig3);
 

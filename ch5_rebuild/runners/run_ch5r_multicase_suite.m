@@ -1,21 +1,11 @@
 function out = run_ch5r_multicase_suite(opts)
 %RUN_CH5R_MULTICASE_SUITE
-% Phase 3A multicase runner:
-% - explicit case_ids are consumed directly (preferred)
-% - otherwise fallback to resolve_ch5r_case_list
-% - activate runtime override (case_id + constellation lock)
-% - call existing Phase runners unchanged
-% - collect unified summary rows
-%
-% Default smoke only runs R4.
+% Multi-case suite with explicit case_ids priority and tagged outputs.
 
 if nargin < 1 || builtin('isempty', opts)
     opts = struct();
 end
 
-% --------------------------------
-% normalize options (flat, robust)
-% --------------------------------
 if ~isfield(opts, 'case_set') || builtin('isempty', opts.case_set)
     case_set_name = 'smoke';
 else
@@ -46,7 +36,6 @@ else
     fail_fast = logical(opts.fail_fast);
 end
 
-% normalize methods
 if ~isfield(opts, 'methods') || builtin('isempty', opts.methods)
     methods = {'R4'};
 else
@@ -54,7 +43,6 @@ else
     if iscell(tmp) && numel(tmp) == 1 && iscell(tmp{1})
         tmp = tmp{1};
     end
-
     if isstring(tmp)
         methods = cellstr(tmp(:)).';
     elseif ischar(tmp)
@@ -70,15 +58,12 @@ else
     end
 end
 
-% normalize explicit case_ids
 explicit_case_ids = {};
 if isfield(opts, 'case_ids') && ~(builtin('isempty', opts.case_ids))
     tmp = opts.case_ids;
-
     if iscell(tmp) && numel(tmp) == 1 && iscell(tmp{1})
         tmp = tmp{1};
     end
-
     if isstring(tmp)
         explicit_case_ids = cellstr(tmp(:)).';
     elseif ischar(tmp)
@@ -92,7 +77,6 @@ if isfield(opts, 'case_ids') && ~(builtin('isempty', opts.case_ids))
         error('run_ch5r_multicase_suite:UnsupportedCaseIds', ...
             'Unsupported case_ids type: %s', class(tmp));
     end
-
     keep = true(size(explicit_case_ids));
     for i = 1:numel(explicit_case_ids)
         keep(i) = ~(builtin('isempty', explicit_case_ids{i}));
@@ -111,10 +95,6 @@ addpath(fullfile(pwd, 'ch5_rebuild', 'runners'));
 
 registry_all = build_ch5r_case_registry();
 
-% --------------------------------
-% resolve case list
-% explicit case_ids take priority
-% --------------------------------
 if ~(builtin('isempty', explicit_case_ids))
     [tf, loc] = ismember(explicit_case_ids, registry_all.case_id);
     if ~all(tf)
@@ -123,9 +103,8 @@ if ~(builtin('isempty', explicit_case_ids))
             'Unknown case_ids: %s', strjoin(missing, ', '));
     end
 
-    reg = registry_all(loc, :);  % preserve user order
+    reg = registry_all(loc, :);
 
-    % optional intersection with case_set
     switch case_set_name
         case 'smoke'
             keep = reg.include_in_smoke;
@@ -138,18 +117,12 @@ if ~(builtin('isempty', explicit_case_ids))
                 'Unsupported case_set: %s', case_set_name);
     end
 
-    % optional family filter
     if ~(builtin('isempty', family_name))
         keep = keep & strcmpi(reg.family, family_name);
     end
 
     reg = reg(keep, :);
     case_ids = reshape(reg.case_id, 1, []);
-
-    cases_out = struct();
-    cases_out.case_ids = case_ids;
-    cases_out.registry = reg;
-    cases_out.meta = struct('case_set', case_set_name, 'family', family_name, 'n_cases', numel(case_ids));
 
     disp(' ')
     disp('=== [ch5r:multicase-suite] explicit case list accepted ===')
@@ -160,12 +133,14 @@ else
         'case_set', case_set_name, ...
         'family', family_name, ...
         'case_ids', {}));
-
     case_ids = cases_out.case_ids;
 end
 
 stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
-out_dir = fullfile(pwd, 'outputs', 'ch5_rebuild', 'multicase_suite', ['suite_' stamp]);
+method_tag = regexprep(strjoin(methods, '-'), '[^A-Za-z0-9_\-]+', '-');
+suite_tag = ['caseSet-' case_set_name '_methods-' method_tag '_' stamp];
+
+out_dir = fullfile(pwd, 'outputs', 'ch5_rebuild', 'multicase_suite', ['suite_' suite_tag]);
 if ~exist(out_dir, 'dir')
     mkdir(out_dir);
 end
@@ -193,11 +168,11 @@ for iCase = 1:numel(case_ids)
 
     try
         for iMethod = 1:numel(methods)
-            method_tag = methods{iMethod};
+            method_tag_i = methods{iMethod};
 
-            disp(['[suite] run method : ' method_tag])
+            disp(['[suite] run method : ' method_tag_i])
 
-            switch upper(method_tag)
+            switch upper(method_tag_i)
                 case 'R4'
                     outx = run_ch5r_phase4_tracking_baseline();
                 case 'R5'
@@ -210,10 +185,10 @@ for iCase = 1:numel(case_ids)
                         'log_enable', true));
                 otherwise
                     error('run_ch5r_multicase_suite:UnsupportedMethod', ...
-                        'Unsupported method: %s', method_tag);
+                        'Unsupported method: %s', method_tag_i);
             end
 
-            row = extract_ch5r_suite_row(method_tag, case_id, outx);
+            row = extract_ch5r_suite_row(method_tag_i, case_id, outx);
 
             row_id = row_id + 1;
             rows(row_id,:) = { ...
@@ -236,20 +211,26 @@ for iCase = 1:numel(case_ids)
                 row.mean_rmse_pos_km, ...
                 row.final_rmse_pos_km, ...
                 row.ok, ...
-                row.mat_file}; %#ok<AGROW>
+                row.mat_file, ...
+                row.artifact_tag}; %#ok<AGROW>
 
             if save_case_mat
                 case_dir = fullfile(out_dir, char(string(case_id)));
                 if ~exist(case_dir, 'dir')
                     mkdir(case_dir);
                 end
-                save(fullfile(case_dir, ['suite_' upper(method_tag) '.mat']), 'outx');
+
+                case_file_tag = char(row.artifact_tag);
+                if builtin('isempty', case_file_tag)
+                    case_file_tag = ['case-' char(string(case_id)) '_method-' upper(method_tag_i) '_' stamp];
+                end
+
+                save(fullfile(case_dir, ['suite_' upper(method_tag_i) '_' case_file_tag '.mat']), 'outx');
             end
         end
 
     catch ME
         clear_ch5r_runtime_override();
-
         if fail_fast
             rethrow(ME);
         else
@@ -269,9 +250,9 @@ T = cell2table(rows, 'VariableNames', { ...
     'valid_steps', 'valid_time_s', 'bubble_steps', 'bubble_time_s', 'bubble_fraction', ...
     'longest_bubble_time_s', 'max_bubble_depth', 'mean_bubble_depth', ...
     'switch_count', 'resource_score', 'mean_rmse_pos_km', 'final_rmse_pos_km', ...
-    'ok', 'mat_file'});
+    'ok', 'mat_file', 'artifact_tag'});
 
-csv_file = fullfile(out_dir, 'multicase_suite_results.csv');
+csv_file = fullfile(out_dir, ['multicase_suite_results_' suite_tag '.csv']);
 writetable(T, csv_file);
 
 disp(' ')
@@ -284,5 +265,5 @@ out.ok = true;
 out.case_ids = case_ids;
 out.methods = methods;
 out.table = T;
-out.paths = struct('csv_file', csv_file, 'output_dir', out_dir);
+out.paths = struct('csv_file', csv_file, 'output_dir', out_dir, 'suite_tag', suite_tag);
 end
