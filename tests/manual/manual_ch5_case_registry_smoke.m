@@ -37,8 +37,11 @@ cfg = default_ch5r_params(true);
 cfg2 = apply_ch5r_case_override(cfg, 'H04_+30');
 
 assert(strcmp(cfg2.ch5r.bootstrap.force_case_id, 'H04_+30'));
+assert(strcmp(cfg2.ch5r.bootstrap.applied_case_override, 'H04_+30'));
 assert(strcmp(cfg2.ch5r.target_case.default_case_id, 'H04_+30'));
+assert(strcmp(cfg2.ch5r.target_case.case_id, 'H04_+30'));
 assert(strcmp(cfg2.ch5r.target_case.family, 'heading'));
+assert(strcmp(cfg2.ch5r.target_case.source, 'apply_ch5r_case_override'));
 
 disp('=== Phase2A case registry smoke passed ===')
 disp(smoke.case_ids)
