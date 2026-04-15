@@ -1,0 +1,253 @@
+function out = plot_ch5r_rmse_proxy_comparison(varargin)
+% Compatible with:
+%   (1) legacy call: plot_ch5r_rmse_proxy_comparison(out4, out5, out_dir, stamp)
+%   (2) explicit call: plot_ch5r_rmse_proxy_comparison(t_s, rmse_r4, rmse_r5, ...)
+
+if nargin >= 4 && isstruct(varargin{1}) && isstruct(varargin{2})
+    out4 = varargin{1};
+    out5 = varargin{2};
+    out_dir = varargin{3};
+    stamp  = varargin{4};
+
+    [t_s, rmse_r4] = local_extract_time_and_rmse(out4, 'R4');
+    [~,   rmse_r5] = local_extract_time_and_rmse(out5, 'R5');
+
+    save_path = fullfile(out_dir, ['phaseR5_compare_rmse_proxy_' char(stamp) '.png']);
+    title_text = 'R4-real vs R5-real: Fisher-based RMSE proxy';
+
+    out = local_plot_core(t_s, rmse_r4, rmse_r5, ...
+        'save_path', save_path, ...
+        'visible', 'off', ...
+        'title_text', title_text, ...
+        'use_display_clip', true, ...
+        'clip_percentile', 99.5, ...
+        'edge_exclude', 5);
+    return;
+end
+
+if nargin < 3
+    error('plot_ch5r_rmse_proxy_comparison:InvalidInput', ...
+        'Expected either legacy call (out4,out5,out_dir,stamp) or explicit call (t_s,rmse_r4,rmse_r5,...)');
+end
+
+t_s = varargin{1};
+rmse_r4 = varargin{2};
+rmse_r5 = varargin{3};
+rest = varargin(4:end);
+
+out = local_plot_core(t_s, rmse_r4, rmse_r5, rest{:});
+end
+
+function out = local_plot_core(t_s, rmse_r4, rmse_r5, varargin)
+p = inputParser;
+addParameter(p, 'save_path', '', @(x) ischar(x) || isstring(x));
+addParameter(p, 'visible', 'off', @(x) ischar(x) || isstring(x));
+addParameter(p, 'title_text', 'R4-real vs R5-real: Fisher-based RMSE proxy', @(x) ischar(x) || isstring(x));
+addParameter(p, 'use_display_clip', true, @(x) islogical(x) || isnumeric(x));
+addParameter(p, 'clip_percentile', 99.5, @(x) isnumeric(x) && isscalar(x) && x > 0 && x < 100);
+addParameter(p, 'edge_exclude', 5, @(x) isnumeric(x) && isscalar(x) && x >= 0);
+parse(p, varargin{:});
+opt = p.Results;
+
+t_s = t_s(:);
+rmse_r4 = rmse_r4(:);
+rmse_r5 = rmse_r5(:);
+
+assert(numel(t_s) == numel(rmse_r4), 't_s and rmse_r4 size mismatch.');
+assert(numel(t_s) == numel(rmse_r5), 't_s and rmse_r5 size mismatch.');
+
+rmse_r4_plot = rmse_r4;
+rmse_r5_plot = rmse_r5;
+
+clip_info = struct( ...
+    'enabled', logical(opt.use_display_clip), ...
+    'percentile', opt.clip_percentile, ...
+    'edge_exclude', opt.edge_exclude, ...
+    'upper_r4', NaN, ...
+    'upper_r5', NaN);
+
+if opt.use_display_clip
+    n = numel(t_s);
+    i0 = max(1, 1 + opt.edge_exclude);
+    i1 = min(n, n - opt.edge_exclude);
+    if i0 <= i1
+        core_idx = i0:i1;
+    else
+        core_idx = 1:n;
+    end
+
+    valid_r4 = isfinite(rmse_r4(core_idx)) & (rmse_r4(core_idx) > 0);
+    valid_r5 = isfinite(rmse_r5(core_idx)) & (rmse_r5(core_idx) > 0);
+
+    if any(valid_r4)
+        clip_info.upper_r4 = prctile(rmse_r4(core_idx(valid_r4)), opt.clip_percentile);
+        rmse_r4_plot(isfinite(rmse_r4_plot) & rmse_r4_plot > clip_info.upper_r4) = clip_info.upper_r4;
+    end
+
+    if any(valid_r5)
+        clip_info.upper_r5 = prctile(rmse_r5(core_idx(valid_r5)), opt.clip_percentile);
+        rmse_r5_plot(isfinite(rmse_r5_plot) & rmse_r5_plot > clip_info.upper_r5) = clip_info.upper_r5;
+    end
+end
+
+fig = figure('Visible', char(opt.visible));
+plot(t_s, rmse_r4_plot, 'LineWidth', 1.5); hold on;
+plot(t_s, rmse_r5_plot, 'LineWidth', 1.5);
+grid on;
+xlabel('Time (s)');
+ylabel('RMSE proxy');
+
+if opt.use_display_clip
+    title(sprintf('%s (display-clipped @ p%.1f)', char(opt.title_text), opt.clip_percentile));
+else
+    title(char(opt.title_text));
+end
+
+legend({'R4-real dynamic pair', 'R5-real predictive pair'}, 'Location', 'best');
+
+out = struct();
+out.figure = fig;
+out.clip_info = clip_info;
+out.t_s = t_s;
+out.rmse_r4_raw = rmse_r4;
+out.rmse_r5_raw = rmse_r5;
+out.rmse_r4_plot = rmse_r4_plot;
+out.rmse_r5_plot = rmse_r5_plot;
+out.save_path = '';
+
+if strlength(string(opt.save_path)) > 0
+    saveas(fig, char(opt.save_path));
+    out.save_path = char(opt.save_path);
+end
+end
+
+function [t_s, rmse_proxy] = local_extract_time_and_rmse(s, tag)
+t_s = [];
+rmse_proxy = [];
+
+[t_s, found_t, path_t] = local_find_numeric_vector_by_names(s, { ...
+    't_s','time_s','time','timeline_s','t','tk','time_sec'});
+
+[rmse_proxy, found_r, path_r] = local_find_numeric_vector_by_names(s, { ...
+    'rmse_proxy', ...
+    'rmse_pos_proxy', ...
+    'rmse_fisher_proxy', ...
+    'rmse_series', ...
+    'rmse_pos_km', ...
+    'rmse_km', ...
+    'rmse', ...
+    'rmse_true', ...
+    'rmse_true_km', ...
+    'rmse_est', ...
+    'fisher_rmse_proxy', ...
+    'pos_rmse_proxy'});
+
+if found_t && found_r
+    fprintf('[plot_ch5r_rmse_proxy_comparison] %s: time path = %s\n', tag, path_t);
+    fprintf('[plot_ch5r_rmse_proxy_comparison] %s: rmse path = %s\n', tag, path_r);
+    return;
+end
+
+% fallback: try deriving RMSE proxy from covariance / lambda-like fields
+[cand_lambda, found_l, path_l] = local_find_numeric_vector_by_names(s, { ...
+    'lambda_min', 'lambda_min_Sk', 'lambda_min_series', 'lambda_series', ...
+    'mg_proxy', 'M_G', 'MG', 'mg_series'});
+if found_t && found_l
+    rmse_proxy = 1 ./ sqrt(max(cand_lambda(:), eps));
+    fprintf('[plot_ch5r_rmse_proxy_comparison] %s: time path = %s\n', tag, path_t);
+    fprintf('[plot_ch5r_rmse_proxy_comparison] %s: lambda-like path = %s (converted to 1/sqrt(.))\n', tag, path_l);
+    return;
+end
+
+fprintf(2, '\n[plot_ch5r_rmse_proxy_comparison] %s extract failed.\n', tag);
+fprintf(2, '[plot_ch5r_rmse_proxy_comparison] Top-level fields:\n');
+disp(fieldnames(s));
+
+topf = fieldnames(s);
+for i = 1:numel(topf)
+    fn = topf{i};
+    try
+        v = s.(fn);
+        if isstruct(v)
+            fprintf(2, '  %s -> subfields:\n', fn);
+            disp(fieldnames(v));
+        end
+    catch
+    end
+end
+
+error('plot_ch5r_rmse_proxy_comparison:ExtractFailed', ...
+    'Failed to extract time / RMSE proxy series from legacy struct input for %s.', tag);
+end
+
+function [val, found, found_path] = local_find_numeric_vector_by_names(s, names)
+val = [];
+found = false;
+found_path = '';
+
+if ~isstruct(s)
+    return;
+end
+
+% direct fields
+fns = fieldnames(s);
+for i = 1:numel(names)
+    nm = names{i};
+    if isfield(s, nm)
+        cand = s.(nm);
+        if isnumeric(cand) && isvector(cand) && ~isempty(cand)
+            val = cand(:);
+            found = true;
+            found_path = nm;
+            return;
+        end
+    end
+end
+
+% one-level nested
+for k = 1:numel(fns)
+    fn = fns{k};
+    sub = s.(fn);
+    if isstruct(sub)
+        for i = 1:numel(names)
+            nm = names{i};
+            if isfield(sub, nm)
+                cand = sub.(nm);
+                if isnumeric(cand) && isvector(cand) && ~isempty(cand)
+                    val = cand(:);
+                    found = true;
+                    found_path = [fn '.' nm];
+                    return;
+                end
+            end
+        end
+    end
+end
+
+% two-level nested
+for k = 1:numel(fns)
+    fn = fns{k};
+    sub = s.(fn);
+    if isstruct(sub)
+        subf = fieldnames(sub);
+        for j = 1:numel(subf)
+            fn2 = subf{j};
+            sub2 = sub.(fn2);
+            if isstruct(sub2)
+                for i = 1:numel(names)
+                    nm = names{i};
+                    if isfield(sub2, nm)
+                        cand = sub2.(nm);
+                        if isnumeric(cand) && isvector(cand) && ~isempty(cand)
+                            val = cand(:);
+                            found = true;
+                            found_path = [fn '.' fn2 '.' nm];
+                            return;
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+end

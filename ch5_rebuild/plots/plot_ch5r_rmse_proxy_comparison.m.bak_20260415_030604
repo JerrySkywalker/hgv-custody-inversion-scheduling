@@ -1,0 +1,184 @@
+function out = plot_ch5r_rmse_proxy_comparison(out4, out5, out_dir, stamp)
+%PLOT_CH5R_RMSE_PROXY_COMPARISON
+% Plot Fisher-based RMSE proxy comparison using only the complete-window body.
+% The head/tail samples outside the full-window valid core are removed.
+
+if nargin < 4 || isempty(stamp)
+    stamp = datestr(now, 'yyyymmdd_HHMMSS');
+end
+if nargin < 3 || isempty(out_dir)
+    out_dir = pwd;
+end
+if ~exist(out_dir, 'dir')
+    mkdir(out_dir);
+end
+
+[t4, y4] = local_get_rmse_series(out4);
+[t5, y5] = local_get_rmse_series(out5);
+
+n = min(numel(t4), numel(t5));
+t = t4(1:n);
+y4 = y4(1:n);
+y5 = y5(1:n);
+
+mask4 = local_get_full_window_body_mask(out4, n);
+mask5 = local_get_full_window_body_mask(out5, n);
+mask = mask4 & mask5 & isfinite(y4) & isfinite(y5);
+
+idx = find(mask);
+if isempty(idx)
+    warning('plot_ch5r_rmse_proxy_comparison:noValidBody', ...
+        'No full-window body samples found. Falling back to finite intersection.');
+    mask = isfinite(y4) & isfinite(y5);
+    idx = find(mask);
+end
+
+if isempty(idx)
+    error('plot_ch5r_rmse_proxy_comparison:noData', ...
+        'No finite RMSE proxy samples available for plotting.');
+end
+
+i1 = idx(1);
+i2 = idx(end);
+
+tb = t(i1:i2);
+y4b = y4(i1:i2);
+y5b = y5(i1:i2);
+
+fig = figure('Visible', 'off', 'Color', 'w');
+plot(tb, y4b, 'LineWidth', 1.8); hold on;
+plot(tb, y5b, 'LineWidth', 1.8); hold off;
+grid on;
+
+xlabel('Time (s)', 'Interpreter', 'tex');
+ylabel('RMSE proxy', 'Interpreter', 'tex');
+title(sprintf('R4-real vs R5-real: Fisher-based RMSE proxy (body-only, t=[%d,%d] s)', ...
+    round(tb(1)), round(tb(end))), 'Interpreter', 'tex');
+
+legend({'R4-real dynamic pair', 'R5-real predictive pair'}, ...
+    'Location', 'best', 'Interpreter', 'tex');
+
+save_path = fullfile(out_dir, ['phaseR5_compare_rmse_proxy_' stamp '.png']);
+saveas(fig, save_path);
+close(fig);
+
+out = struct();
+out.save_path = save_path;
+out.t_start = tb(1);
+out.t_end = tb(end);
+out.i_start = i1;
+out.i_end = i2;
+out.num_points = numel(tb);
+end
+
+function [t, y] = local_get_rmse_series(out)
+t = [];
+y = [];
+
+% preferred path
+if isfield(out, 'result') && isfield(out.result, 'rmse_metrics')
+    rm = out.result.rmse_metrics;
+
+    if isfield(rm, 'time_s')
+        t = rm.time_s(:);
+    elseif isfield(rm, 't_s')
+        t = rm.t_s(:);
+    elseif isfield(rm, 'time')
+        t = rm.time(:);
+    end
+
+    if isfield(rm, 'rmse_proxy_timeline')
+        y = rm.rmse_proxy_timeline(:);
+    elseif isfield(rm, 'rmse_proxy_series')
+        y = rm.rmse_proxy_series(:);
+    elseif isfield(rm, 'rmse_timeline')
+        y = rm.rmse_timeline(:);
+    end
+end
+
+if isempty(y)
+    error('plot_ch5r_rmse_proxy_comparison:missingRMSE', ...
+        'Cannot find RMSE proxy timeline in out.result.rmse_metrics.');
+end
+
+if isempty(t)
+    t = (0:numel(y)-1).';
+end
+
+m = min(numel(t), numel(y));
+t = t(1:m);
+y = y(1:m);
+end
+
+function mask = local_get_full_window_body_mask(out, n)
+mask = false(n,1);
+
+% 1) strongest preference: explicit valid/full-window mask
+cands = {
+    {'result','rmse_metrics','valid_mask'}
+    {'result','rmse_metrics','full_window_mask'}
+    {'result','rmse_metrics','body_mask'}
+    {'result','tracking','valid_mask'}
+    {'result','tracking','full_window_mask'}
+    {'result','state','valid_mask'}
+    };
+
+for i = 1:numel(cands)
+    v = local_try_get(out, cands{i});
+    if ~isempty(v)
+        v = logical(v(:));
+        m = min(numel(v), n);
+        mask(1:m) = v(1:m);
+        if any(mask)
+            return;
+        end
+    end
+end
+
+% 2) fallback: infer from window parameters
+Tw = local_try_get(out, {'cfg','ch5r','window','Tw_s'});
+if isempty(Tw)
+    Tw = local_try_get(out, {'cfg','window','Tw_s'});
+end
+if isempty(Tw)
+    Tw = local_try_get(out, {'cfg','stage04','Tw_s'});
+end
+if isempty(Tw)
+    Tw = 60;
+end
+
+Ts = local_try_get(out, {'cfg','ch5r','sim','Ts_s'});
+if isempty(Ts)
+    Ts = local_try_get(out, {'cfg','sim','Ts_s'});
+end
+if isempty(Ts)
+    Ts = local_try_get(out, {'cfg','stage02','Ts_s'});
+end
+if isempty(Ts)
+    Ts = 1;
+end
+
+half_span = floor((Tw / Ts) / 2);
+i1 = 1 + half_span;
+i2 = n - half_span;
+
+if i2 >= i1
+    mask(i1:i2) = true;
+else
+    mask(:) = true;
+end
+end
+
+function v = local_try_get(s, path_cells)
+v = [];
+cur = s;
+for i = 1:numel(path_cells)
+    key = path_cells{i};
+    if isstruct(cur) && isfield(cur, key)
+        cur = cur.(key);
+    else
+        return;
+    end
+end
+v = cur;
+end

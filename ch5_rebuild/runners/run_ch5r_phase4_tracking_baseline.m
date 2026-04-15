@@ -1,4 +1,4 @@
-function out = run_ch5r_phase4_tracking_baseline()
+function out = run_ch5r_phase4_tracking_baseline(overrides)
 %RUN_CH5R_PHASE4_TRACKING_BASELINE
 % Real R4 baseline:
 % - one fixed real constellation (theta_star from R0)
@@ -6,12 +6,26 @@ function out = run_ch5r_phase4_tracking_baseline()
 % - double-satellite scheduling inside the same constellation
 % - centered full-only window semantics inherited from R1.5/R2/R3
 % - metrics packaged through the real result line
+%
+% Optional overrides fields:
+%   lambda_sw
+%   window_length_s
+%   window_mode
+%   window_exclude_incomplete_edges
+%   save_outputs
+
+if nargin < 1 || isempty(overrides)
+    overrides = struct();
+end
 
 cfg = default_ch5r_params(true);
 cfg.ch5r.r4.lambda_sw = 0.1;
 cfg.ch5r.window_length_s = 60;
 cfg.ch5r.window_mode = 'centered_full_only';
 cfg.ch5r.window_exclude_incomplete_edges = true;
+
+save_outputs = true;
+[cfg, save_outputs] = local_apply_overrides(cfg, overrides, save_outputs);
 
 ch5case = build_ch5r_case(cfg);
 
@@ -48,14 +62,16 @@ resource_score = 2;
 result = package_ch5r_result_real(ch5case, selection_trace, wininfo, bubble, resource_score);
 
 out_dir = fullfile(cfg.ch5r.output_root, 'phaseR4_tracking_baseline_real');
-if ~exist(out_dir, 'dir')
-    mkdir(out_dir);
+if save_outputs
+    if ~exist(out_dir, 'dir')
+        mkdir(out_dir);
+    end
+    stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
+    mat_file = fullfile(out_dir, ['phaseR4_tracking_baseline_real_' stamp '.mat']);
+    save(mat_file, 'cfg', 'ch5case', 'selection_trace', 'wininfo', 'bubble', 'state_trace', 'result');
+else
+    mat_file = '';
 end
-
-stamp = char(datetime('now','Format','yyyyMMdd_HHmmss'));
-mat_file = fullfile(out_dir, ['phaseR4_tracking_baseline_real_' stamp '.mat']);
-
-save(mat_file, 'cfg', 'ch5case', 'selection_trace', 'wininfo', 'bubble', 'state_trace', 'result');
 
 disp(' ')
 disp('=== [ch5r:R4-real] tracking-greedy baseline summary ===')
@@ -91,4 +107,26 @@ out.state_trace = state_trace;
 out.result = result;
 out.paths = struct('mat_file', mat_file, 'output_dir', out_dir);
 out.ok = true;
+end
+
+function [cfg, save_outputs] = local_apply_overrides(cfg, overrides, save_outputs)
+if ~isstruct(overrides)
+    error('overrides must be a struct.');
+end
+
+if isfield(overrides, 'lambda_sw')
+    cfg.ch5r.r4.lambda_sw = overrides.lambda_sw;
+end
+if isfield(overrides, 'window_length_s')
+    cfg.ch5r.window_length_s = overrides.window_length_s;
+end
+if isfield(overrides, 'window_mode')
+    cfg.ch5r.window_mode = overrides.window_mode;
+end
+if isfield(overrides, 'window_exclude_incomplete_edges')
+    cfg.ch5r.window_exclude_incomplete_edges = logical(overrides.window_exclude_incomplete_edges);
+end
+if isfield(overrides, 'save_outputs')
+    save_outputs = logical(overrides.save_outputs);
+end
 end

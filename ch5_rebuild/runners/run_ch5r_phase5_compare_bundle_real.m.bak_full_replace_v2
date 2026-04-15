@@ -74,83 +74,81 @@ policy = [
     ];
 
 bubble_steps = [
-    local_get_metric(out3, {'result','bubble_metrics','bubble_steps'}, NaN)
-    local_get_metric(out4, {'result','bubble_metrics','bubble_steps'}, NaN)
-    local_get_metric(out5, {'result','bubble_metrics','bubble_steps'}, NaN)
+    out3.result.bubble_metrics.bubble_steps
+    out4.result.bubble_metrics.bubble_steps
+    out5.result.bubble_metrics.bubble_steps
     ];
 
 bubble_fraction = [
-    local_get_metric(out3, {'result','bubble_metrics','bubble_fraction'}, NaN)
-    local_get_metric(out4, {'result','bubble_metrics','bubble_fraction'}, NaN)
-    local_get_metric(out5, {'result','bubble_metrics','bubble_fraction'}, NaN)
+    out3.result.bubble_metrics.bubble_fraction
+    out4.result.bubble_metrics.bubble_fraction
+    out5.result.bubble_metrics.bubble_fraction
     ];
 
 bubble_time_s = [
-    local_get_metric(out3, {'result','bubble_metrics','bubble_time_s'}, NaN)
-    local_get_metric(out4, {'result','bubble_metrics','bubble_time_s'}, NaN)
-    local_get_metric(out5, {'result','bubble_metrics','bubble_time_s'}, NaN)
+    out3.result.bubble_metrics.bubble_time_s
+    out4.result.bubble_metrics.bubble_time_s
+    out5.result.bubble_metrics.bubble_time_s
     ];
 
 longest_bubble_time_s = [
-    local_get_metric(out3, {'result','bubble_metrics','longest_bubble_time_s'}, NaN)
-    local_get_metric(out4, {'result','bubble_metrics','longest_bubble_time_s'}, NaN)
-    local_get_metric(out5, {'result','bubble_metrics','longest_bubble_time_s'}, NaN)
+    out3.result.bubble_metrics.longest_bubble_time_s
+    out4.result.bubble_metrics.longest_bubble_time_s
+    out5.result.bubble_metrics.longest_bubble_time_s
     ];
 
 max_bubble_depth = [
-    local_get_metric(out3, {'result','bubble_metrics','max_bubble_depth'}, NaN)
-    local_get_metric(out4, {'result','bubble_metrics','max_bubble_depth'}, NaN)
-    local_get_metric(out5, {'result','bubble_metrics','max_bubble_depth'}, NaN)
+    out3.result.bubble_metrics.max_bubble_depth
+    out4.result.bubble_metrics.max_bubble_depth
+    out5.result.bubble_metrics.max_bubble_depth
     ];
 
 mean_bubble_depth = [
-    local_get_metric(out3, {'result','bubble_metrics','mean_bubble_depth'}, NaN)
-    local_get_metric(out4, {'result','bubble_metrics','mean_bubble_depth'}, NaN)
-    local_get_metric(out5, {'result','bubble_metrics','mean_bubble_depth'}, NaN)
+    out3.result.bubble_metrics.mean_bubble_depth
+    out4.result.bubble_metrics.mean_bubble_depth
+    out5.result.bubble_metrics.mean_bubble_depth
     ];
 
-% Old-stable compatibility:
-% this branch may not have loc_total_time_s, so fall back to bubble_time_s.
 loc_total_time_s = [
-    local_get_loc_time(out3)
-    local_get_loc_time(out4)
-    local_get_loc_time(out5)
+    out3.result.bubble_metrics.loc_total_time_s
+    out4.result.bubble_metrics.loc_total_time_s
+    out5.result.bubble_metrics.loc_total_time_s
     ];
 
 custody_ratio = [
-    local_get_metric(out3, {'result','custody_metrics','custody_ratio'}, NaN)
-    local_get_metric(out4, {'result','custody_metrics','custody_ratio'}, NaN)
-    local_get_metric(out5, {'result','custody_metrics','custody_ratio'}, NaN)
+    out3.result.custody_metrics.custody_ratio
+    out4.result.custody_metrics.custody_ratio
+    out5.result.custody_metrics.custody_ratio
     ];
 
 mean_rmse_proxy = [
-    local_get_metric(out3, {'result','rmse_metrics','mean_rmse_proxy'}, NaN)
-    local_get_metric(out4, {'result','rmse_metrics','mean_rmse_proxy'}, NaN)
-    local_get_metric(out5, {'result','rmse_metrics','mean_rmse_proxy'}, NaN)
+    out3.result.rmse_metrics.mean_rmse_proxy
+    out4.result.rmse_metrics.mean_rmse_proxy
+    out5.result.rmse_metrics.mean_rmse_proxy
     ];
 
 min_margin = [
-    local_get_metric(out3, {'result','margin_metrics','min_margin'}, NaN)
-    local_get_metric(out4, {'result','margin_metrics','min_margin'}, NaN)
-    local_get_metric(out5, {'result','margin_metrics','min_margin'}, NaN)
+    out3.result.margin_metrics.min_margin
+    out4.result.margin_metrics.min_margin
+    out5.result.margin_metrics.min_margin
     ];
 
 switch_count = [
-    local_get_metric(out3, {'result','cost_metrics','switch_count'}, NaN)
-    local_get_metric(out4, {'result','cost_metrics','switch_count'}, NaN)
-    local_get_metric(out5, {'result','cost_metrics','switch_count'}, NaN)
+    out3.result.cost_metrics.switch_count
+    out4.result.cost_metrics.switch_count
+    out5.result.cost_metrics.switch_count
     ];
 
 resource_score = [
-    local_get_metric(out3, {'result','cost_metrics','resource_score'}, NaN)
-    local_get_metric(out4, {'result','cost_metrics','resource_score'}, NaN)
-    local_get_metric(out5, {'result','cost_metrics','resource_score'}, NaN)
+    out3.result.cost_metrics.resource_score
+    out4.result.cost_metrics.resource_score
+    out5.result.cost_metrics.resource_score
     ];
 
 observable_steps = [
-    local_get_metric(out3, {'result','observable_metrics','observable_steps'}, NaN)
-    local_get_metric(out4, {'result','observable_metrics','observable_steps'}, NaN)
-    local_get_metric(out5, {'result','observable_metrics','observable_steps'}, NaN)
+    out3.result.observable_metrics.observable_steps
+    out4.result.observable_metrics.observable_steps
+    out5.result.observable_metrics.observable_steps
     ];
 
 T = table( ...
@@ -208,9 +206,9 @@ end
 lines{end+1} = '';
 lines{end+1} = '## Key observations';
 lines{end+1} = '';
-lines{end+1} = sprintf('- R3-real bubble steps: %d', local_get_metric(out3, {'result','bubble_metrics','bubble_steps'}, NaN));
-lines{end+1} = sprintf('- R4-real bubble steps: %d', local_get_metric(out4, {'result','bubble_metrics','bubble_steps'}, NaN));
-lines{end+1} = sprintf('- R5-real bubble steps: %d', local_get_metric(out5, {'result','bubble_metrics','bubble_steps'}, NaN));
+lines{end+1} = sprintf('- R3-real bubble steps: %d', out3.result.bubble_metrics.bubble_steps);
+lines{end+1} = sprintf('- R4-real bubble steps: %d', out4.result.bubble_metrics.bubble_steps);
+lines{end+1} = sprintf('- R5-real bubble steps: %d', out5.result.bubble_metrics.bubble_steps);
 lines{end+1} = '';
 lines{end+1} = 'Bridge trend: static hold is worst, greedy dynamic improves, predictive bubble suppression improves further.';
 lines{end+1} = '';
@@ -220,27 +218,4 @@ if ~isempty(rmse_fig_file)
 end
 
 md = strjoin(lines, newline);
-end
-
-function v = local_get_metric(s, path_cells, default_value)
-v = default_value;
-cur = s;
-for i = 1:numel(path_cells)
-    key = path_cells{i};
-    if isstruct(cur) && isfield(cur, key)
-        cur = cur.(key);
-    else
-        return;
-    end
-end
-if isnumeric(cur) || islogical(cur)
-    v = cur;
-end
-end
-
-function v = local_get_loc_time(s)
-v = local_get_metric(s, {'result','bubble_metrics','loc_total_time_s'}, NaN);
-if isnan(v)
-    v = local_get_metric(s, {'result','bubble_metrics','bubble_time_s'}, NaN);
-end
 end
