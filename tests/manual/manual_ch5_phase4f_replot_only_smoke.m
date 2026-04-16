@@ -1,0 +1,29 @@
+clear functions
+rehash
+startup('force', true)
+
+addpath(fullfile(pwd, 'ch5_rebuild'));
+addpath(fullfile(pwd, 'ch5_rebuild', 'analysis'));
+addpath(fullfile(pwd, 'ch5_rebuild', 'plots'));
+addpath(fullfile(pwd, 'ch5_rebuild', 'runners'));
+
+out = run_ch5r_phase4f_replot_only(struct('visible_mode', 'off'));
+assert(out.ok);
+
+files_expected = { ...
+    'ch5r_multicase_loc_ratio_boxplot.png', ...
+    'ch5r_multicase_bubble_time_s_boxplot.png', ...
+    'ch5r_multicase_max_bubble_depth_boxplot.png', ...
+    'ch5r_multicase_switch_count_boxplot.png', ...
+    'ch5r_multicase_family_state_occupancy_bar.png', ...
+    'ch5r_multicase_case_wins_bar.png', ...
+    'ch5r_multicase_loc_ratio_upper_quartile_bar.png'};
+
+for i = 1:numel(files_expected)
+    f = fullfile(out.output_dir, files_expected{i});
+    assert(isfile(f), 'Missing figure file: %s', f);
+end
+
+disp('=== manual_ch5_phase4f_replot_only_smoke passed ===')
+disp(out.output_dir)
+disp(out.sources)
