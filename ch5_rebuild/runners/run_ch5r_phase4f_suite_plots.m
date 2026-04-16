@@ -29,14 +29,16 @@ end
 stats = local_load_stats(opts.summary_source);
 wins  = local_load_wins(opts.case_wins_source);
 
-box_metrics = {'LoC_ratio','bubble_time_s','max_bubble_depth','switch_count'};
+box_metrics = {'LoC_ratio','bubble_time_s','max_bubble_depth','switch_count', ...
+               'mean_rmse_pos_km','final_rmse_pos_km'};
 out_box = plot_ch5r_suite_boxplots(T, box_metrics, outdir, opts.visible_mode);
 out_occ = plot_ch5r_suite_family_state_bars(stats.summary_by_family, outdir, opts.visible_mode);
 out_win = plot_ch5r_suite_case_wins(wins.overall, wins.by_family, outdir, opts.visible_mode);
 out_uq  = plot_ch5r_suite_upper_quartile_bars(stats.summary_all, 'LoC_ratio', outdir, opts.visible_mode);
+out_trd = plot_ch5r_suite_rmse_tradeoff(stats.summary_all, outdir, opts.visible_mode);
 
 md_file = fullfile(outdir, 'phase4f_suite_plots_manifest.md');
-local_write_md(md_file, outdir, meta, out_box, out_occ, out_win, out_uq);
+local_write_md(md_file, outdir, meta, out_box, out_occ, out_win, out_uq, out_trd);
 
 disp(' ')
 disp('=== [ch5r:phase4F] suite plots done ===')
@@ -51,6 +53,7 @@ out.boxplots = out_box;
 out.family_state = out_occ;
 out.case_wins = out_win;
 out.upper_quartile = out_uq;
+out.tradeoff = out_trd;
 end
 
 function stats = local_load_stats(src)
@@ -83,7 +86,7 @@ end
 error('Cannot load wins from case_wins_source.');
 end
 
-function local_write_md(md_file, outdir, meta, out_box, out_occ, out_win, out_uq)
+function local_write_md(md_file, outdir, meta, out_box, out_occ, out_win, out_uq, out_trd)
 fid = fopen(md_file, 'w');
 assert(fid >= 0, 'Cannot open markdown manifest for writing.');
 cleanupObj = onCleanup(@() fclose(fid)); %#ok<NASGU>
@@ -107,6 +110,9 @@ fprintf(fid, '- `%s`\n', out_win.png_file);
 
 fprintf(fid, '\n## Upper quartile bar\n\n');
 fprintf(fid, '- `%s`\n', out_uq.png_file);
+
+fprintf(fid, '\n## LoC-RMSE trade-off\n\n');
+fprintf(fid, '- `%s`\n', out_trd.png_file);
 end
 
 function x = local_default(x, y)

@@ -6,7 +6,8 @@ function out = plot_ch5r_suite_boxplots(T, metrics, outdir, visible_mode)
 % - nonnegative axis guard for nonnegative metrics
 
 if nargin < 2 || isempty(metrics)
-    metrics = {'LoC_ratio','bubble_time_s','max_bubble_depth','switch_count'};
+    metrics = {'LoC_ratio','bubble_time_s','max_bubble_depth','switch_count', ...
+               'mean_rmse_pos_km','final_rmse_pos_km'};
 end
 if nargin < 3 || isempty(outdir)
     outdir = fullfile(pwd, 'outputs', 'ch5_rebuild', 'multicase_suite', 'figs');
@@ -123,6 +124,10 @@ switch char(string(metric))
         s = 'Max bubble depth';
     case 'switch_count'
         s = 'Switch count';
+    case 'mean_rmse_pos_km'
+        s = 'Mean RMSE pos (km)';
+    case 'final_rmse_pos_km'
+        s = 'Final RMSE pos (km)';
     otherwise
         s = char(string(metric));
 end
