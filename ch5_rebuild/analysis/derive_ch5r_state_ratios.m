@@ -1,12 +1,11 @@
 function S = derive_ch5r_state_ratios(x)
 %DERIVE_CH5R_STATE_RATIOS
 % Robustly derive SC/DC/LoC steps and ratios from either:
-%   1) a phase runner output struct "out"
-%   2) a loaded MAT top-level struct from phaseR4/5/9/10 *.mat
+%   1) a phase runner output struct
+%   2) a loaded MAT top-level struct
 %
-% Preferred source:
-%   diag.fsm.summary
-% If absent, rebuild a minimal out_phase and run current diagnostics bundle.
+% Final reconciliation rule:
+%   LoC is aligned to authoritative bubble metrics whenever available.
 
 S = struct( ...
     'sc_steps', NaN, ...
@@ -18,9 +17,6 @@ S = struct( ...
     'total_steps', NaN, ...
     'source', "");
 
-% ------------------------------------------
-% normalize candidate
-% ------------------------------------------
 cand = x;
 if isstruct(x) && isfield(x, 'outx') && isstruct(x.outx)
     cand = x.outx;
@@ -32,6 +28,7 @@ end
 summary = local_find_summary_struct(cand);
 if ~isempty(summary)
     S2 = local_from_summary(summary, local_guess_total_steps(cand), "direct_summary");
+    S2 = local_reconcile_with_bubble(S2, cand);
     if local_is_good(S2)
         S = S2;
         return;
@@ -44,20 +41,25 @@ end
 out_phase = local_build_out_phase(cand);
 if ~isempty(out_phase)
     summary = local_find_summary_struct(out_phase);
+
     if isempty(summary)
         try
             diag_out = ch5r_build_custody_diag_bundle('suite_state_extract', out_phase);
             if isstruct(diag_out) && isfield(diag_out, 'fsm') && isstruct(diag_out.fsm) ...
                     && isfield(diag_out.fsm, 'summary') && isstruct(diag_out.fsm.summary)
                 summary = diag_out.fsm.summary;
-                S2 = local_from_summary(summary, local_guess_total_steps(out_phase), "diag_bundle");
-                if local_is_good(S2)
-                    S = S2;
-                    return;
-                end
             end
         catch ME
             warning('[derive_ch5r_state_ratios] diag bundle rebuild failed: %s', ME.message);
+        end
+    end
+
+    if ~isempty(summary)
+        S2 = local_from_summary(summary, local_guess_total_steps(out_phase), "diag_bundle");
+        S2 = local_reconcile_with_bubble(S2, out_phase);
+        if local_is_good(S2)
+            S = S2;
+            return;
         end
     end
 end
@@ -68,6 +70,7 @@ end
 state_vals = local_find_state_vector(cand);
 if ~isempty(state_vals)
     S2 = local_from_state_vector(state_vals, local_guess_total_steps(cand), "state_vector");
+    S2 = local_reconcile_with_bubble(S2, cand);
     if local_is_good(S2)
         S = S2;
         return;
@@ -95,6 +98,10 @@ end
 if isfinite(bubble_steps) && isfinite(total_steps) && total_steps > 0
     S.loc_steps = bubble_steps;
     S.loc_ratio = bubble_steps / total_steps;
+    S.sc_steps = total_steps - bubble_steps;
+    S.dc_steps = 0;
+    S.sc_ratio = S.sc_steps / total_steps;
+    S.dc_ratio = 0;
     S.source = "bubble_steps_fallback";
     return;
 end
@@ -228,14 +235,75 @@ if isfinite(S.total_steps) && S.total_steps > 0
 end
 end
 
+function S = local_reconcile_with_bubble(S, cand)
+total_steps = S.total_steps;
+if ~isfinite(total_steps)
+    total_steps = local_guess_total_steps(cand);
+    S.total_steps = total_steps;
+end
+
+bubble_steps = local_first_finite(cand, { ...
+    {'result','bubble_metrics','bubble_steps'}, ...
+    {'bubble_metrics','bubble_steps'}, ...
+    {'bubble','bubble_steps'}});
+
+bubble_fraction = local_first_finite(cand, { ...
+    {'result','bubble_metrics','bubble_fraction'}, ...
+    {'bubble_metrics','bubble_fraction'}, ...
+    {'bubble','bubble_fraction'}});
+
+if ~isfinite(bubble_steps) && isfinite(bubble_fraction) && isfinite(total_steps) && total_steps > 0
+    bubble_steps = round(bubble_fraction * total_steps);
+end
+
+if ~(isfinite(bubble_steps) && isfinite(total_steps) && total_steps > 0)
+    return;
+end
+
+loc_steps_auth = max(0, min(total_steps, round(bubble_steps)));
+remain = total_steps - loc_steps_auth;
+
+% recover old SC/DC proportion
+sc_old = S.sc_steps;
+dc_old = S.dc_steps;
+
+if ~(isfinite(sc_old) && isfinite(dc_old))
+    if all(isfinite([S.sc_ratio, S.dc_ratio])) && (S.sc_ratio + S.dc_ratio) > 0
+        sc_old = S.sc_ratio;
+        dc_old = S.dc_ratio;
+    else
+        sc_old = 1;
+        dc_old = 0;
+    end
+end
+
+den = sc_old + dc_old;
+if den <= 0
+    sc_new = remain;
+    dc_new = 0;
+else
+    sc_new = round(remain * sc_old / den);
+    dc_new = remain - sc_new;
+end
+
+S.sc_steps = sc_new;
+S.dc_steps = dc_new;
+S.loc_steps = loc_steps_auth;
+
+S.sc_ratio = sc_new / total_steps;
+S.dc_ratio = dc_new / total_steps;
+S.loc_ratio = loc_steps_auth / total_steps;
+
+S.source = string(S.source) + "+bubble_aligned";
+end
+
 function tf = local_is_good(S)
-tf = isstruct(S) && any(isfinite([S.sc_ratio, S.dc_ratio, S.loc_ratio]));
+tf = isstruct(S) && all(isfinite([S.sc_ratio, S.dc_ratio, S.loc_ratio]));
 end
 
 function out_phase = local_build_out_phase(cand)
 out_phase = [];
 
-% case 1: already a phase runner output
 if isstruct(cand) && isfield(cand,'cfg') && isfield(cand,'case') && isfield(cand,'selection_trace') && isfield(cand,'result')
     out_phase = cand;
     if ~isfield(out_phase, 'paths')
@@ -244,7 +312,6 @@ if isstruct(cand) && isfield(cand,'cfg') && isfield(cand,'case') && isfield(cand
     return;
 end
 
-% case 2: loaded MAT top-level struct
 if ~(isstruct(cand) && isfield(cand,'cfg') && isfield(cand,'result') && isfield(cand,'selection_trace'))
     return;
 end
@@ -263,9 +330,9 @@ out_phase.case = ch5case;
 out_phase.selection_trace = cand.selection_trace;
 out_phase.result = cand.result;
 
-if isfield(cand, 'bubble');     out_phase.bubble = cand.bubble; end
+if isfield(cand, 'bubble');      out_phase.bubble = cand.bubble; end
 if isfield(cand, 'state_trace'); out_phase.state_trace = cand.state_trace; end
-if isfield(cand, 'wininfo');    out_phase.wininfo = cand.wininfo; end
+if isfield(cand, 'wininfo');     out_phase.wininfo = cand.wininfo; end
 
 mat_file = '';
 if isfield(cand, 'paths') && isstruct(cand.paths) && isfield(cand.paths, 'mat_file')
