@@ -10,18 +10,17 @@ function out = run_ch5r_phase4g_select_reduce(opts)
 %   5) rerun summary + wins on filtered csv
 %   6) optionally replot without rerunning simulation
 %
-% Example:
-% out = run_ch5r_phase4g_select_reduce(struct( ...
-%     'suite_source', fullCsv, ...
-%     'families', {'heading'}, ...
-%     'base_nominal_cases', {'N01'}, ...
-%     'methods', {'R4','R9','R10'}, ...
-%     'do_plots', true, ...
-%     'visible_mode', 'off'));
+% Robustness:
+%   - accepts scalar struct as intended
+%   - also auto-normalizes accidental struct arrays produced by
+%     MATLAB struct(..., {'a','b','c'}, ...) constructor usage
 
 if nargin < 1 || isempty(opts)
     opts = struct();
 end
+
+% normalize accidental struct arrays into one scalar struct
+opts = local_scalarize_opts(opts);
 
 if ~isfield(opts, 'project_root') || isempty(opts.project_root)
     opts.project_root = pwd;
@@ -88,6 +87,89 @@ out.selector_info = sel_info;
 out.summary = outA;
 out.wins = outE;
 out.plots = outF;
+end
+
+function opts = local_scalarize_opts(opts)
+% Convert accidental struct array into one scalar struct.
+% Example problematic input:
+%   struct('methods', {'R4','R9','R10'}, ...)
+%
+% Strategy:
+%   - if already scalar -> keep as is
+%   - if struct array:
+%       * repeated identical values -> keep single value
+%       * varying char/string scalars -> pack into cellstr
+%       * varying numeric/logical scalars -> pack into row vector
+%       * otherwise -> pack into cell array
+
+assert(isstruct(opts), 'opts must be a struct.');
+
+if isscalar(opts)
+    return;
+end
+
+fns = fieldnames(opts);
+S = struct();
+
+for i = 1:numel(fns)
+    fn = fns{i};
+    vals = {opts.(fn)};  % 1 x N cell
+
+    if local_all_same(vals)
+        S.(fn) = vals{1};
+        continue;
+    end
+
+    if all(cellfun(@(x) ischar(x) || (isstring(x) && isscalar(x)), vals))
+        S.(fn) = cellstr(string([vals{:}]));
+        continue;
+    end
+
+    if all(cellfun(@(x) isnumeric(x) && isscalar(x), vals))
+        S.(fn) = cell2mat(vals);
+        continue;
+    end
+
+    if all(cellfun(@(x) islogical(x) && isscalar(x), vals))
+        S.(fn) = cell2mat(vals);
+        continue;
+    end
+
+    % fallback: preserve as cell array
+    S.(fn) = vals;
+end
+
+opts = S;
+end
+
+function tf = local_all_same(vals)
+n = numel(vals);
+if n <= 1
+    tf = true;
+    return;
+end
+
+a = vals{1};
+tf = true;
+for k = 2:n
+    b = vals{k};
+    if ischar(a) || isstring(a)
+        if ~strcmp(char(string(a)), char(string(b)))
+            tf = false;
+            return;
+        end
+    elseif isnumeric(a) || islogical(a)
+        if ~isequal(a, b)
+            tf = false;
+            return;
+        end
+    else
+        if ~isequal(a, b)
+            tf = false;
+            return;
+        end
+    end
+end
 end
 
 function suite_source = local_resolve_suite_source(opts)
