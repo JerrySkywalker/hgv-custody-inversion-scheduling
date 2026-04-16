@@ -36,6 +36,7 @@ if ~isfield(cfg.ch5r, 'bootstrap') || ~isstruct(cfg.ch5r.bootstrap)
 end
 
 cfg.ch5r.bootstrap.force_case_id = case_id;
+cfg.ch5r.bootstrap.default_case_id = case_id;
 cfg.ch5r.bootstrap.strict_single_case = 1;
 cfg.ch5r.bootstrap.applied_case_override = case_id;
 

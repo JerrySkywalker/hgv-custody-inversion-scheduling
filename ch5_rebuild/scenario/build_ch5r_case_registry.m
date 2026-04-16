@@ -55,4 +55,19 @@ registry.include_in_smoke = ismember(registry.case_id, suite.case_sets.smoke(:))
 registry.include_in_paper = ismember(registry.case_id, suite.case_sets.paper(:));
 
 registry = movevars(registry, {'include_in_smoke','include_in_paper'}, 'After', 'family');
+
+% --------------------------------------------------
+% Phase 4D smoke override:
+% shrink default smoke set to exactly two cases
+%   - N01
+%   - H04_+30
+% Keep paper/full flags unchanged.
+% --------------------------------------------------
+if istable(registry) && ismember('case_id', registry.Properties.VariableNames) && ismember('include_in_smoke', registry.Properties.VariableNames)
+    registry.include_in_smoke(:) = false;
+
+    registry.include_in_smoke(strcmp(string(registry.case_id), "N01")) = true;
+    registry.include_in_smoke(strcmp(string(registry.case_id), "H04_+30")) = true;
 end
+end
+

@@ -2,6 +2,8 @@ function row = extract_ch5r_suite_row(method_tag, requested_case_id, outx)
 %EXTRACT_CH5R_SUITE_ROW
 % Extract a unified summary row from a Phase runner output.
 
+stateS = derive_ch5r_state_ratios(outx);
+
 row = struct();
 row.method = string(method_tag);
 row.requested_case_id = string(requested_case_id);
@@ -21,6 +23,13 @@ row.mean_bubble_depth = local_get_field(outx, {'result','bubble_metrics','mean_b
 
 row.switch_count = local_get_field(outx, {'result','cost_metrics','switch_count'}, NaN);
 row.resource_score = local_get_field(outx, {'result','cost_metrics','resource_score'}, NaN);
+
+row.SC_steps = stateS.sc_steps;
+row.DC_steps = stateS.dc_steps;
+row.LoC_steps = stateS.loc_steps;
+row.SC_ratio = stateS.sc_ratio;
+row.DC_ratio = stateS.dc_ratio;
+row.LoC_ratio = stateS.loc_ratio;
 
 row.mean_rmse_pos_km = NaN;
 row.final_rmse_pos_km = NaN;
